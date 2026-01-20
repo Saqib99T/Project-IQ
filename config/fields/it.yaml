@@ -1,0 +1,40 @@
+# IT Department Configuration
+name: "IT Support"
+greeting: "Hello! IT Support Assistant here. How can I assist you with your technical issues today?"
+
+# Ticket Types
+ticket_types:
+  - "Hardware Issue"
+  - "Software Problem"
+  - "Network Connectivity"
+  - "Account Access"
+  - "Other Technical Issue"
+
+# Priority Levels
+priorities:
+  - name: "Critical"
+    description: "System down or major impact on business operations"
+  - name: "High"
+    description: "Significant impact on work"
+  - name: "Medium"
+    description: "Moderate impact"
+  - name: "Low"
+    description: "Minor issue, no immediate impact"
+
+# Response Templates
+responses:
+  create_ticket: "I've created an IT support ticket for you. Our technicians will look into this issue."
+  check_status: "Let me check the status of your IT support ticket."
+  escalation: "This issue has been escalated to our senior IT support team."
+  closing: "If you have any more technical issues, feel free to reach out!"
+
+# Custom Fields
+custom_fields:
+  - name: "system_affected"
+    type: "text"
+    prompt: "Which system or application is affected?"
+    required: true
+  - name: "error_message"
+    type: "text"
+    prompt: "Please provide any error messages you're seeing:"
+    required: false

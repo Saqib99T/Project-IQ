@@ -1,0 +1,188 @@
+{
+  "feedback": [
+    {
+      "timestamp": "2025-12-22T19:49:02.336417",
+      "sender_id": "3c044464-a52b-4c99-b251-2bee3f1c5a68",
+      "feedback": "negative",
+      "user_query": "",
+      "bot_response_preview": "",
+      "app_id": null
+    },
+    {
+      "timestamp": "2025-12-22T20:20:25.480449",
+      "sender_id": "4cbd8b9a-2975-4d03-96de-c7bf363fc2a7",
+      "feedback": "positive",
+      "user_query": "",
+      "bot_response_preview": "",
+      "app_id": null
+    },
+    {
+      "timestamp": "2025-12-22T20:20:31.733311",
+      "sender_id": "d4ef72c1-d455-48e7-88b3-3252c50e0ccd",
+      "feedback": "positive",
+      "user_query": "",
+      "bot_response_preview": "",
+      "app_id": null
+    },
+    {
+      "timestamp": "2025-12-22T20:20:41.683824",
+      "sender_id": "d4ef72c1-d455-48e7-88b3-3252c50e0ccd",
+      "feedback": "negative",
+      "user_query": "/feedback_positive",
+      "bot_response_preview": "Great! I'm glad I could help! 😊 Is there anything else you need?",
+      "app_id": null
+    },
+    {
+      "timestamp": "2025-12-22T20:20:55.949537",
+      "sender_id": "d4ef72c1-d455-48e7-88b3-3252c50e0ccd",
+      "feedback": "positive",
+      "user_query": "/feedback_negative",
+      "bot_response_preview": "I'm sorry the answer wasn't helpful. Let me help you further:",
+      "app_id": null
+    },
+    {
+      "timestamp": "2025-12-22T20:21:04.979508",
+      "sender_id": "d4ef72c1-d455-48e7-88b3-3252c50e0ccd",
+      "feedback": "negative",
+      "user_query": "/feedback_positive",
+      "bot_response_preview": "Great! I'm glad I could help! 😊 Is there anything else you need?",
+      "app_id": null
+    },
+    {
+      "timestamp": "2025-12-22T22:54:35.664521",
+      "sender_id": "d4ef72c1-d455-48e7-88b3-3252c50e0ccd",
+      "feedback": "positive",
+      "user_query": "list tickets",
+      "bot_response_preview": "**📂 Your Open Tickets**\n\n| ID | Status | Title | Updated |\n| :--- | :--- | :--- | :--- |\n| **14** | New | [Accounting] title-1 | 2025-12-19 |\n| **12** | New | Another Accounting Issue | 2025-12-18 |\n",
+      "app_id": "Accounting"
+    },
+    {
+      "timestamp": "2025-12-22T23:57:37.536559",
+      "sender_id": "3c044464-a52b-4c99-b251-2bee3f1c5a68",
+      "feedback": "positive",
+      "user_query": "my computer is slow",
+      "bot_response_preview": "📚 **Computer Running Slow**\n\n## Speed Up Your Computer\n\n**Quick Fixes:**\n1. **Restart your computer** (not just sleep/hibernate)\n2. **Close unused applications** - check the taskbar\n3. **Check disk sp",
+      "app_id": null
+    },
+    {
+      "timestamp": "2025-12-23T18:38:49.546502",
+      "sender_id": "7ed46687-8c54-4dc6-98b6-7bc0be86c9c7",
+      "feedback": "positive",
+      "user_query": "",
+      "bot_response_preview": "",
+      "app_id": null
+    },
+    {
+      "timestamp": "2025-12-23T18:40:31.340253",
+      "sender_id": "6851a63c-72aa-4cfc-8960-43849760e36a",
+      "feedback": "positive",
+      "user_query": "hi",
+      "bot_response_preview": "Hello! I'm your **Accounting** support bot. How can I help you today?",
+      "app_id": "Accounting"
+    },
+    {
+      "timestamp": "2025-12-23T18:40:34.441490",
+      "sender_id": "8e6beb27-e850-4ef3-bba6-a20a8697c620",
+      "feedback": "negative",
+      "user_query": "",
+      "bot_response_preview": "",
+      "app_id": null
+    },
+    {
+      "timestamp": "2025-12-23T19:39:58.276052",
+      "sender_id": "8e6beb27-e850-4ef3-bba6-a20a8697c620",
+      "feedback": "negative",
+      "user_query": "/check_status",
+      "bot_response_preview": "Please provide the **ID of the ticket** you want to check (e.g., GLPI-1234 or just 1234).",
+      "app_id": "IT"
+    },
+    {
+      "timestamp": "2025-12-23T19:40:08.073571",
+      "sender_id": "8e6beb27-e850-4ef3-bba6-a20a8697c620",
+      "feedback": "positive",
+      "user_query": "status of 11",
+      "bot_response_preview": "Is there anything else I can help you with?",
+      "app_id": "IT"
+    },
+    {
+      "timestamp": "2025-12-23T22:22:30.669445",
+      "sender_id": "d4ef72c1-d455-48e7-88b3-3252c50e0ccd",
+      "feedback": "positive",
+      "user_query": "hi",
+      "bot_response_preview": "Hello! I'm your **Accounting** support bot. How can I help you today?",
+      "app_id": "Accounting"
+    },
+    {
+      "timestamp": "2025-12-23T22:22:55.948124",
+      "sender_id": "4cbd8b9a-2975-4d03-96de-c7bf363fc2a7",
+      "feedback": "positive",
+      "user_query": "/list_tickets",
+      "bot_response_preview": "**📂 Your Open Tickets**\n\n| ID | Status | Title | Updated |\n| :--- | :--- | :--- | :--- |\n| **11** | New | Another IT Issue | 2025-12-19 |\n",
+      "app_id": "IT"
+    },
+    {
+      "timestamp": "2025-12-23T23:53:28.165472",
+      "sender_id": "d4ef72c1-d455-48e7-88b3-3252c50e0ccd",
+      "feedback": "negative",
+      "user_query": "/feedback_positive",
+      "bot_response_preview": "Great! I'm glad I could help! 😊 Is there anything else you need?",
+      "app_id": "Accounting"
+    },
+    {
+      "timestamp": "2025-12-23T23:53:29.051807",
+      "sender_id": "d4ef72c1-d455-48e7-88b3-3252c50e0ccd",
+      "feedback": "positive",
+      "user_query": "/feedback_negative",
+      "bot_response_preview": "I'm sorry the answer wasn't helpful. Let me help you further:",
+      "app_id": "Accounting"
+    },
+    {
+      "timestamp": "2025-12-23T23:53:38.573359",
+      "sender_id": "4cbd8b9a-2975-4d03-96de-c7bf363fc2a7",
+      "feedback": "positive",
+      "user_query": "/feedback_positive",
+      "bot_response_preview": "Great! I'm glad I could help! 😊 Is there anything else you need?",
+      "app_id": "IT"
+    },
+    {
+      "timestamp": "2025-12-24T14:02:12.950414",
+      "sender_id": "4cbd8b9a-2975-4d03-96de-c7bf363fc2a7",
+      "feedback": "positive",
+      "user_query": "status of 11",
+      "bot_response_preview": "Is there anything else I can help you with?",
+      "app_id": "IT"
+    },
+    {
+      "timestamp": "2025-12-24T14:02:15.555469",
+      "sender_id": "d4ef72c1-d455-48e7-88b3-3252c50e0ccd",
+      "feedback": "negative",
+      "user_query": "status of 12",
+      "bot_response_preview": "Is there anything else I can help you with?",
+      "app_id": "Accounting"
+    },
+    {
+      "timestamp": "2025-12-24T14:42:54.482047",
+      "sender_id": "4cbd8b9a-2975-4d03-96de-c7bf363fc2a7",
+      "feedback": "positive",
+      "user_query": "status of 11",
+      "bot_response_preview": "Is there anything else I can help you with?",
+      "app_id": "IT"
+    },
+    {
+      "timestamp": "2025-12-24T14:51:23.418220",
+      "sender_id": "1e600bb7-2249-4890-8bb3-e1f33fa1a249",
+      "feedback": "positive",
+      "user_query": "/login{\"glpi_username\": \"sidrees\", \"glpi_password\": \"password\"}",
+      "bot_response_preview": "✅ Welcome, Saqib! You are now logged in. How can I help you today?",
+      "app_id": null
+    },
+    {
+      "timestamp": "2025-12-24T14:51:40.940144",
+      "sender_id": "1e600bb7-2249-4890-8bb3-e1f33fa1a249",
+      "feedback": "positive",
+      "user_query": "status of 11",
+      "bot_response_preview": "Is there anything else I can help you with?",
+      "app_id": "IT"
+    }
+  ]
+}

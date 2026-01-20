@@ -1,0 +1,45 @@
+# HR Department Configuration
+name: "HR Support"
+greeting: "Hello! This is HR Support. How can I assist you with HR-related matters today?"
+
+# Ticket Types
+ticket_types:
+  - "Leave Request"
+  - "Benefits Inquiry"
+  - "Onboarding Help"
+  - "Policy Question"
+  - "Payroll Issue"
+  - "Other HR Matter"
+
+# Priority Levels
+priorities:
+  - name: "Urgent"
+    description: "Requires immediate attention (e.g., payroll errors)"
+  - name: "High"
+    description: "Time-sensitive matter (e.g., pending leave requests)"
+  - name: "Normal"
+    description: "Standard HR inquiries"
+  - name: "Low"
+    description: "General information requests"
+
+# Response Templates
+responses:
+  create_ticket: "I've created an HR support ticket for you. Our HR team will get back to you shortly."
+  check_status: "Let me check the status of your HR request."
+  escalation: "Your concern has been escalated to the HR manager."
+  closing: "Thank you for contacting HR. Have a great day!"
+
+# Custom Fields
+custom_fields:
+  - name: "employee_id"
+    type: "text"
+    prompt: "Please provide your employee ID:"
+    required: true
+  - name: "request_type"
+    type: "text"
+    prompt: "What type of HR request is this?"
+    required: true
+  - name: "preferred_contact"
+    type: "text"
+    prompt: "What's your preferred contact method? (Email/Phone)"
+    required: true

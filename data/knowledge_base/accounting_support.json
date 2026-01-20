@@ -1,0 +1,735 @@
+{
+    "category": "Accounting Support",
+    "description": "Comprehensive knowledge base for Accounting-related support questions",
+    "articles": [
+        {
+            "id": "acc001",
+            "title": "How to Submit an Invoice",
+            "category": "invoices",
+            "keywords": [
+                "invoice",
+                "submit",
+                "payment",
+                "vendor",
+                "bill",
+                "pay",
+                "supplier"
+            ],
+            "question": "How do I submit an invoice for payment?",
+            "content": "## Invoice Submission Process\n\n**Required Information:**\n- Vendor name and details\n- Invoice number and date\n- PO number (if applicable)\n- Amount and currency\n- Payment terms\n\n**Steps:**\n1. Log into the **Finance Portal**\n2. Navigate to **Invoices > Submit New**\n3. Upload the invoice PDF or image\n4. Fill in the required fields\n5. Select the appropriate cost center\n6. Submit for approval\n\n**Processing Time:** 5-7 business days after approval\n\n**Questions?** Contact accounts.payable@company.com",
+            "related": [
+                "acc002",
+                "acc004"
+            ]
+        },
+        {
+            "id": "acc002",
+            "title": "Expense Report Submission",
+            "category": "expenses",
+            "keywords": [
+                "expense",
+                "reimbursement",
+                "receipt",
+                "travel",
+                "claim",
+                "expenses",
+                "refund"
+            ],
+            "question": "How do I submit an expense report?",
+            "content": "## Expense Report Process\n\n**What's Reimbursable:**\n- Travel expenses (flights, hotels, meals)\n- Client entertainment\n- Office supplies\n- Training materials\n\n**Steps:**\n1. Open the **Expense Management System**\n2. Create a new expense report\n3. Add each expense with:\n   - Date and description\n   - Amount and category\n   - Receipt photo/PDF\n4. Link to project code if applicable\n5. Submit for manager approval\n\n**Important:**\n- Submit within 30 days of expense\n- Keep original receipts\n- Per diem rates apply for meals\n\n**Reimbursement Timeline:** 7-10 business days after approval",
+            "related": [
+                "acc001"
+            ]
+        },
+        {
+            "id": "acc003",
+            "title": "Budget Approval Process",
+            "category": "budget",
+            "keywords": [
+                "budget",
+                "approval",
+                "funding",
+                "allocate",
+                "spend",
+                "authorize",
+                "request"
+            ],
+            "question": "How does the budget approval process work?",
+            "content": "## Budget Approval Workflow\n\n**Approval Thresholds:**\n| Amount | Approver |\n|--------|----------|\n| < $1,000 | Manager |\n| $1,000 - $10,000 | Director |\n| $10,000 - $50,000 | VP |\n| > $50,000 | CFO |\n\n**Process:**\n1. Create a budget request in the Finance Portal\n2. Attach justification and quotes\n3. Submit to your direct manager\n4. Approval routes automatically based on amount\n5. You'll receive email notification when approved\n\n**Tips:**\n- Include ROI analysis for large requests\n- Get quotes from multiple vendors\n- Plan ahead - approvals take 3-5 business days",
+            "related": [
+                "acc004"
+            ]
+        },
+        {
+            "id": "acc004",
+            "title": "Purchase Order Process",
+            "category": "purchasing",
+            "keywords": [
+                "purchase order",
+                "po",
+                "buy",
+                "order",
+                "procurement",
+                "requisition",
+                "vendor"
+            ],
+            "question": "How do I create a purchase order?",
+            "content": "## Creating a Purchase Order\n\n**When You Need a PO:**\n- Purchases over $500\n- Recurring vendor services\n- Capital equipment\n\n**Steps:**\n1. Go to **Procurement Portal**\n2. Select **Create Purchase Requisition**\n3. Enter vendor and item details\n4. Add budget code and cost center\n5. Attach quotes (required for purchases > $2,500)\n6. Submit for approval\n\n**After Approval:**\n- PO number is generated automatically\n- Share PO number with the vendor\n- Goods receipt required upon delivery\n\n**Turnaround:** 2-3 business days for approval",
+            "related": [
+                "acc001",
+                "acc003"
+            ]
+        },
+        {
+            "id": "acc005",
+            "title": "Payroll Questions",
+            "category": "payroll",
+            "keywords": [
+                "payroll",
+                "salary",
+                "paycheck",
+                "pay stub",
+                "direct deposit",
+                "pay",
+                "wages"
+            ],
+            "question": "Where can I view my pay stub?",
+            "content": "## Payroll Information\n\n**View Pay Stubs:**\n1. Log into the **HR Portal**\n2. Navigate to **My Pay > Pay Statements**\n3. Select the pay period to view\n\n**Direct Deposit Changes:**\n- Go to **My Profile > Payment Methods**\n- Updates take effect next pay cycle\n- Allow 1-2 pay periods for verification\n\n**Payroll Schedule:**\n- Pay periods: Bi-weekly (every other Friday)\n- Cut-off: Tuesday before payday\n\n**Questions about deductions?**\nContact HR at hr@company.com or ext. 2100",
+            "related": []
+        },
+        {
+            "id": "acc006",
+            "title": "Tax Documents",
+            "category": "tax",
+            "keywords": [
+                "tax",
+                "w2",
+                "1099",
+                "tax form",
+                "withholding",
+                "taxes",
+                "w4"
+            ],
+            "question": "Where do I get my tax documents?",
+            "content": "## Tax Document Access\n\n**W-2 Forms:**\n- Available by January 31st each year\n- Access via **HR Portal > Tax Documents**\n- Mailed copies sent to address on file\n\n**Updating Tax Withholding:**\n1. Log into HR Portal\n2. Go to **My Profile > Tax Withholding**\n3. Complete a new W-4 form\n4. Changes apply to next paycheck\n\n**1099 Contractors:**\n- Available by January 31st\n- Access via contractor portal\n\n**Need Prior Year Documents?**\nContact HR - we retain records for 7 years.",
+            "related": [
+                "acc005"
+            ]
+        },
+        {
+            "id": "acc007",
+            "title": "Corporate Credit Card",
+            "category": "expenses",
+            "keywords": [
+                "credit card",
+                "corporate card",
+                "company card",
+                "p-card",
+                "purchasing card"
+            ],
+            "question": "How do I get and use a corporate credit card?",
+            "content": "## Corporate Credit Card Guide\n\n**Requesting a Card:**\n1. Submit request through Finance Portal\n2. Requires manager and Finance approval\n3. Card arrives in 5-7 business days\n\n**Card Limits:**\n- Standard: $5,000/month\n- Higher limits require VP approval\n\n**Required Documentation:**\n- Receipts for ALL transactions\n- Business purpose for each charge\n- Monthly reconciliation due by 5th of each month\n\n**Prohibited Uses:**\n- Personal expenses\n- Cash advances\n- Entertainment over $200 without pre-approval\n\n**Lost or Stolen Card:**\nCall the bank immediately, then notify Finance.",
+            "related": [
+                "acc002",
+                "acc004"
+            ]
+        },
+        {
+            "id": "acc008",
+            "title": "Vendor Setup and Management",
+            "category": "vendors",
+            "keywords": [
+                "vendor",
+                "supplier",
+                "new vendor",
+                "vendor setup",
+                "onboarding vendor"
+            ],
+            "question": "How do I set up a new vendor?",
+            "content": "## New Vendor Setup\n\n**Required Documents:**\n- W-9 form (for US vendors)\n- Bank details for ACH payment\n- Insurance certificate (if applicable)\n- Signed contract/agreement\n\n**Process:**\n1. Submit **Vendor Request Form** in Finance Portal\n2. Vendor receives onboarding email\n3. Vendor completes registration\n4. Finance reviews and approves\n5. Vendor available for POs within 2-3 days\n\n**International Vendors:**\n- Additional documentation required\n- May require wire transfer setup\n- Allow extra processing time\n\n**Preferred Vendors:**\nCheck the approved vendor list before engaging new suppliers.",
+            "related": [
+                "acc004",
+                "acc001"
+            ]
+        },
+        {
+            "id": "acc009",
+            "title": "Cost Center and GL Codes",
+            "category": "coding",
+            "keywords": [
+                "cost center",
+                "gl code",
+                "account code",
+                "coding",
+                "chart of accounts",
+                "department code"
+            ],
+            "question": "What cost center or GL code should I use?",
+            "content": "## Cost Center & GL Code Guide\n\n**Finding Your Cost Center:**\n- Listed on your department's budget report\n- Ask your manager if unsure\n- Format: XXX-XXXX (Dept-Project)\n\n**Common GL Codes:**\n| Code | Description |\n|------|-------------|\n| 6010 | Office Supplies |\n| 6020 | Software/Subscriptions |\n| 6030 | Travel - Airfare |\n| 6040 | Travel - Lodging |\n| 6050 | Travel - Meals |\n| 6100 | Professional Services |\n| 6200 | Training & Development |\n| 6300 | Marketing & Advertising |\n\n**Full List:**\nAvailable in Finance Portal > Resources > Chart of Accounts\n\n**Wrong Code Used?**\nSubmit a journal entry request to correct it.",
+            "related": [
+                "acc003",
+                "acc002"
+            ]
+        },
+        {
+            "id": "acc010",
+            "title": "Journal Entry Request",
+            "category": "accounting",
+            "keywords": [
+                "journal entry",
+                "correction",
+                "adjustment",
+                "reclassification",
+                "transfer"
+            ],
+            "question": "How do I request a journal entry or correction?",
+            "content": "## Journal Entry Requests\n\n**When Needed:**\n- Correct coding errors\n- Transfer costs between departments\n- Record accruals or adjustments\n- Reclassify expenses\n\n**How to Request:**\n1. Go to Finance Portal > Journal Entries\n2. Complete the request form\n3. Include:\n   - From/To accounts\n   - Amount\n   - Description/justification\n   - Supporting documentation\n4. Submit for approval\n\n**Approval Required:**\n- All entries require Finance approval\n- Entries over $10,000 require Controller approval\n\n**Timing:**\n- Month-end cut-off is 3rd business day\n- Year-end entries have earlier deadlines",
+            "related": [
+                "acc009",
+                "acc003"
+            ]
+        },
+        {
+            "id": "acc011",
+            "title": "Invoice Payment Status",
+            "category": "invoices",
+            "keywords": [
+                "payment status",
+                "when paid",
+                "invoice status",
+                "check payment",
+                "vendor payment"
+            ],
+            "question": "How do I check if an invoice has been paid?",
+            "content": "## Checking Payment Status\n\n**In Finance Portal:**\n1. Go to **Accounts Payable > Invoice Search**\n2. Enter invoice number or vendor name\n3. View status: Pending, Approved, Paid\n4. See payment date and check/transfer number\n\n**Payment Schedule:**\n- Standard terms: Net 30\n- Payment runs: Every Tuesday and Friday\n- ACH transfers: 2-3 days to clear\n- Checks: 5-7 days to arrive\n\n**Vendor Inquiries:**\nIf a vendor asks about payment:\n1. Verify the invoice was submitted\n2. Check if PO/approval is complete\n3. Share expected payment date\n\n**Rush Payments:**\nRequire VP approval and additional processing fee.",
+            "related": [
+                "acc001",
+                "acc004"
+            ]
+        },
+        {
+            "id": "acc012",
+            "title": "Month-End Close Process",
+            "category": "accounting",
+            "keywords": [
+                "month end",
+                "close",
+                "deadline",
+                "accruals",
+                "cut-off"
+            ],
+            "question": "What are the month-end close deadlines?",
+            "content": "## Month-End Close Schedule\n\n**Key Deadlines:**\n| Day | Activity |\n|-----|----------|\n| Last day of month | Submit all invoices |\n| 1st business day | Expense reports due |\n| 2nd business day | Accrual submissions |\n| 3rd business day | Journal entries due |\n| 5th business day | Preliminary close |\n| 10th business day | Final close |\n\n**What You Need to Do:**\n1. Submit pending expense reports\n2. Approve invoices in your queue\n3. Submit accruals for goods/services received but not invoiced\n4. Review department budget vs actuals\n\n**Year-End:**\n- Deadlines are 1 week earlier\n- Additional reconciliations required\n- Audit preparation begins in January",
+            "related": [
+                "acc010",
+                "acc003"
+            ]
+        },
+        {
+            "id": "acc013",
+            "title": "Travel Booking and Policy",
+            "category": "travel",
+            "keywords": [
+                "travel",
+                "booking",
+                "flight",
+                "hotel",
+                "business trip",
+                "travel policy"
+            ],
+            "question": "How do I book business travel?",
+            "content": "## Business Travel Guide\n\n**Booking Process:**\n1. Get manager approval for the trip\n2. Use the **Travel Portal** (preferred)\n3. Or book directly and submit for reimbursement\n\n**Policy Highlights:**\n- Book flights 14+ days in advance when possible\n- Economy class for domestic, premium for 6+ hours\n- Hotels: Company-negotiated rates preferred\n- Rental cars: Compact class unless justified\n\n**Expense Limits:**\n| Category | Limit |\n|----------|-------|\n| Meals (domestic) | $75/day |\n| Meals (international) | $100/day |\n| Hotel | $250/night (varies by city) |\n\n**Required Receipts:**\n- All expenses over $25\n- Itemized receipts for meals\n- Boarding passes for flights",
+            "related": [
+                "acc002",
+                "acc007"
+            ]
+        },
+        {
+            "id": "acc014",
+            "title": "Mileage Reimbursement",
+            "category": "expenses",
+            "keywords": [
+                "mileage",
+                "car",
+                "driving",
+                "reimbursement",
+                "gas",
+                "fuel",
+                "kilometers"
+            ],
+            "question": "How do I get reimbursed for mileage?",
+            "content": "## Mileage Reimbursement\n\n**Current Rate:**\n- IRS standard rate (check current year)\n- Updated annually in January\n\n**Eligible Travel:**\n- Between work locations\n- Client visits\n- Business errands\n\n**NOT Reimbursable:**\n- Commuting to/from your regular office\n- Personal stops during business travel\n\n**How to Submit:**\n1. Go to Expense Portal\n2. Create new expense > Mileage\n3. Enter start/end addresses\n4. System calculates distance and amount\n5. Add to expense report\n\n**Documentation:**\n- Date and purpose of trip\n- Starting and ending location\n- Business reason\n\n**Tips:** Use Google Maps to verify distances if questioned.",
+            "related": [
+                "acc002",
+                "acc013"
+            ]
+        },
+        {
+            "id": "acc015",
+            "title": "Budget Transfer Request",
+            "category": "budget",
+            "keywords": [
+                "budget transfer",
+                "move budget",
+                "reallocate",
+                "budget change"
+            ],
+            "question": "How do I transfer budget between accounts?",
+            "content": "## Budget Transfer Process\n\n**When Allowed:**\n- Between line items in same cost center\n- Between cost centers with approvals\n- Cannot increase total annual budget\n\n**To Request:**\n1. Go to **Finance Portal > Budget > Transfers**\n2. Select source and destination accounts\n3. Enter amount and justification\n4. Attach supporting documentation\n5. Submit for approval\n\n**Approval Requirements:**\n- Within cost center: Manager approval\n- Between cost centers: Both managers + Finance\n- Over $50,000: CFO approval\n\n**Timing:**\n- Standard: 3-5 business days\n- Fiscal year-end: Submit 2 weeks before close\n\n**Note:** Some budget categories cannot be transferred (headcount, capital).",
+            "related": [
+                "acc003",
+                "acc010"
+            ]
+        },
+        {
+            "id": "acc016",
+            "title": "Accounts Receivable - Customer Payment",
+            "category": "receivables",
+            "keywords": [
+                "customer payment",
+                "receivable",
+                "collection",
+                "invoice customer",
+                "ar"
+            ],
+            "question": "How do I record a customer payment or check AR status?",
+            "content": "## Accounts Receivable Guide\n\n**Check Customer Balance:**\n1. Go to Finance Portal > AR Dashboard\n2. Search by customer name or invoice\n3. View outstanding invoices and aging\n\n**Recording Payments:**\n- Payments received via lockbox are auto-posted\n- Other payments: Submit to ar@company.com\n- Include customer name, amount, invoice number\n\n**Collection Process:**\n| Days | Action |\n|------|--------|\n| 1-30 | Standard terms |\n| 31-60 | Reminder sent |\n| 61-90 | Collection call |\n| 90+ | Escalation to management |\n\n**Customer Disputes:**\nLog in Finance Portal with details for investigation\n\n**Credit Memos:**\nRequire manager approval before issuance.",
+            "related": [
+                "acc001"
+            ]
+        },
+        {
+            "id": "acc017",
+            "title": "Fixed Asset and Capital Purchases",
+            "category": "assets",
+            "keywords": [
+                "fixed asset",
+                "capital",
+                "equipment",
+                "depreciation",
+                "asset tag"
+            ],
+            "question": "How do I purchase or track fixed assets?",
+            "content": "## Fixed Asset Process\n\n**What's a Fixed Asset?**\n- Equipment/furniture over $5,000\n- Useful life over 1 year\n- Computers, vehicles, machinery\n\n**Purchasing:**\n1. Create capital expenditure request\n2. Requires budget approval\n3. Multi-year impact analysis needed\n4. VP/CFO approval for large purchases\n\n**After Purchase:**\n- Finance assigns asset tag\n- Record in fixed asset system\n- Annual physical inventory required\n\n**Depreciation:**\n- Calculated monthly by Finance\n- Follows company policy and tax rules\n\n**Disposal:**\n- Submit Asset Disposal Form\n- IT wipes data from electronics\n- Finance records gain/loss",
+            "related": [
+                "acc004",
+                "acc003"
+            ]
+        },
+        {
+            "id": "acc018",
+            "title": "Petty Cash Reimbursement",
+            "category": "expenses",
+            "keywords": [
+                "petty cash",
+                "cash",
+                "small purchase",
+                "reimburse cash"
+            ],
+            "question": "How do I get petty cash reimbursement?",
+            "content": "## Petty Cash Process\n\n**Eligibility:**\n- Small purchases under $50\n- When corporate card not accepted\n- Emergency supplies\n\n**To Request Reimbursement:**\n1. Complete Petty Cash Voucher\n2. Attach original receipt\n3. Get manager signature\n4. Submit to Finance office\n\n**Reimbursement Methods:**\n- Cash from petty cash custodian\n- Add to expense report for payroll\n\n**Petty Cash Custodians:**\n- Each department has assigned custodian\n- Check Finance Portal for your area\n\n**Not Allowed:**\n- Personal items\n- Gifts over $25\n- Items that should use PO process\n\n**Replenishment:**\nCustodians submit for replenishment at $100 balance.",
+            "related": [
+                "acc002",
+                "acc007"
+            ]
+        },
+        {
+            "id": "acc019",
+            "title": "Intercompany Transactions",
+            "category": "accounting",
+            "keywords": [
+                "intercompany",
+                "subsidiary",
+                "transfer pricing",
+                "between entities"
+            ],
+            "question": "How do I handle intercompany transactions?",
+            "content": "## Intercompany Transactions\n\n**What Are They?**\n- Transactions between company entities\n- Must follow transfer pricing policies\n- Require proper documentation\n\n**Types:**\n- Shared services allocation\n- Inventory transfers\n- Management fees\n- Loan repayments\n\n**Process:**\n1. Initiate through Intercompany module\n2. Both entities must approve\n3. Matching entries created automatically\n4. Finance reconciles monthly\n\n**Documentation Required:**\n- Service agreement or invoice\n- Pricing methodology\n- Supporting calculations\n\n**Timing:**\n- Submit by 5th of month for prior month\n- Quarter-end has earlier deadlines\n\n**Questions?** Contact corporate.accounting@company.com",
+            "related": [
+                "acc010",
+                "acc012"
+            ]
+        },
+        {
+            "id": "acc020",
+            "title": "Bonus and Commission Payments",
+            "category": "payroll",
+            "keywords": [
+                "bonus",
+                "commission",
+                "incentive",
+                "variable pay",
+                "special payment"
+            ],
+            "question": "How are bonuses and commissions processed?",
+            "content": "## Bonus & Commission Payments\n\n**Annual Bonuses:**\n- Calculated based on performance review\n- Approved by HR and Finance\n- Typically paid in Q1 (Feb/March)\n- Subject to applicable taxes\n\n**Sales Commissions:**\n- Calculated monthly based on closed deals\n- Submitted by Sales Operations\n- Paid following month payroll\n- Commission statements available in HR Portal\n\n**Spot Bonuses:**\n- Manager can award for exceptional performance\n- Requires HR and Finance approval\n- Processed in next payroll cycle\n\n**Taxes:**\n- Bonuses taxed at supplemental rate\n- May differ from regular paycheck\n\n**Questions:**\nCommission disputes: sales.ops@company.com\nBonus questions: hr@company.com",
+            "related": [
+                "acc005",
+                "acc006"
+            ]
+        },
+        {
+            "id": "acc021",
+            "title": "Chart of Accounts Changes",
+            "category": "accounting",
+            "keywords": [
+                "new account",
+                "gl code",
+                "chart of accounts",
+                "add account"
+            ],
+            "question": "How do I request a new GL account or code?",
+            "content": "## Requesting New GL Accounts\n\n**When Needed:**\n- New product line or service\n- New department or project\n- Regulatory requirement\n- Improved reporting granularity\n\n**Process:**\n1. Submit Chart of Accounts Change Request\n2. Include:\n   - Account name and description\n   - Business justification\n   - Reporting requirements\n   - Affected departments\n3. Controller reviews and approves\n4. Account created within 2-3 days\n\n**Naming Convention:**\n- Follow existing numbering scheme\n- Finance assigns final number\n- Description must be clear and consistent\n\n**Note:** Quarterly review may consolidate unused accounts.\n\n**For cost centers:** Similar process through FP&A team.",
+            "related": [
+                "acc009",
+                "acc010"
+            ]
+        },
+        {
+            "id": "acc022",
+            "title": "Audit Support and Documentation",
+            "category": "compliance",
+            "keywords": [
+                "audit",
+                "documentation",
+                "sox",
+                "support",
+                "auditor",
+                "evidence"
+            ],
+            "question": "What documentation do I need for an audit?",
+            "content": "## Audit Documentation Guide\n\n**Common Requests:**\n- Invoice and payment backup\n- Contract copies\n- Approval evidence (emails, signatures)\n- Reconciliations\n- Vendor agreements\n\n**How to Prepare:**\n1. Keep organized records throughout the year\n2. Respond to auditor requests within 48 hours\n3. Provide complete documentation\n4. Don't alter or backdate documents\n\n**SOX Controls:**\n- Follow all documented procedures\n- Maintain segregation of duties\n- Evidence all approvals\n- Report exceptions promptly\n\n**Audit Types:**\n- External: Annual financial audit\n- Internal: Quarterly process audits\n- SOX: Continuous control testing\n\n**During Audit:**\n- Be available for walkthrough meetings\n- Answer questions honestly\n- Escalate concerns to management",
+            "related": [
+                "acc012"
+            ]
+        },
+        {
+            "id": "acc023",
+            "title": "Foreign Currency Transactions",
+            "category": "accounting",
+            "keywords": [
+                "currency",
+                "exchange",
+                "foreign",
+                "fx",
+                "international",
+                "conversion"
+            ],
+            "question": "How do I handle foreign currency invoices?",
+            "content": "## Foreign Currency Guide\n\n**Invoice Submission:**\n1. Submit invoice in original currency\n2. System converts at daily rate\n3. Payment made in vendor's currency\n\n**Exchange Rates:**\n- Updated daily from bank feed\n- Month-end rate used for accruals\n- Gain/loss recorded automatically\n\n**Expense Reports:**\n- Enter in currency spent\n- Attach credit card statement showing conversion\n- Personal card charges: use bank rate\n\n**Wire Transfers:**\n- May have bank fees ($25-50)\n- Allow 3-5 days for international\n- Large transfers need Treasury approval\n\n**Hedging:**\n- Finance hedges significant exposures\n- Do not commit to fixed exchange rates without Treasury approval\n\n**Questions:** treasury@company.com",
+            "related": [
+                "acc001",
+                "acc008"
+            ]
+        },
+        {
+            "id": "acc024",
+            "title": "Prepaid Expenses and Amortization",
+            "category": "accounting",
+            "keywords": [
+                "prepaid",
+                "amortization",
+                "insurance",
+                "annual payment",
+                "subscription"
+            ],
+            "question": "How do I handle prepaid expenses?",
+            "content": "## Prepaid Expenses Guide\n\n**What's a Prepaid?**\n- Payment made for future periods\n- Examples: Annual insurance, subscriptions, rent\n\n**Threshold:**\n- Amounts > $5,000 and > 1 month period\n- Smaller amounts can expense immediately\n\n**Process:**\n1. Invoice coded to prepaid asset account\n2. Finance creates amortization schedule\n3. Monthly expense recognized automatically\n4. Review schedule in Finance Portal\n\n**Common Prepaids:**\n| Type | Amortization Period |\n|------|--------------------|\n| Insurance | 12 months |\n| Software licenses | Contract term |\n| Rent deposits | Lease term |\n| Conferences | 1 month before event |\n\n**Your Responsibility:**\nNotify Finance when prepaid invoices are processed.",
+            "related": [
+                "acc010",
+                "acc012"
+            ]
+        },
+        {
+            "id": "acc025",
+            "title": "Bank Account Changes",
+            "category": "banking",
+            "keywords": [
+                "bank",
+                "account",
+                "ach",
+                "wire",
+                "direct deposit",
+                "bank change"
+            ],
+            "question": "How do I update banking information?",
+            "content": "## Bank Account Updates\n\n**For Direct Deposit (Employee):**\n1. Log into HR Portal\n2. Go to **My Profile > Payment Methods**\n3. Enter new bank details\n4. Verify with micro-deposits\n5. Changes take 1-2 pay cycles\n\n**For Vendor Payments:**\n- Vendor updates through vendor portal\n- Changes require verification call\n- Allow 2-3 days processing\n\n**Company Bank Accounts:**\n- Only Treasury can modify\n- Submit request to treasury@company.com\n- New accounts need CFO approval\n\n**Security:**\n- Never share bank details via email\n- Verify any bank change requests by phone\n- Report suspicious requests immediately\n\n**Wire Instructions:**\n- Provided only through secure portal\n- Confirm large wires by phone callback",
+            "related": [
+                "acc005",
+                "acc008"
+            ]
+        },
+        {
+            "id": "acc026",
+            "title": "Data Entry Errors",
+            "category": "accounting",
+            "keywords": [
+                "data entry",
+                "error",
+                "mistake",
+                "typo",
+                "wrong amount",
+                "transposed",
+                "incorrect"
+            ],
+            "question": "How do I fix data entry errors in accounting?",
+            "content": "## Fixing Data Entry Errors\n\n**Common Error Types:**\n- Transposed digits (e.g., 54 vs 45)\n- Decimal point errors\n- Missed entries\n- Wrong account coding\n\n**Prevention:**\n1. Double-check all manual entries\n2. Use automated data capture when possible\n3. Implement verification checkpoints\n4. Review reports for anomalies\n\n**How to Correct:**\n1. **Same Period:** Void and re-enter the transaction\n2. **Closed Period:** Submit journal entry correction\n3. **Material Errors:** Notify Finance immediately\n\n**Documentation Required:**\n- Original entry details\n- Correct entry details\n- Reason for error\n- Approval from manager\n\n**Impact:**\nData entry errors can affect financial statements, tax calculations, and business decisions. Report and correct promptly.",
+            "related": [
+                "acc010",
+                "acc009"
+            ]
+        },
+        {
+            "id": "acc027",
+            "title": "Expense Classification Errors",
+            "category": "expenses",
+            "keywords": [
+                "classification",
+                "category",
+                "wrong account",
+                "expense type",
+                "capital vs operating"
+            ],
+            "question": "I coded an expense to the wrong category",
+            "content": "## Expense Classification Guide\n\n**Common Classification Issues:**\n- Capital vs Operating expenses\n- Direct vs Indirect costs\n- Travel vs Entertainment\n- Wrong department coding\n\n**Why It Matters:**\n- Affects financial statements accuracy\n- Impacts tax calculations\n- Skews budget reports\n- May violate policies\n\n**How to Correct:**\n1. Submit reclassification request\n2. Provide correct category/account\n3. Include business justification\n4. Finance processes within 2-3 days\n\n**Classification Guidelines:**\n| Expense Type | GL Category |\n|--------------|-------------|\n| Equipment >$5K | Capital |\n| Equipment <$5K | Operating |\n| Training | Professional Dev |\n| Client meals | Entertainment |\n\n**When Unsure:** Contact Finance before submitting, not after!",
+            "related": [
+                "acc009",
+                "acc002"
+            ]
+        },
+        {
+            "id": "acc028",
+            "title": "Unauthorized Purchases",
+            "category": "compliance",
+            "keywords": [
+                "unauthorized",
+                "no approval",
+                "policy violation",
+                "unapproved",
+                "purchase without PO"
+            ],
+            "question": "What happens if I make an unauthorized purchase?",
+            "content": "## Unauthorized Purchase Policy\n\n**What's Unauthorized?**\n- Purchases without required approval\n- Exceeding spending limits\n- Bypassing PO process\n- Using personal funds without pre-approval\n\n**Consequences:**\n- Reimbursement may be denied\n- Budget impact to your department\n- Policy violation on record\n- Repeated violations may affect performance review\n\n**How to Resolve:**\n1. Document the business justification\n2. Obtain retroactive approval (if possible)\n3. Submit with explanation to Finance\n4. Manager must approve exception\n\n**Prevention:**\n- Know your spending authority limits\n- When in doubt, get approval FIRST\n- Use corporate card with proper controls\n- Follow PO process for large purchases\n\n**Emergency Purchases:**\nContact Finance for expedited approval process.",
+            "related": [
+                "acc007",
+                "acc004"
+            ]
+        },
+        {
+            "id": "acc029",
+            "title": "Lost Receipts",
+            "category": "expenses",
+            "keywords": [
+                "lost receipt",
+                "missing receipt",
+                "no receipt",
+                "receipt required",
+                "documentation"
+            ],
+            "question": "I lost my receipt - what do I do?",
+            "content": "## Lost Receipt Procedure\n\n**First, Try to Recover:**\n1. Check email for digital receipts\n2. Request duplicate from vendor\n3. Check credit card statements\n4. Look for bank transaction record\n\n**If Truly Lost:**\n1. Complete **Lost Receipt Affidavit**\n2. Include:\n   - Date of purchase\n   - Vendor name\n   - Amount\n   - Business purpose\n3. Get manager signature\n4. Submit with expense report\n\n**Limitations:**\n- Affidavit limit: $75 per expense\n- Maximum 3 per quarter\n- Frequent lost receipts may require additional approval\n\n**Prevention Tips:**\n- Photograph receipts immediately\n- Use expense app to capture receipts\n- Request email receipts when possible\n- Keep receipts in one designated place\n\n**Tax Implications:** IRS requires documentation. Lost receipts may not be tax-deductible.",
+            "related": [
+                "acc002",
+                "acc007"
+            ]
+        },
+        {
+            "id": "acc030",
+            "title": "Expense Fraud Prevention",
+            "category": "compliance",
+            "keywords": [
+                "fraud",
+                "fake receipt",
+                "inflated",
+                "dishonest",
+                "expense fraud"
+            ],
+            "question": "How does the company prevent expense fraud?",
+            "content": "## Expense Fraud Prevention\n\n**Types of Expense Fraud:**\n- Inflated expense amounts\n- Fabricated receipts\n- Personal purchases claimed as business\n- Duplicate submissions\n- Mileage padding\n\n**Our Controls:**\n1. Receipt verification\n2. Manager approval required\n3. Random audits by Finance\n4. Automated duplicate detection\n5. Spending pattern analysis\n\n**Consequences of Fraud:**\n- Immediate termination\n- Required repayment\n- Possible legal action\n- Reported to authorities if criminal\n\n**Reporting Suspected Fraud:**\n- Ethics hotline: ethics@company.com\n- Anonymous reporting available\n- No retaliation for good-faith reports\n\n**Your Responsibility:**\n- Submit honest expenses only\n- Report suspicious activity\n- Keep accurate records\n- Follow all expense policies",
+            "related": [
+                "acc002",
+                "acc022"
+            ]
+        },
+        {
+            "id": "acc031",
+            "title": "Duplicate Invoice Payments",
+            "category": "payables",
+            "keywords": [
+                "duplicate",
+                "paid twice",
+                "double payment",
+                "overpayment",
+                "refund"
+            ],
+            "question": "We accidentally paid an invoice twice",
+            "content": "## Duplicate Payment Recovery\n\n**How It Happens:**\n- Same invoice submitted multiple times\n- Invoice number entered incorrectly\n- Multiple people processing same invoice\n- Vendor resubmits unpaid invoice\n\n**To Report:**\n1. Contact AP immediately: ap@company.com\n2. Provide invoice numbers and payment details\n3. Include vendor contact information\n\n**Recovery Process:**\n1. Finance verifies duplicate payment\n2. Contact vendor for refund or credit\n3. Apply credit to future invoices\n4. Or request check refund\n\n**Prevention:**\n- System checks for duplicate invoice numbers\n- Three-way match (PO, receipt, invoice)\n- Careful review before approval\n- Standardized invoice numbering\n\n**Timeline:** Recovery typically takes 2-4 weeks depending on vendor responsiveness.",
+            "related": [
+                "acc001",
+                "acc011"
+            ]
+        },
+        {
+            "id": "acc032",
+            "title": "Late Bill Payments",
+            "category": "payables",
+            "keywords": [
+                "late payment",
+                "overdue",
+                "past due",
+                "penalty",
+                "vendor angry"
+            ],
+            "question": "An invoice wasn't paid on time",
+            "content": "## Late Payment Resolution\n\n**Immediate Actions:**\n1. Contact AP to check status\n2. Identify cause of delay\n3. Expedite payment if possible\n4. Communicate with vendor\n\n**Common Causes:**\n- Stuck in approval queue\n- Missing documentation\n- PO discrepancy\n- Invoice not properly submitted\n- Budget issues\n\n**Late Payment Consequences:**\n- Late fees (typically 1-1.5% per month)\n- Damaged vendor relationship\n- Potential supply disruption\n- Impact on credit terms\n\n**Prevention:**\n1. Submit invoices promptly\n2. Approve quickly when in your queue\n3. Ensure proper coding and PO\n4. Set up recurring payments for regular vendors\n\n**Rush Payment:** For urgent situations, contact Finance for expedited processing (additional fees may apply).",
+            "related": [
+                "acc001",
+                "acc011"
+            ]
+        },
+        {
+            "id": "acc033",
+            "title": "Payment Approval Bottlenecks",
+            "category": "payables",
+            "keywords": [
+                "approval delay",
+                "stuck approval",
+                "waiting approval",
+                "bottleneck",
+                "slow approval"
+            ],
+            "question": "My invoice approval is stuck",
+            "content": "## Resolving Approval Delays\n\n**Check Status:**\n1. Log into Finance Portal\n2. Go to **Invoices > My Approvals**\n3. See where invoice is in workflow\n4. Identify current approver\n\n**Common Bottlenecks:**\n- Approver on vacation\n- High volume periods\n- Missing information\n- Incorrect routing\n- Amount exceeds authority\n\n**To Expedite:**\n1. Contact the approver directly\n2. Provide business justification for urgency\n3. Offer additional documentation if needed\n4. If unavailable, request delegation\n\n**Delegation Options:**\n- Approvers can delegate during absences\n- Finance can re-route with justification\n- Manager can escalate to next level\n\n**Prevention:**\n- Submit invoices well before due date\n- Ensure complete documentation upfront\n- Use correct approval chain\n- Set reminders for pending approvals",
+            "related": [
+                "acc001",
+                "acc004"
+            ]
+        },
+        {
+            "id": "acc034",
+            "title": "Late Payments from Customers",
+            "category": "receivables",
+            "keywords": [
+                "customer late",
+                "unpaid invoice",
+                "collection",
+                "overdue receivable",
+                "customer owes"
+            ],
+            "question": "A customer hasn't paid their invoice",
+            "content": "## Customer Payment Collection\n\n**Payment Reminder Process:**\n| Days Overdue | Action |\n|--------------|--------|\n| 1-7 days | Automatic reminder |\n| 8-30 days | Follow-up call |\n| 31-60 days | Formal collection letter |\n| 61-90 days | Escalate to management |\n| 90+ days | Consider collection agency |\n\n**Before Escalating:**\n1. Verify invoice was received\n2. Check for disputes or issues\n3. Confirm correct contact info\n4. Review payment history\n\n**Working with Customers:**\n- Offer payment plans if needed\n- Consider early payment discounts\n- Maintain professional relationship\n- Document all communications\n\n**When to Involve Finance:**\n- Payment disputes\n- Need for credit holds\n- Bad debt write-off consideration\n- Legal collection action\n\n**Contact:** ar@company.com for assistance",
+            "related": [
+                "acc016",
+                "acc011"
+            ]
+        },
+        {
+            "id": "acc035",
+            "title": "Cash Flow Management",
+            "category": "treasury",
+            "keywords": [
+                "cash flow",
+                "working capital",
+                "liquidity",
+                "cash shortage",
+                "cash position"
+            ],
+            "question": "How do I check or manage cash flow?",
+            "content": "## Cash Flow Information\n\n**For Department Managers:**\n- Review monthly budget reports\n- Monitor spending vs forecast\n- Plan major purchases with Finance\n- Submit accruals for upcoming expenses\n\n**Cash Flow Visibility:**\n1. Finance Portal > Treasury Dashboard\n2. Weekly cash position report (distributed Mondays)\n3. Monthly cash forecast (part of close package)\n\n**Improving Cash Flow:**\n- Collect receivables promptly\n- Time large payments strategically\n- Take advantage of early payment discounts\n- Forecast major expenses\n\n**Cash Flow Concerns:**\nIf you anticipate cash needs:\n1. Notify Finance early\n2. Provide timing and amounts\n3. Include business justification\n4. Plan for payment timing\n\n**For Treasury Inquiries:** Contact treasury@company.com",
+            "related": [
+                "acc016",
+                "acc012"
+            ]
+        },
+        {
+            "id": "acc036",
+            "title": "Recurring Payment Setup",
+            "category": "payables",
+            "keywords": [
+                "recurring",
+                "automatic payment",
+                "subscription",
+                "monthly payment",
+                "auto-pay"
+            ],
+            "question": "How do I set up recurring payments?",
+            "content": "## Recurring Payment Setup\n\n**Eligible Payments:**\n- Monthly subscriptions\n- Lease payments\n- Retainer agreements\n- Utility bills\n- Ongoing services\n\n**Setup Process:**\n1. Complete Recurring Payment Form\n2. Attach contract/agreement\n3. Specify:\n   - Vendor and amount\n   - Frequency (monthly, quarterly, annual)\n   - Start and end dates\n   - GL coding\n4. Submit for approval\n5. Finance sets up automation\n\n**Requirements:**\n- Signed contract required\n- Budget approval needed\n- PO created for full contract value\n\n**Changes to Recurring Payments:**\n- Submit modification request\n- Allow 5 business days notice\n- Price changes require new approval\n\n**Cancellation:**\nSubmit 30 days before next payment to stop.",
+            "related": [
+                "acc001",
+                "acc024"
+            ]
+        },
+        {
+            "id": "acc037",
+            "title": "Invoice Disputes",
+            "category": "payables",
+            "keywords": [
+                "dispute",
+                "wrong amount",
+                "billing error",
+                "incorrect invoice",
+                "vendor dispute"
+            ],
+            "question": "I need to dispute a vendor invoice",
+            "content": "## Invoice Dispute Process\n\n**When to Dispute:**\n- Incorrect pricing\n- Wrong quantities\n- Services not received\n- Quality issues\n- Duplicate billing\n\n**How to Dispute:**\n1. Mark invoice as **Disputed** in Finance Portal\n2. Select dispute reason\n3. Add detailed explanation\n4. Attach supporting documentation\n5. Submit for AP review\n\n**Documentation Needed:**\n- Original PO or quote\n- Contract terms\n- Proof of issue (photos, emails)\n- Correspondence with vendor\n\n**Resolution Timeline:**\n- Simple disputes: 5-10 business days\n- Complex disputes: 2-4 weeks\n- Legal involvement: Varies\n\n**Partial Payments:**\nAP may pay undisputed portion while resolving dispute.\n\n**Your Role:** You may need to negotiate directly with vendor while AP holds payment.",
+            "related": [
+                "acc001",
+                "acc008"
+            ]
+        },
+        {
+            "id": "acc038",
+            "title": "Year-End Closing Procedures",
+            "category": "accounting",
+            "keywords": [
+                "year end",
+                "fiscal year",
+                "annual close",
+                "year-end",
+                "closing"
+            ],
+            "question": "What are the year-end closing procedures?",
+            "content": "## Year-End Close Checklist\n\n**Key Deadlines (Fiscal Year End):**\n| Timing | Activity |\n|--------|----------|\n| -2 weeks | Submit all invoices |\n| -1 week | Complete expense reports |\n| Last day | Accruals and JEs due |\n| +2 days | Preliminary close |\n| +5 days | Final adjustments |\n| +10 days | Year closed |\n\n**Your Responsibilities:**\n1. Submit pending expense reports\n2. Approve all invoices in your queue\n3. Review department spending for anomalies\n4. Submit accruals for received but unbilled items\n5. Complete fixed asset inventory\n\n**Special Considerations:**\n- No carryover of unused budget\n- Capital purchases must be received\n- Review prepaid schedules\n- Confirm revenue recognition\n\n**Late Submissions:**\nWill be charged to new year - may require VP exception for prior year posting.",
+            "related": [
+                "acc012",
+                "acc022"
+            ]
+        },
+        {
+            "id": "acc039",
+            "title": "Financial Reporting Access",
+            "category": "reporting",
+            "keywords": [
+                "report",
+                "financial report",
+                "budget report",
+                "spending report",
+                "dashboard"
+            ],
+            "question": "How do I access financial reports for my department?",
+            "content": "## Financial Report Access\n\n**Available Reports:**\n- Budget vs Actual\n- Spending by Category\n- Vendor Spending Analysis\n- Open PO Report\n- Department P&L\n\n**How to Access:**\n1. Log into **Finance Portal**\n2. Go to **Reports > Department Reports**\n3. Select report type\n4. Filter by date range and cost center\n5. Export to Excel if needed\n\n**Report Schedule:**\n| Report | Frequency | Available |\n|--------|-----------|----------|\n| Flash Report | Weekly | Monday AM |\n| Budget vs Actual | Monthly | Day 5 |\n| Full Financials | Monthly | Day 10 |\n| Forecast | Quarterly | Week 2 |\n\n**Need Custom Reports?**\nSubmit request to Finance with:\n- Data needed\n- Purpose\n- Frequency\n- Recipients\n\n**Training:** Monthly Finance Portal training available.",
+            "related": [
+                "acc003",
+                "acc012"
+            ]
+        },
+        {
+            "id": "acc040",
+            "title": "Spending Controls and Limits",
+            "category": "compliance",
+            "keywords": [
+                "spending limit",
+                "authority",
+                "approval limit",
+                "delegation",
+                "spending authority"
+            ],
+            "question": "What are my spending authority limits?",
+            "content": "## Spending Authority Guide\n\n**Standard Limits by Role:**\n| Role | Single Purchase | Monthly |\n|------|-----------------|----------|\n| Staff | $500 | $2,000 |\n| Manager | $2,500 | $10,000 |\n| Director | $10,000 | $50,000 |\n| VP | $50,000 | $200,000 |\n| C-Level | Per policy | Unlimited |\n\n**These Apply To:**\n- Purchase requisitions\n- Expense approval\n- Corporate card limits\n- Contract signing\n\n**Exceeding Limits:**\n- Requires next-level approval\n- Document business justification\n- May require additional quotes\n\n**Delegation:**\n- Can delegate during absences\n- Must be pre-approved in system\n- Cannot exceed your own limits\n\n**Check Your Limits:**\nFinance Portal > My Profile > Spending Authority\n\n**Questions:** Contact your manager or Finance.",
+            "related": [
+                "acc003",
+                "acc028"
+            ]
+        }
+    ]
+}

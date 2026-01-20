@@ -1,0 +1,29 @@
+# Ignore environment files with secrets
+.env
+.env.*
+!.env.infisical.template
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+Log/
+
+# Models (large files)
+models/*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db
+Log/admin.err

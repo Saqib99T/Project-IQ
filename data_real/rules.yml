@@ -1,0 +1,128 @@
+# rules.yml
+
+version: "3.1"
+
+rules:
+  - rule: Say hi
+    steps:
+      - intent: greet
+      - action: action_extract_context # Always check for app-id on greet
+      - action: utter_greet
+      
+  - rule: Say goodbye
+    steps:
+      - intent: goodbye
+      - action: utter_goodbye
+
+  - rule: Respond to out-of-scope queries
+    steps:
+      - intent: out_of_scope
+      - action: utter_out_of_scope
+      - action: utter_ask_continue
+
+  - rule: Ask the user to rephrase whenever they send a message with low NLU confidence
+    steps:
+      - intent: nlu_fallback
+      - action: utter_please_rephrase
+
+  # --- FORM RULES (Ticket Creation) ---
+  - rule: Init GLPI session before activating the form
+    steps:
+      - intent: create_ticket
+      - action: action_init_glpi_session
+      - action: ticket_form
+      - active_loop: ticket_form
+
+  - rule: Submit ticket_form
+    condition:
+      - active_loop: ticket_form
+    steps:
+      - action: ticket_form
+      - active_loop: null
+      - slot_was_set:
+        - requested_slot: null
+      - action: utter_submit
+      - action: action_create_glpi_ticket
+
+  - rule: Interrupt form with stop intent
+    condition:
+      - active_loop: ticket_form
+    steps:
+      - intent: stop
+      - action: utter_stop_form
+      - action: action_deactivate_form
+      - active_loop: null
+
+      - action: utter_ask_anything_else
+
+  # --- STATUS CHECK RULES (Mutually Exclusive) ---
+  # Rules disabled to favour Stories and avoid conflicts
+  # RULE 1: Init session, then run status check if ID is present immediately
+  - rule: Init GLPI session and Check Status when ID is present
+    steps:
+      - intent: check_status
+      - slot_was_set:
+          - ticket_id: true
+      - action: action_init_glpi_session
+      - action: action_check_glpi_status
+      - action: utter_ask_anything_else
+
+  # RULE 2: Init session, then ask for ID if status is requested but ID is MISSING
+  - rule: Init GLPI session and Ask for Ticket ID when checking status
+    condition:
+      - slot_was_set:
+          - ticket_id: null # Condition: Ticket ID slot is empty
+    steps:
+      - intent: check_status
+      - action: action_init_glpi_session
+      - action: utter_ask_ticket_id
+      - action: action_listen
+
+  # RULE 3: Init session, then continue check status after providing ID via 'inform'
+  - rule: Continue Check Status after providing ID
+    condition:
+      - slot_was_set:
+          - ticket_id: true
+    steps:
+      - action: utter_ask_ticket_id # Was previously executed
+      - intent: inform
+      - action: action_check_glpi_status
+      - action: utter_ask_anything_else
+
+  - rule: Handle File Upload
+    steps:
+      - intent: upload_file
+      - action: action_init_glpi_session
+      - action: action_upload_file
+      - action: action_upload_file
+      - action: utter_ask_anything_else
+
+  #     - action: action_init_glpi_session
+  #     - action: action_list_open_tickets
+  #     - action: utter_ask_anything_else
+
+  # RULE: List Attachments - REMOVED TO ALLOW STORY FLEXIBILITY (fallback loop)
+  # - rule: List Attachments
+  #   steps:
+  #     - intent: list_attachments
+  #     - action: action_init_glpi_session
+  #     - action: action_list_attachments
+  #     - action: utter_ask_anything_else
+
+  # RULE: Clear Session
+  - rule: Clear Session
+    steps:
+      - intent: clear
+      - action: action_clear_session
+      - action: utter_cleared
+
+  # RULE: Check Status (When ID is provided) - REMOVED TO AVOID CONFLICT WITH ERROR HANDLING STORIES
+  # - rule: Check Status with ID
+  #   condition:
+  #     - slot_was_set:
+  #       - ticket_id: true
+  #   steps:
+  #     - intent: check_status
+  #     - action: action_init_glpi_session
+  #     - action: action_check_glpi_status
+  #     - action: utter_ask_anything_else

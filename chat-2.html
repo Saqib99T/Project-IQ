@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IT Helpdesk Bot</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f6f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+    }
+
+    .container {
+      text-align: center;
+      padding: 2rem;
+    }
+  </style>
+  <link rel="stylesheet" href="http://localhost:8181/modern-web-interface.css">
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Employee Portal</h1>
+    <p>Welcome to the Intranet.</p>
+    <p>Need help? Use the chat button in the bottom right.</p>
+  </div>
+
+  <!-- Widget Integration -->
+  <glpi-chat-widget title="Accounting Helpdesk Bot"></glpi-chat-widget>
+  <script src="http://localhost:8181/glpi-chat-widget.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,352 @@
+# data/stories.yml
+
+version: "3.1"
+
+stories:
+# ======================
+# Ticket Status Stories
+# ======================
+- story: Check status with immediate ID
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "What's the status of ticket [GLPI-123]?"
+      intent: check_status
+      entities:
+        - ticket_id: "GLPI-123"
+    - slot_was_set:
+      - ticket_id: "GLPI-123"
+    - action: action_init_glpi_session
+    - action: action_check_glpi_status
+    - action: utter_ask_anything_else
+
+# - story: Check status with existing slot context
+#   steps:
+#     - intent: list_tickets # Precondition example
+#     - action: action_init_glpi_session
+#     - action: action_list_open_tickets
+#     - user: "Check status"
+#       intent: check_status
+#     - slot_was_set:
+#       - ticket_id: "GLPI-123" # Assumed set from list or history
+#     - action: action_init_glpi_session
+#     - action: action_check_glpi_status
+#     - action: utter_ask_anything_else
+
+# - story: Check status with ID in follow-up
+#   steps:
+#     - intent: greet
+#     - action: utter_greet
+#     - user: "I want to check a ticket status"
+#       intent: check_status
+#     - action: action_init_glpi_session
+#     - action: utter_ask_ticket_id
+#     - user: "It's [GLPI-456]"
+#       intent: inform
+#       entities:
+#         - ticket_id: "GLPI-456"
+#     - slot_was_set:
+#       - ticket_id: "GLPI-456"
+#     - action: action_check_glpi_status
+#     - action: utter_ask_anything_else
+
+# - story: Check status with invalid ID
+#   steps:
+#     - intent: greet
+#     - action: utter_greet
+#     - user: "Check status for [INVALID-123]"
+#       intent: check_status
+#       entities:
+#         - ticket_id: "INVALID-123"
+#     - slot_was_set:
+#       - ticket_id: "INVALID-123"
+#     - action: action_init_glpi_session
+#     - action: action_check_glpi_status
+#     - action: utter_ticket_not_found
+#     - action: utter_ask_ticket_id_again
+
+# ======================
+# Ticket Creation Stories
+# ======================
+- story: Complete ticket creation
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "I need to create a new ticket"
+      intent: create_ticket
+    - action: action_init_glpi_session
+    - action: ticket_form
+    - active_loop: ticket_form
+    - active_loop: null
+    - action: utter_submit
+    - action: action_create_glpi_ticket
+
+- story: Ticket creation with missing info
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "I need help with something"
+      intent: create_ticket
+    - action: action_init_glpi_session
+    - action: ticket_form
+    - active_loop: ticket_form
+    - active_loop: null
+    - action: utter_submit
+    - action: action_create_glpi_ticket
+
+# ======================
+# Ticket Update Stories (Interactive Status)
+# ======================
+# - story: Update ticket status interactive
+#   steps:
+#     - intent: update_ticket
+#     - slot_was_set:
+#       - ticket_id: "GLPI-123"
+#     - action: action_init_glpi_session
+#     - action: action_update_glpi_ticket # Initial call shows status and buttons
+#     - slot_was_set:
+#       - ticket_status: "New"
+#     - user: "Change it to [Solved](target_status)"
+#       intent: inform_update
+#       entities:
+#         - target_status: "Solved"
+#     - action: action_update_glpi_ticket # Second call performs update
+#     - slot_was_set:
+#         - target_status: null
+
+# - story: Update ticket comment interactive (fallback)
+#   steps:
+#     - intent: update_ticket
+#     - slot_was_set:
+#       - ticket_id: "GLPI-123"
+#     - action: action_init_glpi_session
+#     - action: action_update_glpi_ticket
+#     - user: "Just a comment: [It works](update_content)"
+#       intent: inform_update
+#       entities:
+#         - update_content: "It works"
+#     - action: action_update_glpi_ticket
+
+# ======================
+# Ticket Verification Stories (Interactive)
+# ======================
+- story: Verify resolution interactive
+  steps:
+    - user: "Close ticket [GLPI-999](ticket_id)"
+      intent: verify_resolution
+      entities:
+        - ticket_id: "GLPI-999"
+    - action: action_init_glpi_session
+    - action: action_verify_glpi_resolution # Asks for confirmation
+    - slot_was_set:
+      - ticket_status: "Pending"
+    - user: "Yes, Close it" # Payload from button: /inform_update{"target_status":"Closed"}
+      intent: inform_update
+      entities:
+        - target_status: "Closed"
+    - action: action_verify_glpi_resolution # Closes ticket
+    - slot_was_set:
+      - ticket_status: "Closed"
+
+- story: Verify resolution denied
+  steps:
+    - user: "Close ticket [GLPI-888](ticket_id)"
+      intent: verify_resolution
+    - action: action_init_glpi_session
+    - action: action_verify_glpi_resolution
+    - user: "No"
+      intent: deny
+    - action: utter_ask_anything_else
+
+- story: View Ticket Comments
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "Show comments for [GLPI-999](ticket_id)"
+      intent: view_comments
+      entities:
+        - ticket_id: "GLPI-999"
+    - slot_was_set:
+        - ticket_id: "GLPI-999"
+    - action: action_init_glpi_session
+    - action: action_init_glpi_session
+    - action: action_view_ticket_comments
+    - action: utter_ask_anything_else
+
+- story: List Open Tickets
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "Show all open tickets"
+      intent: list_tickets
+    - action: action_init_glpi_session
+    - action: action_list_open_tickets
+    - action: utter_ask_anything_else
+
+# - story: Update ticket with ID provided but content missing
+#   steps:
+#     - intent: update_ticket
+#     - slot_was_set:
+#       - ticket_id: "GLPI-123"
+#     - action: action_init_glpi_session
+#     - action: utter_ask_update_content
+#     - user: "I rebooted the machine and it works now"
+#       intent: inform_update
+#       entities:
+#         - update_content: "I rebooted the machine and it works now"
+#     - action: action_update_glpi_ticket
+#     - action: utter_ticket_updated
+
+# - story: Update ticket full info provided
+#   steps:
+#     - user: "Add comment to [GLPI-555](ticket_id): [Review logs please](update_content)"
+#       intent: update_ticket
+#       entities:
+#         - ticket_id: "GLPI-555"
+#         - update_content: "Review logs please"
+#     - action: action_init_glpi_session
+#     - action: action_update_glpi_ticket
+#     - action: utter_ticket_updated
+
+# ======================
+# Attachment Stories
+# ======================
+- story: List attachments with explicit ID
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "Show files for ticket [GLPI-555](ticket_id)"
+      intent: list_attachments
+      entities:
+        - ticket_id: "GLPI-555"
+    - slot_was_set:
+      - ticket_id: "GLPI-555"
+    - action: action_init_glpi_session
+    - action: action_list_attachments
+    - action: utter_ask_anything_else
+
+# - story: List attachments contextually (ID already known)
+#   steps:
+#     - intent: check_status
+#       entities:
+#         - ticket_id: "GLPI-123"
+#     - slot_was_set:
+#       - ticket_id: "GLPI-123"
+#     - action: action_check_glpi_status
+#     - user: "Any attachments?"
+#       intent: list_attachments
+#     - action: action_list_attachments
+
+
+
+- story: List attachments with invalid/missing ID fallback
+  steps:
+    - user: "List attachments"
+      intent: list_attachments
+    - action: action_init_glpi_session
+    - action: utter_ask_ticket_id
+    - user: "For ticket [9](ticket_id)"
+      intent: inform
+      entities:
+        - ticket_id: "9"
+    - action: action_list_attachments
+
+# ======================
+
+
+# ======================
+# Error Handling Stories
+# ======================
+- story: Handle unknown intent
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "What's the weather like?"
+      intent: out_of_scope
+    - action: utter_out_of_scope
+    - action: utter_ask_continue
+
+# - story: Handle system error during ticket check
+#   steps:
+#     - intent: greet
+#     - action: utter_greet
+#     - user: "Status for [GLPI-999]"
+#       intent: check_status
+#       entities:
+#         - ticket_id: "GLPI-999"
+#     - slot_was_set:
+#       - ticket_id: "GLPI-999"
+#     - action: action_init_glpi_session
+#     - action: action_check_glpi_status
+#     - action: utter_error_occurred
+#     - action: utter_ask_retry
+
+# ======================
+# Conversation Management
+# ======================
+- story: User changes mind mid-conversation
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "I need to create a ticket"
+      intent: create_ticket
+    - action: action_init_glpi_session
+    - action: ticket_form
+    - active_loop: ticket_form
+    - user: "Actually, nevermind"
+      intent: stop
+    - action: utter_stop_form
+    - action: action_deactivate_form
+    - active_loop: null
+    - action: utter_ask_anything_else
+
+- story: User provides multiple pieces of information
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "I need to report an issue with my [printer] and it's [urgent]"
+      intent: create_ticket
+      entities:
+        - issue_type: "hardware"
+        - urgency: "high"
+    - action: action_init_glpi_session
+    - action: ticket_form
+    - active_loop: ticket_form
+    - user: "[The printer in accounting is jammed]"
+      intent: inform
+      entities:
+        - description: "The printer in accounting is jammed"
+    - action: ticket_form
+    - active_loop: null
+    - action: utter_submit
+    - action: action_create_glpi_ticket
+
+# ======================
+# Edge Cases
+# ======================
+- story: User provides all details in one message
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "I need to create a ticket about [my laptop not connecting to wifi] which is a [network] issue with [high] priority"
+      intent: create_ticket
+      entities:
+        - description: "my laptop not connecting to wifi"
+        - issue_type: "network"
+        - urgency: "high"
+    - action: action_init_glpi_session
+    - action: ticket_form
+    - active_loop: null
+    - action: utter_submit
+    - action: action_create_glpi_ticket
+
+- story: User asks for help
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - user: "What can you do?"
+    - intent: help
+    - action: utter_help
+    - action: utter_ask_how_can_help
+    - intent: goodbye
+    - action: utter_goodbye

@@ -1,0 +1,1078 @@
+{
+    "category": "IT Support",
+    "description": "Comprehensive knowledge base for IT-related support questions",
+    "articles": [
+        {
+            "id": "it001",
+            "title": "How to Reset Your Password",
+            "category": "account",
+            "keywords": [
+                "password",
+                "reset",
+                "forgot",
+                "login",
+                "can't login",
+                "locked out",
+                "change password"
+            ],
+            "question": "How do I reset my password?",
+            "content": "## Password Reset Instructions\n\n**Option 1: Self-Service Reset**\n1. Go to the login page and click **\"Forgot Password\"**\n2. Enter your email address\n3. Check your inbox for a reset link (check spam folder too)\n4. Click the link and create a new password\n\n**Option 2: Contact IT**\nIf self-service doesn't work, create a ticket and we'll reset it for you.\n\n**Password Requirements:**\n- Minimum 8 characters\n- At least one uppercase letter\n- At least one number\n- At least one special character",
+            "video": {
+                "url": "https://www.youtube.com/watch?v=oNC3owrHsr4",
+                "title": "Password Reset Tutorial",
+                "start": 0
+            },
+            "related": [
+                "it002",
+                "it003"
+            ]
+        },
+        {
+            "id": "it002",
+            "title": "VPN Connection Issues",
+            "category": "network",
+            "keywords": [
+                "vpn",
+                "connection",
+                "remote",
+                "work from home",
+                "can't connect",
+                "network",
+                "tunnel"
+            ],
+            "question": "How do I fix VPN connection problems?",
+            "content": "## VPN Troubleshooting\n\n**Step 1: Check Your Internet**\n- Make sure you have a stable internet connection\n- Try opening a website to confirm\n\n**Step 2: Restart VPN Client**\n1. Close the VPN application completely\n2. Wait 10 seconds\n3. Reopen and try connecting again\n\n**Step 3: Check Credentials**\n- Ensure you're using the correct username\n- Your VPN password may be different from your email password\n\n**Step 4: Try Different Server**\n- Select a different VPN server location\n- Some servers may be temporarily down\n\n**Still not working?** Create a support ticket with the error message.",
+            "video_url": "https://www.youtube.com/watch?v=9waseEDmUwg&t=150",
+            "related": [
+                "it001",
+                "it004"
+            ]
+        },
+        {
+            "id": "it003",
+            "title": "Account Locked Out",
+            "category": "account",
+            "keywords": [
+                "locked",
+                "account locked",
+                "too many attempts",
+                "lockout",
+                "unlock"
+            ],
+            "question": "My account is locked, what do I do?",
+            "content": "## Account Lockout Resolution\n\n**Why This Happens:**\nAccounts lock after 5 failed login attempts to protect your security.\n\n**What To Do:**\n1. **Wait 15 minutes** - The account unlocks automatically\n2. **Reset your password** if you've forgotten it\n3. **Contact IT** if you need immediate access\n\n**Prevention Tips:**\n- Use a password manager\n- Enable \"Remember Me\" on trusted devices\n- Update saved passwords after a reset",
+            "related": [
+                "it001"
+            ]
+        },
+        {
+            "id": "it004",
+            "title": "Printer Not Working",
+            "category": "hardware",
+            "keywords": [
+                "printer",
+                "print",
+                "printing",
+                "paper jam",
+                "offline",
+                "can't print",
+                "not printing"
+            ],
+            "question": "My printer isn't working, how do I fix it?",
+            "content": "## Printer Troubleshooting\n\n**Quick Fixes:**\n1. ✅ Check if printer is powered on\n2. ✅ Check for paper jams\n3. ✅ Verify paper and ink levels\n4. ✅ Ensure it's connected to the network\n\n**On Your Computer:**\n1. Go to **Settings > Printers & Scanners**\n2. Check if the printer shows as \"Ready\"\n3. If \"Offline\", right-click and select **\"Use Printer Online\"**\n4. Try printing a test page\n\n**Still Not Working?**\n- Try removing and re-adding the printer\n- Restart your computer\n- Create a ticket if the issue persists",
+            "video": {
+                "url": "https://www.youtube.com/watch?v=9waseEDmUwg",
+                "title": "Printing Problems - IT Support Tutorial",
+                "start": 261
+            },
+            "related": []
+        },
+        {
+            "id": "it005",
+            "title": "Email Not Syncing",
+            "category": "software",
+            "keywords": [
+                "email",
+                "outlook",
+                "sync",
+                "not receiving",
+                "emails missing",
+                "mail",
+                "inbox"
+            ],
+            "question": "Why aren't my emails syncing?",
+            "content": "## Email Sync Issues\n\n**Outlook Desktop:**\n1. Check your internet connection\n2. Look at the bottom status bar - it should say \"Connected\"\n3. Click **Send/Receive > Send/Receive All Folders**\n4. If offline, click **Work Offline** to reconnect\n\n**Outlook Web:**\n1. Refresh the page (F5)\n2. Clear browser cache\n3. Try a different browser\n\n**Mobile Devices:**\n1. Check WiFi/data connection\n2. Remove and re-add the email account\n3. Ensure background sync is enabled\n\n**If emails are missing entirely**, they may be in your Spam/Junk folder.",
+            "related": [
+                "it001"
+            ]
+        },
+        {
+            "id": "it006",
+            "title": "Software Installation Request",
+            "category": "software",
+            "keywords": [
+                "install",
+                "software",
+                "application",
+                "program",
+                "download",
+                "app",
+                "need software"
+            ],
+            "question": "How do I request new software?",
+            "content": "## Requesting Software Installation\n\n**Self-Service Software:**\nSome approved software is available in the **Company Portal** app on your computer.\n\n**Requesting Other Software:**\n1. Create a support ticket with:\n   - Software name and version\n   - Business justification\n   - Your department\n2. We'll check licensing and compatibility\n3. Installation typically takes 1-3 business days\n\n**Note:** Personal or unlicensed software cannot be installed on company devices.",
+            "related": []
+        },
+        {
+            "id": "it007",
+            "title": "Computer Running Slow",
+            "category": "hardware",
+            "keywords": [
+                "slow",
+                "performance",
+                "computer slow",
+                "laggy",
+                "freezing",
+                "hang",
+                "speed"
+            ],
+            "question": "Why is my computer running slow?",
+            "content": "## Speed Up Your Computer\n\n**Quick Fixes:**\n1. **Restart your computer** (not just sleep/hibernate)\n2. **Close unused applications** - check the taskbar\n3. **Check disk space** - keep at least 10GB free\n\n**Browser Slow?**\n- Close extra tabs (each uses memory)\n- Clear browser cache\n- Disable unused extensions\n\n**Still Slow?**\n- Press Ctrl+Shift+Esc to open Task Manager\n- Check which programs use the most CPU/Memory\n- End unnecessary processes\n\n**If the problem persists, create a ticket** and we'll investigate further.",
+            "video": {
+                "url": "https://www.youtube.com/watch?v=9waseEDmUwg",
+                "title": "Diagnosing Slow Computers - Task Manager & More",
+                "start": 123
+            },
+            "related": []
+        },
+        {
+            "id": "it008",
+            "title": "Two-Factor Authentication Setup",
+            "category": "security",
+            "keywords": [
+                "2fa",
+                "mfa",
+                "two factor",
+                "authenticator",
+                "security",
+                "verification",
+                "multi-factor"
+            ],
+            "question": "How do I set up two-factor authentication?",
+            "content": "## Setting Up 2FA/MFA\n\n**What You'll Need:**\n- Your smartphone\n- Microsoft Authenticator app (or similar)\n\n**Steps:**\n1. Download **Microsoft Authenticator** from your app store\n2. Login to your account settings portal\n3. Go to **Security > Two-Factor Authentication**\n4. Click **Set Up** and scan the QR code with the app\n5. Enter the verification code to confirm\n\n**Backup Codes:**\n- Save the backup codes in a secure location\n- Use these if you lose access to your phone\n\n**Lost Your Phone?** Contact IT immediately to reset 2FA.",
+            "related": [
+                "it001",
+                "it003"
+            ]
+        },
+        {
+            "id": "it009",
+            "title": "Monitor Not Working",
+            "category": "hardware",
+            "keywords": [
+                "monitor",
+                "screen",
+                "display",
+                "blank",
+                "no signal",
+                "black screen",
+                "second monitor",
+                "dual monitor"
+            ],
+            "question": "My monitor is not displaying anything",
+            "content": "## Monitor Troubleshooting\n\n**Basic Checks:**\n1. ✅ Is the monitor powered on? (Check power light)\n2. ✅ Is the cable securely connected at both ends?\n3. ✅ Try a different cable if available\n4. ✅ Try a different port on your computer\n\n**No Signal Message:**\n1. Press **Windows + P** to open display settings\n2. Select **Duplicate** or **Extend**\n3. Wait a few seconds for detection\n\n**Second Monitor Issues:**\n1. Right-click desktop > **Display Settings**\n2. Click **Detect** to find the monitor\n3. Ensure the correct display is selected\n\n**Still Black Screen?**\n- Try connecting to a different computer\n- The monitor may need service",
+            "related": [
+                "it004",
+                "it007"
+            ]
+        },
+        {
+            "id": "it010",
+            "title": "Keyboard or Mouse Not Working",
+            "category": "hardware",
+            "keywords": [
+                "keyboard",
+                "mouse",
+                "not working",
+                "stuck keys",
+                "cursor",
+                "typing",
+                "click",
+                "wireless"
+            ],
+            "question": "My keyboard or mouse isn't working",
+            "content": "## Keyboard/Mouse Troubleshooting\n\n**Wired Devices:**\n1. Unplug and replug the USB cable\n2. Try a different USB port\n3. Restart your computer\n\n**Wireless Devices:**\n1. Check/replace the batteries\n2. Ensure the USB receiver is plugged in\n3. Turn the device off and on again\n4. Try re-pairing with the receiver\n\n**Bluetooth Devices:**\n1. Check Bluetooth is enabled on your PC\n2. Remove and re-pair the device\n3. Update Bluetooth drivers\n\n**Specific Issues:**\n- **Stuck keys:** Clean under the keys\n- **Cursor jumping:** Clean mouse sensor, use a mouse pad\n- **Double-clicking:** Adjust click speed in mouse settings",
+            "video": {
+                "url": "https://www.youtube.com/watch?v=9waseEDmUwg",
+                "title": "Wireless Peripherals - Battery & Bluetooth Issues",
+                "start": 497
+            },
+            "related": [
+                "it009"
+            ]
+        },
+        {
+            "id": "it011",
+            "title": "Laptop Battery Issues",
+            "category": "hardware",
+            "keywords": [
+                "battery",
+                "charging",
+                "not charging",
+                "battery life",
+                "power",
+                "laptop",
+                "drain"
+            ],
+            "question": "My laptop battery isn't charging or drains quickly",
+            "content": "## Battery Troubleshooting\n\n**Not Charging:**\n1. Check the power adapter is plugged in securely\n2. Try a different power outlet\n3. Inspect the charging cable for damage\n4. Remove and reseat the battery (if removable)\n\n**Battery Draining Fast:**\n1. Lower screen brightness\n2. Close unused applications\n3. Disable Bluetooth and WiFi when not needed\n4. Check **Settings > Battery** for power-hungry apps\n5. Enable Battery Saver mode\n\n**Battery Health:**\n- Batteries degrade over time (2-3 years typical)\n- If holding less than 50% capacity, may need replacement\n\n**Create a ticket** if you need a new battery or charger.",
+            "related": [
+                "it007"
+            ]
+        },
+        {
+            "id": "it012",
+            "title": "Webcam Not Working",
+            "category": "hardware",
+            "keywords": [
+                "webcam",
+                "camera",
+                "video",
+                "teams",
+                "zoom",
+                "meeting",
+                "can't see me"
+            ],
+            "question": "My webcam isn't working in video calls",
+            "content": "## Webcam Troubleshooting\n\n**Basic Checks:**\n1. Is the webcam covered? (Check privacy shutter)\n2. Is another app using the camera?\n3. Is the camera selected in your meeting app?\n\n**In Windows:**\n1. Go to **Settings > Privacy > Camera**\n2. Ensure **Camera access** is ON\n3. Allow desktop apps to access camera\n\n**In Your Meeting App:**\n1. Go to Settings > Video/Camera\n2. Select the correct camera device\n3. Check the preview to confirm it works\n\n**External Webcam:**\n1. Unplug and replug the USB cable\n2. Try a different USB port\n3. Check if drivers need updating\n\n**For laptops:** Your built-in camera may have a function key (F8 etc.) to enable/disable it.",
+            "related": [
+                "it013"
+            ]
+        },
+        {
+            "id": "it013",
+            "title": "Microphone or Audio Not Working",
+            "category": "hardware",
+            "keywords": [
+                "microphone",
+                "audio",
+                "sound",
+                "speakers",
+                "headphones",
+                "can't hear",
+                "muted",
+                "no sound"
+            ],
+            "question": "My audio or microphone isn't working",
+            "content": "## Audio Troubleshooting\n\n**No Sound Output:**\n1. Check volume isn't muted (click speaker icon)\n2. Verify correct output device is selected\n3. Test with different headphones/speakers\n4. Run Windows audio troubleshooter\n\n**Microphone Not Working:**\n1. Check if muted in the app and Windows\n2. Go to **Settings > Privacy > Microphone**\n3. Ensure microphone access is enabled\n4. Select correct input device in Sound settings\n\n**In Video Calls:**\n1. Check app settings for audio devices\n2. Leave and rejoin the meeting\n3. Try the web version of the app\n\n**Bluetooth Audio:**\n- Disconnect and reconnect\n- Remove the pairing and re-pair\n- Ensure device is in range",
+            "related": [
+                "it012",
+                "it010"
+            ]
+        },
+        {
+            "id": "it014",
+            "title": "USB Device Not Recognized",
+            "category": "hardware",
+            "keywords": [
+                "usb",
+                "flash drive",
+                "external drive",
+                "not recognized",
+                "device",
+                "plug",
+                "port"
+            ],
+            "question": "My USB device isn't being recognized",
+            "content": "## USB Device Troubleshooting\n\n**Quick Fixes:**\n1. Try a different USB port\n2. Try the device on another computer\n3. Restart your computer with the device plugged in\n\n**Check Device Manager:**\n1. Press **Windows + X** > Device Manager\n2. Look for yellow warning icons\n3. Right-click problematic device > **Update driver**\n4. Or try **Uninstall device** and replug\n\n**USB Hub Issues:**\n- Try connecting directly to the computer\n- Powered hubs work better for high-draw devices\n\n**External Hard Drives:**\n- May need external power\n- Check if disk appears in Disk Management\n- May need to be initialized or formatted\n\n**If the device works elsewhere,** your USB port may need repair.",
+            "related": [
+                "it010"
+            ]
+        },
+        {
+            "id": "it015",
+            "title": "Application Crashing or Freezing",
+            "category": "software",
+            "keywords": [
+                "crash",
+                "freeze",
+                "not responding",
+                "application",
+                "program",
+                "error",
+                "stopped working"
+            ],
+            "question": "An application keeps crashing or freezing",
+            "content": "## Application Crash Troubleshooting\n\n**If the App is Frozen:**\n1. Press **Ctrl + Alt + Delete** > Task Manager\n2. Select the frozen app\n3. Click **End Task**\n4. Reopen the application\n\n**Prevent Future Crashes:**\n1. **Update the application** to the latest version\n2. **Restart your computer** to clear memory\n3. **Check for Windows updates**\n4. **Disable conflicting add-ins/extensions**\n\n**If It Keeps Crashing:**\n1. Uninstall and reinstall the application\n2. Run as Administrator (right-click > Run as admin)\n3. Check for known issues on the app's support site\n4. Create a support ticket with the error message\n\n**Save your work frequently** to avoid losing data in crashes!",
+            "related": [
+                "it007",
+                "it006"
+            ]
+        },
+        {
+            "id": "it016",
+            "title": "Microsoft Office Issues",
+            "category": "software",
+            "keywords": [
+                "office",
+                "word",
+                "excel",
+                "powerpoint",
+                "outlook",
+                "teams",
+                "microsoft",
+                "365"
+            ],
+            "question": "Microsoft Office isn't working properly",
+            "content": "## Microsoft Office Troubleshooting\n\n**Office Not Opening:**\n1. Restart your computer\n2. Check for Office updates\n3. Run Office repair (see below)\n\n**Repair Office:**\n1. Go to **Settings > Apps > Installed apps**\n2. Find Microsoft 365\n3. Click **Modify** > **Quick Repair**\n4. If that doesn't work, try **Online Repair**\n\n**Activation Issues:**\n- Sign out and sign back in with your work email\n- Ensure you're connected to the internet\n- Contact IT if you see \"Product Deactivated\"\n\n**Specific Apps:**\n- **Outlook:** Recreate your profile if emails are stuck\n- **Excel:** Disable add-ins if formulas are slow\n- **Teams:** Clear cache in %appdata%\\Microsoft\\Teams",
+            "related": [
+                "it005",
+                "it015"
+            ]
+        },
+        {
+            "id": "it017",
+            "title": "Browser Issues",
+            "category": "software",
+            "keywords": [
+                "browser",
+                "chrome",
+                "edge",
+                "firefox",
+                "website",
+                "page not loading",
+                "slow",
+                "crash"
+            ],
+            "question": "My web browser isn't working properly",
+            "content": "## Browser Troubleshooting\n\n**Pages Not Loading:**\n1. Check your internet connection\n2. Try a different website\n3. Try a different browser\n4. Clear browser cache and cookies\n\n**Clear Cache (Chrome/Edge):**\n1. Press **Ctrl + Shift + Delete**\n2. Select **All time**\n3. Check Cookies and Cached images\n4. Click **Clear data**\n\n**Browser Running Slow:**\n1. Close unnecessary tabs\n2. Disable unused extensions\n3. Update the browser\n4. Reset browser settings to default\n\n**Website-Specific Issues:**\n- Try incognito/private mode\n- Disable ad blockers temporarily\n- Check if the site is down for everyone\n\n**Recommended browsers:** Chrome, Edge, Firefox",
+            "related": [
+                "it015",
+                "it007"
+            ]
+        },
+        {
+            "id": "it018",
+            "title": "Windows Update Issues",
+            "category": "software",
+            "keywords": [
+                "windows update",
+                "update",
+                "updating",
+                "stuck",
+                "failed",
+                "restart",
+                "pending"
+            ],
+            "question": "Windows Update isn't working or is stuck",
+            "content": "## Windows Update Troubleshooting\n\n**Update Stuck/Failed:**\n1. Restart your computer and try again\n2. Run Windows Update Troubleshooter:\n   - **Settings > System > Troubleshoot > Other Troubleshooters**\n   - Run **Windows Update**\n\n**Low Disk Space:**\n- Updates need 10+ GB free space\n- Run Disk Cleanup to free space\n- Empty Recycle Bin\n\n**Repeated Restart Loop:**\n1. Let it run - updates can take 30+ minutes\n2. If stuck over an hour, hold power to force off\n3. Boot in Safe Mode and try again\n\n**When to Update:**\n- Save all work before updating\n- Update at end of day\n- Plug in laptop before updating\n\n**Create a ticket** if updates repeatedly fail.",
+            "related": [
+                "it007",
+                "it015"
+            ]
+        },
+        {
+            "id": "it019",
+            "title": "WiFi Connection Issues",
+            "category": "network",
+            "keywords": [
+                "wifi",
+                "wireless",
+                "network",
+                "internet",
+                "connected no internet",
+                "can't connect",
+                "signal"
+            ],
+            "question": "I can't connect to WiFi or internet isn't working",
+            "content": "## WiFi Troubleshooting\n\n**No WiFi Networks Found:**\n1. Make sure WiFi is turned on (check Fn key)\n2. Toggle Airplane mode off\n3. Restart your computer\n4. Check if others can see the network\n\n**Connected But No Internet:**\n1. Try forgetting and reconnecting to the network\n2. Run Network troubleshooter\n3. Restart your router (if at home)\n4. Try a different network to isolate the issue\n\n**Slow WiFi:**\n1. Move closer to the router\n2. Reduce interference (microwaves, other devices)\n3. Connect to 5GHz network if available\n4. Try a wired connection for better speed\n\n**In the Office:**\n- Connect to the corporate network (not guest)\n- VPN may be required for some resources",
+            "related": [
+                "it002",
+                "it020"
+            ]
+        },
+        {
+            "id": "it020",
+            "title": "Network Drive or Shared Folder Issues",
+            "category": "network",
+            "keywords": [
+                "network drive",
+                "shared folder",
+                "map drive",
+                "can't access",
+                "file share",
+                "permission denied"
+            ],
+            "question": "I can't access a network drive or shared folder",
+            "content": "## Network Drive Troubleshooting\n\n**Can't Find the Drive:**\n1. Check you're connected to the network/VPN\n2. Open File Explorer and click **Network**\n3. Try mapping the drive manually:\n   - Right-click **This PC** > **Map network drive**\n   - Enter the path (e.g., \\\\\\server\\share)\n\n**Access Denied:**\n1. Verify you have permission to access the folder\n2. Try logging out and back into Windows\n3. Contact the folder owner to grant access\n\n**Drive Disappears After Restart:**\n1. When mapping, check **Reconnect at sign-in**\n2. Ensure you're on the same network\n3. Use Group Policy mapped drives if available\n\n**Slow File Access:**\n- Large files are slow over VPN\n- Consider syncing files locally with OneDrive",
+            "related": [
+                "it019",
+                "it002"
+            ]
+        },
+        {
+            "id": "it021",
+            "title": "Internet is Slow",
+            "category": "network",
+            "keywords": [
+                "slow internet",
+                "speed",
+                "bandwidth",
+                "buffering",
+                "loading",
+                "lag"
+            ],
+            "question": "Why is my internet so slow?",
+            "content": "## Slow Internet Troubleshooting\n\n**Test Your Speed:**\n1. Go to speedtest.net\n2. Run a test\n3. Compare to your expected speed\n\n**Quick Fixes:**\n1. Restart your router/modem (unplug 30 seconds)\n2. Connect via ethernet instead of WiFi\n3. Move closer to your WiFi router\n4. Close bandwidth-heavy applications\n\n**At Home:**\n- Check if others are streaming/downloading\n- Consider upgrading your internet plan\n- Position router centrally, away from walls\n\n**At Office:**\n- Connect to 5GHz WiFi if available\n- Avoid peak usage times\n- Report consistently slow speeds to IT\n\n**VPN Considerations:**\n- VPN typically reduces speed by 10-30%\n- Try a closer VPN server\n- Disconnect VPN for non-work browsing",
+            "video": {
+                "url": "https://www.youtube.com/watch?v=9waseEDmUwg",
+                "title": "Troubleshooting Slow Internet - IP & DNS Configurations",
+                "start": 195
+            },
+            "related": [
+                "it019",
+                "it002"
+            ]
+        },
+        {
+            "id": "it022",
+            "title": "Bluetooth Not Working",
+            "category": "network",
+            "keywords": [
+                "bluetooth",
+                "pair",
+                "connect",
+                "wireless",
+                "headphones",
+                "device"
+            ],
+            "question": "Bluetooth isn't working or won't pair",
+            "content": "## Bluetooth Troubleshooting\n\n**Enable Bluetooth:**\n1. Press **Windows + A** for Action Center\n2. Click **Bluetooth** to turn it on\n3. Or: Settings > Bluetooth & devices\n\n**Pairing a Device:**\n1. Put your device in pairing mode (check manual)\n2. Go to **Settings > Bluetooth & devices**\n3. Click **Add device** > **Bluetooth**\n4. Select your device from the list\n\n**Device Won't Connect:**\n1. Remove the device and re-pair it\n2. Restart both the device and computer\n3. Check device battery level\n4. Move devices closer together\n\n**No Bluetooth Option:**\n- Check if your PC has Bluetooth\n- Update Bluetooth drivers\n- Enable Bluetooth adapter in Device Manager\n\n**Audio devices:** Also check Windows sound settings for correct output.",
+            "related": [
+                "it013",
+                "it010"
+            ]
+        },
+        {
+            "id": "it023",
+            "title": "File Recovery - Deleted Files",
+            "category": "software",
+            "keywords": [
+                "deleted",
+                "recover",
+                "file",
+                "lost",
+                "restore",
+                "recycle bin",
+                "backup"
+            ],
+            "question": "I accidentally deleted an important file",
+            "content": "## File Recovery Options\n\n**Check Recycle Bin First:**\n1. Open **Recycle Bin** on desktop\n2. Find your file\n3. Right-click > **Restore**\n\n**OneDrive/SharePoint:**\n1. Go to OneDrive.com\n2. Click **Recycle bin** in the left panel\n3. Files kept for 93 days\n4. Select and click **Restore**\n\n**Previous Versions:**\n1. Right-click the folder where the file was\n2. Click **Properties** > **Previous Versions**\n3. Select a version before deletion\n4. Click **Restore**\n\n**Network Drives:**\n- IT maintains backups of shared drives\n- Create a ticket with file name and approximate date\n\n⚠️ **Act quickly!** The longer you wait, the harder recovery becomes.",
+            "video": {
+                "url": "https://www.youtube.com/watch?v=9waseEDmUwg",
+                "title": "File Restoration Techniques - Recycle Bin & Backup Recovery",
+                "start": 92
+            },
+            "related": [
+                "it020"
+            ]
+        },
+        {
+            "id": "it024",
+            "title": "How to Take a Screenshot",
+            "category": "software",
+            "keywords": [
+                "screenshot",
+                "screen capture",
+                "snip",
+                "print screen",
+                "save screen"
+            ],
+            "question": "How do I take a screenshot?",
+            "content": "## Screenshot Methods\n\n**Full Screen:**\n- Press **Print Screen (PrtSc)** key\n- Image is copied to clipboard\n- Paste with Ctrl+V into any app\n\n**Save to File:**\n- Press **Windows + Print Screen**\n- Saves to Pictures > Screenshots folder\n\n**Snipping Tool (Recommended):**\n- Press **Windows + Shift + S**\n- Select the area to capture\n- Opens in Snipping Tool for editing\n- Click **Copy** or **Save**\n\n**Active Window Only:**\n- Press **Alt + Print Screen**\n- Captures just the current window\n\n**Video Recording:**\n- Press **Windows + G** for Game Bar\n- Click record button\n- Great for capturing steps to reproduce issues",
+            "related": []
+        },
+        {
+            "id": "it025",
+            "title": "Docking Station Issues",
+            "category": "hardware",
+            "keywords": [
+                "dock",
+                "docking station",
+                "monitors not working",
+                "usb dock",
+                "laptop dock"
+            ],
+            "question": "My docking station isn't working properly",
+            "content": "## Docking Station Troubleshooting\n\n**No Display on Monitors:**\n1. Check all cable connections (dock to laptop, dock to monitors)\n2. Press **Windows + P** and select **Extend**\n3. Try connecting monitor directly to laptop\n\n**Dock Not Recognized:**\n1. Unplug dock from laptop and replug\n2. Try a different USB-C/Thunderbolt port\n3. Restart laptop while docked\n4. Update dock firmware (check manufacturer site)\n\n**Devices Not Working Through Dock:**\n1. USB ports may have limited power\n2. Try connecting devices directly to laptop\n3. Use powered USB hub for high-draw devices\n\n**Power Issues:**\n- Ensure dock's power adapter is connected\n- Some docks can't charge while powered off\n\n**Create a ticket** if you need dock drivers or firmware updates.",
+            "related": [
+                "it009",
+                "it014"
+            ]
+        },
+        {
+            "id": "it026",
+            "title": "Computer Won't Turn On",
+            "category": "hardware",
+            "keywords": [
+                "won't turn on",
+                "no power",
+                "dead",
+                "not starting",
+                "boot",
+                "black screen"
+            ],
+            "question": "My computer won't turn on at all",
+            "content": "## Computer Won't Start\n\n**Check Power:**\n1. Is it plugged in? (Check both ends)\n2. Try a different outlet\n3. Check power strip is on\n4. Try a different power cable if available\n\n**Laptop Specific:**\n1. Hold power button for 10 seconds\n2. Unplug charger, remove battery if possible\n3. Hold power 30 seconds to drain residual power\n4. Reconnect and try again\n\n**Signs of Life?**\n- **Fans spin but no display:** See monitor troubleshooting\n- **Beeping sounds:** Hardware issue - create ticket\n- **Lights flash then off:** Power supply issue\n\n**Desktop Computers:**\n- Check the power switch on the back\n- Ensure all internal cables are seated\n\n**Create an urgent ticket** if the computer contains critical work data.",
+            "video": {
+                "url": "https://www.youtube.com/watch?v=9waseEDmUwg",
+                "title": "Computer Won't Start - Basic Power & Reset Checks",
+                "start": 661
+            },
+            "related": [
+                "it009",
+                "it011"
+            ]
+        },
+        {
+            "id": "it027",
+            "title": "Blue Screen Error (BSOD)",
+            "category": "software",
+            "keywords": [
+                "blue screen",
+                "bsod",
+                "crash",
+                "system error",
+                "stop code",
+                "restart loop"
+            ],
+            "question": "I keep getting a blue screen error",
+            "content": "## Blue Screen (BSOD) Troubleshooting\n\n**When It Happens:**\n1. Note the **STOP code** if visible (e.g., KERNEL_DATA_INPAGE_ERROR)\n2. Let the computer restart normally\n3. If it works, continue using but monitor\n\n**Common Causes:**\n- Bad driver update\n- Hardware failure (RAM, hard drive)\n- Overheating\n- Windows corruption\n\n**If It Keeps Happening:**\n1. Update Windows and drivers\n2. Run **sfc /scannow** in Command Prompt (admin)\n3. Check for overheating (clean vents)\n4. Run memory diagnostic (Windows Memory Diagnostic)\n\n**In a Restart Loop:**\n1. Boot into Safe Mode (hold Shift during restart)\n2. Uninstall recent driver/software updates\n3. Run System Restore\n\n**Create a ticket** with the STOP code for assistance.",
+            "video": {
+                "url": "https://www.youtube.com/watch?v=9waseEDmUwg",
+                "title": "Blue Screen of Death (BSOD) - Causes & Troubleshooting",
+                "start": 592
+            },
+            "related": [
+                "it015",
+                "it026"
+            ]
+        },
+        {
+            "id": "it028",
+            "title": "OneDrive Sync Issues",
+            "category": "software",
+            "keywords": [
+                "onedrive",
+                "sync",
+                "cloud",
+                "files not syncing",
+                "pending",
+                "conflict"
+            ],
+            "question": "OneDrive isn't syncing my files",
+            "content": "## OneDrive Sync Troubleshooting\n\n**Check Sync Status:**\n1. Click OneDrive icon in system tray\n2. Look for sync status/errors\n3. Hover over files to see individual status\n\n**Common Fixes:**\n1. **Pause and resume sync** (right-click OneDrive icon)\n2. **Check internet connection**\n3. **Restart OneDrive** (Close and reopen from Start menu)\n4. **Check storage quota** (may be full)\n\n**Sync Conflicts:**\n- Files with conflicts show with your name appended\n- Review both versions and keep the correct one\n- Delete the duplicate\n\n**Files Stuck \"Pending\":**\n1. File name may contain invalid characters\n2. File path may be too long\n3. File may be open in another app\n\n**Reset OneDrive** (last resort):\n- Run: %localappdata%\\Microsoft\\OneDrive\\onedrive.exe /reset",
+            "related": [
+                "it023",
+                "it020"
+            ]
+        },
+        {
+            "id": "it029",
+            "title": "Request New Hardware",
+            "category": "hardware",
+            "keywords": [
+                "new computer",
+                "laptop request",
+                "hardware request",
+                "upgrade",
+                "replace"
+            ],
+            "question": "How do I request new hardware or a computer upgrade?",
+            "content": "## Hardware Request Process\n\n**Standard Equipment:**\n- Laptops, monitors, keyboards, mice\n- Request through IT ticketing system\n- Requires manager approval for items over $200\n\n**Create a Request:**\n1. Submit a support ticket\n2. Include:\n   - What you need\n   - Business justification\n   - Urgency level\n   - Your manager's name\n\n**Replacement Criteria:**\n- Computers are replaced every 3-4 years\n- Or if repair cost exceeds 50% of replacement\n- Performance issues affecting productivity\n\n**Timeline:**\n- Standard requests: 1-2 weeks\n- Urgent requests: 3-5 business days\n- New hire equipment: Ordered upon HR notification\n\n**Note:** All company equipment remains property of the company and must be returned upon departure.",
+            "related": [
+                "it026",
+                "it011"
+            ]
+        },
+        {
+            "id": "it030",
+            "title": "Security Alert - Phishing or Suspicious Email",
+            "category": "security",
+            "keywords": [
+                "phishing",
+                "suspicious",
+                "scam",
+                "virus",
+                "malware",
+                "hacked",
+                "spam",
+                "fake email"
+            ],
+            "question": "I received a suspicious email or think I've been phished",
+            "content": "## Handling Suspicious Emails\n\n**Signs of Phishing:**\n- Unexpected sender or \"from\" address doesn't match\n- Urgent language (\"Act now!\" \"Account suspended!\")\n- Requests for passwords or personal info\n- Suspicious links (hover to check URL)\n- Spelling/grammar errors\n\n**If You Haven't Clicked:**\n1. **Don't click any links or attachments**\n2. Report it: Click **Report** in your email client\n3. Delete the email\n4. Block the sender if spam\n\n**If You Clicked a Link or Entered Credentials:**\n1. **Immediately change your password**\n2. Enable 2FA if not already on\n3. Report to IT Security immediately\n4. Monitor your accounts for suspicious activity\n\n**When in Doubt:**\n- Forward suspicious emails to security@company.com\n- Call IT to verify legitimacy\n- Never share passwords via email",
+            "video": {
+                "url": "https://www.youtube.com/watch?v=9waseEDmUwg",
+                "title": "Malware Handling - Network Isolation & Safe Removal",
+                "start": 427
+            },
+            "related": [
+                "it001",
+                "it008"
+            ]
+        },
+        {
+            "id": "it031",
+            "title": "Computer Overheating",
+            "category": "hardware",
+            "keywords": [
+                "overheating",
+                "hot",
+                "fans loud",
+                "thermal",
+                "temperature",
+                "shut down",
+                "heat"
+            ],
+            "question": "My computer is overheating or fans are very loud",
+            "content": "## Overheating Troubleshooting\n\n**Signs of Overheating:**\n- Fans running constantly at high speed\n- Computer feels hot to touch\n- Sudden shutdowns or performance slowdown\n\n**Quick Fixes:**\n1. **Ensure proper ventilation** - Don't block air vents\n2. **Clean dust buildup** - Use compressed air on vents\n3. **Use on hard surface** - Not on beds or carpets\n4. **Use a laptop cooling pad**\n\n**Check Running Processes:**\n1. Open Task Manager (Ctrl+Shift+Esc)\n2. Check CPU/GPU usage\n3. End unnecessary high-usage processes\n\n**Environmental Factors:**\n- Keep room temperature reasonable\n- Avoid direct sunlight on computer\n- Ensure adequate desk space around computer\n\n**If overheating persists**, thermal paste may need replacement - create a ticket.",
+            "related": [
+                "it007",
+                "it027"
+            ]
+        },
+        {
+            "id": "it032",
+            "title": "Low Disk Space",
+            "category": "software",
+            "keywords": [
+                "disk full",
+                "storage",
+                "space",
+                "low disk",
+                "c drive full",
+                "hard drive full"
+            ],
+            "question": "I'm getting low disk space warnings",
+            "content": "## Freeing Up Disk Space\n\n**Check Current Usage:**\n1. Go to **Settings > System > Storage**\n2. See what's using space\n\n**Quick Cleanup:**\n1. **Empty Recycle Bin** - Right-click > Empty\n2. **Run Disk Cleanup** - Search \"Disk Cleanup\" in Start\n3. **Clear Downloads folder** - Delete old files\n4. **Clear browser cache** - Can recover several GB\n\n**OneDrive Files On-Demand:**\n1. Right-click OneDrive files > **Free up space**\n2. Files remain accessible but stored in cloud\n\n**Uninstall Unused Programs:**\n- Go to **Settings > Apps > Installed apps**\n- Remove programs you don't use\n\n**Move Large Files:**\n- Move videos/photos to external drive or cloud\n- Archive old projects\n\n**Recommended:** Keep at least 10-15GB free for Windows updates.",
+            "related": [
+                "it028",
+                "it018"
+            ]
+        },
+        {
+            "id": "it033",
+            "title": "Scanner Not Working",
+            "category": "hardware",
+            "keywords": [
+                "scanner",
+                "scan",
+                "scanning",
+                "can't scan",
+                "document scanner"
+            ],
+            "question": "My scanner isn't working",
+            "content": "## Scanner Troubleshooting\n\n**Basic Checks:**\n1. Is the scanner powered on?\n2. Is it connected (USB or network)?\n3. Is the glass/feeder clear of obstructions?\n\n**Software Setup:**\n1. Open **Windows Fax and Scan** or manufacturer software\n2. Select correct scanner device\n3. Try scanning a test document\n\n**If Not Detected:**\n1. Unplug and replug USB cable\n2. Try a different USB port\n3. Check Device Manager for issues\n4. Reinstall scanner drivers\n\n**Network Scanners:**\n- Ensure you're on the same network\n- Check scanner IP address hasn't changed\n- Re-add scanner using IP address\n\n**Quality Issues:**\n- Clean scanner glass with soft cloth\n- Adjust resolution settings\n- Check original document quality",
+            "related": [
+                "it004",
+                "it014"
+            ]
+        },
+        {
+            "id": "it034",
+            "title": "Projector Not Displaying",
+            "category": "hardware",
+            "keywords": [
+                "projector",
+                "presentation",
+                "display",
+                "no signal",
+                "meeting room"
+            ],
+            "question": "The projector isn't showing my screen",
+            "content": "## Projector Troubleshooting\n\n**Quick Fixes:**\n1. Press **Windows + P** > Select **Duplicate** or **Extend**\n2. Check cable connection at both ends\n3. Ensure projector is on correct input source\n\n**Common Issues:**\n1. **Wrong input selected** - Use projector remote to cycle inputs\n2. **Cable not seated** - Disconnect and reconnect firmly\n3. **Resolution mismatch** - Lower your display resolution\n\n**If Using HDMI:**\n- Try a different HDMI cable\n- Check if adapter is needed (USB-C to HDMI)\n- Some laptops need Thunderbolt adapter\n\n**If Using Wireless:**\n- Connect to meeting room WiFi\n- Use screen sharing feature\n- Check if firewall is blocking\n\n**For Presentations:**\n- Test connection before meeting starts\n- Have backup plan (share screen via Teams/Zoom)",
+            "related": [
+                "it009",
+                "it025"
+            ]
+        },
+        {
+            "id": "it035",
+            "title": "Slow VPN Connection",
+            "category": "network",
+            "keywords": [
+                "vpn slow",
+                "vpn speed",
+                "remote slow",
+                "work from home slow"
+            ],
+            "question": "My VPN connection is very slow",
+            "content": "## Improving VPN Speed\n\n**Understanding VPN Speed:**\n- VPN typically reduces speed by 10-30%\n- Encryption adds overhead\n- Distance to server matters\n\n**Quick Fixes:**\n1. **Try a different VPN server** - Choose geographically closer\n2. **Restart VPN client** - Reconnect fresh\n3. **Check base internet speed** - Test without VPN first\n\n**Optimize Your Connection:**\n1. Use wired ethernet instead of WiFi\n2. Close bandwidth-heavy apps (streaming, downloads)\n3. Disconnect other devices from your network\n\n**Split Tunneling:**\n- If available, route only work traffic through VPN\n- Personal browsing goes direct\n- Ask IT if this option exists\n\n**Peak Usage:**\n- Try off-peak hours if possible\n- Early morning often faster than mid-day\n\n**Create a ticket** if speed is consistently unusable.",
+            "related": [
+                "it002",
+                "it021"
+            ]
+        },
+        {
+            "id": "it036",
+            "title": "Printing Format Issues",
+            "category": "hardware",
+            "keywords": [
+                "print format",
+                "print size",
+                "wrong size",
+                "paper size",
+                "margins"
+            ],
+            "question": "My documents are printing in the wrong format or size",
+            "content": "## Print Format Troubleshooting\n\n**Check Paper Size:**\n1. Go to **File > Print > Properties**\n2. Verify paper size matches loaded paper\n3. Common sizes: Letter (8.5x11), A4, Legal\n\n**Wrong Margins:**\n1. Check document's page setup\n2. Adjust margins in print settings\n3. Use \"Fit to Page\" option if available\n\n**Color vs Black and White:**\n- Check print settings for color option\n- Some printers default to grayscale\n- May need to select correct printer\n\n**Scaling Issues:**\n1. Look for \"Scale\" or \"Fit\" options\n2. Set to 100% for actual size\n3. Use \"Actual Size\" not \"Shrink to Fit\"\n\n**Printer Tray Settings:**\n- Correct tray may not be selected\n- Check tray contains correct paper size\n- Some printers have manual feed option",
+            "related": [
+                "it004"
+            ]
+        },
+        {
+            "id": "it037",
+            "title": "Software Won't Run or Start",
+            "category": "software",
+            "keywords": [
+                "won't run",
+                "won't start",
+                "application won't open",
+                "program won't launch",
+                "nothing happens"
+            ],
+            "question": "A software application won't start or run",
+            "content": "## Application Won't Start\n\n**Basic Fixes:**\n1. **Restart your computer** - Clears memory issues\n2. **Run as Administrator** - Right-click > Run as admin\n3. **Check if already running** - Look in Task Manager\n\n**Compatibility Issues:**\n1. Right-click app > Properties > Compatibility\n2. Try compatibility mode for older Windows\n3. Check if 32-bit app needs 32-bit mode\n\n**Reinstall Application:**\n1. Uninstall completely from Settings > Apps\n2. Restart computer\n3. Download fresh installer\n4. Reinstall with admin rights\n\n**Check Dependencies:**\n- Some apps need .NET Framework\n- Some need Visual C++ Redistributables\n- Install required components\n\n**If Recently Updated:**\n- Recent update may have broken the app\n- Check for further updates or patches\n- Roll back to previous version if available",
+            "related": [
+                "it015",
+                "it006"
+            ]
+        },
+        {
+            "id": "it038",
+            "title": "Lost or Stolen Device",
+            "category": "security",
+            "keywords": [
+                "lost laptop",
+                "stolen",
+                "missing device",
+                "lost phone",
+                "theft"
+            ],
+            "question": "My laptop or device has been lost or stolen",
+            "content": "## Lost/Stolen Device Procedure\n\n⚠️ **Act Immediately!**\n\n**Step 1: Report to IT**\n1. Call IT Security hotline immediately\n2. Provide device serial number if known\n3. Note last known location and time\n\n**Step 2: Change Passwords**\n1. Change your main account password\n2. Change any passwords stored on device\n3. Enable 2FA on all accounts\n\n**Step 3: Remote Actions (IT Will Help)**\n- Locate device if online\n- Remote lock the device\n- Remote wipe if necessary\n\n**Step 4: Report Theft**\n- File police report if stolen\n- Provide report number to IT\n- Check if visible on \"Find My Device\"\n\n**Prevention Tips:**\n- Never leave devices unattended\n- Use strong lock screen PIN\n- Enable encryption\n- Don't store passwords in browser on shared devices",
+            "related": [
+                "it030",
+                "it001"
+            ]
+        },
+        {
+            "id": "it039",
+            "title": "Remote Desktop Connection Issues",
+            "category": "network",
+            "keywords": [
+                "remote desktop",
+                "rdp",
+                "can't connect",
+                "remote access",
+                "work computer"
+            ],
+            "question": "I can't connect to remote desktop",
+            "content": "## Remote Desktop Troubleshooting\n\n**Prerequisites:**\n- VPN must be connected first\n- Target computer must be powered on\n- Remote Desktop must be enabled on target\n\n**Connection Steps:**\n1. Connect to VPN\n2. Open **Remote Desktop Connection**\n3. Enter computer name or IP address\n4. Enter your credentials\n\n**Common Issues:**\n\n**Can't Find Computer:**\n- Verify computer name is correct\n- Try IP address instead of name\n- Check with IT for correct address\n\n**Connection Refused:**\n- Target PC may be off or sleeping\n- Firewall may be blocking\n- Another user may be logged in\n\n**Slow Performance:**\n- Lower display quality in RDP settings\n- Disable visual effects\n- Use faster VPN server",
+            "related": [
+                "it002",
+                "it035"
+            ]
+        },
+        {
+            "id": "it040",
+            "title": "Windows Taskbar Not Responding",
+            "category": "software",
+            "keywords": [
+                "taskbar",
+                "start menu",
+                "frozen",
+                "not responding",
+                "windows taskbar"
+            ],
+            "question": "The Windows taskbar or Start menu isn't responding",
+            "content": "## Taskbar Troubleshooting\n\n**Quick Fix - Restart Explorer:**\n1. Press **Ctrl + Shift + Esc** to open Task Manager\n2. Find **Windows Explorer** in the list\n3. Right-click > **Restart**\n\n**If Task Manager Won't Open:**\n1. Press **Ctrl + Alt + Delete**\n2. Select Task Manager from menu\n\n**Clear Taskbar Cache:**\n1. Open File Explorer\n2. Navigate to: %LocalAppData%\\Packages\\Microsoft.Windows.ShellExperienceHost_cw5n1h2txyewy\\TempState\n3. Delete contents\n4. Restart computer\n\n**System File Check:**\n1. Open Command Prompt as Admin\n2. Run: **sfc /scannow**\n3. Let it complete and restart\n\n**If Problem Persists:**\n- Check for Windows updates\n- Create new user profile (test)\n- May need system restore",
+            "related": [
+                "it018",
+                "it027"
+            ]
+        },
+        {
+            "id": "it041",
+            "title": "Microsoft Store Not Working",
+            "category": "software",
+            "keywords": [
+                "microsoft store",
+                "windows store",
+                "app store",
+                "can't download",
+                "store not working"
+            ],
+            "question": "The Microsoft Store won't open or download apps",
+            "content": "## Microsoft Store Troubleshooting\n\n**Reset Store Cache:**\n1. Press **Windows + R**\n2. Type **wsreset.exe** and press Enter\n3. Wait for Store to open\n\n**Run Store Troubleshooter:**\n1. Go to **Settings > System > Troubleshoot**\n2. Select **Other troubleshooters**\n3. Run **Windows Store Apps**\n\n**Check Account:**\n1. Open Store > Click profile icon\n2. Sign out and sign back in\n3. Ensure using correct account\n\n**Downloads Stuck:**\n1. Cancel pending downloads\n2. Go to Downloads queue\n3. Clear and retry\n\n**Re-register Store:**\n1. Open PowerShell as Admin\n2. Run: **Get-AppXPackage *WindowsStore* | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"}**\n\n**Note:** Some company policies may restrict Store downloads.",
+            "related": [
+                "it018",
+                "it006"
+            ]
+        },
+        {
+            "id": "it042",
+            "title": "Sleep Mode Issues",
+            "category": "software",
+            "keywords": [
+                "sleep",
+                "hibernate",
+                "won't sleep",
+                "won't wake",
+                "power",
+                "standby"
+            ],
+            "question": "My computer won't go to sleep or won't wake up",
+            "content": "## Sleep Mode Troubleshooting\n\n**Won't Enter Sleep:**\n1. Check **Settings > System > Power & battery**\n2. Verify sleep timer is set\n3. Check what's preventing sleep:\n   - Open Command Prompt as Admin\n   - Run: **powercfg /requests**\n\n**Common Blockers:**\n- Media players running\n- Downloads in progress\n- Scheduled tasks\n- Peripheral devices (mouse sensitivity)\n\n**Won't Wake Up:**\n1. Try pressing any key or moving mouse\n2. Press power button briefly (not hold)\n3. Check if keyboard can wake PC:\n   - Device Manager > Keyboards > Properties\n   - Power Management > Allow to wake\n\n**Black Screen After Wake:**\n1. Update graphics drivers\n2. Disable Fast Startup\n3. Check monitor cable connection\n\n**Disable Problematic Settings:**\n- Settings > Power > Disable hybrid sleep\n- May need to disable Fast Startup",
+            "related": [
+                "it026",
+                "it009"
+            ]
+        },
+        {
+            "id": "it043",
+            "title": "Ethernet Cable Not Working",
+            "category": "network",
+            "keywords": [
+                "ethernet",
+                "wired",
+                "cable",
+                "no connection",
+                "lan",
+                "network cable"
+            ],
+            "question": "My ethernet cable isn't working",
+            "content": "## Ethernet Troubleshooting\n\n**Check Physical Connection:**\n1. Ensure cable clicks into port on both ends\n2. Check for damaged cable ends\n3. Look for link lights on port and router\n\n**Try Different Cable:**\n- Cables can fail internally\n- Try a known working cable\n- Cat5e or Cat6 recommended\n\n**Try Different Port:**\n- Router/switch port may be dead\n- Try another port on the router\n- Try different port on PC if available\n\n**Reset Network Adapter:**\n1. Open Settings > Network & internet\n2. Click Advanced network settings\n3. Network reset > Reset now\n\n**Update/Reinstall Driver:**\n1. Open Device Manager\n2. Find Network adapters\n3. Right-click ethernet adapter > Update driver\n4. Or Uninstall and restart PC\n\n**Check for IP Address:**\n- Open Command Prompt\n- Run: **ipconfig**\n- Should show IP like 192.168.x.x",
+            "related": [
+                "it019",
+                "it021"
+            ]
+        },
+        {
+            "id": "it044",
+            "title": "Pop-ups and Adware",
+            "category": "security",
+            "keywords": [
+                "pop-ups",
+                "ads",
+                "adware",
+                "unwanted ads",
+                "browser hijacker",
+                "redirect"
+            ],
+            "question": "I'm getting unwanted pop-ups or ads everywhere",
+            "content": "## Removing Pop-ups and Adware\n\n**Browser Extensions:**\n1. Open browser settings > Extensions\n2. Remove any you don't recognize\n3. Remove recently installed extensions\n\n**Reset Browser:**\n- **Chrome:** Settings > Reset settings > Restore to defaults\n- **Edge:** Settings > Reset settings > Restore to defaults\n- **Firefox:** Help > More troubleshooting > Refresh Firefox\n\n**Check Installed Programs:**\n1. Go to Settings > Apps > Installed apps\n2. Sort by install date\n3. Remove suspicious or unfamiliar programs\n\n**Run Malware Scan:**\n1. Use Windows Security scan\n2. Download Malwarebytes (free) for second opinion\n3. Run full system scan\n\n**Check Browser Homepage:**\n- Ensure it's set to what you want\n- Check default search engine\n\n**Prevention:**\n- Use ad blocker extension (uBlock Origin)\n- Be careful what you download\n- Don't click suspicious ads",
+            "related": [
+                "it030",
+                "it017"
+            ]
+        },
+        {
+            "id": "it045",
+            "title": "Ransomware Attack",
+            "category": "security",
+            "keywords": [
+                "ransomware",
+                "encrypted files",
+                "locked files",
+                "pay ransom",
+                "files encrypted"
+            ],
+            "question": "My files are encrypted and I'm being asked to pay",
+            "content": "## Ransomware Response\n\n⚠️ **CRITICAL - ACT IMMEDIATELY**\n\n**Step 1: STOP**\n1. **DO NOT PAY THE RANSOM**\n2. Disconnect from network (unplug ethernet, disable WiFi)\n3. Do not turn off the computer yet\n\n**Step 2: Report to IT**\n1. Call IT Security hotline immediately\n2. Report incident to your manager\n3. Take photos of ransom message\n\n**Step 3: Contain Spread**\n- Disconnect any shared drives\n- Warn colleagues not to open suspicious emails\n- IT will isolate affected systems\n\n**What IT Will Do:**\n- Investigate infection source\n- Check backup availability\n- Attempt decryption if possible\n- Restore from clean backups\n\n**Recovery:**\n- Restore files from latest backup\n- Some ransomware has free decryption tools\n- Check NoMoreRansom.org for decryptors\n\n**Prevention:** Regular backups, email vigilance, keep software updated.",
+            "related": [
+                "it030",
+                "it008"
+            ]
+        },
+        {
+            "id": "it046",
+            "title": "Antivirus Issues",
+            "category": "security",
+            "keywords": [
+                "antivirus",
+                "windows defender",
+                "protection",
+                "security",
+                "virus scan"
+            ],
+            "question": "My antivirus isn't working or updating",
+            "content": "## Antivirus Troubleshooting\n\n**Check Windows Security:**\n1. Open Windows Security from Start menu\n2. Check all sections show green checkmarks\n3. If yellow/red, click to see issue\n\n**Manually Update Definitions:**\n1. Open Windows Security\n2. Virus & threat protection\n3. Click Protection updates > Check for updates\n\n**If Won't Update:**\n1. Check internet connection\n2. Run Windows Update first\n3. Restart computer and try again\n\n**Real-Time Protection Off:**\n1. May be disabled by group policy (normal in enterprise)\n2. If you can enable it, do so\n3. Contact IT if you can't enable and it should be on\n\n**Scanning Issues:**\n- Full scan takes hours - schedule overnight\n- Quick scan for immediate checks\n- Exclude false positives in settings\n\n**Multiple AV Problem:**\n- Don't install multiple antivirus programs\n- They conflict and slow the system\n- Use Windows Security + one other at most",
+            "related": [
+                "it030",
+                "it044"
+            ]
+        },
+        {
+            "id": "it047",
+            "title": "Too Many Startup Programs",
+            "category": "software",
+            "keywords": [
+                "startup",
+                "boot slow",
+                "programs starting",
+                "too many programs",
+                "startup apps"
+            ],
+            "question": "Too many programs start when I turn on my computer",
+            "content": "## Managing Startup Programs\n\n**Disable Startup Apps:**\n1. Right-click taskbar > Task Manager\n2. Go to **Startup apps** tab\n3. Right-click unnecessary apps > **Disable**\n\n**What to Disable:**\n- Third-party updaters (Adobe, Java)\n- Rarely used programs\n- Programs you can open manually\n- Toolbars and utilities\n\n**What to Keep Enabled:**\n- Security software (antivirus)\n- VPN if always needed\n- Cloud sync (OneDrive) if you use it\n- Essential work applications\n\n**Check Impact:**\n- Task Manager shows startup impact\n- Focus on \"High\" impact items\n- \"Low\" impact items less important\n\n**Hidden Startup Items:**\n1. Open Settings > Apps > Startup\n2. Review all items\n3. Toggle off what's not needed\n\n**Result:** Faster boot times and improved performance.",
+            "related": [
+                "it007",
+                "it032"
+            ]
+        },
+        {
+            "id": "it048",
+            "title": "Windows Activation Issues",
+            "category": "software",
+            "keywords": [
+                "activation",
+                "activate windows",
+                "product key",
+                "license",
+                "not activated"
+            ],
+            "question": "Windows says it's not activated",
+            "content": "## Windows Activation\n\n**Check Activation Status:**\n1. Go to Settings > System > Activation\n2. See current activation status\n\n**Common Messages:**\n- **\"Activate Windows\"** watermark on desktop\n- **\"Windows not activated\"** in settings\n\n**For Company Computers:**\n- Contact IT - this should be automatic\n- May need to connect to company network\n- VPN connection may trigger activation\n\n**Run Activation Troubleshooter:**\n1. Settings > System > Activation\n2. Click Troubleshoot\n3. Follow prompts\n\n**After Hardware Change:**\n- Activation may deactivate after major hardware changes\n- Use digital license linked to Microsoft account\n- Contact IT for re-activation\n\n⚠️ **Never use third-party activation tools** - they contain malware.\n\n**Legitimate Activation:**\n- Company handles all licensing\n- Create ticket if activation fails",
+            "related": [
+                "it018"
+            ]
+        },
+        {
+            "id": "it049",
+            "title": "Firewall Blocking Application",
+            "category": "security",
+            "keywords": [
+                "firewall",
+                "blocked",
+                "can't connect",
+                "access denied",
+                "network blocked"
+            ],
+            "question": "The firewall is blocking an application I need",
+            "content": "## Firewall Configuration\n\n**Check if Firewall is Blocking:**\n1. Try disabling firewall temporarily (test only)\n2. If app works, firewall is the issue\n3. Re-enable firewall immediately\n\n**Allow an App Through Firewall:**\n1. Open Windows Security\n2. Firewall & network protection\n3. Allow an app through firewall\n4. Click Change settings\n5. Find app or click \"Allow another app\"\n6. Add the application\n\n**For Specific Ports:**\n1. Open Windows Defender Firewall with Advanced Security\n2. Inbound Rules > New Rule\n3. Select Port\n4. Enter port number\n5. Allow connection\n\n⚠️ **Company Restrictions:**\n- IT may manage firewall centrally\n- Some apps may be blocked by policy\n- Create a ticket if you need access\n\n**Don't disable firewall permanently** - it protects your computer.",
+            "related": [
+                "it002",
+                "it020"
+            ]
+        },
+        {
+            "id": "it050",
+            "title": "Mobile Data Not Working",
+            "category": "mobile",
+            "keywords": [
+                "mobile data",
+                "cellular",
+                "no data",
+                "4g",
+                "5g",
+                "lte",
+                "phone internet"
+            ],
+            "question": "My phone's mobile data isn't working",
+            "content": "## Mobile Data Troubleshooting\n\n**Quick Checks:**\n1. Is mobile data turned on? Check quick settings\n2. Is Airplane mode off?\n3. Do you have signal bars?\n\n**Toggle Data:**\n1. Turn off mobile data\n2. Wait 10 seconds\n3. Turn it back on\n\n**Restart Phone:**\n- Turn phone off completely\n- Wait 30 seconds\n- Turn back on\n\n**Check APN Settings:**\n- Settings > Mobile Network > Access Point Names\n- Select your carrier's default APN\n- Reset to default if unsure\n\n**SIM Card Issues:**\n1. Turn off phone\n2. Remove and reinsert SIM card\n3. Ensure SIM is seated properly\n4. Turn phone back on\n\n**Account Issues:**\n- Check if data plan is active\n- Contact carrier if data limit reached\n- Roaming may need to be enabled abroad\n\n**For Work Phones:** Contact IT for carrier issues.",
+            "related": [
+                "it019"
+            ]
+        },
+        {
+            "id": "it051",
+            "title": "App Won't Install on Phone",
+            "category": "mobile",
+            "keywords": [
+                "app install",
+                "can't install",
+                "download failed",
+                "app store",
+                "play store"
+            ],
+            "question": "I can't install an app on my phone",
+            "content": "## App Installation Issues\n\n**Check Storage Space:**\n- Go to Settings > Storage\n- Clear space if low\n- Delete old apps, photos, cache\n\n**Check Internet Connection:**\n- Try WiFi instead of mobile data\n- Download may need strong connection\n- Large apps need WiFi often\n\n**App Store Issues:**\n\n**Android (Play Store):**\n1. Clear Play Store cache\n2. Settings > Apps > Play Store > Clear cache\n3. Force stop and reopen\n\n**iPhone (App Store):**\n1. Sign out and back into App Store\n2. Settings > [Your name] > Sign out\n3. Restart phone\n\n**Update Pending:**\n- Install pending updates first\n- Some apps need latest OS version\n\n**Work Phone Restrictions:**\n- MDM may block certain apps\n- Only approved apps may be installable\n- Contact IT for app requests",
+            "related": [
+                "it050",
+                "it032"
+            ]
+        },
+        {
+            "id": "it052",
+            "title": "Smartphone Battery Draining Fast",
+            "category": "mobile",
+            "keywords": [
+                "phone battery",
+                "battery drain",
+                "phone dying",
+                "battery life",
+                "power saving"
+            ],
+            "question": "My smartphone battery is draining too quickly",
+            "content": "## Phone Battery Optimization\n\n**Quick Fixes:**\n1. Lower screen brightness\n2. Turn off WiFi/Bluetooth when not needed\n3. Close background apps\n4. Enable battery saver mode\n\n**Check Battery Usage:**\n- Settings > Battery > Battery usage\n- See which apps drain most\n- Restrict or uninstall battery hogs\n\n**Location Services:**\n- Turn off location for apps that don't need it\n- Use \"While using\" instead of \"Always\"\n\n**Push Notifications:**\n- Reduce notification frequency\n- Disable for non-essential apps\n\n**Screen Settings:**\n- Lower screen timeout\n- Use dark mode (OLED screens)\n- Disable always-on display\n\n**App Background Refresh:**\n- Disable for apps that don't need it\n- Settings > Apps > Background restrictions\n\n**Battery Health:**\n- Batteries degrade over time\n- After 2 years, capacity drops significantly\n- Consider battery replacement",
+            "related": [
+                "it011"
+            ]
+        },
+        {
+            "id": "it053",
+            "title": "Microsoft Teams Issues",
+            "category": "software",
+            "keywords": [
+                "teams",
+                "teams not working",
+                "video call",
+                "teams crash",
+                "can't join meeting"
+            ],
+            "question": "Microsoft Teams isn't working properly",
+            "content": "## Microsoft Teams Troubleshooting\n\n**Teams Not Opening:**\n1. Close Teams completely from system tray\n2. Clear Teams cache:\n   - Close Teams\n   - Delete: %appdata%\\Microsoft\\Teams\\Cache\n   - Restart Teams\n\n**Can't Join Meetings:**\n1. Check internet connection\n2. Try joining via web browser instead\n3. Sign out and back into Teams\n\n**Audio/Video Issues:**\n1. Check device settings in Teams\n2. Settings > Devices\n3. Test microphone and camera\n4. Check Windows privacy settings\n\n**Screen Sharing Not Working:**\n1. Close and rejoin meeting\n2. Check if presenter rights granted\n3. Try sharing specific window vs full screen\n\n**Teams Running Slow:**\n1. Clear cache as above\n2. Disable GPU hardware acceleration\n3. Update to latest version\n\n**For Persistent Issues:**\n- Uninstall and reinstall Teams\n- Try Teams web at teams.microsoft.com\n- Create a support ticket",
+            "related": [
+                "it012",
+                "it013",
+                "it016"
+            ]
+        },
+        {
+            "id": "it054",
+            "title": "Zoom Meeting Issues",
+            "category": "software",
+            "keywords": [
+                "zoom",
+                "zoom not working",
+                "can't join zoom",
+                "zoom audio",
+                "zoom video"
+            ],
+            "question": "I'm having problems with Zoom meetings",
+            "content": "## Zoom Troubleshooting\n\n**Can't Join Meeting:**\n1. Check meeting ID and password\n2. Update Zoom to latest version\n3. Try joining via web browser\n4. Check if host has started the meeting\n\n**Audio Not Working:**\n1. Click Audio settings in meeting\n2. Test speaker and microphone\n3. Select correct devices\n4. Join with Computer Audio (not Phone Call)\n\n**Video Not Working:**\n1. Click Video settings\n2. Check camera is selected\n3. Ensure Zoom has camera permission\n4. Check if camera shutter is closed\n\n**Screen Sharing Issues:**\n1. Host must enable screen sharing for participants\n2. Try Share Screen > Advanced > Portion of Screen\n3. Close other apps to reduce load\n\n**Connection Problems:**\n1. Test internet speed\n2. Disable virtual backgrounds if slow\n3. Close other bandwidth-heavy apps\n4. Try audio only if video lags\n\n**For Company Zoom:** Contact IT for account issues.",
+            "related": [
+                "it012",
+                "it013"
+            ]
+        },
+        {
+            "id": "it055",
+            "title": "Slow Boot Time",
+            "category": "software",
+            "keywords": [
+                "slow boot",
+                "startup slow",
+                "takes long to start",
+                "boot time"
+            ],
+            "question": "My computer takes a long time to start up",
+            "content": "## Improving Boot Time\n\n**Reduce Startup Programs:**\n1. Task Manager > Startup apps\n2. Disable unnecessary programs\n3. Focus on high-impact items\n\n**Enable Fast Startup:**\n1. Control Panel > Power Options\n2. Choose what power buttons do\n3. Change settings currently unavailable\n4. Check \"Turn on fast startup\"\n\n**Check for Malware:**\n- Run full antivirus scan\n- Malware can slow startup significantly\n\n**Disk Health:**\n1. Open Command Prompt as Admin\n2. Run: **chkdsk C: /f**\n3. Restart to run disk check\n4. Consider SSD upgrade if using HDD\n\n**Windows Updates:**\n- Updates may run at startup\n- Let updates complete\n- Restart multiple times if needed\n\n**BIOS Settings:**\n- Disable unused boot devices\n- Enable SSD optimization\n- Contact IT for BIOS changes\n\n**If Very Slow:** May need system refresh or reimaging - create ticket.",
+            "related": [
+                "it007",
+                "it047"
+            ]
+        }
+    ]
+}

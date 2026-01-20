@@ -1,0 +1,45 @@
+# Finance Department Configuration
+name: "Finance Support"
+greeting: "Hello! This is Finance Support. How can I assist you with financial matters today?"
+
+# Ticket Types
+ticket_types:
+  - "Expense Report"
+  - "Invoice Inquiry"
+  - "Budget Request"
+  - "Payment Issue"
+  - "Financial Report"
+  - "Other Finance Matter"
+
+# Priority Levels
+priorities:
+  - name: "Urgent"
+    description: "Critical financial issue requiring immediate attention"
+  - name: "High"
+    description: "Time-sensitive financial matter"
+  - name: "Normal"
+    description: "Standard finance inquiry"
+  - name: "Low"
+    description: "General financial information"
+
+# Response Templates
+responses:
+  create_ticket: "I've created a finance support ticket for you. Our finance team will review your request."
+  check_status: "Let me check the status of your finance request."
+  escalation: "Your request has been escalated to the finance manager."
+  closing: "Thank you for contacting the Finance department."
+
+# Custom Fields
+custom_fields:
+  - name: "cost_center"
+    type: "text"
+    prompt: "Please provide the cost center number:"
+    required: true
+  - name: "amount"
+    type: "number"
+    prompt: "What is the amount in question?"
+    required: false
+  - name: "document_reference"
+    type: "text"
+    prompt: "Please provide any relevant document references:"
+    required: false

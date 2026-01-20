@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin -Project IQ Chat Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .sidebar-item.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .sidebar-item:hover:not(.active) {
+            background: #f3f4f6;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-field {
+            @apply w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none;
+        }
+
+        .btn-primary {
+            @apply px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:opacity-90 transition-opacity;
+        }
+
+        .btn-secondary {
+            @apply px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors;
+        }
+
+        .color-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .theme-preview {
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
+            <div class="p-6 border-b border-gray-100">
+                <h1
+                    class="text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                    Project IQ Chat Bot
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">Admin Dashboard</p>
+            </div>
+
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="#analytics" onclick="showSection('analytics')"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors active"
+                    data-section="analytics">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Analytics
+                </a>
+
+                <a href="#configuration" onclick="showSection('configuration')"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors"
+                    data-section="configuration">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Configuration
+                </a>
+
+                <a href="#themes" onclick="showSection('themes')"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors"
+                    data-section="themes">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                    </svg>
+                    Theme Builder
+                </a>
+
+                <a href="#integration" onclick="showSection('integration')"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors"
+                    data-section="integration">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                    Integration
+                </a>
+
+                <a href="#inspector" onclick="showSection('inspector')"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors"
+                    data-section="inspector">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Inspector
+                    <span class="ml-auto text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded">New</span>
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-gray-100">
+                <p class="text-xs text-gray-400 text-center">v1.0.0 • 99T Solutions</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8 overflow-auto">
+            <section id="section-analytics" class="section"></section>
+            <section id="section-configuration" class="section hidden"></section>
+            <section id="section-themes" class="section hidden"></section>
+            <section id="section-integration" class="section hidden"></section>
+            <section id="section-inspector" class="section hidden"></section>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast"
+        class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <span id="toast-message">Saved successfully!</span>
+    </div>
+
+    <!-- Modular Admin Scripts -->
+    <script src="js/admin-core.js"></script>
+    <script src="js/admin-config.js"></script>
+    <script src="js/admin-themes.js"></script>
+    <script src="js/admin-analytics.js"></script>
+    <script src="js/admin-integration.js"></script>
+    <script src="js/admin-inspector.js"></script>
+</body>
+
+</html>

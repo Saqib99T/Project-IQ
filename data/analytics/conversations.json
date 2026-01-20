@@ -1,0 +1,73 @@
+{
+  "conversations": [
+    {
+      "sender_id": "5569f59f-44d0-4a03-b6bb-de0d100371f2",
+      "app_id": "IT",
+      "started_at": "2025-12-22T18:50:32.995567",
+      "last_activity": "2025-12-22T18:52:44.806466",
+      "messages": [
+        {
+          "type": "user",
+          "text": "my tickets",
+          "timestamp": "2025-12-22T18:50:33.016009",
+          "intent": "list_tickets"
+        },
+        {
+          "type": "user",
+          "text": "/list_tickets",
+          "timestamp": "2025-12-22T18:52:28.323298",
+          "intent": "list_tickets"
+        },
+        {
+          "type": "user",
+          "text": "/check_status",
+          "timestamp": "2025-12-22T18:52:32.243753",
+          "intent": "check_status"
+        },
+        {
+          "type": "user",
+          "text": "Status of ticket 11",
+          "timestamp": "2025-12-22T18:52:44.806466",
+          "intent": "check_status"
+        }
+      ],
+      "intents": [
+        "list_tickets",
+        "list_tickets",
+        "check_status",
+        "check_status"
+      ],
+      "feedback": null,
+      "resolved": false
+    },
+    {
+      "sender_id": "20eccd90-861c-4a0f-b190-a8c96141a8ee",
+      "app_id": "Accounting",
+      "started_at": "2025-12-22T18:52:09.072135",
+      "last_activity": "2025-12-22T18:52:09.091377",
+      "messages": [
+        {
+          "type": "user",
+          "text": "/check_status",
+          "timestamp": "2025-12-22T18:52:09.091377",
+          "intent": "check_status"
+        }
+      ],
+      "intents": [
+        "check_status"
+      ],
+      "feedback": null,
+      "resolved": false
+    }
+  ],
+  "summary": {
+    "total_conversations": 2,
+    "total_messages": 5,
+    "feedback_positive": 0,
+    "feedback_negative": 0,
+    "intents": {
+      "list_tickets": 2,
+      "check_status": 3
+    }
+  }
+}

@@ -1,0 +1,46 @@
+<div class="mb-8">
+    <h2 class="text-2xl font-bold text-gray-800">Integration</h2>
+    <p class="text-gray-500 mt-1">Embed the chatbot widget on your website</p>
+</div>
+
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Widget Configuration</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Widget Title</label>
+            <input type="text" id="int-title" class="input-field" value="IT Support" placeholder="Widget title">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">App ID</label>
+            <input type="text" id="int-app-id" class="input-field" value="IT_Support" placeholder="Unique identifier">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Theme ID</label>
+            <select id="int-theme-id" class="input-field">
+                <option value="">Default (Black)</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Theme Color (if no theme)</label>
+            <input type="color" id="int-theme-color" value="#000000" class="w-full h-10 rounded cursor-pointer">
+        </div>
+    </div>
+
+    <button onclick="generateEmbedCode()" class="btn-primary mb-4">Generate Embed Code</button>
+</div>
+
+<div class="card p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">Embed Code</h3>
+        <button onclick="copyEmbedCode()" class="btn-secondary text-sm">📋 Copy Code</button>
+    </div>
+    <pre id="embed-code" class="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto text-sm">
+&lt;!-- GLPI Chat Widget --&gt;
+&lt;glpi-chat-widget 
+    title="IT Support Bot" 
+    app-id="IT"
+    theme-id="6"
+&gt;&lt;/glpi-chat-widget&gt;
+&lt;script src="http://localhost:8181/glpi-chat-widget.js"&gt;&lt;/script&gt;
+    </pre>
+</div>

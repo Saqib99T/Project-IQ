@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Embed Test</title>
+
+    <!-- 1. Include the Chatbot Styles (from the widget server) -->
+    <link rel="stylesheet" href="http://localhost:8181/modern-web-interface.css">
+
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #eef2f5;
+        }
+
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="content">
+        <h1>Welcome to Your Company Portal</h1>
+        <p>This is an example of an existing HTML page (Externally Hosted Simulation).</p>
+        <p>The chatbot widget should load effectively from <code>http://localhost:8181</code>.</p>
+        <p><strong>Troubleshooting:</strong> If you don't see the icon, make sure `npm run serve:widget` is running.</p>
+        <button onclick="alert('Page interaction works!')" style="padding: 10px 20px; cursor: pointer;">Test Page
+            Button</button>
+    </div>
+
+    <!-- GLPI Bot Widget -->
+    <glpi-chat-widget title="Support Assistant"></glpi-chat-widget>
+    <script src="http://localhost:8181/glpi-chat-widget.js"></script>
+
+</body>
+
+</html>

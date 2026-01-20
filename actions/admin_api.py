@@ -1,0 +1,1205 @@
+"""
+Admin API Module
+Flask API for admin dashboard operations, analytics, and static file serving.
+Consolidated server running on port 8181.
+"""
+
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+import json
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from actions.conversation_db import (
+    get_themes, get_theme, create_theme, update_theme, delete_theme,
+    get_default_theme, get_app_list, get_chat_app, create_chat_app, update_chat_app, delete_chat_app
+)
+from actions.analytics_store import get_analytics_summary, get_recent_conversations
+from actions.config_manager import get_all_config as get_file_config, set_all_config as save_file_config
+
+# Static files directory
+STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'client ui', 'dist-widget')
+
+app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
+CORS(app)
+
+
+# Serve static files - Flask handles /static/* automatically via static_folder
+@app.route('/')
+def serve_index():
+    return send_from_directory(STATIC_DIR, 'admin.html')
+
+@app.route('/admin.html')
+def serve_admin():
+    return send_from_directory(STATIC_DIR, 'admin.html')
+
+@app.route('/inspector.html')
+def serve_inspector():
+    return send_from_directory(STATIC_DIR, 'inspector.html')
+
+@app.route('/analytics.html')
+def serve_analytics():
+    return send_from_directory(STATIC_DIR, 'analytics.html')
+
+@app.route('/glpi-chat-widget.js')
+def serve_widget_js():
+    return send_from_directory(STATIC_DIR, 'glpi-chat-widget.js')
+
+# Default configuration keys
+DEFAULT_CONFIG_KEYS = [
+    'GLPI_API_URL',
+    'GLPI_APP_TOKEN',
+    'GLPI_USER_TOKEN',
+    'RASA_API_URL',
+    'DB_HOST',
+    'DB_PORT',
+    'DB_NAME',
+    'DB_USER',
+    'DB_PASSWORD',
+    'WIDGET_TITLE',
+    'WIDGET_SUBTITLE'
+]
+
+
+@app.route('/admin/config', methods=['GET'])
+def get_all_config():
+    """Get all configuration values from app.config file."""
+    try:
+        config = get_file_config()
+        # Ensure all default keys exist
+        for key in DEFAULT_CONFIG_KEYS:
+            if key not in config:
+                config[key] = ''
+        return jsonify({"success": True, "config": config})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/config', methods=['POST'])
+def save_config():
+    """Save configuration values to app.config file."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+        
+        save_file_config(data)
+        return jsonify({"success": True, "message": "Configuration saved to app.config"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/config/<key>', methods=['GET'])
+def get_config_key(key):
+    """Get a specific configuration value from app.config file."""
+    try:
+        config = get_file_config()
+        return jsonify({"success": True, "value": config.get(key, '')})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/config/<key>', methods=['POST'])
+def set_config_key(key):
+    """Set a specific configuration value in app.config file."""
+    try:
+        data = request.get_json()
+        value = data.get('value', '')
+        save_file_config({key: value})
+        return jsonify({"success": True, "message": f"{key} saved to app.config"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# =====================
+# THEMES ENDPOINTS
+# =====================
+
+@app.route('/admin/themes', methods=['GET'])
+def list_themes():
+    """Get all themes."""
+    try:
+        themes = get_themes()
+        # Parse settings JSON for each theme
+        for theme in themes:
+            if theme.get('settings'):
+                try:
+                    theme['settings'] = json.loads(theme['settings'])
+                except:
+                    pass
+        return jsonify({"success": True, "themes": themes})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/themes', methods=['POST'])
+def add_theme():
+    """Create a new theme."""
+    try:
+        data = request.get_json()
+        name = data.get('name', 'Untitled Theme')
+        settings = data.get('settings', {})
+        is_default = data.get('is_default', False)
+        
+        # Convert settings to JSON string
+        settings_json = json.dumps(settings) if isinstance(settings, dict) else settings
+        
+        theme_id = create_theme(name, settings_json, is_default)
+        return jsonify({"success": True, "theme_id": theme_id, "message": "Theme created"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/themes/<int:theme_id>', methods=['GET'])
+def get_theme_by_id(theme_id):
+    """Get a specific theme."""
+    try:
+        theme = get_theme(theme_id)
+        if not theme:
+            return jsonify({"success": False, "error": "Theme not found"}), 404
+        
+        # Parse settings JSON
+        if theme.get('settings'):
+            try:
+                theme['settings'] = json.loads(theme['settings'])
+            except:
+                pass
+        
+        return jsonify({"success": True, "theme": theme})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/themes/<int:theme_id>', methods=['PUT'])
+def modify_theme(theme_id):
+    """Update a theme."""
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        settings = data.get('settings')
+        is_default = data.get('is_default')
+        
+        # Convert settings to JSON string if provided
+        settings_json = None
+        if settings is not None:
+            settings_json = json.dumps(settings) if isinstance(settings, dict) else settings
+        
+        update_theme(theme_id, name, settings_json, is_default)
+        return jsonify({"success": True, "message": "Theme updated"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/themes/<int:theme_id>', methods=['DELETE'])
+def remove_theme(theme_id):
+    """Delete a theme."""
+    try:
+        delete_theme(theme_id)
+        return jsonify({"success": True, "message": "Theme deleted"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/themes/default', methods=['GET'])
+def get_default():
+    """Get the default theme."""
+    try:
+        theme = get_default_theme()
+        if theme and theme.get('settings'):
+            try:
+                theme['settings'] = json.loads(theme['settings'])
+            except:
+                pass
+        return jsonify({"success": True, "theme": theme})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# =====================
+# ANALYTICS ENDPOINTS
+# =====================
+
+@app.route('/admin/analytics/apps', methods=['GET'])
+def list_apps():
+    """Get list of distinct app IDs for filtering."""
+    try:
+        apps = get_app_list()
+        return jsonify({
+            "success": True,
+            "apps": apps
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/admin/analytics/summary', methods=['GET'])
+def analytics_summary():
+    """Get overall analytics summary. Supports ?app_id= filter."""
+    try:
+        app_id = request.args.get('app_id', None)
+        print(f"[DEBUG] analytics_summary called with app_id={app_id}")
+        summary = get_analytics_summary(app_id=app_id)
+        print(f"[DEBUG] Summary returned: {summary.get('total_conversations')} conversations, {summary.get('total_messages')} messages")
+        return jsonify({
+            "success": True,
+            "data": summary
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/admin/analytics/conversations', methods=['GET'])
+def recent_conversations():
+    """Get recent conversations with filters.
+    
+    Query params:
+        app_id: Filter by app
+        user: Search by user name/id
+        ticket_status: 'created', 'updated', 'resolved', 'none'
+        date: '24h', '7d', '30d', 'custom'
+        date_from: YYYY-MM-DD (for custom range)
+        date_to: YYYY-MM-DD (for custom range)
+        limit: Max results (default 50)
+    """
+    try:
+        app_id = request.args.get('app_id', None)
+        user_search = request.args.get('user', None)
+        ticket_status = request.args.get('ticket_status', None)
+        date_filter = request.args.get('date', None)
+        date_from = request.args.get('date_from', None)
+        date_to = request.args.get('date_to', None)
+        limit = request.args.get('limit', 50, type=int)
+        
+        conversations = get_recent_conversations(
+            limit=limit,
+            app_id=app_id if app_id != 'all' else None,
+            user_search=user_search,
+            ticket_status=ticket_status if ticket_status != 'all' else None,
+            date_filter=date_filter if date_filter != 'all' else None,
+            date_from=date_from,
+            date_to=date_to
+        )
+        
+        return jsonify({
+            "success": True,
+            "data": conversations,
+            "count": len(conversations)
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/admin/analytics/intents', methods=['GET'])
+def intent_distribution():
+    """Get intent distribution data. Supports ?app_id= filter."""
+    try:
+        app_id = request.args.get('app_id', None)
+        summary = get_analytics_summary(app_id=app_id)
+        return jsonify({
+            "success": True,
+            "data": {
+                "intents": summary.get("intent_distribution", {}),
+                "top_intents": summary.get("top_intents", [])
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/admin/analytics/feedback', methods=['GET'])
+def feedback_metrics():
+    """Get feedback metrics. Supports ?app_id= filter."""
+    try:
+        app_id = request.args.get('app_id', None)
+        summary = get_analytics_summary(app_id=app_id)
+        return jsonify({
+            "success": True,
+            "data": {
+                "positive": summary.get("feedback_positive", 0),
+                "negative": summary.get("feedback_negative", 0),
+                "resolution_rate": summary.get("resolution_rate", 0)
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+# =====================
+# SATISFACTION RATINGS
+# =====================
+
+@app.route('/analytics/satisfaction', methods=['GET'])
+@app.route('/admin/analytics/satisfaction', methods=['GET'])
+def satisfaction_ratings():
+    """Get satisfaction ratings distribution with optional date filter."""
+    try:
+        days = request.args.get('days', '30')
+        
+        # Query satisfaction ratings from feedback table
+        from actions.conversation_db import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Build date filter
+        date_filter = ""
+        if days != 'all':
+            try:
+                days_int = int(days)
+                date_filter = f"AND timestamp >= NOW() - INTERVAL '{days_int} days'"
+            except ValueError:
+                pass
+        
+        # Query ratings from feedback
+        cursor.execute(f"""
+            SELECT 
+                CASE 
+                    WHEN feedback_text LIKE '%%5 stars%%' THEN 5
+                    WHEN feedback_text LIKE '%%4 stars%%' THEN 4
+                    WHEN feedback_text LIKE '%%3 stars%%' THEN 3
+                    WHEN feedback_text LIKE '%%2 stars%%' THEN 2
+                    WHEN feedback_text LIKE '%%1 star%%' THEN 1
+                    ELSE 0
+                END as rating,
+                COUNT(*) as count
+            FROM feedback 
+            WHERE feedback_text LIKE '%%Satisfaction%%' {date_filter}
+            GROUP BY rating
+            ORDER BY rating DESC
+        """)
+        
+        results = cursor.fetchall()
+        
+        ratings = {{1: 0, 2: 0, 3: 0, 4: 0, 5: 0}}
+        total = 0
+        weighted_sum = 0
+        
+        for row in results:
+            rating, count = row[0], row[1]
+            if rating > 0:
+                ratings[rating] = count
+                total += count
+                weighted_sum += rating * count
+        
+        average = weighted_sum / total if total > 0 else 0
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "ratings": ratings,
+                "total": total,
+                "average": round(average, 2)
+            }
+        })
+    except Exception as e:
+        print(f"Error in satisfaction_ratings: {e}")
+        return jsonify({
+            "success": True,
+            "data": {
+                "ratings": {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+                "total": 0,
+                "average": 0
+            }
+        })
+
+
+# =====================
+# HEALTH CHECK
+# =====================
+
+@app.route('/health', methods=['GET'])
+@app.route('/admin/health', methods=['GET'])
+def health_check():
+    """Health check endpoint."""
+    return jsonify({"status": "ok", "service": "admin-api"})
+
+
+# =====================
+# INSPECTOR ENDPOINTS
+# =====================
+
+import yaml
+from datetime import datetime
+from actions.conversation_db import _get_connection, _release_connection, get_conversation_transcript
+from psycopg2.extras import RealDictCursor
+
+
+def get_stories_and_rules():
+    """Parse stories.yml and rules.yml to extract flow definitions."""
+    flows = {"stories": [], "rules": []}
+    base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    stories_path = os.path.join(base_path, "data", "stories.yml")
+    if os.path.exists(stories_path):
+        with open(stories_path, 'r', encoding='utf-8') as f:
+            try:
+                data = yaml.safe_load(f)
+                flows["stories"] = data.get("stories", [])
+            except Exception as e:
+                print(f"Error parsing stories.yml: {e}")
+    
+    rules_path = os.path.join(base_path, "data", "rules.yml")
+    if os.path.exists(rules_path):
+        with open(rules_path, 'r', encoding='utf-8') as f:
+            try:
+                data = yaml.safe_load(f)
+                flows["rules"] = data.get("rules", [])
+            except Exception as e:
+                print(f"Error parsing rules.yml: {e}")
+    
+    return flows
+
+
+def get_domain_info():
+    """Parse domain.yml to extract intents, entities, actions, and slots."""
+    base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    domain_path = os.path.join(base_path, "domain.yml")
+    
+    domain = {"intents": [], "entities": [], "actions": [], "slots": {}, "responses": []}
+    
+    if os.path.exists(domain_path):
+        with open(domain_path, 'r', encoding='utf-8') as f:
+            try:
+                data = yaml.safe_load(f)
+                domain["intents"] = data.get("intents", [])
+                domain["entities"] = data.get("entities", [])
+                domain["actions"] = data.get("actions", [])
+                domain["slots"] = data.get("slots", {})
+                domain["responses"] = list(data.get("responses", {}).keys())
+            except Exception as e:
+                print(f"Error parsing domain.yml: {e}")
+    
+    return domain
+
+
+@app.route('/inspector/conversations', methods=['GET'])
+def inspector_list_conversations():
+    """Get list of conversations with detailed info for inspector."""
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        app_id_filter = request.args.get('app_id', None)
+        
+        conn = _get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        query = '''
+            SELECT 
+                c.id, c.sender_id, c.app_id, c.user_id, c.user_name,
+                c.started_at, c.last_activity, c.resolved,
+                (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count,
+                (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender = 'user') as user_message_count,
+                (SELECT COUNT(*) FROM actions WHERE conversation_id = c.id) as action_count,
+                (SELECT type FROM feedback WHERE conversation_id = c.id ORDER BY timestamp DESC LIMIT 1) as feedback
+            FROM conversations c
+        '''
+        
+        params = []
+        if app_id_filter:
+            query += " WHERE c.app_id = %s"
+            params.append(app_id_filter)
+        
+        query += " ORDER BY c.last_activity DESC LIMIT %s"
+        params.append(limit)
+        
+        cursor.execute(query, tuple(params))
+        conversations = []
+        
+        for row in cursor.fetchall():
+            # Use user_name if available, then user_id, then shortened sender_id
+            display_name = row.get('user_name') or row.get('user_id') or (row['sender_id'][:12] + "..." if row['sender_id'] and len(row['sender_id']) > 12 else row['sender_id'])
+            conversations.append({
+                "id": row['id'],
+                "sender_id": row['sender_id'],
+                "sender_id_short": row['sender_id'][:12] + "..." if row['sender_id'] and len(row['sender_id']) > 12 else row['sender_id'],
+                "user_name": row.get('user_name'),
+                "display_name": display_name,
+                "app_id": row['app_id'] or "General",
+                "user_id": row['user_id'],
+                "started_at": row['started_at'].isoformat() if row['started_at'] else None,
+                "last_activity": row['last_activity'].isoformat() if row['last_activity'] else None,
+                "resolved": bool(row['resolved']),
+                "message_count": row['message_count'],
+                "user_message_count": row['user_message_count'],
+                "action_count": row['action_count'],
+                "feedback": row['feedback']
+            })
+        
+        _release_connection(conn)
+        return jsonify({"success": True, "data": conversations, "count": len(conversations)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/inspector/conversation/<sender_id>', methods=['GET'])
+def inspector_get_conversation_detail(sender_id):
+    """Get detailed conversation data including messages, intents, actions."""
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('SELECT * FROM conversations WHERE sender_id = %s', (sender_id,))
+        conv = cursor.fetchone()
+        
+        if not conv:
+            return jsonify({"success": False, "error": "Conversation not found"}), 404
+        
+        conv_id = conv['id']
+        
+        # Get messages
+        cursor.execute('''
+            SELECT id, sender, text, intent, timestamp
+            FROM messages WHERE conversation_id = %s ORDER BY timestamp ASC
+        ''', (conv_id,))
+        messages = []
+        intent_history = []
+        
+        for row in cursor.fetchall():
+            msg = {
+                "id": row['id'], "sender": row['sender'], "text": row['text'],
+                "intent": row['intent'],
+                "timestamp": row['timestamp'].isoformat() if row['timestamp'] else None
+            }
+            messages.append(msg)
+            if row['intent']:
+                intent_history.append({
+                    "intent": row['intent'],
+                    "message": row['text'][:50] + "..." if row['text'] and len(row['text']) > 50 else row['text'],
+                    "timestamp": row['timestamp'].isoformat() if row['timestamp'] else None
+                })
+        
+        # Get actions
+        cursor.execute('''
+            SELECT action_name, success, timestamp
+            FROM actions WHERE conversation_id = %s ORDER BY timestamp ASC
+        ''', (conv_id,))
+        actions = [{"action": row['action_name'], "success": bool(row['success']),
+                    "timestamp": row['timestamp'].isoformat() if row['timestamp'] else None} 
+                   for row in cursor.fetchall()]
+        
+        # Get feedback
+        cursor.execute('SELECT type, timestamp FROM feedback WHERE conversation_id = %s ORDER BY timestamp ASC', (conv_id,))
+        feedback = [{"type": row['type'], "timestamp": row['timestamp'].isoformat() if row['timestamp'] else None} 
+                    for row in cursor.fetchall()]
+        
+        _release_connection(conn)
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "conversation": {
+                    "id": conv['id'], "sender_id": conv['sender_id'], "app_id": conv['app_id'],
+                    "user_id": conv['user_id'],
+                    "started_at": conv['started_at'].isoformat() if conv['started_at'] else None,
+                    "last_activity": conv['last_activity'].isoformat() if conv['last_activity'] else None,
+                    "resolved": bool(conv['resolved'])
+                },
+                "messages": messages, "intent_history": intent_history, "actions": actions, "feedback": feedback,
+                "stats": {
+                    "total_messages": len(messages),
+                    "user_messages": len([m for m in messages if m['sender'] == 'user']),
+                    "bot_messages": len([m for m in messages if m['sender'] == 'bot']),
+                    "actions_executed": len(actions),
+                    "unique_intents": len(set(m['intent'] for m in messages if m['intent']))
+                }
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/inspector/flows', methods=['GET'])
+def inspector_get_flows():
+    """Get all defined conversation flows from stories and rules."""
+    try:
+        flows = get_stories_and_rules()
+        flow_diagrams = []
+        
+        for story in flows.get("stories", []):
+            if isinstance(story, dict) and "story" in story:
+                flow_diagrams.append({
+                    "name": story.get("story", "Unknown"), "type": "story",
+                    "steps": story.get("steps", [])
+                })
+        
+        for rule in flows.get("rules", []):
+            if isinstance(rule, dict) and "rule" in rule:
+                flow_diagrams.append({
+                    "name": rule.get("rule", "Unknown"), "type": "rule",
+                    "steps": rule.get("steps", [])
+                })
+        
+        return jsonify({"success": True, "data": flow_diagrams, "count": len(flow_diagrams)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/inspector/intents', methods=['GET'])
+def inspector_get_intent_stats():
+    """Get intent statistics."""
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT intent, COUNT(*) as count FROM messages 
+            WHERE intent IS NOT NULL AND intent != '' GROUP BY intent ORDER BY count DESC
+        ''')
+        intent_distribution = {row['intent']: row['count'] for row in cursor.fetchall()}
+        
+        cursor.execute('''
+            SELECT EXTRACT(HOUR FROM timestamp) as hour, COUNT(*) as count
+            FROM messages WHERE intent IS NOT NULL AND timestamp > NOW() - INTERVAL '24 hours'
+            GROUP BY EXTRACT(HOUR FROM timestamp) ORDER BY hour
+        ''')
+        hourly_activity = {int(row['hour']): row['count'] for row in cursor.fetchall()}
+        
+        domain = get_domain_info()
+        _release_connection(conn)
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "distribution": intent_distribution, "hourly_activity": hourly_activity,
+                "known_intents": domain["intents"],
+                "total_intent_messages": sum(intent_distribution.values())
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/inspector/actions', methods=['GET'])
+def inspector_get_action_stats():
+    """Get action execution statistics."""
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT action_name, COUNT(*) as total,
+                   SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success_count,
+                   SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failure_count
+            FROM actions GROUP BY action_name ORDER BY total DESC
+        ''')
+        
+        action_stats = []
+        for row in cursor.fetchall():
+            total = row['total']
+            success = row['success_count'] or 0
+            action_stats.append({
+                "action": row['action_name'], "total": total, "success": success,
+                "failure": row['failure_count'] or 0,
+                "success_rate": round((success / total) * 100, 1) if total > 0 else 0
+            })
+        
+        _release_connection(conn)
+        return jsonify({"success": True, "data": action_stats})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/inspector/domain', methods=['GET'])
+def inspector_get_domain():
+    """Get domain configuration (intents, entities, actions, slots)."""
+    try:
+        domain = get_domain_info()
+        return jsonify({"success": True, "data": domain})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/inspector/health', methods=['GET'])
+def inspector_health():
+    """Inspector health check."""
+    return jsonify({"status": "healthy", "service": "inspector-api", "timestamp": datetime.now().isoformat()})
+
+
+# Health Check Endpoints for Observability
+@app.route('/health/rasa', methods=['GET'])
+def health_rasa():
+    """Check if Rasa Core is running."""
+    try:
+        import requests
+        response = requests.get('http://localhost:5005/', timeout=3)
+        return jsonify({"healthy": response.status_code == 200, "service": "rasa-core"})
+    except:
+        return jsonify({"healthy": False, "service": "rasa-core"})
+
+
+@app.route('/health/actions', methods=['GET'])
+def health_actions():
+    """Check if Action Server is running."""
+    try:
+        import requests
+        response = requests.get('http://localhost:5055/health', timeout=3)
+        return jsonify({"healthy": response.status_code == 200, "service": "action-server"})
+    except:
+        return jsonify({"healthy": False, "service": "action-server"})
+
+
+@app.route('/health/database', methods=['GET'])
+def health_database():
+    """Check if Database is accessible."""
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT 1')
+        cursor.close()
+        _release_connection(conn)
+        return jsonify({"healthy": True, "service": "database"})
+    except:
+        return jsonify({"healthy": False, "service": "database"})
+
+
+@app.route('/observability/metrics', methods=['GET'])
+def observability_metrics():
+    """Get observability metrics."""
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor()
+        
+        # Get response time stats from last 1000 messages
+        cursor.execute('''
+            SELECT AVG(EXTRACT(EPOCH FROM (timestamp - LAG(timestamp) OVER (PARTITION BY conversation_id ORDER BY timestamp))))
+            FROM messages 
+            WHERE sender = 'bot' 
+            LIMIT 1000
+        ''')
+        avg_response = cursor.fetchone()[0] or 0
+        
+        # Get throughput (messages per minute in last hour)
+        cursor.execute('''
+            SELECT COUNT(*) 
+            FROM messages 
+            WHERE timestamp > NOW() - INTERVAL '1 hour'
+        ''')
+        hourly_messages = cursor.fetchone()[0] or 0
+        throughput = round(hourly_messages / 60, 2)
+        
+        # Get error rate from actions table
+        cursor.execute('''
+            SELECT 
+                COUNT(*) FILTER (WHERE status = 'error') as errors,
+                COUNT(*) as total
+            FROM actions
+            WHERE timestamp > NOW() - INTERVAL '24 hours'
+        ''')
+        result = cursor.fetchone()
+        errors = result[0] if result[0] else 0
+        total = result[1] if result[1] else 1
+        error_rate = round((errors / total) * 100, 2) if total > 0 else 0
+        
+        _release_connection(conn)
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "avg_response_time": round(avg_response * 1000, 0) if avg_response else 100,  # ms
+                "throughput": throughput,
+                "error_rate": f"{error_rate}%",
+                "healthy_services": 3  # TODO: count actual healthy services
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================================
+# INSPECTOR DEBUG APIs - Real-time Debugging
+# ============================================================================
+
+@app.route('/inspector/parse', methods=['POST'])
+def inspector_parse_message():
+    """Parse a message through Rasa NLU and return intent/entity analysis."""
+    try:
+        from actions.rasa_debug import parse_message
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        sender_id = data.get('sender_id', 'debug_user')
+        
+        if not text:
+            return jsonify({"success": False, "error": "Text is required"})
+        
+        result = parse_message(text, sender_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/inspector/conversation/<sender_id>/debug', methods=['GET'])
+def inspector_conversation_debug(sender_id):
+    """Get detailed debug information for a conversation including NLU results and slot changes."""
+    try:
+        from actions.rasa_debug import get_conversation_debug
+        
+        result = get_conversation_debug(sender_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/inspector/conversation/<sender_id>/tracker', methods=['GET'])
+def inspector_conversation_tracker(sender_id):
+    """Get current tracker state (slots, active loop, latest action)."""
+    try:
+        from actions.rasa_debug import get_tracker
+        
+        result = get_tracker(sender_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/inspector/domain/info', methods=['GET'])
+def inspector_domain_info():
+    """Get Rasa domain information (intents, entities, slots, actions)."""
+    try:
+        from actions.rasa_debug import get_domain_info
+        
+        result = get_domain_info()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+# ============================================================================
+# STUDIO APIs - No-Code Editor
+# ============================================================================
+
+@app.route('/studio/nlu', methods=['GET'])
+def studio_get_nlu():
+    """Get all NLU training data organized by intent."""
+    try:
+        from actions.training_manager import get_nlu_data
+        
+        result = get_nlu_data()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/studio/nlu/example', methods=['POST'])
+def studio_add_nlu_example():
+    """Add a new NLU training example."""
+    try:
+        from actions.training_manager import add_nlu_example
+        
+        data = request.get_json()
+        intent = data.get('intent')
+        text = data.get('text')
+        
+        if not intent or not text:
+            return jsonify({"success": False, "error": "Intent and text are required"})
+        
+        result = add_nlu_example(intent, text)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/studio/nlu/example', methods=['DELETE'])
+def studio_delete_nlu_example():
+    """Delete an NLU training example."""
+    try:
+        from actions.training_manager import delete_nlu_example
+        
+        data = request.get_json()
+        intent = data.get('intent')
+        text = data.get('text')
+        
+        if not intent or not text:
+            return jsonify({"success": False, "error": "Intent and text are required"})
+        
+        result = delete_nlu_example(intent, text)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/studio/stories', methods=['GET'])
+def studio_get_stories():
+    """Get all stories and rules."""
+    try:
+        from actions.training_manager import get_stories_data
+        
+        result = get_stories_data()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/studio/responses', methods=['GET'])
+def studio_get_responses():
+    """Get all response templates from domain."""
+    try:
+        from actions.training_manager import get_domain_responses
+        
+        result = get_domain_responses()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/studio/train', methods=['POST'])
+def studio_start_training():
+    """Start model training in background."""
+    try:
+        from actions.training_manager import start_training
+        
+        result = start_training()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/studio/train/<job_id>', methods=['GET'])
+def studio_training_status(job_id):
+    """Get training job status."""
+    try:
+        from actions.training_manager import get_training_status
+        
+        result = get_training_status(job_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/studio/models', methods=['GET'])
+def studio_list_models():
+    """List available trained models."""
+    try:
+        from actions.training_manager import get_available_models
+        
+        result = get_available_models()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/observability/logs', methods=['GET'])
+def observability_logs():
+    """Get recent system logs."""
+    try:
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Log')
+        logs = []
+        
+        # Read recent error logs if available
+        error_log = os.path.join(log_dir, 'action_server.err')
+        if os.path.exists(error_log):
+            with open(error_log, 'r') as f:
+                lines = f.readlines()
+                logs.extend(lines[-20:])  # Last 20 lines
+        
+        return jsonify({"success": True, "data": logs})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "data": []})
+
+
+# ============================================================================
+# OBSERVABILITY APIs - Real Monitoring
+# ============================================================================
+
+@app.route('/observability/processes', methods=['GET'])
+def observability_processes():
+    """Get detailed status of all Rasa-related processes."""
+    try:
+        from actions.process_monitor import get_all_service_processes, get_system_resources, ensure_collector_running
+        ensure_collector_running()
+        
+        processes = get_all_service_processes()
+        system = get_system_resources()
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "services": processes,
+                "system": system
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/observability/metrics/history', methods=['GET'])
+def observability_metrics_history():
+    """Get historical metrics for charts."""
+    try:
+        from actions.process_monitor import get_metrics_history, ensure_collector_running
+        ensure_collector_running()
+        
+        points = request.args.get('points', 60, type=int)
+        history = get_metrics_history(points)
+        
+        return jsonify({
+            "success": True,
+            "data": history
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/observability/logs/filtered', methods=['GET'])
+def observability_logs_filtered():
+    """Get filtered logs from all log files."""
+    try:
+        from actions.log_parser import get_all_logs
+        
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Log')
+        level = request.args.get('level', None)
+        max_lines = request.args.get('limit', 100, type=int)
+        
+        logs = get_all_logs(log_dir, max_lines=max_lines, level_filter=level)
+        
+        return jsonify({
+            "success": True,
+            "data": logs
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "data": []})
+
+
+@app.route('/observability/logs/search', methods=['GET'])
+def observability_logs_search():
+    """Search logs for a query string."""
+    try:
+        from actions.log_parser import search_logs
+        
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Log')
+        query = request.args.get('q', '')
+        max_results = request.args.get('limit', 50, type=int)
+        
+        if not query:
+            return jsonify({"success": False, "error": "Query parameter 'q' is required"})
+        
+        results = search_logs(log_dir, query, max_results)
+        
+        return jsonify({
+            "success": True,
+            "data": results,
+            "query": query
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "data": []})
+
+
+@app.route('/observability/logs/stats', methods=['GET'])
+def observability_logs_stats():
+    """Get log file statistics."""
+    try:
+        from actions.log_parser import get_log_stats
+        
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Log')
+        stats = get_log_stats(log_dir)
+        
+        return jsonify({
+            "success": True,
+            "data": stats
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/observability/database/stats', methods=['GET'])
+def observability_database_stats():
+    """Get database connection and table statistics."""
+    try:
+        from actions.conversation_db import get_connection
+        
+        conn = get_connection()
+        if not conn:
+            return jsonify({
+                "success": False,
+                "error": "Could not connect to database"
+            })
+        
+        cursor = conn.cursor()
+        
+        # Get table sizes
+        tables = {}
+        for table in ['conversations', 'messages', 'feedback', 'actions', 'themes', 'apps']:
+            try:
+                cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                tables[table] = cursor.fetchone()[0]
+            except:
+                tables[table] = 0
+        
+        # Get recent activity
+        cursor.execute("""
+            SELECT COUNT(*) FROM messages 
+            WHERE created_at > NOW() - INTERVAL '1 hour'
+        """)
+        messages_last_hour = cursor.fetchone()[0]
+        
+        cursor.execute("""
+            SELECT COUNT(*) FROM conversations 
+            WHERE created_at > NOW() - INTERVAL '24 hours'
+        """)
+        conversations_today = cursor.fetchone()[0]
+        
+        # Get average response time (from message pairs)
+        cursor.execute("""
+            WITH user_messages AS (
+                SELECT sender_id, created_at, ROW_NUMBER() OVER (PARTITION BY sender_id ORDER BY created_at) as rn
+                FROM messages WHERE role = 'user'
+            ),
+            bot_messages AS (
+                SELECT sender_id, created_at, ROW_NUMBER() OVER (PARTITION BY sender_id ORDER BY created_at) as rn
+                FROM messages WHERE role = 'assistant'
+            )
+            SELECT AVG(EXTRACT(EPOCH FROM (b.created_at - u.created_at)) * 1000)::INT as avg_ms
+            FROM user_messages u
+            JOIN bot_messages b ON u.sender_id = b.sender_id AND u.rn = b.rn
+            WHERE b.created_at > u.created_at
+            AND b.created_at - u.created_at < INTERVAL '1 minute'
+        """)
+        result = cursor.fetchone()
+        avg_response_ms = result[0] if result and result[0] else 0
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "tables": tables,
+                "total_rows": sum(tables.values()),
+                "activity": {
+                    "messages_last_hour": messages_last_hour,
+                    "conversations_today": conversations_today
+                },
+                "performance": {
+                    "avg_response_ms": avg_response_ms
+                }
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+if __name__ == '__main__':
+    print("Starting Unified Server on port 80...")
+    print(f"Serving static files from: {STATIC_DIR}")
+    print("  Admin Dashboard:        http://<YOUR_IP>/admin.html")
+    print("  Access from network:     http://<YOUR_IP>/it.html")
+    app.run(host='0.0.0.0', port=80, debug=False)

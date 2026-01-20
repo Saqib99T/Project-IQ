@@ -1,0 +1,207 @@
+# data/stories.yml
+
+version: "3.1"
+
+stories:
+# ======================
+# Ticket Status Stories
+# ======================
+- story: Check status with immediate ID
+  steps:
+    - intent: check_status
+      entities:
+        - ticket_id: "GLPI-123"
+    - slot_was_set:
+      - ticket_id: "GLPI-123"
+    - action: action_init_glpi_session
+    - action: action_check_glpi_status
+    - action: utter_ask_anything_else
+
+# ======================
+# Ticket Creation Stories
+# ======================
+
+- story: Ticket creation path (KB search first)
+  steps:
+    - intent: create_ticket
+    - action: action_search_kb_before_ticket
+    - intent: kb_not_helpful
+    - action: action_init_glpi_session
+    - action: utter_ticket_form
+    - intent: submit_ticket_form
+    - action: action_create_ticket_from_form
+
+- story: Ticket creation path (KB Skipped/Command)
+  steps:
+    - intent: create_ticket
+    - action: action_search_kb_before_ticket
+    - action: action_init_glpi_session
+    - action: utter_ticket_form
+    - intent: submit_ticket_form
+    - action: action_create_ticket_from_form
+
+# ======================
+# Ticket Verification Stories (Interactive)
+# ======================
+- story: Verify resolution interactive
+  steps:
+    - intent: verify_resolution
+      entities:
+        - ticket_id: "GLPI-999"
+    - action: action_init_glpi_session
+    - action: action_verify_glpi_resolution # Asks for confirmation
+    - slot_was_set:
+      - ticket_status: "Pending"
+    - intent: inform_update
+      entities:
+        - target_status: "Closed"
+    - action: action_verify_glpi_resolution # Closes ticket
+    - slot_was_set:
+      - ticket_status: "Closed"
+
+- story: Verify resolution denied
+  steps:
+    - intent: verify_resolution
+    - action: action_init_glpi_session
+    - action: action_verify_glpi_resolution
+    - intent: deny
+    - action: utter_ask_anything_else
+
+- story: View Ticket Comments
+  steps:
+    - intent: view_comments
+      entities:
+        - ticket_id: "GLPI-999"
+    - slot_was_set:
+        - ticket_id: "GLPI-999"
+    - action: action_init_glpi_session
+    - action: action_init_glpi_session
+    - action: action_view_ticket_comments
+    - action: utter_ask_anything_else
+
+# ======================
+# Attachment Stories
+# ======================
+- story: List attachments with explicit ID
+  steps:
+    - intent: list_attachments
+      entities:
+        - ticket_id: "GLPI-555"
+    - slot_was_set:
+      - ticket_id: "GLPI-555"
+    - action: action_init_glpi_session
+    - action: action_list_attachments
+    - action: utter_ask_anything_else
+
+- story: List attachments with invalid/missing ID fallback
+  steps:
+    - intent: list_attachments
+    - action: action_init_glpi_session
+    - action: utter_ask_ticket_id
+    - intent: inform
+      entities:
+        - ticket_id: "9"
+    - action: action_list_attachments
+
+# ======================
+# Error Handling Stories
+# ======================
+- story: Handle unknown intent
+  steps:
+    - intent: out_of_scope
+    - action: utter_out_of_scope
+    - action: utter_ask_continue
+
+# ======================
+# Conversation Management
+# ======================
+- story: User changes mind mid-conversation
+  steps:
+    - intent: create_ticket
+    - action: action_init_glpi_session
+    - action: ticket_form
+    - active_loop: ticket_form
+    - intent: stop
+    - action: utter_stop_form
+    - action: action_deactivate_form
+    - active_loop: null
+    - action: utter_ask_anything_else
+
+- story: User provides multiple pieces of information
+  steps:
+    - intent: create_ticket
+      entities:
+        - issue_type: "hardware"
+        - urgency: "high"
+    - action: action_init_glpi_session
+    - action: ticket_form
+    - active_loop: ticket_form
+    - intent: inform
+      entities:
+        - description: "The printer in accounting is jammed"
+    - action: ticket_form
+    - active_loop: null
+    - action: utter_ask_confirm_ticket
+    - intent: affirm
+    - action: action_create_glpi_ticket
+
+# ======================
+# Edge Cases
+# ======================
+- story: User provides all details - KB Not Found
+  steps:
+    - intent: create_ticket
+      entities:
+        - description: "my laptop not connecting to wifi"
+        - issue_type: "network"
+        - urgency: "high"
+    - action: action_search_kb_before_ticket
+    - intent: kb_not_helpful
+    - action: action_init_glpi_session
+    - action: utter_ticket_form
+    - intent: submit_ticket_form
+    - action: action_create_ticket_from_form
+
+- story: User provides all details - Ticket Form
+  steps:
+    - intent: create_ticket
+      entities:
+        - description: "my laptop not connecting to wifi"
+        - issue_type: "network"
+        - urgency: "high"
+    - action: action_search_kb_before_ticket
+    - intent: kb_not_helpful
+    - action: action_init_glpi_session
+    - action: utter_ticket_form
+    - intent: submit_ticket_form
+    - action: action_create_ticket_from_form
+
+- story: User asks for help
+  steps:
+    - intent: help
+    - action: utter_help
+    - action: utter_ask_how_can_help
+    - intent: goodbye
+    - action: utter_goodbye
+
+# ======================
+# Login Stories
+# ======================
+- story: Login path
+  steps:
+    - intent: login
+      entities:
+        - glpi_username
+        - glpi_password
+    - action: action_glpi_login
+
+- story: Cancel ticket creation
+  steps:
+    - intent: create_ticket
+    - action: action_init_glpi_session
+    - action: ticket_form
+    - active_loop: ticket_form
+    - active_loop: null
+    - action: utter_ask_confirm_ticket
+    - intent: deny
+    - action: utter_operation_cancelled

@@ -1,0 +1,306 @@
+<div class="mb-8">
+    <h2 class="text-2xl font-bold text-gray-800">Theme Builder</h2>
+    <p class="text-gray-500 mt-1">Create and customize chatbot themes</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Theme Editor (2/3 width) -->
+    <div class="lg:col-span-2">
+        <div class="card p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Theme Settings</h3>
+                <select id="theme-selector" onchange="loadTheme(this.value)"
+                    class="px-3 py-2 border rounded-lg text-sm">
+                    <option value="new">+ New Theme</option>
+                </select>
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex items-center gap-2">
+                    <label class="text-sm font-medium text-gray-700 w-20">Name</label>
+                    <input type="text" id="theme-name" class="input-field flex-1" placeholder="My Custom Theme">
+                </div>
+
+                <!-- Theme Colors Section -->
+                <div class="border-t pt-4 mt-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">🎨 Theme Colors</h4>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Primary</label>
+                            <input type="color" id="theme-primary-color" value="#6366f1"
+                                class="w-8 h-8 rounded cursor-pointer" onchange="syncColor('primary')">
+                            <input type="text" id="theme-primary-color-text" value="#6366f1"
+                                class="input-field flex-1 text-xs" oninput="syncColor('primary')">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Secondary</label>
+                            <input type="color" id="theme-secondary-color" value="#8b5cf6"
+                                class="w-8 h-8 rounded cursor-pointer">
+                            <input type="text" id="theme-secondary-color-text" value="#8b5cf6"
+                                class="input-field flex-1 text-xs" oninput="syncColor('secondary')">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Background</label>
+                            <input type="color" id="theme-bg-color" value="#ffffff"
+                                class="w-8 h-8 rounded cursor-pointer">
+                            <input type="text" id="theme-bg-color-text" value="#ffffff"
+                                class="input-field flex-1 text-xs">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Text</label>
+                            <input type="color" id="theme-text-color" value="#1f2937"
+                                class="w-8 h-8 rounded cursor-pointer">
+                            <input type="text" id="theme-text-color-text" value="#1f2937"
+                                class="input-field flex-1 text-xs">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Font</label>
+                            <select id="theme-font" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="Inter">Inter</option>
+                                <option value="Roboto">Roboto</option>
+                                <option value="Open Sans">Open Sans</option>
+                                <option value="Poppins">Poppins</option>
+                                <option value="Nunito">Nunito</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Radius</label>
+                            <select id="theme-radius" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="8">8px</option>
+                                <option value="12" selected>12px</option>
+                                <option value="16">16px</option>
+                                <option value="24">24px</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Icon Colors Section -->
+                <div class="border-t pt-4 mt-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">🎨 Icon Colors</h4>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Bot</label>
+                            <input type="color" id="theme-bot-color" value="#6366f1"
+                                class="w-8 h-8 rounded cursor-pointer" onchange="updatePreview()">
+                            <input type="text" id="theme-bot-color-text" value="#6366f1"
+                                class="input-field w-20 text-xs" oninput="syncIconColor('bot')">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Button</label>
+                            <input type="color" id="theme-user-color" value="#6366f1"
+                                class="w-8 h-8 rounded cursor-pointer" onchange="updatePreview()">
+                            <input type="text" id="theme-user-color-text" value="#6366f1"
+                                class="input-field w-20 text-xs" oninput="syncIconColor('user')">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Send</label>
+                            <input type="color" id="theme-send-color" value="#6366f1"
+                                class="w-8 h-8 rounded cursor-pointer" onchange="updatePreview()">
+                            <input type="text" id="theme-send-color-text" value="#6366f1"
+                                class="input-field w-20 text-xs" oninput="syncIconColor('send')">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Icons Section -->
+                <div class="border-t pt-4 mt-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">🎭 Icons</h4>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Bot</label>
+                            <select id="theme-bot-icon" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="🤖">🤖 Robot</option>
+                                <option value="👾">👾 Monster</option>
+                                <option value="👽">👽 Alien</option>
+                                <option value="🛸">🛸 UFO</option>
+                                <option value="🦾">🦾 Arm</option>
+                                <option value="🦿">🦿 Leg</option>
+                                <option value="⚙️">⚙️ Gear</option>
+                                <option value="🔧">🔧 Wrench</option>
+                                <option value="💻">💻 Laptop</option>
+                                <option value="🖥️">🖥️ Desktop</option>
+                                <option value="🧠">🧠 Brain</option>
+                                <option value="🤡">🤡 Clown</option>
+                                <option value="👻">👻 Ghost</option>
+                                <option value="🎭">🎭 Masks</option>
+                                <option value="🎃">🎃 Pumpkin</option>
+                                <option value="💬">💬 Chat</option>
+                                <option value="💡">💡 Bulb</option>
+                                <option value="⚡">⚡ Bolt</option>
+                                <option value="🔮">🔮 Crystal</option>
+                                <option value="🌟">🌟 Star</option>
+                                <option value="✨">✨ Sparkle</option>
+                                <option value="🎯">🎯 Target</option>
+                                <option value="💎">💎 Gem</option>
+                                <option value="🔵">🔵 Blue</option>
+                                <option value="🟣">🟣 Purple</option>
+                                <option value="⭐">⭐ Star</option>
+                                <option value="🐱">🐱 Cat</option>
+                                <option value="🐶">🐶 Dog</option>
+                                <option value="🦊">🦊 Fox</option>
+                                <option value="🐼">🐼 Panda</option>
+                                <option value="🦉">🦉 Owl</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">User</label>
+                            <select id="theme-user-icon" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="👤">👤 Person</option>
+                                <option value="👨">👨 Man</option>
+                                <option value="👩">👩 Woman</option>
+                                <option value="🧑">🧑 Adult</option>
+                                <option value="👨‍💼">👨‍💼 Office</option>
+                                <option value="🧑‍💻">🧑‍💻 Tech</option>
+                                <option value="🙂">🙂 Smile</option>
+                                <option value="😊">😊 Happy</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Send</label>
+                            <select id="theme-send-icon" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="➤">➤ Arrow</option>
+                                <option value="➜">➜ Bold</option>
+                                <option value="→">→ Right</option>
+                                <option value="▶">▶ Play</option>
+                                <option value="⬆">⬆ Up</option>
+                                <option value="↗">↗ Diagonal</option>
+                                <option value="✓">✓ Check</option>
+                                <option value="⏩">⏩ Fast</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Attach</label>
+                            <select id="theme-attach-icon" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="📎">📎 Clip</option>
+                                <option value="📌">📌 Pin</option>
+                                <option value="📁">📁 Folder</option>
+                                <option value="📄">📄 Doc</option>
+                                <option value="📋">📋 Board</option>
+                                <option value="📥">📥 Inbox</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Delete</label>
+                            <select id="theme-delete-icon" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="🗑️">🗑️ Trash</option>
+                                <option value="🗑">🗑 Bin</option>
+                                <option value="♻️">♻️ Recycle</option>
+                                <option value="🧹">🧹 Broom</option>
+                                <option value="🚮">🚮 Litter</option>
+                                <option value="🪣">🪣 Bucket</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Collapse</label>
+                            <select id="theme-collapse-icon" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="➖">➖ Minus</option>
+                                <option value="⏷">⏷ Down</option>
+                                <option value="▽">▽ Tri</option>
+                                <option value="⌄">⌄ Chev</option>
+                                <option value="⬇">⬇ Arrow</option>
+                                <option value="🔽">🔽 Btn</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Typography Section -->
+                <div class="border-t pt-4 mt-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">📝 Typography</h4>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Header</label>
+                            <select id="theme-header-size" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="14">14px</option>
+                                <option value="16" selected>16px</option>
+                                <option value="18">18px</option>
+                                <option value="20">20px</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Message</label>
+                            <select id="theme-message-size" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="12">12px</option>
+                                <option value="14" selected>14px</option>
+                                <option value="16">16px</option>
+                                <option value="18">18px</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Button</label>
+                            <select id="theme-button-size" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="12">12px</option>
+                                <option value="13" selected>13px</option>
+                                <option value="14">14px</option>
+                                <option value="16">16px</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 w-20">Input</label>
+                            <select id="theme-input-size" class="input-field w-1/2" onchange="updatePreview()">
+                                <option value="13">13px</option>
+                                <option value="14" selected>14px</option>
+                                <option value="16">16px</option>
+                                <option value="18">18px</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 border-t pt-4 mt-4">
+                    <input type="checkbox" id="theme-default" class="w-4 h-4 rounded">
+                    <label for="theme-default" class="text-sm text-gray-700">Set as default theme</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <button onclick="deleteCurrentTheme()" class="btn-secondary text-red-600">Delete</button>
+            <button onclick="saveTheme()" class="btn-primary">Save Theme</button>
+        </div>
+    </div>
+
+    <!-- Theme Preview (1/3 width) -->
+    <div class="lg:col-span-1">
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Preview</h3>
+            <div id="theme-preview" class="theme-preview bg-gray-100 p-4" style="min-height: 400px;">
+                <div id="preview-container" class="bg-white rounded-xl shadow-lg overflow-hidden max-w-sm mx-auto">
+                    <div id="preview-header" class="p-4 text-white"
+                        style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                        <h4 class="font-semibold">IT Support</h4>
+                        <p class="text-sm opacity-90">How can I help?</p>
+                    </div>
+                    <div class="p-4 space-y-3 bg-gray-50">
+                        <div class="flex gap-2">
+                            <div id="preview-avatar"
+                                class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm"
+                                style="background: #6366f1;">B</div>
+                            <div class="bg-white p-3 rounded-lg shadow-sm text-sm max-w-[80%]">Hello!
+                                How can I assist you today?</div>
+                        </div>
+                        <div class="flex gap-2 justify-end">
+                            <div id="preview-user-msg" class="p-3 rounded-lg text-white text-sm max-w-[80%]"
+                                style="background: #6366f1;">My printer isn't working</div>
+                        </div>
+                    </div>
+                    <div class="p-3 border-t bg-white">
+                        <div class="flex gap-2">
+                            <input type="text" placeholder="Type a message..."
+                                class="flex-1 px-3 py-2 bg-gray-100 rounded-full text-sm" disabled>
+                            <button id="preview-send-btn"
+                                class="w-10 h-10 rounded-full text-white flex items-center justify-center"
+                                style="background: #6366f1;">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,101 @@
+<div class="mb-8 flex items-center justify-between">
+    <div>
+        <h2 class="text-2xl font-bold text-gray-800">🔍 Conversation Inspector</h2>
+        <p class="text-gray-500 mt-1">Debug AI assistant behavior and conversation flows</p>
+    </div>
+    <button onclick="refreshInspector()" class="btn-secondary flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Refresh
+    </button>
+</div>
+
+<!-- Inspector Tabs -->
+<div class="flex gap-2 mb-6">
+    <button onclick="showInspectorTab('conversations')"
+        class="inspector-tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white"
+        data-tab="conversations">
+        💬 Conversations
+    </button>
+    <button onclick="showInspectorTab('flows')"
+        class="inspector-tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700" data-tab="flows">
+        🔀 Flows
+    </button>
+    <button onclick="showInspectorTab('intents')"
+        class="inspector-tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700" data-tab="intents">
+        🎯 Intents
+    </button>
+    <button onclick="showInspectorTab('actions')"
+        class="inspector-tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700" data-tab="actions">
+        ⚡ Actions
+    </button>
+</div>
+
+<!-- Conversations Tab -->
+<div id="inspector-tab-conversations" class="inspector-tab-content">
+    <div class="grid grid-cols-3 gap-6">
+        <div class="card p-4 max-h-[60vh] overflow-y-auto">
+            <h3 class="font-semibold mb-3">Recent Conversations</h3>
+            <input type="text" id="inspector-search" placeholder="Search..." class="input-field mb-3 text-sm"
+                oninput="filterInspectorConversations()">
+            <div id="inspector-conv-list" class="space-y-2 text-sm"></div>
+        </div>
+        <div class="col-span-2 card p-4 max-h-[60vh] overflow-y-auto">
+            <div id="inspector-no-selection" class="text-center py-12 text-gray-400">
+                <span class="text-4xl">👈</span>
+                <p class="mt-2">Select a conversation to view details</p>
+            </div>
+            <div id="inspector-conv-detail" class="hidden">
+                <div class="flex gap-3 mb-4">
+                    <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded text-sm"><b id="insp-msg-count">0</b>
+                        messages</span>
+                    <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm"><b id="insp-action-count">0</b>
+                        actions</span>
+                    <span class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm"><b id="insp-intent-count">0</b>
+                        intents</span>
+                </div>
+                <div id="inspector-messages" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Flows Tab -->
+<div id="inspector-tab-flows" class="inspector-tab-content hidden">
+    <div id="inspector-flows-grid" class="grid grid-cols-3 gap-4"></div>
+</div>
+
+<!-- Intents Tab -->
+<div id="inspector-tab-intents" class="inspector-tab-content hidden">
+    <div class="flex gap-4 mb-6">
+        <div class="card p-6 text-center">
+            <div id="insp-total-intents" class="text-3xl font-bold text-purple-600">0</div>
+            <div class="text-sm text-gray-500">Total Messages</div>
+        </div>
+        <div class="card p-6 text-center">
+            <div id="insp-unique-intents" class="text-3xl font-bold text-blue-600">0</div>
+            <div class="text-sm text-gray-500">Unique Intents</div>
+        </div>
+    </div>
+    <div id="inspector-intent-chart" class="card p-4"></div>
+</div>
+
+<!-- Actions Tab -->
+<div id="inspector-tab-actions" class="inspector-tab-content hidden">
+    <div class="card overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-100 text-gray-600">
+                <tr>
+                    <th class="px-4 py-3 text-left">Action</th>
+                    <th class="px-4 py-3 text-left">Total</th>
+                    <th class="px-4 py-3 text-left">Success</th>
+                    <th class="px-4 py-3 text-left">Failure</th>
+                    <th class="px-4 py-3 text-left">Success Rate</th>
+                </tr>
+            </thead>
+            <tbody id="inspector-actions-table"></tbody>
+        </table>
+    </div>
+</div>
