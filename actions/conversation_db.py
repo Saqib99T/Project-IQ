@@ -21,7 +21,7 @@ def _get_db_config():
         return {
             'host': 'localhost',
             'port': 5432,
-            'database': 'ChatBot',
+            'database': 'Chatbot',
             'user': 'postgres',
             'password': '12345'
         }

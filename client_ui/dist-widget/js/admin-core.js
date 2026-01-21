@@ -60,6 +60,12 @@ async function showSection(section) {
     else if (section === 'inspector' && window.loadInspectorConversations) {
         loadInspectorConversations();
     }
+    else if (section === 'observability' && window.loadObservability) {
+        loadObservability();
+    }
+    else if (section === 'studio' && window.loadStudio) {
+        loadStudio();
+    }
 }
 
 // Toast Notification

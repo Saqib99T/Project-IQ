@@ -35,11 +35,88 @@
 
 <!-- Conversations Tab -->
 <div id="inspector-tab-conversations" class="inspector-tab-content">
+    <!-- Filter Bar -->
+    <div class="card p-4 mb-4">
+        <div class="flex flex-wrap gap-3 items-end">
+            <!-- User Search -->
+            <div class="flex-1 min-w-[150px]">
+                <label class="block text-xs text-gray-500 mb-1">User</label>
+                <input type="text" id="filter-user" placeholder="Search by user..."
+                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                    oninput="applyInspectorFilters()">
+            </div>
+
+            <!-- App Filter -->
+            <div class="min-w-[140px]">
+                <label class="block text-xs text-gray-500 mb-1">App</label>
+                <select id="filter-app" onchange="applyInspectorFilters()"
+                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white">
+                    <option value="">All Apps</option>
+                    <option value="IT">IT</option>
+                    <option value="Accounting">Accounting</option>
+                    <option value="General">General</option>
+                </select>
+            </div>
+
+            <!-- Ticket Status Filter -->
+            <div class="min-w-[150px]">
+                <label class="block text-xs text-gray-500 mb-1">Ticket Status</label>
+                <select id="filter-ticket-status" onchange="applyInspectorFilters()"
+                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white">
+                    <option value="">All Status</option>
+                    <option value="created">Created</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                    <option value="none">No Ticket</option>
+                </select>
+            </div>
+
+            <!-- Date Range Filter -->
+            <div class="min-w-[160px]">
+                <label class="block text-xs text-gray-500 mb-1">Date Range</label>
+                <select id="filter-date" onchange="applyInspectorFilters()"
+                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white">
+                    <option value="">All Time</option>
+                    <option value="24h">Last 24 Hours</option>
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d">Last 30 Days</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+            </div>
+
+            <!-- Custom Date Range (hidden by default) -->
+            <div id="custom-date-range" class="hidden min-w-[250px]">
+                <label class="block text-xs text-gray-500 mb-1">Custom Range</label>
+                <div class="flex gap-2">
+                    <input type="date" id="filter-date-from" onchange="applyInspectorFilters()"
+                        class="flex-1 px-2 py-2 text-sm border border-gray-200 rounded-lg">
+                    <input type="date" id="filter-date-to" onchange="applyInspectorFilters()"
+                        class="flex-1 px-2 py-2 text-sm border border-gray-200 rounded-lg">
+                </div>
+            </div>
+
+            <!-- Reset Button -->
+            <button onclick="resetInspectorFilters()"
+                class="px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                Reset
+            </button>
+        </div>
+
+        <!-- Active Filters Display -->
+        <div id="active-filters" class="mt-3 hidden">
+            <div class="flex flex-wrap gap-2 items-center">
+                <span class="text-xs text-gray-500">Active filters:</span>
+                <div id="active-filter-tags" class="flex flex-wrap gap-1"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="grid grid-cols-3 gap-6">
-        <div class="card p-4 max-h-[60vh] overflow-y-auto">
-            <h3 class="font-semibold mb-3">Recent Conversations</h3>
-            <input type="text" id="inspector-search" placeholder="Search..." class="input-field mb-3 text-sm"
-                oninput="filterInspectorConversations()">
+        <div class="card p-4 max-h-[55vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold">Conversations</h3>
+                <span id="conv-count" class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">0</span>
+            </div>
             <div id="inspector-conv-list" class="space-y-2 text-sm"></div>
         </div>
         <div class="col-span-2 card p-4 max-h-[60vh] overflow-y-auto">

@@ -687,6 +687,160 @@ def get_domain_info():
     return domain
 
 
+# =====================
+# STUDIO ENDPOINTS
+# =====================
+
+@app.route('/studio/flows', methods=['GET'])
+def studio_flows():
+    """Get all flows (stories and rules) for visualization."""
+    try:
+        flows_data = get_stories_and_rules()
+        
+        # Transform to flat list with type indicator
+        flows = []
+        
+        for story in flows_data.get('stories', []):
+            steps = []
+            for step in story.get('steps', []):
+                if isinstance(step, dict):
+                    if 'intent' in step:
+                        steps.append(f"intent: {step['intent']}")
+                    elif 'action' in step:
+                        steps.append(step['action'])
+                    elif 'or' in step:
+                        steps.append(f"or: {step['or']}")
+            flows.append({
+                'name': story.get('story', 'Unnamed'),
+                'type': 'story',
+                'steps': steps
+            })
+        
+        for rule in flows_data.get('rules', []):
+            steps = []
+            for step in rule.get('steps', []):
+                if isinstance(step, dict):
+                    if 'intent' in step:
+                        steps.append(f"intent: {step['intent']}")
+                    elif 'action' in step:
+                        steps.append(step['action'])
+            flows.append({
+                'name': rule.get('rule', 'Unnamed'),
+                'type': 'rule',
+                'steps': steps
+            })
+        
+        return jsonify({"success": True, "flows": flows})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/studio/responses', methods=['GET'])
+def studio_responses():
+    """Get all response templates from domain.yml."""
+    try:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        domain_path = os.path.join(base_path, "domain.yml")
+        
+        responses = []
+        if os.path.exists(domain_path):
+            with open(domain_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+                resp_data = data.get('responses', {})
+                
+                for name, templates in resp_data.items():
+                    text = ''
+                    if isinstance(templates, list) and len(templates) > 0:
+                        text = templates[0].get('text', '') if isinstance(templates[0], dict) else str(templates[0])
+                    responses.append({
+                        'name': name,
+                        'text': text,
+                        'variations': len(templates) if isinstance(templates, list) else 1
+                    })
+        
+        return jsonify({"success": True, "responses": responses})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/studio/intents', methods=['GET'])
+def studio_intents():
+    """Get intent training examples from nlu.yml."""
+    try:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        nlu_path = os.path.join(base_path, "data", "nlu.yml")
+        
+        intents = []
+        if os.path.exists(nlu_path):
+            with open(nlu_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+                nlu_data = data.get('nlu', [])
+                
+                for item in nlu_data:
+                    intent_name = item.get('intent', '')
+                    examples = item.get('examples', '')
+                    
+                    # Parse examples (they're in markdown list format)
+                    if isinstance(examples, str):
+                        for line in examples.strip().split('\n'):
+                            line = line.strip()
+                            if line.startswith('- '):
+                                intents.append({
+                                    'intent': intent_name,
+                                    'example': line[2:]
+                                })
+        
+        return jsonify({"success": True, "intents": intents})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/test/message', methods=['POST'])
+def test_message():
+    """Send a test message to Rasa and return response with NLU data."""
+    try:
+        import requests
+        
+        data = request.get_json()
+        message = data.get('message', '')
+        sender = data.get('sender', 'test-user')
+        
+        if not message:
+            return jsonify({"success": False, "error": "Message required"})
+        
+        # Get Rasa config
+        from actions.config_manager import get_rasa_config
+        rasa_config = get_rasa_config()
+        rasa_url = rasa_config.get('api_url', 'http://localhost:5005')
+        
+        # Send to Rasa webhook
+        response = requests.post(
+            f"{rasa_url}/webhooks/rest/webhook",
+            json={"sender": sender, "message": message},
+            timeout=30
+        )
+        
+        responses = response.json() if response.status_code == 200 else []
+        
+        # Also get NLU parse
+        nlu_response = requests.post(
+            f"{rasa_url}/model/parse",
+            json={"text": message},
+            timeout=10
+        )
+        
+        nlu_data = nlu_response.json() if nlu_response.status_code == 200 else {}
+        
+        return jsonify({
+            "success": True,
+            "responses": responses,
+            "nlu": nlu_data
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
 @app.route('/inspector/conversations', methods=['GET'])
 def inspector_list_conversations():
     """Get list of conversations with detailed info for inspector."""

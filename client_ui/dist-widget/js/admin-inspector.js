@@ -16,34 +16,156 @@ async function loadInspectorConversations() {
     }
 }
 
+// Filter handling
+function applyInspectorFilters() {
+    // Show/hide custom date range
+    const dateFilter = document.getElementById('filter-date')?.value;
+    const customRange = document.getElementById('custom-date-range');
+    if (customRange) {
+        customRange.classList.toggle('hidden', dateFilter !== 'custom');
+    }
+
+    renderInspectorConvList();
+    updateActiveFilterTags();
+}
+
+function resetInspectorFilters() {
+    document.getElementById('filter-user').value = '';
+    document.getElementById('filter-app').value = '';
+    document.getElementById('filter-ticket-status').value = '';
+    document.getElementById('filter-date').value = '';
+    document.getElementById('filter-date-from').value = '';
+    document.getElementById('filter-date-to').value = '';
+    document.getElementById('custom-date-range').classList.add('hidden');
+    applyInspectorFilters();
+}
+
+function updateActiveFilterTags() {
+    const container = document.getElementById('active-filter-tags');
+    const wrapper = document.getElementById('active-filters');
+    if (!container || !wrapper) return;
+
+    const filters = [];
+
+    const user = document.getElementById('filter-user')?.value;
+    if (user) filters.push({ label: `User: ${user}`, type: 'user' });
+
+    const app = document.getElementById('filter-app')?.value;
+    if (app) filters.push({ label: `App: ${app}`, type: 'app' });
+
+    const status = document.getElementById('filter-ticket-status')?.value;
+    if (status) filters.push({ label: `Status: ${status}`, type: 'ticket-status' });
+
+    const date = document.getElementById('filter-date')?.value;
+    if (date && date !== 'custom') filters.push({ label: `Date: ${date}`, type: 'date' });
+    if (date === 'custom') {
+        const from = document.getElementById('filter-date-from')?.value;
+        const to = document.getElementById('filter-date-to')?.value;
+        if (from || to) filters.push({ label: `Date: ${from || '?'} to ${to || '?'}`, type: 'date' });
+    }
+
+    if (filters.length === 0) {
+        wrapper.classList.add('hidden');
+        return;
+    }
+
+    wrapper.classList.remove('hidden');
+    container.innerHTML = filters.map(f => `
+        <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full flex items-center gap-1">
+            ${f.label}
+            <button onclick="clearFilter('${f.type}')" class="hover:text-red-600">×</button>
+        </span>
+    `).join('');
+}
+
+function clearFilter(type) {
+    if (type === 'user') document.getElementById('filter-user').value = '';
+    if (type === 'app') document.getElementById('filter-app').value = '';
+    if (type === 'ticket-status') document.getElementById('filter-ticket-status').value = '';
+    if (type === 'date') {
+        document.getElementById('filter-date').value = '';
+        document.getElementById('filter-date-from').value = '';
+        document.getElementById('filter-date-to').value = '';
+    }
+    applyInspectorFilters();
+}
+
 function filterInspectorConversations() {
     renderInspectorConvList();
 }
 
 function renderInspectorConvList() {
-    const search = document.getElementById('inspector-search').value.toLowerCase();
-    const filtered = inspectorConversations.filter(c =>
-        c.sender_id?.toLowerCase().includes(search) ||
-        c.app_id?.toLowerCase().includes(search) ||
-        c.user_name?.toLowerCase().includes(search) ||
-        c.display_name?.toLowerCase().includes(search)
-    );
+    // Get all filter values
+    const userFilter = document.getElementById('filter-user')?.value.toLowerCase() || '';
+    const appFilter = document.getElementById('filter-app')?.value || '';
+    const statusFilter = document.getElementById('filter-ticket-status')?.value || '';
+    const dateFilter = document.getElementById('filter-date')?.value || '';
+    const dateFrom = document.getElementById('filter-date-from')?.value || '';
+    const dateTo = document.getElementById('filter-date-to')?.value || '';
+
+    // Calculate date threshold
+    let dateThreshold = null;
+    if (dateFilter === '24h') dateThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    else if (dateFilter === '7d') dateThreshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    else if (dateFilter === '30d') dateThreshold = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const filtered = inspectorConversations.filter(c => {
+        // User filter
+        if (userFilter) {
+            const userName = (c.user_name || c.user_id || c.sender_id || '').toLowerCase();
+            if (!userName.includes(userFilter)) return false;
+        }
+
+        // App filter
+        if (appFilter && c.app_id !== appFilter) return false;
+
+        // Ticket status filter
+        if (statusFilter) {
+            if (statusFilter === 'none' && c.ticket_id) return false;
+            if (statusFilter !== 'none') {
+                const ticketStatus = (c.ticket_status || '').toLowerCase();
+                if (ticketStatus !== statusFilter) return false;
+            }
+        }
+
+        // Date filter
+        if (dateThreshold && c.last_message_at) {
+            const msgDate = new Date(c.last_message_at);
+            if (msgDate < dateThreshold) return false;
+        }
+
+        // Custom date range
+        if (dateFilter === 'custom' && c.last_message_at) {
+            const msgDate = new Date(c.last_message_at);
+            if (dateFrom && msgDate < new Date(dateFrom)) return false;
+            if (dateTo && msgDate > new Date(dateTo + 'T23:59:59')) return false;
+        }
+
+        return true;
+    });
+
+    // Update count
+    const countEl = document.getElementById('conv-count');
+    if (countEl) countEl.textContent = filtered.length;
+
     const html = filtered.map(c => {
         const userName = c.user_name || c.user_id || null;
+        const statusIcon = c.resolved ? '✅' : (c.ticket_id ? '🎫' : '🔵');
         return `
         <div onclick="selectInspConversation('${c.sender_id}')" 
              class="p-2 rounded cursor-pointer hover:bg-gray-100 border ${selectedInspConv?.sender_id === c.sender_id ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}">
             <div class="flex justify-between items-start">
                 <div>
-                    ${userName ? `<div class="font-medium text-sm text-purple-700">👤 ${userName} <span class="text-gray-500">(${c.app_id})</span></div>` : `<div class="font-medium text-sm text-purple-700">${c.app_id}</div>`}
+                    ${userName ? `<div class="font-medium text-sm text-purple-700">👤 ${userName}</div>` : ''}
                     <div class="font-mono text-xs text-gray-500">${c.sender_id_short}</div>
                 </div>
-                <span class="text-xs">${c.resolved ? '✅' : '🔵'}</span>
+                <span class="text-xs">${statusIcon}</span>
             </div>
             <div class="text-xs text-gray-500 mt-1">${c.app_id} • ${c.message_count} msgs</div>
+            ${c.ticket_id ? `<div class="text-xs text-blue-600 mt-0.5">🎫 Ticket #${c.ticket_id}</div>` : ''}
         </div>
     `}).join('');
-    document.getElementById('inspector-conv-list').innerHTML = html || '<div class="text-gray-500">No conversations</div>';
+    document.getElementById('inspector-conv-list').innerHTML = html || '<div class="text-gray-500">No conversations match filters</div>';
 }
 
 async function selectInspConversation(senderId) {
