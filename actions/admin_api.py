@@ -435,6 +435,201 @@ def health_check():
 
 
 # =====================
+# ADMIN AUTHENTICATION
+# =====================
+
+from actions.glpi_service import GlpiService
+from actions.config_manager import get_glpi_config
+
+# Admin profile IDs allowed to access admin dashboard
+# GLPI Default: Super-Admin = 4
+# Adjust this list based on your GLPI installation
+ALLOWED_ADMIN_PROFILE_IDS = [4]  # Only Super-Admin
+ALLOWED_ADMIN_PROFILE_NAMES = ['Super-Admin']  # Fallback by name
+
+# Storage for active admin sessions (in production, use Redis or DB)
+admin_sessions = {}
+
+
+@app.route('/admin/login', methods=['POST'])
+def admin_login():
+    """
+    Authenticate admin user via GLPI API.
+    Checks if user has Admin or Super-Admin profile.
+    """
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not username or not password:
+            return jsonify({
+                "success": False,
+                "error": "Username and password are required"
+            }), 400
+        
+        # Get GLPI config
+        glpi_config = get_glpi_config()
+        glpi_service = GlpiService(
+            glpi_config['api_url'],
+            glpi_config['app_token'],
+            glpi_config['user_token']
+        )
+        
+        # Authenticate with GLPI
+        result = glpi_service.login_with_credentials(username, password)
+        
+        if not result['success']:
+            return jsonify({
+                "success": False,
+                "error": result.get('error', 'Authentication failed')
+            }), 401
+        
+        # Check if user has admin profile
+        profile_id = result.get('profile_id')
+        profile_name = result.get('profile_name', '')
+        
+        # Debug logging
+        print(f"[ADMIN AUTH] User: {username}, Profile ID: {profile_id}, Profile Name: {profile_name}")
+        print(f"[ADMIN AUTH] Allowed IDs: {ALLOWED_ADMIN_PROFILE_IDS}, Allowed Names: {ALLOWED_ADMIN_PROFILE_NAMES}")
+        
+        is_admin = (
+            profile_id in ALLOWED_ADMIN_PROFILE_IDS or
+            profile_name in ALLOWED_ADMIN_PROFILE_NAMES
+        )
+        
+        if not is_admin:
+            # Kill the GLPI session since user is not authorized
+            glpi_service.kill_session(result['session_token'])
+            return jsonify({
+                "success": False,
+                "error": f"Access denied. Your profile '{profile_name}' is not authorized to access the admin dashboard."
+            }), 403
+        
+        # Store session
+        session_token = result['session_token']
+        admin_sessions[session_token] = {
+            "user_id": result.get('user_id'),
+            "user_name": result.get('user_name'),
+            "firstname": result.get('user_firstname'),
+            "profile_id": profile_id,
+            "profile_name": profile_name
+        }
+        
+        return jsonify({
+            "success": True,
+            "session_token": session_token,
+            "user": {
+                "id": result.get('user_id'),
+                "name": result.get('user_name'),
+                "firstname": result.get('user_firstname'),
+                "profile": profile_name
+            }
+        })
+        
+    except Exception as e:
+        print(f"Admin login error: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Login error: {str(e)}"
+        }), 500
+
+
+@app.route('/admin/logout', methods=['POST'])
+def admin_logout():
+    """Logout admin user and kill GLPI session."""
+    try:
+        data = request.get_json() or {}
+        session_token = data.get('session_token') or request.headers.get('X-Session-Token')
+        
+        if session_token:
+            # Remove from local sessions
+            if session_token in admin_sessions:
+                del admin_sessions[session_token]
+            
+            # Kill GLPI session
+            try:
+                glpi_config = get_glpi_config()
+                glpi_service = GlpiService(
+                    glpi_config['api_url'],
+                    glpi_config['app_token'],
+                    glpi_config['user_token']
+                )
+                glpi_service.kill_session(session_token)
+            except:
+                pass  # Session might already be expired
+        
+        return jsonify({"success": True, "message": "Logged out"})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/verify', methods=['POST'])
+def admin_verify():
+    """Verify if a session token is still valid."""
+    try:
+        data = request.get_json() or {}
+        session_token = data.get('session_token') or request.headers.get('X-Session-Token')
+        
+        if not session_token:
+            return jsonify({"valid": False, "error": "No session token provided"}), 401
+        
+        # Check local cache first
+        if session_token in admin_sessions:
+            user_info = admin_sessions[session_token]
+            return jsonify({
+                "valid": True,
+                "user": {
+                    "id": user_info.get('user_id'),
+                    "name": user_info.get('user_name'),
+                    "firstname": user_info.get('firstname'),
+                    "profile": user_info.get('profile_name')
+                }
+            })
+        
+        # Token not in cache - verify with GLPI
+        try:
+            glpi_config = get_glpi_config()
+            glpi_service = GlpiService(
+                glpi_config['api_url'],
+                glpi_config['app_token'],
+                glpi_config['user_token']
+            )
+            user_info = glpi_service._get_current_user(session_token)
+            
+            if user_info and user_info.get('id'):
+                # Check if admin
+                profile_id = user_info.get('profile_id')
+                profile_name = user_info.get('profile_name', '')
+                
+                is_admin = (
+                    profile_id in ALLOWED_ADMIN_PROFILE_IDS or
+                    profile_name in ALLOWED_ADMIN_PROFILE_NAMES
+                )
+                
+                if is_admin:
+                    # Cache the session
+                    admin_sessions[session_token] = user_info
+                    return jsonify({
+                        "valid": True,
+                        "user": {
+                            "id": user_info.get('id'),
+                            "name": user_info.get('name'),
+                            "firstname": user_info.get('firstname'),
+                            "profile": profile_name
+                        }
+                    })
+        except:
+            pass
+        
+        return jsonify({"valid": False, "error": "Session expired or invalid"}), 401
+        
+    except Exception as e:
+        return jsonify({"valid": False, "error": str(e)}), 500
+
+
+# =====================
 # INSPECTOR ENDPOINTS
 # =====================
 

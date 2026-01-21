@@ -82,7 +82,7 @@ class GlpiChatWidget extends HTMLElement {
     render() {
         if (!this.root) return;
 
-        const title = this.getAttribute('title') || 'GLPI Support';
+        const title = this.getAttribute('title') || 'Project IQ';
         const appId = this.getAttribute('app-id') || 'General';
 
         this.root.render(

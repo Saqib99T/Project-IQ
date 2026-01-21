@@ -33460,7 +33460,7 @@ if (typeof window !== "undefined" && !window.process) {
   }
   const RASA_API_URL = "http://127.0.0.1:5005/webhooks/rest/webhook";
   const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
-  const ChatWindow = ({ title = "GLPI Support", appId = "General", theme = null }) => {
+  const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) => {
     const primaryColor = theme?.primaryColor || "#000000";
     const secondaryColor = theme?.secondaryColor || adjustBrightness(primaryColor, 20);
     const bgColor = theme?.bgColor || "#ffffff";
@@ -33749,7 +33749,7 @@ I can help you with:
           sender: "bot",
           text: `🔐 **Login Required**
 
-To ${actionName}, please login with your GLPI credentials.`,
+To ${actionName}, please login with your Project IQ credentials.`,
           buttons: [
             { title: "🔑 Login Now", payload: "__LOGIN__" },
             { title: "📚 Search KB Instead", payload: "/ask_knowledge" }
@@ -34183,7 +34183,7 @@ Priority: ${data.priority}`;
                     className: "bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden",
                     children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-4 border-b border-gray-100 flex justify-between items-center", style: { backgroundColor: primaryColor }, children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "font-semibold text-white", children: "🔐 Login to GLPI" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "font-semibold text-white", children: "🔐 Login to Project IQ" }),
                         /* @__PURE__ */ jsxRuntimeExports.jsx(
                           "button",
                           {
@@ -34204,7 +34204,7 @@ Priority: ${data.priority}`;
                                 type: "text",
                                 value: loginUsername,
                                 onChange: (e) => setLoginUsername(e.target.value),
-                                placeholder: "GLPI username",
+                                placeholder: "Username",
                                 className: "w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all",
                                 style: { "--tw-ring-color": primaryColor },
                                 disabled: isLoggingIn,
@@ -34272,7 +34272,7 @@ Priority: ${data.priority}`;
                     children: "🔐"
                   }
                 ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-semibold text-gray-800", children: "GLPI Login" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-semibold text-gray-800", children: "Project IQ Login" }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-gray-500 mt-1", children: "Please sign in to continue" })
               ] }),
               /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { onSubmit: handleLogin, className: "space-y-4", children: [
@@ -34286,7 +34286,7 @@ Priority: ${data.priority}`;
                         type: "text",
                         value: loginUsername,
                         onChange: (e) => setLoginUsername(e.target.value),
-                        placeholder: "Enter your GLPI username",
+                        placeholder: "Enter your username",
                         className: "w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all",
                         style: { "--tw-ring-color": primaryColor },
                         disabled: isLoggingIn
@@ -34535,7 +34535,7 @@ Priority: ${data.priority}`;
     }
     render() {
       if (!this.root) return;
-      const title = this.getAttribute("title") || "GLPI Support";
+      const title = this.getAttribute("title") || "Project IQ";
       const appId = this.getAttribute("app-id") || "General";
       this.root.render(
         /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChatWindow, { title, appId, theme: this.themeData }) })

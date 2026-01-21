@@ -56,7 +56,44 @@
 </head>
 
 <body class="bg-gray-50 min-h-screen">
-    <div class="flex min-h-screen">
+    <!-- Login Overlay -->
+    <div id="login-overlay"
+        class="fixed inset-0 bg-gradient-to-br from-purple-700 to-indigo-800 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+            <div class="text-center mb-6">
+                <div <div
+                    class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center text-3xl text-white">
+                    🔐</div>
+                <h2
+                    class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                    Project IQ</h2>
+                <p class="text-lg font-semibold text-gray-800 mt-1">Admin Login</p>
+                <p class="text-sm text-gray-500 mt-1">Sign in to access the dashboard</p>
+            </div>
+            <form onsubmit="handleLoginSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <input type="text" id="admin-username" placeholder="Enter your username"
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                        autofocus>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="admin-password" placeholder="Enter your password"
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none">
+                </div>
+                <div id="login-error"
+                    class="hidden p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm"></div>
+                <button type="submit" id="login-submit"
+                    class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-lg hover:opacity-90 transition-opacity">
+                    Sign In
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Content Wrapper -->
+    <div id="main-content" class="flex min-h-screen hidden">
         <!-- Sidebar -->
         <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
             <div class="p-6 border-b border-gray-100">
@@ -122,7 +159,21 @@
                 </a>
             </nav>
 
-            <div class="p-4 border-t border-gray-100">
+            <!-- User info and Logout -->
+            <div class="p-4 border-t border-gray-100 space-y-3">
+                <div class="flex items-center gap-2 text-sm text-gray-600">
+                    <span
+                        class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">👤</span>
+                    <span id="user-display">Admin</span>
+                </div>
+                <button onclick="handleLogout()"
+                    class="w-full px-3 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Sign Out
+                </button>
                 <p class="text-xs text-gray-400 text-center">v1.0.0 • 99T Solutions</p>
             </div>
         </aside>
@@ -135,7 +186,8 @@
             <section id="section-integration" class="section hidden"></section>
             <section id="section-inspector" class="section hidden"></section>
         </main>
-    </div>
+    </div> <!-- End main-content -->
+    </div> <!-- End flex wrapper -->
 
     <!-- Toast Notification -->
     <div id="toast"
@@ -144,6 +196,7 @@
     </div>
 
     <!-- Modular Admin Scripts -->
+    <script src="js/admin-auth.js"></script>
     <script src="js/admin-core.js"></script>
     <script src="js/admin-config.js"></script>
     <script src="js/admin-themes.js"></script>

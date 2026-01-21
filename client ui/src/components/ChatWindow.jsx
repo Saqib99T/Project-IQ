@@ -10,7 +10,7 @@ const RASA_API_URL = 'http://127.0.0.1:5005/webhooks/rest/webhook';
 // localStorage keys with appId prefix for multi-widget support
 const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
 
-const ChatWindow = ({ title = "GLPI Support", appId = "General", theme = null }) => {
+const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) => {
     // Extract theme properties with defaults
     const primaryColor = theme?.primaryColor || '#000000';
     const secondaryColor = theme?.secondaryColor || adjustBrightness(primaryColor, 20);
@@ -367,7 +367,7 @@ const ChatWindow = ({ title = "GLPI Support", appId = "General", theme = null })
             setMessages(prev => [...prev, {
                 id: uuidv4(),
                 sender: 'bot',
-                text: `🔐 **Login Required**\n\nTo ${actionName}, please login with your GLPI credentials.`,
+                text: `🔐 **Login Required**\n\nTo ${actionName}, please login with your Project IQ credentials.`,
                 buttons: [
                     { title: '🔑 Login Now', payload: '__LOGIN__' },
                     { title: '📚 Search KB Instead', payload: '/ask_knowledge' }
@@ -839,7 +839,7 @@ const ChatWindow = ({ title = "GLPI Support", appId = "General", theme = null })
                                         className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden"
                                     >
                                         <div className="p-4 border-b border-gray-100 flex justify-between items-center" style={{ backgroundColor: primaryColor }}>
-                                            <h3 className="font-semibold text-white">🔐 Login to GLPI</h3>
+                                            <h3 className="font-semibold text-white">🔐 Login to Project IQ</h3>
                                             <button
                                                 onClick={() => setShowLoginPrompt(false)}
                                                 className="text-white/70 hover:text-white p-1"
@@ -857,7 +857,7 @@ const ChatWindow = ({ title = "GLPI Support", appId = "General", theme = null })
                                                         type="text"
                                                         value={loginUsername}
                                                         onChange={(e) => setLoginUsername(e.target.value)}
-                                                        placeholder="GLPI username"
+                                                        placeholder="Username"
                                                         className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all"
                                                         style={{ '--tw-ring-color': primaryColor }}
                                                         disabled={isLoggingIn}
@@ -923,7 +923,7 @@ const ChatWindow = ({ title = "GLPI Support", appId = "General", theme = null })
                                         >
                                             🔐
                                         </div>
-                                        <h2 className="text-xl font-semibold text-gray-800">GLPI Login</h2>
+                                        <h2 className="text-xl font-semibold text-gray-800">Project IQ Login</h2>
                                         <p className="text-sm text-gray-500 mt-1">Please sign in to continue</p>
                                     </div>
 
@@ -936,7 +936,7 @@ const ChatWindow = ({ title = "GLPI Support", appId = "General", theme = null })
                                                     type="text"
                                                     value={loginUsername}
                                                     onChange={(e) => setLoginUsername(e.target.value)}
-                                                    placeholder="Enter your GLPI username"
+                                                    placeholder="Enter your username"
                                                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all"
                                                     style={{ '--tw-ring-color': primaryColor }}
                                                     disabled={isLoggingIn}

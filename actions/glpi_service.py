@@ -63,6 +63,8 @@ class GlpiService:
                     "user_id": user_info.get("id") if user_info else None,
                     "user_name": user_info.get("name") if user_info else username,
                     "user_firstname": user_info.get("firstname") if user_info else "",
+                    "profile_id": user_info.get("profile_id") if user_info else None,
+                    "profile_name": user_info.get("profile_name") if user_info else "",
                     "error": None
                 }
             else:
@@ -95,7 +97,7 @@ class GlpiService:
             }
 
     def _get_current_user(self, session_token: str) -> Optional[Dict[str, Any]]:
-        """Get current logged-in user info."""
+        """Get current logged-in user info including profile."""
         url = f"{self.api_uri}/getFullSession"
         headers = {
             "App-Token": self.app_token,
@@ -106,11 +108,14 @@ class GlpiService:
             if response.status_code == 200:
                 data = response.json()
                 session = data.get("session", {})
+                profile = session.get("glpiactiveprofile", {})
                 return {
                     "id": session.get("glpiID"),
                     "name": session.get("glpiname"),
                     "firstname": session.get("glpifirstname"),
-                    "realname": session.get("glpirealname")
+                    "realname": session.get("glpirealname"),
+                    "profile_id": profile.get("id"),
+                    "profile_name": profile.get("name")
                 }
         except:
             pass
