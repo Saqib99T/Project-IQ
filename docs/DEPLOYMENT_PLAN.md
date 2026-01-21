@@ -246,7 +246,7 @@ http {
 
         # Chat Widget Static Files
         location / {
-            root C:/Project-IQ/client ui/dist-widget;
+            root C:/Project-IQ/client_ui/dist-widget;
             index it.html;
             try_files $uri $uri/ /it.html;
         }
@@ -268,7 +268,7 @@ http {
 
         # Admin Dashboard
         location /admin.html {
-            root C:/Project-IQ/client ui/dist-widget;
+            root C:/Project-IQ/client_ui/dist-widget;
         }
     }
 }
@@ -319,7 +319,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY actions/ ./actions/
-COPY "client ui/dist-widget" ./static/
+COPY "client_ui/dist-widget" ./static/
 COPY .env .
 
 EXPOSE 8181
@@ -377,7 +377,7 @@ services:
       - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./client ui/dist-widget:/usr/share/nginx/html
+      - ./client_ui/dist-widget:/usr/share/nginx/html
     depends_on:
       - rasa
       - admin

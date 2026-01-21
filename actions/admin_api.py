@@ -21,7 +21,7 @@ from actions.analytics_store import get_analytics_summary, get_recent_conversati
 from actions.config_manager import get_all_config as get_file_config, set_all_config as save_file_config
 
 # Static files directory
-STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'client ui', 'dist-widget')
+STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'client_ui', 'dist-widget')
 
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
 CORS(app)
