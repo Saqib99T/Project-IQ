@@ -17,7 +17,7 @@ async function loadInspectorData() {
 
 async function loadInspectorConversations() {
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/conversations?limit=50`);
+        const res = await fetch(`/inspector/conversations?limit=50`);
         const data = await res.json();
 
         if (data.success) {
@@ -112,7 +112,7 @@ async function applyInspFilters() {
         params.append('limit', '100');
 
         const queryString = params.toString() ? `?${params.toString()}` : '?limit=100';
-        const res = await fetch(`${ADMIN_API}/admin/analytics/conversations${queryString}`);
+        const res = await fetch(`/inspector/conversations${queryString}`);
         const data = await res.json();
 
         if (data.success) {
@@ -121,6 +121,7 @@ async function applyInspFilters() {
         }
     } catch (e) {
         console.error('Failed to filter conversations:', e);
+        document.getElementById('insp-conv-list').innerHTML = '<div class="text-red-400 text-sm">Failed to load</div>';
     }
 }
 
@@ -129,10 +130,12 @@ function loadInspAppList() {
     const selector = document.getElementById('insp-filter-app');
     if (!selector) return;
 
-    fetch(`${ADMIN_API}/admin/analytics/apps`)
+    fetch(`${ADMIN_API}/analytics/apps`)
         .then(res => res.json())
         .then(data => {
             if (data.success && data.apps) {
+                // Start with "All Apps" option
+                selector.innerHTML = '<option value="all">All Apps</option>';
                 data.apps.forEach(app => {
                     const appId = app.app_id || app;
                     const appName = app.name || app;
@@ -188,7 +191,7 @@ async function selectInspConversation(senderId) {
 
 async function loadConversationMessages(senderId) {
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/conversation/${senderId}`);
+        const res = await fetch(`/inspector/conversation/${senderId}`);
         const data = await res.json();
 
         if (data.success) {
@@ -243,7 +246,7 @@ async function debugSelectedConversation() {
     document.getElementById('debug-conv-id').textContent = `Sender: ${selectedInspConv.sender_id_short}`;
 
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/conversation/${selectedInspConv.sender_id}/debug`);
+        const res = await fetch(`/inspector/conversation/${selectedInspConv.sender_id}/debug`);
         const data = await res.json();
 
         if (data.success) {
@@ -383,7 +386,7 @@ async function testNLUParse() {
     resultsContainer.innerHTML = '<div class="text-gray-400 text-center py-4">Parsing...</div>';
 
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/parse`, {
+        const res = await fetch(`/inspector/parse`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: text })
@@ -463,7 +466,7 @@ function renderNLUResults(data) {
 
 async function loadRecentConvsForSlots() {
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/conversations?limit=10`);
+        const res = await fetch(`/inspector/conversations?limit=10`);
         const data = await res.json();
 
         if (data.success) {
@@ -496,7 +499,7 @@ async function lookupSlotState() {
     container.innerHTML = '<div class="text-gray-400 text-center py-4">Loading...</div>';
 
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/conversation/${senderId}/tracker`);
+        const res = await fetch(`/inspector/conversation/${senderId}/tracker`);
         const data = await res.json();
 
         if (data.success) {
@@ -551,7 +554,7 @@ function renderSlotState(data) {
 
 async function loadDomainInfo() {
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/domain/info`);
+        const res = await fetch(`/inspector/domain/info`);
         const data = await res.json();
 
         if (data.success) {

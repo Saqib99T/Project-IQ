@@ -4,21 +4,27 @@ let currentThemeId = null;
 
 async function loadThemes() {
     try {
-        const res = await fetch(`${ADMIN_API}/admin/themes`);
+        const res = await fetch(`${ADMIN_API}/themes`);
         const data = await res.json();
         if (data.success) {
             const selector = document.getElementById('theme-selector');
             const intTheme = document.getElementById('int-theme-id');
-            // Check if elements exist (they might not if tab isn't loaded yet, but loadThemes is called AFTER html load)
-            if (!selector || !intTheme) return;
 
-            selector.innerHTML = '<option value="new">+ New Theme</option>';
-            intTheme.innerHTML = '<option value="">Default (Black)</option>';
+            // Populate theme-selector if it exists (Themes page)
+            if (selector) {
+                selector.innerHTML = '<option value="new">+ New Theme</option>';
+                data.themes.forEach(theme => {
+                    selector.innerHTML += `<option value="${theme.id}">${theme.name}${theme.is_default ? ' ★' : ''}</option>`;
+                });
+            }
 
-            data.themes.forEach(theme => {
-                selector.innerHTML += `<option value="${theme.id}">${theme.name}${theme.is_default ? ' ★' : ''}</option>`;
-                intTheme.innerHTML += `<option value="${theme.id}">${theme.name}</option>`;
-            });
+            // Populate int-theme-id if it exists (Integration page)
+            if (intTheme) {
+                intTheme.innerHTML = '<option value="">Default (Black)</option>';
+                data.themes.forEach(theme => {
+                    intTheme.innerHTML += `<option value="${theme.id}">${theme.name}</option>`;
+                });
+            }
         }
     } catch (e) {
         console.error('Failed to load themes:', e);
@@ -59,7 +65,7 @@ async function loadTheme(themeId) {
     }
 
     try {
-        const res = await fetch(`${ADMIN_API}/admin/themes/${themeId}`);
+        const res = await fetch(`${ADMIN_API}/themes/${themeId}`);
         const data = await res.json();
         if (data.success && data.theme) {
             currentThemeId = themeId;
@@ -130,8 +136,8 @@ async function saveTheme() {
 
     try {
         const url = currentThemeId
-            ? `${ADMIN_API}/admin/themes/${currentThemeId}`
-            : `${ADMIN_API}/admin/themes`;
+            ? `${ADMIN_API}/themes/${currentThemeId}`
+            : `${ADMIN_API}/themes`;
         const method = currentThemeId ? 'PUT' : 'POST';
 
         const res = await fetch(url, {
@@ -158,7 +164,7 @@ async function deleteCurrentTheme() {
     if (!confirm('Delete this theme?')) return;
 
     try {
-        await fetch(`${ADMIN_API}/admin/themes/${currentThemeId}`, { method: 'DELETE' });
+        await fetch(`${ADMIN_API}/themes/${currentThemeId}`, { method: 'DELETE' });
         currentThemeId = null;
         document.getElementById('theme-selector').value = 'new';
         loadTheme('new');

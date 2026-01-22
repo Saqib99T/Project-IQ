@@ -101,6 +101,18 @@ async function loadMetrics() {
             if (diskUsedEl) diskUsedEl.textContent = diskUsed;
             if (diskTotalEl) diskTotalEl.textContent = diskTotal;
 
+            // Update service cards with system metrics (same metrics for all services)
+            for (let i = 1; i <= 4; i++) {
+                const suffix = i === 1 ? '' : `-${i}`;
+                const cpuServiceEl = document.getElementById(`service-cpu${suffix}`);
+                const memServiceEl = document.getElementById(`service-memory${suffix}`);
+                const diskServiceEl = document.getElementById(`service-disk${suffix}`);
+
+                if (cpuServiceEl) cpuServiceEl.textContent = cpu.toFixed(1) + '%';
+                if (memServiceEl) memServiceEl.textContent = memPercent.toFixed(1) + '%';
+                if (diskServiceEl) diskServiceEl.textContent = diskPercent.toFixed(1) + '%';
+            }
+
             // Response Time
             const responseTime = metrics.avg_response_time || 0;
             document.getElementById('metric-response-time').textContent = responseTime;

@@ -11,7 +11,8 @@
       "Bash(curl:*)",
       "Bash(python -m json.tool:*)",
       "Bash(python:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(psql:*)"
     ]
   }
 }

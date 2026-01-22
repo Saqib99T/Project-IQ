@@ -21,7 +21,7 @@
     <!-- Service Health Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="card p-4">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between mb-3">
                 <div>
                     <p class="text-sm text-gray-500">Rasa Core</p>
                     <p id="health-rasa" class="text-xl font-semibold text-gray-400">Checking...</p>
@@ -29,9 +29,23 @@
                 <div id="health-rasa-icon"
                     class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl">🤖</div>
             </div>
+            <div class="pt-3 border-t border-gray-100 space-y-1">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">💻 CPU</span>
+                    <span id="service-cpu" class="font-medium text-gray-700">--</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">🧠 Memory</span>
+                    <span id="service-memory" class="font-medium text-gray-700">--</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">💾 Disk</span>
+                    <span id="service-disk" class="font-medium text-gray-700">--</span>
+                </div>
+            </div>
         </div>
         <div class="card p-4">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between mb-3">
                 <div>
                     <p class="text-sm text-gray-500">Action Server</p>
                     <p id="health-actions" class="text-xl font-semibold text-gray-400">Checking...</p>
@@ -39,9 +53,23 @@
                 <div id="health-actions-icon"
                     class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl">⚙️</div>
             </div>
+            <div class="pt-3 border-t border-gray-100 space-y-1">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">💻 CPU</span>
+                    <span id="service-cpu-2" class="font-medium text-gray-700">--</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">🧠 Memory</span>
+                    <span id="service-memory-2" class="font-medium text-gray-700">--</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">💾 Disk</span>
+                    <span id="service-disk-2" class="font-medium text-gray-700">--</span>
+                </div>
+            </div>
         </div>
         <div class="card p-4">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between mb-3">
                 <div>
                     <p class="text-sm text-gray-500">Database</p>
                     <p id="health-database" class="text-xl font-semibold text-gray-400">Checking...</p>
@@ -49,15 +77,43 @@
                 <div id="health-database-icon"
                     class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl">🗄️</div>
             </div>
+            <div class="pt-3 border-t border-gray-100 space-y-1">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">💻 CPU</span>
+                    <span id="service-cpu-3" class="font-medium text-gray-700">--</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">🧠 Memory</span>
+                    <span id="service-memory-3" class="font-medium text-gray-700">--</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">💾 Disk</span>
+                    <span id="service-disk-3" class="font-medium text-gray-700">--</span>
+                </div>
+            </div>
         </div>
         <div class="card p-4">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between mb-3">
                 <div>
                     <p class="text-sm text-gray-500">Admin API</p>
                     <p id="health-admin" class="text-xl font-semibold text-green-600">Online</p>
                 </div>
                 <div id="health-admin-icon"
                     class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-2xl">✅</div>
+            </div>
+            <div class="pt-3 border-t border-gray-100 space-y-1">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">💻 CPU</span>
+                    <span id="service-cpu-4" class="font-medium text-gray-700">--</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">🧠 Memory</span>
+                    <span id="service-memory-4" class="font-medium text-gray-700">--</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">💾 Disk</span>
+                    <span id="service-disk-4" class="font-medium text-gray-700">--</span>
+                </div>
             </div>
         </div>
     </div>

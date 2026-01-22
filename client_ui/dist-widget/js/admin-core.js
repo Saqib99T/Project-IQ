@@ -57,8 +57,8 @@ async function showSection(section) {
         // However, the DOMContentLoaded listener in admin-themes.js won't fire for dynamically loaded content.
         // We might need to manually trigger setup if needed.
     }
-    else if (section === 'inspector' && window.loadInspectorConversations) {
-        loadInspectorConversations();
+    else if (section === 'inspector' && window.loadInspectorData) {
+        loadInspectorData();
     }
     else if (section === 'observability' && window.loadObservability) {
         loadObservability();

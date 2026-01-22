@@ -2,7 +2,7 @@
 
 async function loadConfig() {
     try {
-        const res = await fetch(`${ADMIN_API}/admin/config`);
+        const res = await fetch(`${ADMIN_API}/config`);
         const data = await res.json();
         if (data.success) {
             Object.entries(data.config).forEach(([key, value]) => {
@@ -23,7 +23,7 @@ async function saveConfig() {
     });
 
     try {
-        const res = await fetch(`${ADMIN_API}/admin/config`, {
+        const res = await fetch(`${ADMIN_API}/config`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(config)

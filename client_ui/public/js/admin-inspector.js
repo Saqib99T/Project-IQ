@@ -2,16 +2,21 @@
 let inspectorConversations = [];
 let selectedInspConv = null;
 
+async function loadInspectorData() {
+    loadAppList();  // Load app list for filters
+    await loadInspectorConversations();  // Load conversations
+}
+
 async function loadAppList() {
     try {
-        const res = await fetch(`${ADMIN_API}/admin/analytics/apps?t=` + Date.now());
+        const res = await fetch(`${ADMIN_API}/analytics/apps?t=` + Date.now());
         const data = await res.json();
         if (data.success) {
             const select = document.getElementById('filter-app');
             if (select) {
                 const currentVal = select.value;
-                select.innerHTML = '<option value="">All Apps</option>' +
-                    data.apps.map(app => `<option value="${app.app_id}">${app.name} (${app.app_id})</option>`).join('');
+                select.innerHTML = '<option value="all">All Apps</option>' +
+                    data.apps.map(app => `<option value="${app.app_id}">${app.name}</option>`).join('');
                 select.value = currentVal;
             }
         }
@@ -20,28 +25,16 @@ async function loadAppList() {
 
 async function loadInspectorConversations() {
     try {
-        const user = document.getElementById('filter-user')?.value || '';
         const app = document.getElementById('filter-app')?.value || '';
-        const status = document.getElementById('filter-ticket-status')?.value || '';
-        const date = document.getElementById('filter-date')?.value || '';
-        const dateFrom = document.getElementById('filter-date-from')?.value || '';
-        const dateTo = document.getElementById('filter-date-to')?.value || '';
 
-        const params = new URLSearchParams({
-            limit: 50,
-            user: user,
-            app_id: app || 'all',
-            ticket_status: status || 'all',
-            date: date || 'all',
-            t: Date.now()
-        });
+        const params = new URLSearchParams({ limit: 100 });
 
-        if (date === 'custom') {
-            if (dateFrom) params.append('date_from', dateFrom);
-            if (dateTo) params.append('date_to', dateTo);
+        // Only send app_id if it's not 'all' (backend supports app_id filter)
+        if (app && app !== 'all') {
+            params.append('app_id', app);
         }
 
-        const res = await fetch(`${ADMIN_API}/inspector/conversations?${params.toString()}`);
+        const res = await fetch(`/inspector/conversations?${params.toString()}`);
         const data = await res.json();
         if (data.success) {
             inspectorConversations = data.data;
@@ -49,9 +42,10 @@ async function loadInspectorConversations() {
 
             // Update count
             const countEl = document.getElementById('conv-count');
-            if (countEl) countEl.textContent = data.data.length + (data.data.length >= 50 ? '+' : '');
+            if (countEl) countEl.textContent = data.data.length + (data.data.length >= 100 ? '+' : '');
         }
     } catch (e) {
+        console.error('Failed to load conversations:', e);
         document.getElementById('inspector-conv-list').innerHTML = '<div class="text-red-500">Failed to load</div>';
     }
 }
@@ -164,7 +158,7 @@ async function selectInspConversation(senderId) {
     selectedInspConv = inspectorConversations.find(c => c.sender_id === senderId);
     renderInspectorConvList();
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/conversation/${encodeURIComponent(senderId)}`);
+        const res = await fetch(`/inspector/conversation/${encodeURIComponent(senderId)}`);
         const data = await res.json();
         if (data.success) {
             document.getElementById('inspector-no-selection').classList.add('hidden');
@@ -205,7 +199,7 @@ function showInspectorTab(tab) {
 
 async function loadInspectorFlows() {
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/flows`);
+        const res = await fetch(`/inspector/flows`);
         const data = await res.json();
         if (data.success) {
             const html = data.data.map(f => `
@@ -230,7 +224,7 @@ async function loadInspectorFlows() {
 
 async function loadInspectorIntents() {
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/intents`);
+        const res = await fetch(`/inspector/intents`);
         const data = await res.json();
         if (data.success) {
             const d = data.data;
@@ -256,7 +250,7 @@ async function loadInspectorIntents() {
 
 async function loadInspectorActions() {
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/actions`);
+        const res = await fetch(`/inspector/actions`);
         const data = await res.json();
         if (data.success) {
             const html = data.data.map(a => `

@@ -1,7 +1,7 @@
 // Analytics Logic
 
 // Uses /admin/analytics/* endpoints via the relative path defined in core
-const ANALYTICS_API_BASE = `${ADMIN_API}/admin`;
+const ANALYTICS_API_BASE = ADMIN_API;
 
 let intentsChart = null;
 let feedbackChart = null;
