@@ -101,17 +101,44 @@ async function loadMetrics() {
             if (diskUsedEl) diskUsedEl.textContent = diskUsed;
             if (diskTotalEl) diskTotalEl.textContent = diskTotal;
 
-            // Update service cards with system metrics (same metrics for all services)
-            for (let i = 1; i <= 4; i++) {
-                const suffix = i === 1 ? '' : `-${i}`;
-                const cpuServiceEl = document.getElementById(`service-cpu${suffix}`);
-                const memServiceEl = document.getElementById(`service-memory${suffix}`);
-                const diskServiceEl = document.getElementById(`service-disk${suffix}`);
+            // Update service cards with per-service metrics
+            const services = metrics.services || {};
 
-                if (cpuServiceEl) cpuServiceEl.textContent = cpu.toFixed(1) + '%';
-                if (memServiceEl) memServiceEl.textContent = memPercent.toFixed(1) + '%';
-                if (diskServiceEl) diskServiceEl.textContent = diskPercent.toFixed(1) + '%';
-            }
+            // Service 1: Rasa Core
+            const rasaMetrics = services.rasa || {cpu: 0, memory: 0};
+            const cpuEl1 = document.getElementById('service-cpu');
+            const memEl1 = document.getElementById('service-memory');
+            const diskEl1 = document.getElementById('service-disk');
+            if (cpuEl1) cpuEl1.textContent = rasaMetrics.cpu.toFixed(1) + '%';
+            if (memEl1) memEl1.textContent = rasaMetrics.memory.toFixed(1) + '%';
+            if (diskEl1) diskEl1.textContent = diskPercent.toFixed(1) + '%';
+
+            // Service 2: Action Server
+            const actionsMetrics = services.actions || {cpu: 0, memory: 0};
+            const cpuEl2 = document.getElementById('service-cpu-2');
+            const memEl2 = document.getElementById('service-memory-2');
+            const diskEl2 = document.getElementById('service-disk-2');
+            if (cpuEl2) cpuEl2.textContent = actionsMetrics.cpu.toFixed(1) + '%';
+            if (memEl2) memEl2.textContent = actionsMetrics.memory.toFixed(1) + '%';
+            if (diskEl2) diskEl2.textContent = diskPercent.toFixed(1) + '%';
+
+            // Service 3: Database
+            const dbMetrics = services.database || {cpu: 0, memory: 0};
+            const cpuEl3 = document.getElementById('service-cpu-3');
+            const memEl3 = document.getElementById('service-memory-3');
+            const diskEl3 = document.getElementById('service-disk-3');
+            if (cpuEl3) cpuEl3.textContent = dbMetrics.cpu.toFixed(1) + '%';
+            if (memEl3) memEl3.textContent = dbMetrics.memory.toFixed(1) + '%';
+            if (diskEl3) diskEl3.textContent = diskPercent.toFixed(1) + '%';
+
+            // Service 4: Admin API
+            const adminMetrics = services.admin || {cpu: 0, memory: 0};
+            const cpuEl4 = document.getElementById('service-cpu-4');
+            const memEl4 = document.getElementById('service-memory-4');
+            const diskEl4 = document.getElementById('service-disk-4');
+            if (cpuEl4) cpuEl4.textContent = adminMetrics.cpu.toFixed(1) + '%';
+            if (memEl4) memEl4.textContent = adminMetrics.memory.toFixed(1) + '%';
+            if (diskEl4) diskEl4.textContent = diskPercent.toFixed(1) + '%';
 
             // Response Time
             const responseTime = metrics.avg_response_time || 0;

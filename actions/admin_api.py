@@ -652,6 +652,8 @@ def get_system_metrics():
     conn = None
     try:
         import psutil
+        import os
+        import platform
         from actions.conversation_db import _get_connection, _release_connection
 
         # Get real system metrics
@@ -663,10 +665,88 @@ def get_system_metrics():
         memory_used = memory.used
         memory_total = memory.total
 
-        disk = psutil.disk_usage('/')
+        # Get disk usage - handle Windows vs Unix paths
+        if platform.system() == 'Windows':
+            # Use the drive where the script is running (typically C:)
+            disk_path = os.path.splitdrive(os.getcwd())[0] + '\\'
+        else:
+            disk_path = '/'
+
+        disk = psutil.disk_usage(disk_path)
         disk_percent = disk.percent
         disk_used = disk.used
         disk_total = disk.total
+
+        # Get per-service metrics
+        services = {}
+        current_pid = os.getpid()
+
+        # Helper function to find process by name or port
+        def find_process_metrics(name_patterns, port=None):
+            """Find a process and return its CPU and memory usage."""
+            matched_processes = []
+            try:
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    try:
+                        proc_info = proc.info
+                        proc_name = proc_info.get('name', '').lower()
+                        cmdline = ' '.join(proc_info.get('cmdline', [])).lower() if proc_info.get('cmdline') else ''
+
+                        # Check if process matches any pattern
+                        for pattern in name_patterns:
+                            pattern_lower = pattern.lower()
+                            if pattern_lower in proc_name or pattern_lower in cmdline:
+                                matched_processes.append(proc)
+                                break  # Found match, move to next process
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+
+                # If we found matching processes, aggregate their metrics
+                if matched_processes:
+                    total_cpu = 0.0
+                    total_mem = 0.0
+                    count = 0
+
+                    for proc in matched_processes:
+                        try:
+                            cpu = proc.cpu_percent(interval=0.05)
+                            mem = proc.memory_percent()
+                            total_cpu += cpu
+                            total_mem += mem
+                            count += 1
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            continue
+
+                    if count > 0:
+                        return {
+                            'cpu': round(total_cpu, 1),
+                            'memory': round(total_mem, 1),
+                            'pid': matched_processes[0].pid,
+                            'count': count
+                        }
+            except Exception as e:
+                print(f"Error finding process {name_patterns}: {e}")
+            return {'cpu': 0.0, 'memory': 0.0, 'pid': None, 'count': 0}
+
+        # Get metrics for each service
+        # Look for rasa.exe or python running rasa
+        services['rasa'] = find_process_metrics(['rasa.exe', 'rasa run'])
+        # Look for rasa_sdk (actions server)
+        services['actions'] = find_process_metrics(['rasa_sdk', 'rasa-sdk'])
+        # Look for postgres
+        services['database'] = find_process_metrics(['postgres.exe', 'postgres', 'postgresql'])
+
+        # Admin API is the current process
+        try:
+            current_proc = psutil.Process(current_pid)
+            services['admin'] = {
+                'cpu': round(current_proc.cpu_percent(interval=0.1), 1),
+                'memory': round(current_proc.memory_percent(), 1),
+                'pid': current_pid
+            }
+        except Exception as e:
+            print(f"Error getting current process metrics: {e}")
+            services['admin'] = {'cpu': 0.0, 'memory': 0.0, 'pid': current_pid}
 
         # Get real performance metrics from database
         try:
@@ -703,7 +783,7 @@ def get_system_metrics():
             # Get error rate from failed actions or error messages
             cursor.execute('''
                 SELECT
-                    COUNT(*) FILTER (WHERE message ILIKE '%error%' OR message ILIKE '%failed%') as errors,
+                    COUNT(*) FILTER (WHERE text ILIKE '%error%' OR text ILIKE '%failed%') as errors,
                     COUNT(*) as total
                 FROM messages
                 WHERE timestamp > NOW() - INTERVAL '24 hours'
@@ -738,7 +818,8 @@ def get_system_metrics():
                 "disk_total": disk_total,
                 "avg_response_time": avg_response_time,
                 "throughput": throughput,
-                "error_rate": error_rate
+                "error_rate": error_rate,
+                "services": services
             }
         }
         return jsonify(data)

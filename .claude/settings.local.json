@@ -12,7 +12,9 @@
       "Bash(python -m json.tool:*)",
       "Bash(python:*)",
       "Bash(taskkill:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(tasklist:*)",
+      "Bash(powershell -Command:*)"
     ]
   }
 }
