@@ -183,6 +183,14 @@
       "user_query": "status of 11",
       "bot_response_preview": "Is there anything else I can help you with?",
       "app_id": "IT"
+    },
+    {
+      "timestamp": "2026-01-22T19:18:07.199948",
+      "sender_id": "b99d6fd3-db0a-4a62-a7ee-18beca9e22d8",
+      "feedback": "positive",
+      "user_query": "password not working",
+      "bot_response_preview": "📚 **Keyboard or Mouse Not Working**\n\n## Keyboard/Mouse Troubleshooting\n\n**Wired Devices:**\n1. Unplug and replug the USB cable\n2. Try a different USB port\n3. Restart your computer\n\n**Wireless Devices:*",
+      "app_id": "IT"
     }
   ]
 }

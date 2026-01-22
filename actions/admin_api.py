@@ -1938,6 +1938,56 @@ def observability_database_stats():
         return jsonify({"success": False, "error": str(e)})
 
 
+@app.route('/webhooks/rest/webhook', methods=['POST'])
+def chat_webhook_proxy():
+    """
+    Proxy endpoint for chat messages that automatically logs all bot responses.
+    This captures ALL bot messages (from actions AND templates) and logs them to the database.
+    """
+    try:
+        import requests
+        from actions.conversation_db import log_conversation_start, log_message
+
+        data = request.get_json()
+        sender_id = data.get('sender', 'unknown')
+        message_text = data.get('message', '')
+        metadata = data.get('metadata', {})
+
+        # Extract context from metadata
+        app_id = metadata.get('app_id', 'General')
+        user_id = metadata.get('user_id', None)
+        ticket_id = metadata.get('ticket_id', None)
+
+        # Log the user message
+        conv_id = log_conversation_start(sender_id, app_id, user_id=user_id)
+        log_message(sender_id, 'user', message_text, intent=None, app_id=app_id, user_id=user_id, ticket_id=ticket_id)
+
+        # Forward to Rasa
+        rasa_url = 'http://localhost:5005'
+
+        rasa_response = requests.post(
+            f"{rasa_url}/webhooks/rest/webhook",
+            json=data,
+            timeout=30
+        )
+
+        bot_responses = rasa_response.json() if rasa_response.status_code == 200 else []
+
+        # Log ALL bot responses
+        for response in bot_responses:
+            response_text = response.get('text', '')
+            if response_text:
+                log_message(sender_id, 'bot', response_text, intent=None, app_id=app_id, user_id=user_id, ticket_id=ticket_id)
+
+        return jsonify(bot_responses), rasa_response.status_code
+
+    except Exception as e:
+        print(f"Error in chat_webhook_proxy: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     print("Starting Unified Server on port 80...")
     print(f"Serving static files from: {STATIC_DIR}")

@@ -14,7 +14,16 @@
       "Bash(taskkill:*)",
       "Bash(psql:*)",
       "Bash(tasklist:*)",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(start /B python:*)",
+      "Bash(npm run build:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(git restore:*)",
+      "Bash(for file in client_ui/dist-widget/*.html)",
+      "Bash(do sed -i 's|glpi-chat-widget.js?v=99999|glpi-chat-widget.js?v=202601222134|g' \"$file\")",
+      "Bash(done)",
+      "Bash(rasa run actions:*)"
     ]
   }
 }

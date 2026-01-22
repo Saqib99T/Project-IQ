@@ -27,6 +27,24 @@ def get_glpi_service() -> GlpiService:
     )
 
 
+def log_bot_response(tracker: Tracker, text: str):
+    """Log bot response to database for analytics."""
+    try:
+        sender_id = tracker.sender_id
+        ctx = get_analytics_context(tracker)
+        analytics_store.log_message(
+            sender_id,
+            "bot",  # sender type
+            text,
+            intent=None,  # Bot messages don't have intents
+            app_id=ctx["app_id"],
+            user_id=ctx["user_id"],
+            ticket_id=ctx["ticket_id"]
+        )
+    except Exception as e:
+        logger.error(f"Failed to log bot response: {e}")
+
+
 def get_analytics_context(tracker: Tracker) -> Dict[str, str]:
     """Extract app_id, user_id, and ticket_id from tracker for analytics logging."""
     # Safely get metadata
@@ -34,7 +52,7 @@ def get_analytics_context(tracker: Tracker) -> Dict[str, str]:
     metadata = {}
     if isinstance(latest_msg, dict):
         metadata = latest_msg.get("metadata", {})
-    
+
     # Handle cases where metadata might be a string (JSON) or None
     if isinstance(metadata, str):
         try:
@@ -46,7 +64,7 @@ def get_analytics_context(tracker: Tracker) -> Dict[str, str]:
 
     app_id = metadata.get("app_id") if isinstance(metadata, dict) else None
     app_id = app_id or tracker.get_slot("app_id") or "General"
-    
+
     # Get user_id from slot (set after GLPI login)
     user_id = tracker.get_slot("glpi_user_name") or tracker.get_slot("glpi_user_id")
     
@@ -314,25 +332,27 @@ class ActionCreateGlpiTicket(Action):
         
         if new_ticket_id:
             ticket_ref = f"GLPI-{new_ticket_id}"
+            response_text = f"✅ Success! Your new ticket **{ticket_ref}** has been created in GLPI."
             dispatcher.utter_message(
-                text=f"✅ Success! Your new ticket **{ticket_ref}** has been created in GLPI.",
+                text=response_text,
                 buttons=[
                     {"title": "🔍 Check its status", "payload": "/check_status"},
                     {"title": "📋 List my tickets", "payload": "/list_tickets"},
                     {"title": "🎫 Create another", "payload": "/create_ticket"},
                 ]
             )
+            log_bot_response(tracker, response_text)
             return [
-                SlotSet("ticket_id", ticket_ref), 
-                SlotSet("ticket_title", None), 
-                SlotSet("ticket_content", None), 
+                SlotSet("ticket_id", ticket_ref),
+                SlotSet("ticket_title", None),
+                SlotSet("ticket_content", None),
                 SlotSet("issue_type", None),
                 SlotSet("urgency", None),
             ]
         else:
-            dispatcher.utter_message(
-                text="❌ Failed to create ticket. Please check API credentials and URL."
-            )
+            response_text = "❌ Failed to create ticket. Please check API credentials and URL."
+            dispatcher.utter_message(text=response_text)
+            log_bot_response(tracker, response_text)
             return []
 
 
@@ -426,7 +446,7 @@ class ActionCheckGlpiStatus(Action):
             message += f"| **Title** | {title} |\n"
             message += f"| **Created** | {date_creation} |\n"
             message += f"| **Updated** | {date_mod} |\n"
-            
+
             dispatcher.utter_message(
                 text=message,
                 buttons=[
@@ -435,11 +455,12 @@ class ActionCheckGlpiStatus(Action):
                     {"title": "📋 List all tickets", "payload": "/list_tickets"},
                 ]
             )
+            log_bot_response(tracker, message)
             return [SlotSet("ticket_status", current_status)]
         else:
-            dispatcher.utter_message(
-                 text="❌ Could not retrieve ticket status (Not Found or API Error)."
-            )
+            error_msg = "❌ Could not retrieve ticket status (Not Found or API Error)."
+            dispatcher.utter_message(text=error_msg)
+            log_bot_response(tracker, error_msg)
             return [SlotSet("ticket_id", None)]
 
 

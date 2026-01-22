@@ -33458,7 +33458,7 @@ if (typeof window !== "undefined" && !window.process) {
     }
     return _v4(options);
   }
-  const RASA_API_URL = "http://127.0.0.1:5005/webhooks/rest/webhook";
+  const RASA_API_URL = "http://127.0.0.1/webhooks/rest/webhook";
   const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
   const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) => {
     const primaryColor = theme?.primaryColor || "#000000";
