@@ -10,7 +10,7 @@ Go to **https://app.infisical.com** and sign up (free).
 
 ### 2. Create Project & Add Secrets
 
-1. Click **Create Project** → Name it "ChatBot"
+1. Click **Create Project** → Name it "Chatbot"
 2. Select **prod** environment
 3. Click **Add Secret** and add these:
 
@@ -21,7 +21,7 @@ Go to **https://app.infisical.com** and sign up (free).
 | `GLPI_USER_TOKEN` | Your GLPI user token |
 | `DB_HOST` | Your PostgreSQL IP |
 | `DB_PORT` | `5432` |
-| `DB_NAME` | `ChatBot` |
+| `DB_NAME` | `Chatbot` |
 | `DB_USER` | `postgres` |
 | `DB_PASSWORD` | Your database password |
 

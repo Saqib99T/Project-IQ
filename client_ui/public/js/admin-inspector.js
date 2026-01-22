@@ -1,15 +1,55 @@
 // Inspector Logic
-
 let inspectorConversations = [];
 let selectedInspConv = null;
 
+async function loadAppList() {
+    try {
+        const res = await fetch(`${ADMIN_API}/admin/analytics/apps?t=` + Date.now());
+        const data = await res.json();
+        if (data.success) {
+            const select = document.getElementById('filter-app');
+            if (select) {
+                const currentVal = select.value;
+                select.innerHTML = '<option value="">All Apps</option>' +
+                    data.apps.map(app => `<option value="${app.app_id}">${app.name} (${app.app_id})</option>`).join('');
+                select.value = currentVal;
+            }
+        }
+    } catch (e) { console.error('Failed to load apps', e); }
+}
+
 async function loadInspectorConversations() {
     try {
-        const res = await fetch(`${ADMIN_API}/inspector/conversations`);
+        const user = document.getElementById('filter-user')?.value || '';
+        const app = document.getElementById('filter-app')?.value || '';
+        const status = document.getElementById('filter-ticket-status')?.value || '';
+        const date = document.getElementById('filter-date')?.value || '';
+        const dateFrom = document.getElementById('filter-date-from')?.value || '';
+        const dateTo = document.getElementById('filter-date-to')?.value || '';
+
+        const params = new URLSearchParams({
+            limit: 50,
+            user: user,
+            app_id: app || 'all',
+            ticket_status: status || 'all',
+            date: date || 'all',
+            t: Date.now()
+        });
+
+        if (date === 'custom') {
+            if (dateFrom) params.append('date_from', dateFrom);
+            if (dateTo) params.append('date_to', dateTo);
+        }
+
+        const res = await fetch(`${ADMIN_API}/inspector/conversations?${params.toString()}`);
         const data = await res.json();
         if (data.success) {
             inspectorConversations = data.data;
             renderInspectorConvList();
+
+            // Update count
+            const countEl = document.getElementById('conv-count');
+            if (countEl) countEl.textContent = data.data.length + (data.data.length >= 50 ? '+' : '');
         }
     } catch (e) {
         document.getElementById('inspector-conv-list').innerHTML = '<div class="text-red-500">Failed to load</div>';
@@ -25,7 +65,8 @@ function applyInspectorFilters() {
         customRange.classList.toggle('hidden', dateFilter !== 'custom');
     }
 
-    renderInspectorConvList();
+    renderInspectorConvList(); // Just cleanup UI of tags
+    loadInspectorConversations(); // Fetch new data
     updateActiveFilterTags();
 }
 
@@ -91,62 +132,13 @@ function clearFilter(type) {
 }
 
 function filterInspectorConversations() {
-    renderInspectorConvList();
+    // Debounced load or direct load
+    loadInspectorConversations();
 }
 
 function renderInspectorConvList() {
-    // Get all filter values
-    const userFilter = document.getElementById('filter-user')?.value.toLowerCase() || '';
-    const appFilter = document.getElementById('filter-app')?.value || '';
-    const statusFilter = document.getElementById('filter-ticket-status')?.value || '';
-    const dateFilter = document.getElementById('filter-date')?.value || '';
-    const dateFrom = document.getElementById('filter-date-from')?.value || '';
-    const dateTo = document.getElementById('filter-date-to')?.value || '';
-
-    // Calculate date threshold
-    let dateThreshold = null;
-    if (dateFilter === '24h') dateThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    else if (dateFilter === '7d') dateThreshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    else if (dateFilter === '30d') dateThreshold = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-    const filtered = inspectorConversations.filter(c => {
-        // User filter
-        if (userFilter) {
-            const userName = (c.user_name || c.user_id || c.sender_id || '').toLowerCase();
-            if (!userName.includes(userFilter)) return false;
-        }
-
-        // App filter
-        if (appFilter && c.app_id !== appFilter) return false;
-
-        // Ticket status filter
-        if (statusFilter) {
-            if (statusFilter === 'none' && c.ticket_id) return false;
-            if (statusFilter !== 'none') {
-                const ticketStatus = (c.ticket_status || '').toLowerCase();
-                if (ticketStatus !== statusFilter) return false;
-            }
-        }
-
-        // Date filter
-        if (dateThreshold && c.last_message_at) {
-            const msgDate = new Date(c.last_message_at);
-            if (msgDate < dateThreshold) return false;
-        }
-
-        // Custom date range
-        if (dateFilter === 'custom' && c.last_message_at) {
-            const msgDate = new Date(c.last_message_at);
-            if (dateFrom && msgDate < new Date(dateFrom)) return false;
-            if (dateTo && msgDate > new Date(dateTo + 'T23:59:59')) return false;
-        }
-
-        return true;
-    });
-
-    // Update count
-    const countEl = document.getElementById('conv-count');
-    if (countEl) countEl.textContent = filtered.length;
+    // Data is already filtered from backend
+    const filtered = inspectorConversations;
 
     const html = filtered.map(c => {
         const userName = c.user_name || c.user_id || null;
@@ -286,6 +278,7 @@ async function loadInspectorActions() {
 }
 
 function refreshInspector() {
+    loadAppList();
     loadInspectorConversations();
     const activeTab = document.querySelector('.inspector-tab-btn.bg-purple-600')?.dataset.tab || 'conversations';
     if (activeTab === 'flows') loadInspectorFlows();

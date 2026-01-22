@@ -206,7 +206,7 @@ function updateResponsePreview(responses) {
 // ===== FLOWS =====
 async function loadStudioFlows() {
     try {
-        const res = await fetch(`${ADMIN_API}/studio/flows`);
+        const res = await fetch(`${ADMIN_API}/studio/flows?t=${Date.now()}`);
         const data = await res.json();
 
         if (data.success) {
@@ -304,7 +304,7 @@ function selectStudioFlow(idx) {
 // ===== RESPONSES =====
 async function loadStudioResponses() {
     try {
-        const res = await fetch(`${ADMIN_API}/studio/responses`);
+        const res = await fetch(`${ADMIN_API}/studio/responses?t=${Date.now()}`);
         const data = await res.json();
 
         if (data.success) {

@@ -3,11 +3,12 @@
 let observabilityInterval = null;
 
 async function loadObservability() {
+    const t = Date.now();
     await Promise.all([
-        checkServiceHealth(),
-        loadMetrics(),
-        loadDatabaseStats(),
-        loadLogs()
+        checkServiceHealth(t),
+        loadMetrics(t),
+        loadDatabaseStats(t),
+        loadLogs(t)
     ]);
     updateLastUpdated();
 
@@ -37,7 +38,7 @@ async function checkServiceHealth() {
         const iconEl = document.getElementById(`health-${service}-icon`);
 
         try {
-            const res = await fetch(`${ADMIN_API}/health/${service}`);
+            const res = await fetch(`${ADMIN_API}/health/${service}?t=${t || Date.now()}`);
             const data = await res.json();
 
             if (data.healthy) {
@@ -58,9 +59,9 @@ async function checkServiceHealth() {
 }
 
 // Load Metrics including System Metrics
-async function loadMetrics() {
+async function loadMetrics(t) {
     try {
-        const res = await fetch(`${ADMIN_API}/observability/metrics`);
+        const res = await fetch(`${ADMIN_API}/observability/metrics?t=${t || Date.now()}`);
         const data = await res.json();
 
         if (data.success) {
@@ -122,9 +123,9 @@ async function loadMetrics() {
 }
 
 // Load Database Stats
-async function loadDatabaseStats() {
+async function loadDatabaseStats(t) {
     try {
-        const res = await fetch(`${ADMIN_API}/observability/database/stats`);
+        const res = await fetch(`${ADMIN_API}/observability/database/stats?t=${t || Date.now()}`);
         const data = await res.json();
 
         if (data.success) {
@@ -185,9 +186,9 @@ async function loadDatabaseStats() {
 // Load Logs
 let allLogs = [];
 
-async function loadLogs() {
+async function loadLogs(t) {
     try {
-        const res = await fetch(`${ADMIN_API}/observability/logs`);
+        const res = await fetch(`${ADMIN_API}/observability/logs?t=${t || Date.now()}`);
         const data = await res.json();
 
         if (data.success) {

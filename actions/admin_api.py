@@ -15,7 +15,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from actions.conversation_db import (
     get_themes, get_theme, create_theme, update_theme, delete_theme,
-    get_default_theme, get_app_list, get_chat_app, create_chat_app, update_chat_app, delete_chat_app
+    get_default_theme, get_app_list, get_chat_app, create_chat_app, update_chat_app, delete_chat_app,
+    _get_connection, _release_connection
 )
 from actions.analytics_store import get_analytics_summary, get_recent_conversations
 from actions.config_manager import get_all_config as get_file_config, set_all_config as save_file_config
@@ -25,6 +26,14 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file
 
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
 CORS(app)
+
+
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 
 # Serve static files - Flask handles /static/* automatically via static_folder
@@ -630,6 +639,276 @@ def admin_verify():
 
 
 # =====================
+# OBSERVABILITY ENDPOINTS
+# =====================
+
+import random
+import time
+from datetime import datetime, timedelta
+
+@app.route('/admin/observability/metrics', methods=['GET'])
+def get_system_metrics():
+    """Get system metrics using psutil for real data."""
+    conn = None
+    try:
+        import psutil
+        from actions.conversation_db import _get_connection, _release_connection
+
+        # Get real system metrics
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        cpu_count = psutil.cpu_count()
+
+        memory = psutil.virtual_memory()
+        memory_percent = memory.percent
+        memory_used = memory.used
+        memory_total = memory.total
+
+        disk = psutil.disk_usage('/')
+        disk_percent = disk.percent
+        disk_used = disk.used
+        disk_total = disk.total
+
+        # Get real performance metrics from database
+        try:
+            conn = _get_connection()
+            cursor = conn.cursor()
+
+            # Get average response time from bot messages (time between user message and bot response)
+            cursor.execute('''
+                SELECT AVG(
+                    EXTRACT(EPOCH FROM (
+                        bot.timestamp - user_msg.timestamp
+                    ))
+                ) * 1000 as avg_ms
+                FROM messages bot
+                JOIN messages user_msg ON bot.conversation_id = user_msg.conversation_id
+                    AND bot.timestamp > user_msg.timestamp
+                WHERE bot.sender = 'bot'
+                    AND user_msg.sender = 'user'
+                    AND bot.timestamp > NOW() - INTERVAL '1 hour'
+                LIMIT 1000
+            ''')
+            result = cursor.fetchone()
+            avg_response_time = round(result[0]) if result and result[0] else 0
+
+            # Get throughput (messages per minute in last hour)
+            cursor.execute('''
+                SELECT COUNT(*)
+                FROM messages
+                WHERE timestamp > NOW() - INTERVAL '1 hour'
+            ''')
+            hourly_messages = cursor.fetchone()[0] or 0
+            throughput = round(hourly_messages / 60.0, 2)
+
+            # Get error rate from failed actions or error messages
+            cursor.execute('''
+                SELECT
+                    COUNT(*) FILTER (WHERE message ILIKE '%error%' OR message ILIKE '%failed%') as errors,
+                    COUNT(*) as total
+                FROM messages
+                WHERE timestamp > NOW() - INTERVAL '24 hours'
+                    AND sender = 'bot'
+            ''')
+            result = cursor.fetchone()
+            errors = result[0] if result and result[0] else 0
+            total = result[1] if result and result[1] else 1
+            error_rate = round((errors / total) * 100, 2) if total > 0 else 0
+
+            cursor.close()
+        except Exception as e:
+            print(f"Error getting performance metrics: {e}")
+            avg_response_time = 0
+            throughput = 0
+            error_rate = 0
+        finally:
+            if conn:
+                _release_connection(conn)
+                conn = None
+
+        data = {
+            "success": True,
+            "data": {
+                "cpu_percent": round(cpu_percent, 1),
+                "cpu_count": cpu_count,
+                "memory_percent": round(memory_percent, 1),
+                "memory_used": memory_used,
+                "memory_total": memory_total,
+                "disk_percent": round(disk_percent, 1),
+                "disk_used": disk_used,
+                "disk_total": disk_total,
+                "avg_response_time": avg_response_time,
+                "throughput": throughput,
+                "error_rate": error_rate
+            }
+        }
+        return jsonify(data)
+    except Exception as e:
+        print(f"Error in get_system_metrics: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if conn:
+            try:
+                _release_connection(conn)
+            except:
+                pass
+
+@app.route('/admin/observability/database/stats', methods=['GET'])
+def get_db_stats():
+    """Get database statistics."""
+    conn = None
+    try:
+        from actions.conversation_db import _get_connection, _release_connection
+        conn = _get_connection()
+        cursor = conn.cursor()
+
+        # Count rows in key tables
+        tables = ['conversations', 'messages', 'feedback', 'users']
+        stats = {}
+
+        for table in tables:
+            try:
+                cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                stats[table] = cursor.fetchone()[0]
+            except Exception as e:
+                conn.rollback()
+                stats[table] = 0
+
+        # Recent activity
+        try:
+            cursor.execute("SELECT COUNT(*) FROM messages WHERE timestamp > NOW() - INTERVAL '1 hour'")
+            msgs_hour = cursor.fetchone()[0]
+        except:
+            conn.rollback()
+            msgs_hour = 0
+
+        try:
+            cursor.execute("SELECT COUNT(*) FROM conversations WHERE start_time > CURRENT_DATE")
+            convs_today = cursor.fetchone()[0]
+        except:
+            conn.rollback()
+            convs_today = 0
+
+        # Get real average response time
+        try:
+            cursor.execute('''
+                SELECT AVG(
+                    EXTRACT(EPOCH FROM (
+                        bot.timestamp - user_msg.timestamp
+                    ))
+                ) * 1000 as avg_ms
+                FROM messages bot
+                JOIN messages user_msg ON bot.conversation_id = user_msg.conversation_id
+                    AND bot.timestamp > user_msg.timestamp
+                WHERE bot.sender = 'bot'
+                    AND user_msg.sender = 'user'
+                    AND bot.timestamp > NOW() - INTERVAL '24 hours'
+                LIMIT 5000
+            ''')
+            result = cursor.fetchone()
+            avg_response_ms = round(result[0]) if result and result[0] else 0
+        except:
+            conn.rollback()
+            avg_response_ms = 0
+
+        cursor.close()
+        return jsonify({
+            "success": True,
+            "data": {
+                "tables": stats,
+                "activity": {
+                    "messages_last_hour": msgs_hour,
+                    "conversations_today": convs_today
+                },
+                "performance": {
+                    "avg_response_ms": avg_response_ms
+                }
+            }
+        })
+    except Exception as e:
+        print(f"DB Stats Error: {e}")
+        if conn:
+            conn.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if conn:
+            _release_connection(conn)
+
+@app.route('/admin/observability/logs', methods=['GET'])
+def get_recent_logs():
+    """Get recent application logs."""
+    try:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        logs = []
+        log_files = {
+            'rasa': os.path.join(base_path, 'Log', 'core.log'),
+            'actions': os.path.join(base_path, 'Log', 'actions.log'),
+            'admin': os.path.join(base_path, 'admin_new.err')
+        }
+
+        for source, path in log_files.items():
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                        # Get last 20 lines
+                        all_lines = f.readlines()
+                        lines = all_lines[-20:] if len(all_lines) > 20 else all_lines
+
+                        for line in lines:
+                            if not line.strip():
+                                continue
+
+                            level = 'INFO'
+                            if 'ERROR' in line.upper() or 'Exception' in line:
+                                level = 'ERROR'
+                            elif 'WARNING' in line.upper() or 'WARN' in line.upper():
+                                level = 'WARNING'
+                            elif 'DEBUG' in line.upper():
+                                level = 'DEBUG'
+
+                            logs.append({
+                                "timestamp": datetime.now().isoformat(),
+                                "level": level,
+                                "source": source,
+                                "message": line.strip()[:300]
+                            })
+                except Exception as e:
+                    print(f"Error reading log file {path}: {e}")
+
+        return jsonify({
+            "success": True,
+            "data": logs[-50:]
+        })
+    except Exception as e:
+        print(f"Error in get_recent_logs: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/admin/health/<service>', methods=['GET'])
+def service_health(service):
+    """Check health of specific service."""
+    try:
+        # Simple checks
+        healthy = True
+        
+        if service == 'database':
+            from actions.conversation_db import _get_connection, _release_connection
+            try:
+                conn = _get_connection()
+                _release_connection(conn)
+            except:
+                healthy = False
+        
+        # For rasa/actions, we assume healthy if we are running, 
+        # or we could try to ping their ports here.
+        
+        return jsonify({
+            "status": "ok", 
+            "healthy": healthy,
+            "service": service
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "healthy": False, "error": str(e)})
+
+# =====================
 # INSPECTOR ENDPOINTS
 # =====================
 
@@ -643,24 +922,38 @@ def get_stories_and_rules():
     """Parse stories.yml and rules.yml to extract flow definitions."""
     flows = {"stories": [], "rules": []}
     base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    print(f"[DEBUG] Base path for studio files: {base_path}")
     
     stories_path = os.path.join(base_path, "data", "stories.yml")
+    print(f"[DEBUG] Loading stories from: {stories_path}")
     if os.path.exists(stories_path):
         with open(stories_path, 'r', encoding='utf-8') as f:
             try:
+                print(f"[DEBUG] Reading {stories_path}...")
                 data = yaml.safe_load(f)
-                flows["stories"] = data.get("stories", [])
+                if data:
+                    print(f"[DEBUG] Parsed stories.yml. Keys: {list(data.keys())}")
+                    flows["stories"] = data.get("stories", [])
+                    print(f"[DEBUG] Found {len(flows['stories'])} stories")
+                else:
+                    print("[DEBUG] stories.yml parsed as None/Empty")
             except Exception as e:
-                print(f"Error parsing stories.yml: {e}")
+                print(f"[ERROR] Error parsing stories.yml: {e}")
     
     rules_path = os.path.join(base_path, "data", "rules.yml")
     if os.path.exists(rules_path):
         with open(rules_path, 'r', encoding='utf-8') as f:
             try:
+                print(f"[DEBUG] Reading {rules_path}...")
                 data = yaml.safe_load(f)
-                flows["rules"] = data.get("rules", [])
+                if data:
+                    print(f"[DEBUG] Parsed rules.yml. Keys: {list(data.keys())}")
+                    flows["rules"] = data.get("rules", [])
+                    print(f"[DEBUG] Found {len(flows['rules'])} rules")
+                else:
+                    print("[DEBUG] rules.yml parsed as None/Empty")
             except Exception as e:
-                print(f"Error parsing rules.yml: {e}")
+                print(f"[ERROR] Error parsing rules.yml: {e}")
     
     return flows
 
@@ -669,6 +962,7 @@ def get_domain_info():
     """Parse domain.yml to extract intents, entities, actions, and slots."""
     base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     domain_path = os.path.join(base_path, "domain.yml")
+    print(f"[DEBUG] Loading domain from: {domain_path}")
     
     domain = {"intents": [], "entities": [], "actions": [], "slots": {}, "responses": []}
     
@@ -691,7 +985,7 @@ def get_domain_info():
 # STUDIO ENDPOINTS
 # =====================
 
-@app.route('/studio/flows', methods=['GET'])
+@app.route('/admin/studio/flows', methods=['GET'])
 def studio_flows():
     """Get all flows (stories and rules) for visualization."""
     try:
@@ -735,7 +1029,7 @@ def studio_flows():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/studio/responses', methods=['GET'])
+@app.route('/admin/studio/responses', methods=['GET'])
 def studio_responses():
     """Get all response templates from domain.yml."""
     try:
@@ -763,12 +1057,13 @@ def studio_responses():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/studio/intents', methods=['GET'])
+@app.route('/admin/studio/intents', methods=['GET'])
 def studio_intents():
     """Get intent training examples from nlu.yml."""
     try:
         base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         nlu_path = os.path.join(base_path, "data", "nlu.yml")
+        print(f"[DEBUG] Loading NLU from: {nlu_path}")
         
         intents = []
         if os.path.exists(nlu_path):
@@ -844,6 +1139,7 @@ def test_message():
 @app.route('/inspector/conversations', methods=['GET'])
 def inspector_list_conversations():
     """Get list of conversations with detailed info for inspector."""
+    conn = None
     try:
         limit = request.args.get('limit', 100, type=int)
         app_id_filter = request.args.get('app_id', None)
@@ -893,15 +1189,18 @@ def inspector_list_conversations():
                 "feedback": row['feedback']
             })
         
-        _release_connection(conn)
         return jsonify({"success": True, "data": conversations, "count": len(conversations)})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if conn:
+            _release_connection(conn)
 
 
 @app.route('/inspector/conversation/<sender_id>', methods=['GET'])
 def inspector_get_conversation_detail(sender_id):
     """Get detailed conversation data including messages, intents, actions."""
+    conn = None
     try:
         conn = _get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -950,8 +1249,6 @@ def inspector_get_conversation_detail(sender_id):
         feedback = [{"type": row['type'], "timestamp": row['timestamp'].isoformat() if row['timestamp'] else None} 
                     for row in cursor.fetchall()]
         
-        _release_connection(conn)
-        
         return jsonify({
             "success": True,
             "data": {
@@ -974,6 +1271,9 @@ def inspector_get_conversation_detail(sender_id):
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if conn:
+            _release_connection(conn)
 
 
 @app.route('/inspector/flows', methods=['GET'])
@@ -1005,6 +1305,7 @@ def inspector_get_flows():
 @app.route('/inspector/intents', methods=['GET'])
 def inspector_get_intent_stats():
     """Get intent statistics."""
+    conn = None
     try:
         conn = _get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -1023,7 +1324,6 @@ def inspector_get_intent_stats():
         hourly_activity = {int(row['hour']): row['count'] for row in cursor.fetchall()}
         
         domain = get_domain_info()
-        _release_connection(conn)
         
         return jsonify({
             "success": True,
@@ -1035,11 +1335,15 @@ def inspector_get_intent_stats():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if conn:
+            _release_connection(conn)
 
 
 @app.route('/inspector/actions', methods=['GET'])
 def inspector_get_action_stats():
     """Get action execution statistics."""
+    conn = None
     try:
         conn = _get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -1061,10 +1365,12 @@ def inspector_get_action_stats():
                 "success_rate": round((success / total) * 100, 1) if total > 0 else 0
             })
         
-        _release_connection(conn)
         return jsonify({"success": True, "data": action_stats})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if conn:
+            _release_connection(conn)
 
 
 @app.route('/inspector/domain', methods=['GET'])
@@ -1109,20 +1415,24 @@ def health_actions():
 @app.route('/health/database', methods=['GET'])
 def health_database():
     """Check if Database is accessible."""
+    conn = None
     try:
         conn = _get_connection()
         cursor = conn.cursor()
         cursor.execute('SELECT 1')
         cursor.close()
-        _release_connection(conn)
         return jsonify({"healthy": True, "service": "database"})
     except:
         return jsonify({"healthy": False, "service": "database"})
+    finally:
+        if conn:
+            _release_connection(conn)
 
 
 @app.route('/observability/metrics', methods=['GET'])
 def observability_metrics():
     """Get observability metrics."""
+    conn = None
     try:
         conn = _get_connection()
         cursor = conn.cursor()
@@ -1158,8 +1468,6 @@ def observability_metrics():
         total = result[1] if result[1] else 1
         error_rate = round((errors / total) * 100, 2) if total > 0 else 0
         
-        _release_connection(conn)
-        
         return jsonify({
             "success": True,
             "data": {
@@ -1171,6 +1479,9 @@ def observability_metrics():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if conn:
+            _release_connection(conn)
 
 
 # ============================================================================
@@ -1236,7 +1547,7 @@ def inspector_domain_info():
 # STUDIO APIs - No-Code Editor
 # ============================================================================
 
-@app.route('/studio/nlu', methods=['GET'])
+@app.route('/admin/studio/nlu', methods=['GET'])
 def studio_get_nlu():
     """Get all NLU training data organized by intent."""
     try:
@@ -1248,7 +1559,7 @@ def studio_get_nlu():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/studio/nlu/example', methods=['POST'])
+@app.route('/admin/studio/nlu/example', methods=['POST'])
 def studio_add_nlu_example():
     """Add a new NLU training example."""
     try:
@@ -1267,7 +1578,7 @@ def studio_add_nlu_example():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/studio/nlu/example', methods=['DELETE'])
+@app.route('/admin/studio/nlu/example', methods=['DELETE'])
 def studio_delete_nlu_example():
     """Delete an NLU training example."""
     try:
@@ -1286,7 +1597,7 @@ def studio_delete_nlu_example():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/studio/stories', methods=['GET'])
+@app.route('/admin/studio/stories', methods=['GET'])
 def studio_get_stories():
     """Get all stories and rules."""
     try:
@@ -1298,7 +1609,7 @@ def studio_get_stories():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/studio/responses', methods=['GET'])
+@app.route('/admin/studio/responses', methods=['GET'])
 def studio_get_responses():
     """Get all response templates from domain."""
     try:
@@ -1310,7 +1621,7 @@ def studio_get_responses():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/studio/train', methods=['POST'])
+@app.route('/admin/studio/train', methods=['POST'])
 def studio_start_training():
     """Start model training in background."""
     try:
@@ -1322,7 +1633,7 @@ def studio_start_training():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/studio/train/<job_id>', methods=['GET'])
+@app.route('/admin/studio/train/<job_id>', methods=['GET'])
 def studio_training_status(job_id):
     """Get training job status."""
     try:
@@ -1334,7 +1645,7 @@ def studio_training_status(job_id):
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/studio/models', methods=['GET'])
+@app.route('/admin/studio/models', methods=['GET'])
 def studio_list_models():
     """List available trained models."""
     try:
@@ -1551,4 +1862,4 @@ if __name__ == '__main__':
     print(f"Serving static files from: {STATIC_DIR}")
     print("  Admin Dashboard:        http://<YOUR_IP>/admin.html")
     print("  Access from network:     http://<YOUR_IP>/it.html")
-    app.run(host='0.0.0.0', port=80, debug=False)
+    app.run(host='0.0.0.0', port=80, debug=True)

@@ -38,7 +38,7 @@ def _get_pool():
         db_config = _get_db_config()
         _connection_pool = pool.ThreadedConnectionPool(
             minconn=1,
-            maxconn=10,
+            maxconn=50,
             **db_config
         )
     return _connection_pool

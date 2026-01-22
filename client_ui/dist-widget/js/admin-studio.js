@@ -1,357 +1,541 @@
-// Studio Logic - Rasa Studio-like Interface
+// Studio Dashboard - No-Code Editor
+// NLU editing, story visualization, model training
 
-let studioData = {
-    flows: [],
-    responses: [],
-    intents: []
-};
+let studioNluData = {};
+let studioFlowsData = [];
+let studioResponsesData = {};
+let selectedIntent = null;
+let currentTrainingJobId = null;
 
-async function loadStudio() {
+async function loadStudioData() {
     await Promise.all([
-        loadStudioFlows(),
-        loadStudioResponses()
+        loadNLUData(),
+        loadFlowsData(),
+        loadResponsesData(),
+        loadModelsData(),
+        loadDataSummary()
     ]);
 }
 
-// ===== CHAT TESTING =====
-
-function clearTestChat() {
-    const container = document.getElementById('studio-chat-messages');
-    if (container) {
-        container.innerHTML = `
-            <div class="flex justify-start">
-                <div class="bg-white border border-gray-200 px-4 py-2 rounded-lg rounded-bl-none max-w-xs shadow-sm">
-                    <p class="text-sm text-gray-700">👋 Hello! Type a message to test your bot.</p>
-                </div>
-            </div>
-        `;
-    }
-    // Clear analysis panels
-    document.getElementById('studio-intent-result').innerHTML = '<div class="text-gray-400 text-sm text-center py-4">Send a message to see intent analysis</div>';
-    document.getElementById('studio-entity-result').innerHTML = '<div class="text-gray-400 text-sm text-center py-4">Entities will appear here</div>';
-    document.getElementById('studio-response-preview').innerHTML = '<div class="text-gray-400 text-sm text-center py-4">Bot responses will appear here</div>';
+// Alias for admin-core.js compatibility
+async function loadStudio() {
+    await loadStudioData();
 }
 
-async function sendStudioTestMessage() {
-    const input = document.getElementById('studio-chat-input');
-    const message = input?.value?.trim();
-    if (!message) return;
+function refreshStudioData() {
+    showToast('Refreshing data...', false);
+    loadStudioData();
+}
 
-    input.value = '';
+// ============================================================================
+// NLU Tab
+// ============================================================================
 
-    // Add user message
-    const messagesContainer = document.getElementById('studio-chat-messages');
-    messagesContainer.innerHTML += `
-        <div class="flex justify-end">
-            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg rounded-br-none max-w-xs shadow-sm">
-                <p class="text-sm">${escapeHtml(message)}</p>
-            </div>
-        </div>
-    `;
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
+async function loadNLUData() {
     try {
-        // Send to Rasa
-        const res = await fetch(`${ADMIN_API}/test/message`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, sender: 'studio-test-' + Date.now() })
-        });
+        const res = await fetch(`${ADMIN_API}/studio/nlu`);
         const data = await res.json();
 
-        // Add bot responses
-        if (data.responses && data.responses.length > 0) {
-            const responseHtml = data.responses.map(resp => {
-                const text = resp.text || resp.custom?.text || JSON.stringify(resp);
-                return `
-                    <div class="flex justify-start">
-                        <div class="bg-white border border-gray-200 px-4 py-2 rounded-lg rounded-bl-none max-w-xs shadow-sm">
-                            <p class="text-sm text-gray-700">${escapeHtml(text)}</p>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            messagesContainer.innerHTML += responseHtml;
-
-            // Update response preview
-            updateResponsePreview(data.responses);
+        if (data.success) {
+            studioNluData = data.intents || {};
+            renderNLUIntentList(studioNluData);
+            document.getElementById('nlu-intent-count').textContent = Object.keys(studioNluData).length;
+            document.getElementById('summary-intents').textContent = data.total_intents || 0;
+            document.getElementById('summary-examples').textContent = data.total_examples || 0;
         } else {
-            messagesContainer.innerHTML += `
-                <div class="flex justify-start">
-                    <div class="bg-yellow-50 border border-yellow-200 px-4 py-2 rounded-lg rounded-bl-none max-w-xs">
-                        <p class="text-sm text-yellow-700">No response from bot</p>
-                    </div>
-                </div>
-            `;
+            document.getElementById('nlu-intent-list').innerHTML = `<div class="text-yellow-600 text-sm">${data.error}</div>`;
         }
-
-        // Update NLU analysis
-        if (data.nlu) {
-            updateIntentAnalysis(data.nlu);
-            updateEntityAnalysis(data.nlu);
-        }
-
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
     } catch (e) {
-        messagesContainer.innerHTML += `
-            <div class="flex justify-start">
-                <div class="bg-red-50 border border-red-200 px-4 py-2 rounded-lg rounded-bl-none max-w-xs">
-                    <p class="text-sm text-red-600">❌ Error: Could not reach Rasa</p>
-                </div>
-            </div>
-        `;
-        console.error('Test message error:', e);
+        console.error('Failed to load NLU data:', e);
+        document.getElementById('nlu-intent-list').innerHTML = '<div class="text-red-400 text-sm">Failed to load</div>';
     }
 }
 
-function updateIntentAnalysis(nlu) {
-    const container = document.getElementById('studio-intent-result');
-    if (!container || !nlu) return;
+function renderNLUIntentList(intents) {
+    const container = document.getElementById('nlu-intent-list');
+    const intentNames = Object.keys(intents).sort();
 
-    const intent = nlu.intent || {};
-    const ranking = nlu.intent_ranking || [];
-    const confidence = (intent.confidence || 0) * 100;
-
-    // Determine confidence color
-    let confColor = 'text-green-600';
-    let confBg = 'bg-green-50';
-    if (confidence < 50) { confColor = 'text-red-600'; confBg = 'bg-red-50'; }
-    else if (confidence < 80) { confColor = 'text-yellow-600'; confBg = 'bg-yellow-50'; }
-
-    let html = `
-        <div class="p-4 ${confBg} rounded-lg border">
-            <div class="flex items-center justify-between mb-2">
-                <span class="font-semibold text-lg ${confColor}">${intent.name || 'Unknown'}</span>
-                <span class="text-sm ${confColor} font-medium">${confidence.toFixed(1)}%</span>
-            </div>
-            <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div class="h-full ${confidence >= 80 ? 'bg-green-500' : confidence >= 50 ? 'bg-yellow-500' : 'bg-red-500'} rounded-full transition-all" style="width: ${confidence}%"></div>
-            </div>
-        </div>
-    `;
-
-    // Show top 5 alternative intents
-    if (ranking.length > 1) {
-        html += '<div class="mt-3 space-y-1">';
-        html += '<p class="text-xs text-gray-500 font-medium mb-2">Alternative Intents:</p>';
-        ranking.slice(1, 6).forEach(alt => {
-            const altConf = (alt.confidence || 0) * 100;
-            html += `
-                <div class="flex items-center justify-between text-sm py-1.5 px-2 bg-gray-50 rounded">
-                    <span class="text-gray-600">${alt.name}</span>
-                    <span class="text-gray-400">${altConf.toFixed(1)}%</span>
-                </div>
-            `;
-        });
-        html += '</div>';
-    }
-
-    container.innerHTML = html;
-}
-
-function updateEntityAnalysis(nlu) {
-    const container = document.getElementById('studio-entity-result');
-    if (!container) return;
-
-    const entities = nlu.entities || [];
-
-    if (entities.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm text-center py-4">No entities detected</div>';
+    if (intentNames.length === 0) {
+        container.innerHTML = '<div class="text-gray-400 text-sm">No intents found</div>';
         return;
     }
 
-    const colors = {
-        'ticket_subject': 'bg-purple-100 text-purple-700 border-purple-200',
-        'ticket_id': 'bg-blue-100 text-blue-700 border-blue-200',
-        'username': 'bg-green-100 text-green-700 border-green-200',
-        'default': 'bg-gray-100 text-gray-700 border-gray-200'
-    };
+    const html = intentNames.map(name => {
+        const count = intents[name].length;
+        const isSelected = selectedIntent === name;
 
-    let html = '<div class="space-y-2">';
-    entities.forEach(e => {
-        const colorClass = colors[e.entity] || colors['default'];
-        html += `
-            <div class="flex items-center justify-between p-2 rounded-lg border ${colorClass}">
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-semibold uppercase">${e.entity}</span>
+        return `
+        <div onclick="selectNLUIntent('${name}')" 
+             class="p-2 rounded-lg cursor-pointer flex justify-between items-center transition-all ${isSelected ? 'bg-purple-100 border-purple-300 border' : 'hover:bg-gray-100 border border-transparent'}">
+            <span class="font-mono text-sm ${isSelected ? 'text-purple-700 font-medium' : 'text-gray-700'}">${name}</span>
+            <span class="text-xs ${isSelected ? 'bg-purple-200 text-purple-800' : 'bg-gray-200 text-gray-600'} px-2 py-0.5 rounded-full">${count}</span>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = html;
+}
+
+function filterNLUIntents(query) {
+    const filtered = {};
+    for (const [name, examples] of Object.entries(studioNluData)) {
+        if (name.toLowerCase().includes(query.toLowerCase())) {
+            filtered[name] = examples;
+        }
+    }
+    renderNLUIntentList(filtered);
+}
+
+function selectNLUIntent(intentName) {
+    selectedIntent = intentName;
+    const examples = studioNluData[intentName] || [];
+
+    document.getElementById('nlu-selected-intent').textContent = intentName;
+    document.getElementById('nlu-example-count').textContent = examples.length;
+    document.getElementById('btn-add-example').disabled = false;
+
+    // Re-render intent list to show selection
+    renderNLUIntentList(studioNluData);
+
+    // Render examples
+    renderNLUExamples(examples);
+}
+
+function renderNLUExamples(examples) {
+    const container = document.getElementById('nlu-examples-container');
+
+    if (!examples || examples.length === 0) {
+        container.innerHTML = '<div class="text-gray-400 text-sm text-center py-8">No examples for this intent</div>';
+        return;
+    }
+
+    const html = examples.map((ex, i) => {
+        const hasEntities = ex.entities && ex.entities.length > 0;
+
+        return `
+        <div class="p-3 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors group">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <div class="text-sm">${highlightEntities(ex.text)}</div>
+                    ${hasEntities ? `
+                    <div class="mt-1 flex flex-wrap gap-1">
+                        ${ex.entities.map(e => `
+                            <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                                ${e.entity}: "${e.value}"
+                            </span>
+                        `).join('')}
+                    </div>` : ''}
                 </div>
-                <span class="font-medium">"${escapeHtml(e.value)}"</span>
+                <button onclick="deleteNLUExample('${selectedIntent}', '${escapeForJs(ex.text)}')" 
+                    class="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity p-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
             </div>
-        `;
-    });
-    html += '</div>';
+        </div>`;
+    }).join('');
 
     container.innerHTML = html;
 }
 
-function updateResponsePreview(responses) {
-    const container = document.getElementById('studio-response-preview');
-    if (!container) return;
-
-    let html = '<div class="space-y-2">';
-    responses.forEach(resp => {
-        const text = resp.text || JSON.stringify(resp);
-        html += `
-            <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <p class="text-sm text-gray-700">${escapeHtml(text)}</p>
-            </div>
-        `;
-    });
-    html += '</div>';
-
-    container.innerHTML = html;
+function highlightEntities(text) {
+    // Highlight [value](entity) patterns
+    return escapeHtml(text).replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+        '<span class="bg-blue-100 text-blue-700 px-1 rounded">$1</span><span class="text-xs text-blue-500">:$2</span>');
 }
 
-// ===== FLOWS =====
-async function loadStudioFlows() {
+function showAddExampleModal() {
+    if (!selectedIntent) return;
+
+    document.getElementById('modal-intent').value = selectedIntent;
+    document.getElementById('modal-example-text').value = '';
+    document.getElementById('add-example-modal').classList.remove('hidden');
+    document.getElementById('add-example-modal').classList.add('flex');
+}
+
+function hideAddExampleModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('add-example-modal').classList.add('hidden');
+    document.getElementById('add-example-modal').classList.remove('flex');
+}
+
+async function saveNewExample() {
+    const intent = document.getElementById('modal-intent').value;
+    const text = document.getElementById('modal-example-text').value.trim();
+
+    if (!text) {
+        showToast('Please enter example text', true);
+        return;
+    }
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/nlu/example`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ intent, text })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('Example added successfully!', false);
+            hideAddExampleModal();
+            await loadNLUData();
+            if (selectedIntent === intent) {
+                selectNLUIntent(intent);
+            }
+        } else {
+            showToast(data.error || 'Failed to add example', true);
+        }
+    } catch (e) {
+        showToast('Failed to add example: ' + e.message, true);
+    }
+}
+
+async function deleteNLUExample(intent, text) {
+    if (!confirm('Delete this example?')) return;
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/nlu/example`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ intent, text })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('Example deleted', false);
+            await loadNLUData();
+            if (selectedIntent === intent) {
+                selectNLUIntent(intent);
+            }
+        } else {
+            showToast(data.error || 'Failed to delete', true);
+        }
+    } catch (e) {
+        showToast('Failed to delete: ' + e.message, true);
+    }
+}
+
+// ============================================================================
+// Flows Tab (Stories & Rules)
+// ============================================================================
+
+async function loadFlowsData() {
     try {
         const res = await fetch(`${ADMIN_API}/studio/flows`);
         const data = await res.json();
 
         if (data.success) {
-            studioData.flows = data.flows || [];
-            renderStudioFlowList();
-            document.getElementById('flow-count').textContent = studioData.flows.length;
+            studioFlowsData = data.flows || [];
+
+            const stories = studioFlowsData.filter(f => f.type === 'story');
+            const rules = studioFlowsData.filter(f => f.type === 'rule');
+
+            renderFlowsList('story', stories, 'flow-stories-list');
+            renderFlowsList('rule', rules, 'flow-rules-list');
+
+            document.getElementById('flow-story-count').textContent = stories.length;
+            document.getElementById('flow-rule-count').textContent = rules.length;
+            document.getElementById('summary-stories').textContent = stories.length;
+            document.getElementById('summary-rules').textContent = rules.length;
         }
     } catch (e) {
         console.error('Failed to load flows:', e);
-        document.getElementById('studio-flow-list').innerHTML = '<div class="text-red-400 text-sm">Failed to load flows</div>';
     }
 }
 
-function renderStudioFlowList() {
-    const container = document.getElementById('studio-flow-list');
-    if (!container) return;
+function renderFlowsList(type, flows, containerId) {
+    const container = document.getElementById(containerId);
 
-    if (studioData.flows.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm">No flows found</div>';
+    if (!flows || flows.length === 0) {
+        container.innerHTML = `<div class="text-gray-400 text-sm">No ${type}s found</div>`;
         return;
     }
 
-    let html = '';
-    studioData.flows.forEach((flow, idx) => {
-        const icon = flow.type === 'rule' ? '📋' : '📖';
-        const typeLabel = flow.type === 'rule' ? 'Rule' : 'Story';
-        html += `
-            <div onclick="selectStudioFlow(${idx})" 
-                class="p-3 rounded-lg border border-gray-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all group">
-                <div class="flex items-center gap-2">
-                    <span class="text-lg">${icon}</span>
-                    <div class="flex-1 min-w-0">
-                        <p class="font-medium text-gray-800 text-sm truncate group-hover:text-purple-700">${flow.name || 'Unnamed'}</p>
-                        <p class="text-xs text-gray-400">${typeLabel} • ${flow.steps?.length || 0} steps</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
+    const html = flows.map(flow => `
+        <div onclick="visualizeFlow('${escapeForJs(flow.name)}', '${type}')" 
+             class="p-3 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 cursor-pointer transition-all">
+            <div class="font-medium text-sm">${flow.name}</div>
+            <div class="text-xs text-gray-500 mt-1">${flow.steps.length} steps</div>
+        </div>
+    `).join('');
+
     container.innerHTML = html;
 }
 
-function selectStudioFlow(idx) {
-    const flow = studioData.flows[idx];
+function visualizeFlow(name, type) {
+    const flow = studioFlowsData.find(f => f.name === name && f.type === type);
     if (!flow) return;
 
-    const container = document.getElementById('studio-flow-diagram');
-    if (!container) return;
+    document.getElementById('flow-selected-name').textContent = name;
 
-    // Create Mermaid diagram
-    let mermaidDef = 'graph TD\n';
-    mermaidDef += '    Start([Start]) --> Step0\n';
+    const container = document.getElementById('flow-visualizer');
+    const steps = flow.steps || [];
 
-    (flow.steps || []).forEach((step, i) => {
-        const safeStep = step.replace(/[^a-zA-Z0-9_:]/g, ' ').substring(0, 30);
-        const nodeId = `Step${i}`;
-        const nextId = i < flow.steps.length - 1 ? `Step${i + 1}` : 'End';
-
-        if (step.startsWith('intent:')) {
-            mermaidDef += `    ${nodeId}[/"🎯 ${safeStep}"/]\n`;
-        } else if (step.startsWith('action_') || step.startsWith('utter_')) {
-            mermaidDef += `    ${nodeId}["⚙️ ${safeStep}"]\n`;
-        } else {
-            mermaidDef += `    ${nodeId}["${safeStep}"]\n`;
-        }
-        mermaidDef += `    ${nodeId} --> ${nextId}\n`;
-    });
-
-    mermaidDef += '    End([End])\n';
-
-    // Render with Mermaid
-    container.innerHTML = `<div class="mermaid">${mermaidDef}</div>`;
-
-    try {
-        mermaid.init(undefined, container.querySelector('.mermaid'));
-    } catch (e) {
-        // Fallback to simple list if Mermaid fails
-        let fallbackHtml = `<div class="space-y-2">
-            <h4 class="font-semibold text-gray-800 mb-3">${flow.name}</h4>`;
-        (flow.steps || []).forEach((step, i) => {
-            const icon = step.startsWith('intent:') ? '🎯' : step.startsWith('action_') || step.startsWith('utter_') ? '⚙️' : '▶️';
-            fallbackHtml += `
-                <div class="flex items-center gap-2">
-                    <div class="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-medium">${i + 1}</div>
-                    <div class="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm">${icon} ${step}</div>
-                </div>
-                ${i < flow.steps.length - 1 ? '<div class="ml-3 h-3 border-l-2 border-purple-200"></div>' : ''}
-            `;
-        });
-        fallbackHtml += '</div>';
-        container.innerHTML = fallbackHtml;
+    if (steps.length === 0) {
+        container.innerHTML = '<div class="text-gray-400">No steps in this flow</div>';
+        return;
     }
+
+    const html = steps.map((step, i) => {
+        let stepHtml = '';
+        let bgColor = 'bg-gray-100';
+        let icon = '❓';
+
+        switch (step.type) {
+            case 'intent':
+                bgColor = 'bg-green-100 text-green-700';
+                icon = '🎯';
+                stepHtml = `<span class="font-mono">${step.name}</span>`;
+                break;
+            case 'action':
+                bgColor = 'bg-orange-100 text-orange-700';
+                icon = '⚡';
+                stepHtml = `<span class="font-mono">${step.name}</span>`;
+                break;
+            case 'slot':
+                bgColor = 'bg-purple-100 text-purple-700';
+                icon = '🗂️';
+                stepHtml = `<span class="font-mono">${step.name}=${JSON.stringify(step.value)}</span>`;
+                break;
+            case 'or':
+                bgColor = 'bg-blue-100 text-blue-700';
+                icon = '🔀';
+                stepHtml = 'OR branch';
+                break;
+            case 'checkpoint':
+                bgColor = 'bg-pink-100 text-pink-700';
+                icon = '📍';
+                stepHtml = `<span class="font-mono">${step.name}</span>`;
+                break;
+        }
+
+        return `
+            <div class="flex items-center">
+                <div class="p-3 rounded-lg ${bgColor} min-w-32 text-center">
+                    <div class="text-lg mb-1">${icon}</div>
+                    <div class="text-xs">${stepHtml}</div>
+                </div>
+                ${i < steps.length - 1 ? '<div class="mx-2 text-gray-400">→</div>' : ''}
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `<div class="flex flex-wrap items-center gap-2">${html}</div>`;
 }
 
-// ===== RESPONSES =====
-async function loadStudioResponses() {
+// ============================================================================
+// Responses Tab
+// ============================================================================
+
+async function loadResponsesData() {
     try {
         const res = await fetch(`${ADMIN_API}/studio/responses`);
         const data = await res.json();
 
         if (data.success) {
-            studioData.responses = data.responses || [];
-            renderStudioResponseList();
-            document.getElementById('response-count').textContent = studioData.responses.length;
+            studioResponsesData = data.responses || {};
+            renderResponses(studioResponsesData);
+            document.getElementById('response-count').textContent = data.total || 0;
         }
     } catch (e) {
         console.error('Failed to load responses:', e);
     }
 }
 
-function renderStudioResponseList() {
-    const container = document.getElementById('studio-response-list');
-    if (!container) return;
+function renderResponses(responses) {
+    const container = document.getElementById('responses-container');
+    const entries = Object.entries(responses);
 
-    if (studioData.responses.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm col-span-full">No responses found</div>';
+    if (entries.length === 0) {
+        container.innerHTML = '<div class="text-gray-400 text-sm">No responses found</div>';
         return;
     }
 
-    let html = '';
-    studioData.responses.forEach(resp => {
-        const preview = (resp.text || '').substring(0, 80);
-        html += `
-            <div class="p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer response-card" data-name="${resp.name}">
-                <p class="font-medium text-gray-800 text-sm truncate">${resp.name}</p>
-                <p class="text-xs text-gray-500 mt-1 line-clamp-2">${escapeHtml(preview)}${resp.text?.length > 80 ? '...' : ''}</p>
-                ${resp.variations > 1 ? `<span class="text-xs text-blue-600 mt-1 inline-block">${resp.variations} variations</span>` : ''}
+    const html = entries.map(([name, variations]) => `
+        <div class="p-3 rounded-lg border border-gray-200">
+            <div class="font-mono text-sm text-purple-700 mb-2">${name}</div>
+            <div class="space-y-1">
+                ${variations.map(v => `
+                    <div class="text-xs text-gray-600 p-2 bg-gray-50 rounded">"${escapeHtml(v)}"</div>
+                `).join('')}
             </div>
-        `;
-    });
+        </div>
+    `).join('');
+
     container.innerHTML = html;
 }
 
-function filterStudioResponses() {
-    const query = document.getElementById('studio-response-search')?.value.toLowerCase() || '';
-    const cards = document.querySelectorAll('.response-card');
-    cards.forEach(card => {
-        const name = card.dataset.name.toLowerCase();
-        card.style.display = name.includes(query) ? '' : 'none';
-    });
+function filterResponses(query) {
+    const filtered = {};
+    for (const [name, variations] of Object.entries(studioResponsesData)) {
+        if (name.toLowerCase().includes(query.toLowerCase())) {
+            filtered[name] = variations;
+        }
+    }
+    renderResponses(filtered);
 }
 
-// Utility
+// ============================================================================
+// Training Tab
+// ============================================================================
+
+async function loadModelsData() {
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/models`);
+        const data = await res.json();
+
+        if (data.success) {
+            renderModelsList(data.models || []);
+        }
+    } catch (e) {
+        console.error('Failed to load models:', e);
+    }
+}
+
+function renderModelsList(models) {
+    const container = document.getElementById('models-list');
+
+    if (!models || models.length === 0) {
+        container.innerHTML = '<div class="text-gray-400 text-sm">No trained models found</div>';
+        return;
+    }
+
+    const html = models.map((m, i) => `
+        <div class="p-3 rounded-lg border ${i === 0 ? 'border-green-300 bg-green-50' : 'border-gray-200'}">
+            <div class="flex justify-between items-start">
+                <div>
+                    <div class="font-mono text-sm ${i === 0 ? 'text-green-700' : 'text-gray-700'}">${m.name}</div>
+                    <div class="text-xs text-gray-500 mt-1">${m.size_mb} MB • ${formatDate(m.created)}</div>
+                </div>
+                ${i === 0 ? '<span class="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">Latest</span>' : ''}
+            </div>
+        </div>
+    `).join('');
+
+    container.innerHTML = html;
+}
+
+async function loadDataSummary() {
+    // Summary is populated by loadNLUData and loadFlowsData
+}
+
+async function startTraining() {
+    const btn = document.getElementById('btn-train');
+    btn.disabled = true;
+    btn.textContent = 'Starting...';
+
+    document.getElementById('training-status').textContent = 'Starting training...';
+    document.getElementById('training-status').className = 'text-lg font-medium text-yellow-600';
+    document.getElementById('training-progress-container').classList.remove('hidden');
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/train`, {
+            method: 'POST'
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            currentTrainingJobId = data.job_id;
+            showToast('Training started!', false);
+            pollTrainingStatus();
+        } else {
+            btn.disabled = false;
+            btn.textContent = 'Start Training';
+            document.getElementById('training-status').textContent = 'Failed to start: ' + data.error;
+            document.getElementById('training-status').className = 'text-lg font-medium text-red-600';
+        }
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Start Training';
+        showToast('Failed to start training: ' + e.message, true);
+    }
+}
+
+async function pollTrainingStatus() {
+    if (!currentTrainingJobId) return;
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/train/${currentTrainingJobId}`);
+        const data = await res.json();
+
+        if (data.success) {
+            const progress = data.progress || 0;
+            document.getElementById('training-progress-bar').style.width = `${progress}%`;
+            document.getElementById('training-progress-text').textContent = `${progress}%`;
+
+            if (data.output && data.output.length > 0) {
+                document.getElementById('training-output').textContent = data.output.join('\n');
+            }
+
+            if (data.status === 'completed') {
+                document.getElementById('training-status').textContent = '✅ Training completed!';
+                document.getElementById('training-status').className = 'text-lg font-medium text-green-600';
+                document.getElementById('btn-train').disabled = false;
+                document.getElementById('btn-train').textContent = 'Start Training';
+                showToast('Model trained successfully: ' + (data.model || 'new model'), false);
+                loadModelsData();
+                currentTrainingJobId = null;
+            } else if (data.status === 'failed') {
+                document.getElementById('training-status').textContent = '❌ Training failed: ' + (data.error || 'Unknown error');
+                document.getElementById('training-status').className = 'text-lg font-medium text-red-600';
+                document.getElementById('btn-train').disabled = false;
+                document.getElementById('btn-train').textContent = 'Start Training';
+                currentTrainingJobId = null;
+            } else {
+                document.getElementById('training-status').textContent = `🔄 ${data.status}...`;
+                document.getElementById('training-status').className = 'text-lg font-medium text-blue-600';
+                setTimeout(pollTrainingStatus, 3000);  // Poll every 3 seconds
+            }
+        }
+    } catch (e) {
+        console.error('Poll error:', e);
+        setTimeout(pollTrainingStatus, 5000);  // Retry after 5 seconds
+    }
+}
+
+// ============================================================================
+// Tab Navigation
+// ============================================================================
+
+function showStudioTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.studio-tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.studio-tab').forEach(el => {
+        el.classList.remove('border-purple-600', 'text-purple-600');
+        el.classList.add('border-transparent', 'text-gray-500');
+    });
+
+    // Show selected tab
+    const tabContent = document.getElementById(`studio-tab-${tabName}`);
+    const tabButton = document.querySelector(`.studio-tab[data-tab="${tabName}"]`);
+
+    if (tabContent) tabContent.classList.remove('hidden');
+    if (tabButton) {
+        tabButton.classList.add('border-purple-600', 'text-purple-600');
+        tabButton.classList.remove('border-transparent', 'text-gray-500');
+    }
+}
+
+// ============================================================================
+// Utilities
+// ============================================================================
+
 function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = text || '';
     return div.innerHTML;
+}
+
+function escapeForJs(text) {
+    return (text || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
+
+function formatDate(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 }

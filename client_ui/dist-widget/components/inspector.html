@@ -1,178 +1,282 @@
-<div class="mb-8 flex items-center justify-between">
-    <div>
-        <h2 class="text-2xl font-bold text-gray-800">🔍 Conversation Inspector</h2>
-        <p class="text-gray-500 mt-1">Debug AI assistant behavior and conversation flows</p>
-    </div>
-    <button onclick="refreshInspector()" class="btn-secondary flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-        Refresh
-    </button>
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-gray-800">🔍 Rasa Inspector</h2>
+    <p class="text-gray-500 mt-1">Debug conversations, inspect NLU results, visualize slot changes, and test bot
+        behavior in real-time</p>
 </div>
 
 <!-- Inspector Tabs -->
-<div class="flex gap-2 mb-6">
-    <button onclick="showInspectorTab('conversations')"
-        class="inspector-tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white"
-        data-tab="conversations">
-        💬 Conversations
-    </button>
-    <button onclick="showInspectorTab('flows')"
-        class="inspector-tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700" data-tab="flows">
-        🔀 Flows
-    </button>
-    <button onclick="showInspectorTab('intents')"
-        class="inspector-tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700" data-tab="intents">
-        🎯 Intents
-    </button>
-    <button onclick="showInspectorTab('actions')"
-        class="inspector-tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700" data-tab="actions">
-        ⚡ Actions
-    </button>
+<div class="border-b border-gray-200 mb-6">
+    <nav class="flex gap-4">
+        <button onclick="showInspectorTab('conversations')"
+            class="inspector-tab px-4 py-2 font-medium border-b-2 border-purple-600 text-purple-600"
+            data-tab="conversations">
+            💬 Conversations
+        </button>
+        <button onclick="showInspectorTab('debugger')"
+            class="inspector-tab px-4 py-2 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700"
+            data-tab="debugger">
+            🐛 Turn Debugger
+        </button>
+        <button onclick="showInspectorTab('tester')"
+            class="inspector-tab px-4 py-2 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700"
+            data-tab="tester">
+            🧪 Live NLU Tester
+        </button>
+        <button onclick="showInspectorTab('slots')"
+            class="inspector-tab px-4 py-2 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700"
+            data-tab="slots">
+            📊 Slot State
+        </button>
+        <button onclick="showInspectorTab('domain')"
+            class="inspector-tab px-4 py-2 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700"
+            data-tab="domain">
+            🧩 Domain
+        </button>
+    </nav>
 </div>
 
-<!-- Conversations Tab -->
+<!-- Tab: Conversations -->
 <div id="inspector-tab-conversations" class="inspector-tab-content">
-    <!-- Filter Bar -->
-    <div class="card p-4 mb-4">
-        <div class="flex flex-wrap gap-3 items-end">
+    <!-- Filters Bar -->
+    <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
             <!-- User Search -->
-            <div class="flex-1 min-w-[150px]">
-                <label class="block text-xs text-gray-500 mb-1">User</label>
-                <input type="text" id="filter-user" placeholder="Search by user..."
-                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                    oninput="applyInspectorFilters()">
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Search User</label>
+                <input type="text" id="insp-filter-user" placeholder="Name or ID..."
+                    class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500"
+                    onkeyup="debounceInspFilter()">
             </div>
-
             <!-- App Filter -->
-            <div class="min-w-[140px]">
-                <label class="block text-xs text-gray-500 mb-1">App</label>
-                <select id="filter-app" onchange="applyInspectorFilters()"
-                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white">
-                    <option value="">All Apps</option>
-                    <option value="IT">IT</option>
-                    <option value="Accounting">Accounting</option>
-                    <option value="General">General</option>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">App</label>
+                <select id="insp-filter-app" class="w-full px-3 py-2 text-sm border rounded-lg"
+                    onchange="applyInspFilters()">
+                    <option value="all">All Apps</option>
                 </select>
             </div>
-
-            <!-- Ticket Status Filter -->
-            <div class="min-w-[150px]">
-                <label class="block text-xs text-gray-500 mb-1">Ticket Status</label>
-                <select id="filter-ticket-status" onchange="applyInspectorFilters()"
-                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white">
-                    <option value="">All Status</option>
-                    <option value="created">Created</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="closed">Closed</option>
-                    <option value="none">No Ticket</option>
+            <!-- Ticket Status -->
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Ticket Status</label>
+                <select id="insp-filter-ticket" class="w-full px-3 py-2 text-sm border rounded-lg"
+                    onchange="applyInspFilters()">
+                    <option value="all">All Chats</option>
+                    <option value="created">🎫 Ticket Created</option>
+                    <option value="updated">✏️ Ticket Updated</option>
+                    <option value="pending">⏳ Pending</option>
+                    <option value="resolved">✅ Resolved</option>
+                    <option value="closed">🔒 Closed</option>
+                    <option value="none">💬 No Ticket</option>
                 </select>
             </div>
-
-            <!-- Date Range Filter -->
-            <div class="min-w-[160px]">
-                <label class="block text-xs text-gray-500 mb-1">Date Range</label>
-                <select id="filter-date" onchange="applyInspectorFilters()"
-                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white">
-                    <option value="">All Time</option>
+            <!-- Time Period -->
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Time Period</label>
+                <select id="insp-filter-date" class="w-full px-3 py-2 text-sm border rounded-lg"
+                    onchange="applyInspFilters()">
+                    <option value="all">All Time</option>
                     <option value="24h">Last 24 Hours</option>
                     <option value="7d">Last 7 Days</option>
                     <option value="30d">Last 30 Days</option>
-                    <option value="custom">Custom Range</option>
+                    <option value="90d">Last 90 Days</option>
                 </select>
             </div>
-
-            <!-- Custom Date Range (hidden by default) -->
-            <div id="custom-date-range" class="hidden min-w-[250px]">
-                <label class="block text-xs text-gray-500 mb-1">Custom Range</label>
-                <div class="flex gap-2">
-                    <input type="date" id="filter-date-from" onchange="applyInspectorFilters()"
-                        class="flex-1 px-2 py-2 text-sm border border-gray-200 rounded-lg">
-                    <input type="date" id="filter-date-to" onchange="applyInspectorFilters()"
-                        class="flex-1 px-2 py-2 text-sm border border-gray-200 rounded-lg">
-                </div>
-            </div>
-
-            <!-- Reset Button -->
-            <button onclick="resetInspectorFilters()"
-                class="px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                Reset
-            </button>
-        </div>
-
-        <!-- Active Filters Display -->
-        <div id="active-filters" class="mt-3 hidden">
-            <div class="flex flex-wrap gap-2 items-center">
-                <span class="text-xs text-gray-500">Active filters:</span>
-                <div id="active-filter-tags" class="flex flex-wrap gap-1"></div>
+            <!-- Clear -->
+            <div class="flex items-end">
+                <button onclick="clearInspFilters()"
+                    class="w-full px-3 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                    Clear
+                </button>
             </div>
         </div>
     </div>
 
     <div class="grid grid-cols-3 gap-6">
-        <div class="card p-4 max-h-[55vh] overflow-y-auto">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="font-semibold">Conversations</h3>
-                <span id="conv-count" class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">0</span>
+        <!-- Conversation List -->
+        <div class="card p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-semibold text-gray-800">Conversations</h3>
+                <span id="insp-conv-count" class="text-xs text-gray-400">0 found</span>
             </div>
-            <div id="inspector-conv-list" class="space-y-2 text-sm"></div>
+            <div id="insp-conv-list" class="space-y-2 max-h-[500px] overflow-y-auto">
+                <div class="text-gray-400 text-sm">Loading...</div>
+            </div>
         </div>
-        <div class="col-span-2 card p-4 max-h-[60vh] overflow-y-auto">
-            <div id="inspector-no-selection" class="text-center py-12 text-gray-400">
-                <span class="text-4xl">👈</span>
-                <p class="mt-2">Select a conversation to view details</p>
+
+        <!-- Conversation Messages -->
+        <div class="col-span-2 card p-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-semibold text-gray-800">
+                    Conversation: <span id="insp-selected-conv" class="text-purple-600">None selected</span>
+                </h3>
+                <button onclick="debugSelectedConversation()" class="btn-secondary text-xs">🐛 Debug This</button>
             </div>
-            <div id="inspector-conv-detail" class="hidden">
-                <div class="flex gap-3 mb-4">
-                    <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded text-sm"><b id="insp-msg-count">0</b>
-                        messages</span>
-                    <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm"><b id="insp-action-count">0</b>
-                        actions</span>
-                    <span class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm"><b id="insp-intent-count">0</b>
-                        intents</span>
+            <div id="insp-conv-messages" class="space-y-3 max-h-[500px] overflow-y-auto">
+                <div class="text-gray-400 text-sm text-center py-8">Select a conversation to view messages</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab: Turn Debugger -->
+<div id="inspector-tab-debugger" class="inspector-tab-content hidden">
+    <div class="card p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-semibold text-gray-800">Turn-by-Turn Debugger</h3>
+            <span id="debug-conv-id" class="text-sm text-gray-500">No conversation selected</span>
+        </div>
+        <div id="debug-turns-container" class="space-y-4 max-h-[600px] overflow-y-auto">
+            <div class="text-gray-400 text-center py-8">
+                Select a conversation from the Conversations tab, then click "Debug This" to analyze it turn-by-turn.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab: Live NLU Tester -->
+<div id="inspector-tab-tester" class="inspector-tab-content hidden">
+    <div class="grid grid-cols-2 gap-6">
+        <!-- Input Panel -->
+        <div class="card p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">🧪 Test Message</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">Enter a test message:</label>
+                    <textarea id="nlu-test-input" rows="3"
+                        class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        placeholder="e.g., I need help with my laptop"></textarea>
                 </div>
-                <div id="inspector-messages" class="space-y-2"></div>
+                <button onclick="testNLUParse()" class="btn-primary w-full">
+                    Parse Message
+                </button>
+            </div>
+
+            <div class="mt-6">
+                <h4 class="text-sm font-medium text-gray-700 mb-2">Quick Examples:</h4>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="setTestMessage('I want to create a ticket')"
+                        class="px-3 py-1 text-xs bg-gray-100 rounded-full hover:bg-gray-200">Create ticket</button>
+                    <button onclick="setTestMessage('Show me my open tickets')"
+                        class="px-3 py-1 text-xs bg-gray-100 rounded-full hover:bg-gray-200">View tickets</button>
+                    <button onclick="setTestMessage('hello')"
+                        class="px-3 py-1 text-xs bg-gray-100 rounded-full hover:bg-gray-200">Greeting</button>
+                    <button onclick="setTestMessage('thanks for your help')"
+                        class="px-3 py-1 text-xs bg-gray-100 rounded-full hover:bg-gray-200">Thank you</button>
+                    <button onclick="setTestMessage('my computer is not working')"
+                        class="px-3 py-1 text-xs bg-gray-100 rounded-full hover:bg-gray-200">Problem report</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="card p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">📊 Parse Results</h3>
+            <div id="nlu-test-results" class="space-y-4">
+                <div class="text-gray-400 text-center py-8">
+                    Enter a message and click "Parse Message" to see NLU results
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Flows Tab -->
-<div id="inspector-tab-flows" class="inspector-tab-content hidden">
-    <div id="inspector-flows-grid" class="grid grid-cols-3 gap-4"></div>
-</div>
+<!-- Tab: Slot State -->
+<div id="inspector-tab-slots" class="inspector-tab-content hidden">
+    <div class="grid grid-cols-2 gap-6">
+        <!-- Slot Lookup -->
+        <div class="card p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">🔎 Lookup Conversation Slots</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">Sender ID:</label>
+                    <input type="text" id="slot-sender-id" class="w-full px-3 py-2 border rounded-lg"
+                        placeholder="Enter sender_id or select from conversations">
+                </div>
+                <button onclick="lookupSlotState()" class="btn-primary w-full">
+                    Get Slot State
+                </button>
+            </div>
 
-<!-- Intents Tab -->
-<div id="inspector-tab-intents" class="inspector-tab-content hidden">
-    <div class="flex gap-4 mb-6">
-        <div class="card p-6 text-center">
-            <div id="insp-total-intents" class="text-3xl font-bold text-purple-600">0</div>
-            <div class="text-sm text-gray-500">Total Messages</div>
+            <div class="mt-4">
+                <h4 class="text-sm font-medium text-gray-700 mb-2">Recent Conversations:</h4>
+                <div id="slot-recent-convs" class="space-y-1 max-h-40 overflow-y-auto">
+                    <div class="text-gray-400 text-xs">Loading...</div>
+                </div>
+            </div>
         </div>
-        <div class="card p-6 text-center">
-            <div id="insp-unique-intents" class="text-3xl font-bold text-blue-600">0</div>
-            <div class="text-sm text-gray-500">Unique Intents</div>
+
+        <!-- Slot State Display -->
+        <div class="card p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">📊 Current Slot Values</h3>
+            <div id="slot-state-display" class="space-y-2">
+                <div class="text-gray-400 text-center py-8">
+                    Enter a sender ID to view their current slot state
+                </div>
+            </div>
         </div>
     </div>
-    <div id="inspector-intent-chart" class="card p-4"></div>
 </div>
 
-<!-- Actions Tab -->
-<div id="inspector-tab-actions" class="inspector-tab-content hidden">
-    <div class="card overflow-hidden">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-100 text-gray-600">
-                <tr>
-                    <th class="px-4 py-3 text-left">Action</th>
-                    <th class="px-4 py-3 text-left">Total</th>
-                    <th class="px-4 py-3 text-left">Success</th>
-                    <th class="px-4 py-3 text-left">Failure</th>
-                    <th class="px-4 py-3 text-left">Success Rate</th>
-                </tr>
-            </thead>
-            <tbody id="inspector-actions-table"></tbody>
-        </table>
+<!-- Tab: Domain -->
+<div id="inspector-tab-domain" class="inspector-tab-content hidden">
+    <div class="grid grid-cols-4 gap-4">
+        <!-- Intents -->
+        <div class="card p-4">
+            <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <span class="text-green-600">🎯</span> Intents
+                <span id="domain-intent-count"
+                    class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">0</span>
+            </h3>
+            <div id="domain-intents" class="space-y-1 max-h-64 overflow-y-auto text-sm">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Entities -->
+        <div class="card p-4">
+            <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <span class="text-blue-600">📦</span> Entities
+                <span id="domain-entity-count"
+                    class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">0</span>
+            </h3>
+            <div id="domain-entities" class="space-y-1 max-h-64 overflow-y-auto text-sm">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Slots -->
+        <div class="card p-4">
+            <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <span class="text-purple-600">🗂️</span> Slots
+                <span id="domain-slot-count"
+                    class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">0</span>
+            </h3>
+            <div id="domain-slots" class="space-y-1 max-h-64 overflow-y-auto text-sm">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card p-4">
+            <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <span class="text-orange-600">⚡</span> Actions
+                <span id="domain-action-count"
+                    class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">0</span>
+            </h3>
+            <div id="domain-actions" class="space-y-1 max-h-64 overflow-y-auto text-sm">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Responses -->
+    <div class="card p-4 mt-4">
+        <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <span class="text-pink-600">💬</span> Response Templates
+            <span id="domain-response-count" class="text-xs bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full">0</span>
+        </h3>
+        <div id="domain-responses" class="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto text-sm">
+            <div class="text-gray-400">Loading...</div>
+        </div>
     </div>
 </div>

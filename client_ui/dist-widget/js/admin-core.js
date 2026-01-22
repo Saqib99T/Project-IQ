@@ -1,4 +1,4 @@
-const ADMIN_API = '';
+const ADMIN_API = '/admin';
 
 // Dynamic Component Loader
 async function loadComponent(sectionId) {

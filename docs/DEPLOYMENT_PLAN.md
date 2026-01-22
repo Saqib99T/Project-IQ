@@ -64,7 +64,7 @@ GLPI is already installed. Configure API access:
 ### 2.2 Create API Tokens
 1. Go to **Setup > General > API > API clients**
 2. Create new API client:
-   - Name: `ChatBot`
+   - Name: `Chatbot`
    - Active: Yes
    - Regenerate App Token: Yes
 3. Copy the **App Token**
@@ -88,10 +88,10 @@ GLPI_USER_TOKEN=<your-user-token>
 psql -U postgres
 
 -- Create database
-CREATE DATABASE ChatBot;
+CREATE DATABASE Chatbot;
 
 -- Connect to database
-\c ChatBot
+\c Chatbot
 
 -- Create tables
 CREATE TABLE conversations (
@@ -147,7 +147,7 @@ Edit `actions/conversation_db.py` with server credentials:
 ```python
 DB_CONFIG = {
     "host": "localhost",      # or server IP
-    "database": "ChatBot",
+    "database": "Chatbot",
     "user": "postgres",       # your db user
     "password": "YOUR_PASSWORD",
     "port": "5432"
@@ -354,7 +354,7 @@ services:
       - "5055:5055"
     environment:
       - DB_HOST=host.docker.internal
-      - DB_NAME=ChatBot
+      - DB_NAME=Chatbot
       - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD}
     networks:
@@ -432,7 +432,7 @@ Retrieves: GLPI_*, DB_* secrets at runtime
 |-------------|---------------|
 | `DB_HOST` | `localhost` or server IP |
 | `DB_PORT` | `5432` |
-| `DB_NAME` | `ChatBot` |
+| `DB_NAME` | `Chatbot` |
 | `DB_USER` | `postgres` |
 | `DB_PASSWORD` | `your_secure_password` |
 | `GLPI_API_URL` | `http://glpi.yourserver.com/apirest.php` |

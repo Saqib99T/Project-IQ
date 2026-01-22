@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import sys; sys.path.append\\(''actions''\\); from admin_api import app; print\\([str\\(rule\\) for rule in app.url_map.iter_rules\\(\\) if ''observability'' in str\\(rule\\) or ''health'' in str\\(rule\\)]\\)\")",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill /F /PID 125932)",
+      "Bash(taskkill //F //PID 125932)",
+      "Bash(timeout /t 3 /nobreak)",
+      "Bash(ping:*)",
+      "Bash(curl:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(python:*)",
+      "Bash(taskkill:*)"
+    ]
+  }
+}

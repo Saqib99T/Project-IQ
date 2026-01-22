@@ -1,6 +1,6 @@
 """
 SQLite to PostgreSQL Data Migration Script
-Migrates all data from SQLite chatbot.db to PostgreSQL ChatBot database.
+Migrates all data from SQLite chatbot.db to PostgreSQL Chatbot database.
 """
 
 import sqlite3
@@ -15,7 +15,7 @@ SQLITE_PATH = Path(__file__).parent.parent / "data" / "chatbot.db"
 PG_CONFIG = {
     'host': 'localhost',
     'port': 5432,
-    'database': 'ChatBot',
+    'database': 'Chatbot',
     'user': 'postgres',
     'password': '12345'
 }

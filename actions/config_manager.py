@@ -128,7 +128,7 @@ def get_db_config() -> Dict[str, Any]:
         return {
             'host': _get_secret('DB_HOST', 'localhost'),
             'port': int(_get_secret('DB_PORT', '5432')),
-            'database': _get_secret('DB_NAME', 'ChatBot'),
+            'database': _get_secret('DB_NAME', 'Chatbot'),
             'user': _get_secret('DB_USER', 'postgres'),
             'password': _get_secret('DB_PASSWORD', '12345'),
         }
@@ -138,7 +138,7 @@ def get_db_config() -> Dict[str, Any]:
     return {
         'host': config.get('DATABASE', 'DB_HOST', fallback='localhost'),
         'port': config.getint('DATABASE', 'DB_PORT', fallback=5432),
-        'database': config.get('DATABASE', 'DB_NAME', fallback='ChatBot'),
+        'database': config.get('DATABASE', 'DB_NAME', fallback='Chatbot'),
         'user': config.get('DATABASE', 'DB_USER', fallback='postgres'),
         'password': config.get('DATABASE', 'DB_PASSWORD', fallback='12345'),
     }
@@ -169,7 +169,7 @@ def get_all_config() -> Dict[str, str]:
             'GLPI_USER_TOKEN': _get_secret('GLPI_USER_TOKEN', ''),
             'DB_HOST': _get_secret('DB_HOST', 'localhost'),
             'DB_PORT': _get_secret('DB_PORT', '5432'),
-            'DB_NAME': _get_secret('DB_NAME', 'ChatBot'),
+            'DB_NAME': _get_secret('DB_NAME', 'Chatbot'),
             'DB_USER': _get_secret('DB_USER', 'postgres'),
             'DB_PASSWORD': _get_secret('DB_PASSWORD', ''),
             'RASA_API_URL': _get_secret('RASA_API_URL', 'http://localhost:5005'),
@@ -189,7 +189,7 @@ def get_all_config() -> Dict[str, str]:
     # Database settings
     result['DB_HOST'] = config.get('DATABASE', 'DB_HOST', fallback='localhost')
     result['DB_PORT'] = config.get('DATABASE', 'DB_PORT', fallback='5432')
-    result['DB_NAME'] = config.get('DATABASE', 'DB_NAME', fallback='ChatBot')
+    result['DB_NAME'] = config.get('DATABASE', 'DB_NAME', fallback='Chatbot')
     result['DB_USER'] = config.get('DATABASE', 'DB_USER', fallback='postgres')
     result['DB_PASSWORD'] = config.get('DATABASE', 'DB_PASSWORD', fallback='')
     

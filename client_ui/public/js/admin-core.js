@@ -1,4 +1,4 @@
-const ADMIN_API = '';
+const ADMIN_API = '/admin';
 
 // Dynamic Component Loader
 async function loadComponent(sectionId) {
@@ -58,6 +58,7 @@ async function showSection(section) {
         // We might need to manually trigger setup if needed.
     }
     else if (section === 'inspector' && window.loadInspectorConversations) {
+        if (window.loadAppList) await loadAppList();
         loadInspectorConversations();
     }
     else if (section === 'observability' && window.loadObservability) {
