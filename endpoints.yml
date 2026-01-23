@@ -2,5 +2,5 @@ action_endpoint:
   url: "http://127.0.0.1:5055/webhook"
 
 tracker_store:
-  type: sql
+  type: custom_tracker_store.CustomTrackerStore
   url: "postgresql://postgres:12345@localhost:5432/Chatbot"

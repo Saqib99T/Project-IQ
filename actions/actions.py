@@ -28,21 +28,8 @@ def get_glpi_service() -> GlpiService:
 
 
 def log_bot_response(tracker: Tracker, text: str):
-    """Log bot response to database for analytics."""
-    try:
-        sender_id = tracker.sender_id
-        ctx = get_analytics_context(tracker)
-        analytics_store.log_message(
-            sender_id,
-            "bot",  # sender type
-            text,
-            intent=None,  # Bot messages don't have intents
-            app_id=ctx["app_id"],
-            user_id=ctx["user_id"],
-            ticket_id=ctx["ticket_id"]
-        )
-    except Exception as e:
-        logger.error(f"Failed to log bot response: {e}")
+    """Log bot response - DISABLED (Handled by CustomTrackerStore)."""
+    pass
 
 
 def get_analytics_context(tracker: Tracker) -> Dict[str, str]:
