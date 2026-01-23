@@ -967,9 +967,9 @@ def get_recent_logs():
 def service_health(service):
     """Check health of specific service."""
     try:
-        # Simple checks
+        import requests
         healthy = True
-        
+
         if service == 'database':
             from actions.conversation_db import _get_connection, _release_connection
             try:
@@ -977,12 +977,25 @@ def service_health(service):
                 _release_connection(conn)
             except:
                 healthy = False
-        
-        # For rasa/actions, we assume healthy if we are running, 
-        # or we could try to ping their ports here.
-        
+        elif service == 'rasa':
+            try:
+                response = requests.get(
+                    'http://localhost:5005/status',
+                    headers={'Accept': 'application/json'},
+                    timeout=3
+                )
+                healthy = response.status_code == 200
+            except:
+                healthy = False
+        elif service == 'actions':
+            try:
+                response = requests.get('http://localhost:5055/health', timeout=3)
+                healthy = response.status_code == 200
+            except:
+                healthy = False
+
         return jsonify({
-            "status": "ok", 
+            "status": "ok",
             "healthy": healthy,
             "service": service
         })
@@ -1476,7 +1489,11 @@ def health_rasa():
     """Check if Rasa Core is running."""
     try:
         import requests
-        response = requests.get('http://localhost:5005/', timeout=3)
+        response = requests.get(
+            'http://localhost:5005/status',
+            headers={'Accept': 'application/json'},
+            timeout=3
+        )
         return jsonify({"healthy": response.status_code == 200, "service": "rasa-core"})
     except:
         return jsonify({"healthy": False, "service": "rasa-core"})
