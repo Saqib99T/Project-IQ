@@ -709,7 +709,7 @@ def get_system_metrics():
 
                     for proc in matched_processes:
                         try:
-                            cpu = proc.cpu_percent(interval=0.05)
+                            cpu = proc.cpu_percent()  # Non-blocking, returns usage since last call
                             mem = proc.memory_percent()
                             total_cpu += cpu
                             total_mem += mem
@@ -731,8 +731,8 @@ def get_system_metrics():
         # Get metrics for each service
         # Look for rasa.exe or python running rasa
         services['rasa'] = find_process_metrics(['rasa.exe', 'rasa run'])
-        # Look for rasa_sdk (actions server)
-        services['actions'] = find_process_metrics(['rasa_sdk', 'rasa-sdk'])
+        # Look for rasa_sdk (actions server) - check for python process running rasa_sdk
+        services['actions'] = find_process_metrics(['rasa_sdk', 'rasa-sdk', 'rasa_sdk.cli', 'actions.py'])
         # Look for postgres
         services['database'] = find_process_metrics(['postgres.exe', 'postgres', 'postgresql'])
 
@@ -740,7 +740,7 @@ def get_system_metrics():
         try:
             current_proc = psutil.Process(current_pid)
             services['admin'] = {
-                'cpu': round(current_proc.cpu_percent(interval=0.1), 1),
+                'cpu': round(current_proc.cpu_percent(), 1),  # Non-blocking, returns usage since last call
                 'memory': round(current_proc.memory_percent(), 1),
                 'pid': current_pid
             }
