@@ -30,7 +30,7 @@ function updateLastUpdated() {
 }
 
 // Service Health Checks
-async function checkServiceHealth() {
+async function checkServiceHealth(t) {
     const services = ['rasa', 'actions', 'database'];
 
     for (const service of services) {
