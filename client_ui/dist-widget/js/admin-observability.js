@@ -3,11 +3,12 @@
 let observabilityInterval = null;
 
 async function loadObservability() {
+    const t = Date.now();
     await Promise.all([
-        checkServiceHealth(),
-        loadMetrics(),
-        loadDatabaseStats(),
-        loadLogs()
+        checkServiceHealth(t),
+        loadMetrics(t),
+        loadDatabaseStats(t),
+        loadLogs(t)
     ]);
     updateLastUpdated();
 
@@ -37,7 +38,7 @@ async function checkServiceHealth() {
         const iconEl = document.getElementById(`health-${service}-icon`);
 
         try {
-            const res = await fetch(`${ADMIN_API}/health/${service}`);
+            const res = await fetch(`${ADMIN_API}/health/${service}?t=${t || Date.now()}`);
             const data = await res.json();
 
             if (data.healthy) {
@@ -58,9 +59,9 @@ async function checkServiceHealth() {
 }
 
 // Load Metrics including System Metrics
-async function loadMetrics() {
+async function loadMetrics(t) {
     try {
-        const res = await fetch(`${ADMIN_API}/observability/metrics`);
+        const res = await fetch(`${ADMIN_API}/observability/metrics?t=${t || Date.now()}`);
         const data = await res.json();
 
         if (data.success) {
@@ -111,7 +112,7 @@ async function loadMetrics() {
             const diskEl1 = document.getElementById('service-disk');
             if (cpuEl1) cpuEl1.textContent = rasaMetrics.cpu.toFixed(1) + '%';
             if (memEl1) memEl1.textContent = rasaMetrics.memory.toFixed(1) + '%';
-            if (diskEl1) diskEl1.textContent = diskPercent.toFixed(1) + '%';
+            if (diskEl1) diskEl1.textContent = 'N/A';  // Disk is system-wide, not per-service
 
             // Service 2: Action Server
             const actionsMetrics = services.actions || {cpu: 0, memory: 0};
@@ -120,7 +121,7 @@ async function loadMetrics() {
             const diskEl2 = document.getElementById('service-disk-2');
             if (cpuEl2) cpuEl2.textContent = actionsMetrics.cpu.toFixed(1) + '%';
             if (memEl2) memEl2.textContent = actionsMetrics.memory.toFixed(1) + '%';
-            if (diskEl2) diskEl2.textContent = diskPercent.toFixed(1) + '%';
+            if (diskEl2) diskEl2.textContent = 'N/A';  // Disk is system-wide, not per-service
 
             // Service 3: Database
             const dbMetrics = services.database || {cpu: 0, memory: 0};
@@ -129,7 +130,7 @@ async function loadMetrics() {
             const diskEl3 = document.getElementById('service-disk-3');
             if (cpuEl3) cpuEl3.textContent = dbMetrics.cpu.toFixed(1) + '%';
             if (memEl3) memEl3.textContent = dbMetrics.memory.toFixed(1) + '%';
-            if (diskEl3) diskEl3.textContent = diskPercent.toFixed(1) + '%';
+            if (diskEl3) diskEl3.textContent = 'N/A';  // Disk is system-wide, not per-service
 
             // Service 4: Admin API
             const adminMetrics = services.admin || {cpu: 0, memory: 0};
@@ -138,7 +139,7 @@ async function loadMetrics() {
             const diskEl4 = document.getElementById('service-disk-4');
             if (cpuEl4) cpuEl4.textContent = adminMetrics.cpu.toFixed(1) + '%';
             if (memEl4) memEl4.textContent = adminMetrics.memory.toFixed(1) + '%';
-            if (diskEl4) diskEl4.textContent = diskPercent.toFixed(1) + '%';
+            if (diskEl4) diskEl4.textContent = 'N/A';  // Disk is system-wide, not per-service
 
             // Response Time
             const responseTime = metrics.avg_response_time || 0;
@@ -161,9 +162,9 @@ async function loadMetrics() {
 }
 
 // Load Database Stats
-async function loadDatabaseStats() {
+async function loadDatabaseStats(t) {
     try {
-        const res = await fetch(`${ADMIN_API}/observability/database/stats`);
+        const res = await fetch(`${ADMIN_API}/observability/database/stats?t=${t || Date.now()}`);
         const data = await res.json();
 
         if (data.success) {
@@ -224,9 +225,9 @@ async function loadDatabaseStats() {
 // Load Logs
 let allLogs = [];
 
-async function loadLogs() {
+async function loadLogs(t) {
     try {
-        const res = await fetch(`${ADMIN_API}/observability/logs`);
+        const res = await fetch(`${ADMIN_API}/observability/logs?t=${t || Date.now()}`);
         const data = await res.json();
 
         if (data.success) {
