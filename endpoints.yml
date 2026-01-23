@@ -3,10 +3,9 @@ action_endpoint:
 
 tracker_store:
   type: sql
-  dialect: postgresql
-  host: localhost
+  dialect: "postgresql"
+  host: "localhost"
   port: 5432
-  db: Chatbot
-  username: postgres
-  password: 12345
-  login_db: postgres
+  db: "Chatbot"
+  username: "postgres"
+  password: "12345"
