@@ -66,6 +66,9 @@ async function showSection(section) {
     else if (section === 'studio' && window.loadStudio) {
         loadStudio();
     }
+    else if (section === 'knowledge-base' && window.loadKnowledgeBase) {
+        loadKnowledgeBase();
+    }
 }
 
 // Toast Notification
@@ -76,6 +79,30 @@ function showToast(message, isError = false) {
 
     toastMsg.textContent = message;
     toast.className = `fixed bottom-4 right-4 ${isError ? 'bg-red-600' : 'bg-gray-800'} text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-0 opacity-100 transition-all duration-300 z-50`;
+
+    setTimeout(() => {
+        toast.className = 'fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50';
+    }, 3000);
+}
+
+// Notification wrapper for components (supports different types)
+function showNotification(message, type = 'info') {
+    const isError = type === 'error';
+    const isWarning = type === 'warning';
+
+    const toast = document.getElementById('toast');
+    const toastMsg = document.getElementById('toast-message');
+    if (!toast || !toastMsg) return;
+
+    toastMsg.textContent = message;
+
+    let bgColor = 'bg-gray-800';
+    if (isError) bgColor = 'bg-red-600';
+    else if (isWarning) bgColor = 'bg-yellow-600';
+    else if (type === 'success') bgColor = 'bg-green-600';
+    else if (type === 'info') bgColor = 'bg-blue-600';
+
+    toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-0 opacity-100 transition-all duration-300 z-50`;
 
     setTimeout(() => {
         toast.className = 'fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50';

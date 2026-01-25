@@ -54,22 +54,42 @@ def get_analytics_context(tracker: Tracker) -> Dict[str, str]:
 
     # Get user_id from slot (set after GLPI login)
     user_id = tracker.get_slot("glpi_user_name") or tracker.get_slot("glpi_user_id")
-    
+
     # Get ticket_id from slot if available (set during ticket operations)
     # This persists across the conversation session after a ticket is created/viewed
     ticket_id = tracker.get_slot("ticket_id") or tracker.get_slot("current_ticket_id")
-    
+
     # Get current intent for logging purposes
     intent = tracker.latest_message.get("intent", {}).get("name", "") if tracker.latest_message else ""
-    
+
     # Debug logging
     logger.debug(f"Analytics context - app_id: {app_id}, user_id: {user_id}, ticket_id: {ticket_id}, intent: {intent}")
-    
+
     return {
         "app_id": app_id,
         "user_id": user_id,
         "ticket_id": str(ticket_id) if ticket_id else None
     }
+
+
+def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -> bool:
+    """Check if user is logged in. If not, prompt them to login with a button.
+
+    Returns:
+        True if user is logged in (has glpi_user_id), False otherwise
+    """
+    glpi_user_id = tracker.get_slot("glpi_user_id")
+
+    if not glpi_user_id:
+        dispatcher.utter_message(
+            text="🔐 **Please login first**\n\nYou need to be logged in to perform ticket operations.\n\nClick the button below to login:",
+            buttons=[
+                {"title": "🔑 Login", "payload": "/login"}
+            ]
+        )
+        return False
+
+    return True
 
 
 # Legacy global reference (for backward compatibility)
@@ -265,7 +285,11 @@ class ActionCreateGlpiTicket(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+
+        # Check if user is logged in
+        if not check_user_login(tracker, dispatcher):
+            return [SlotSet("ticket_id", None)]
+
         # 1. Check for the required session token
         session_token = tracker.get_slot("session_token")
         if not session_token:
@@ -353,7 +377,11 @@ class ActionCheckGlpiStatus(Action):
     ) -> List[Dict[Text, Any]]:
         print(f"DEBUG: Entering action_check_glpi_status")
         logger.info("DEBUG: Entering action_check_glpi_status")
-        
+
+        # Check if user is logged in
+        if not check_user_login(tracker, dispatcher):
+            return [SlotSet("ticket_id", None)]
+
         # 1. Check for the required session token
         session_token = tracker.get_slot("session_token")
         if not session_token:
@@ -459,7 +487,11 @@ class ActionUpdateGlpiTicket(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+
+        # Check if user is logged in
+        if not check_user_login(tracker, dispatcher):
+            return []
+
         session_token = tracker.get_slot("session_token")
         if not session_token:
             dispatcher.utter_message(text="GLPI session is not active. Please start over.")
@@ -634,7 +666,11 @@ class ActionViewTicketComments(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+
+        # Check if user is logged in
+        if not check_user_login(tracker, dispatcher):
+            return []
+
         session_token = tracker.get_slot("session_token")
         if not session_token:
             dispatcher.utter_message(text="GLPI session is not active.")
@@ -681,7 +717,11 @@ class ActionListOpenTickets(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+
+        # Check if user is logged in
+        if not check_user_login(tracker, dispatcher):
+            return []
+
         session_token = tracker.get_slot("session_token")
         if not session_token:
             dispatcher.utter_message(text="GLPI session is not active.")
@@ -807,7 +847,11 @@ class ActionUploadFile(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+
+        # Check if user is logged in
+        if not check_user_login(tracker, dispatcher):
+            return []
+
         session_token = tracker.get_slot("session_token")
         if not session_token:
             dispatcher.utter_message(text="GLPI session is not active cannot upload.")
@@ -856,8 +900,13 @@ class ActionListAttachments(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+
         logger.info("DEBUG: ActionListAttachments started")
+
+        # Check if user is logged in
+        if not check_user_login(tracker, dispatcher):
+            return []
+
         session_token = tracker.get_slot("session_token")
         if not session_token:
             logger.info("DEBUG: No session token found")
@@ -1178,97 +1227,34 @@ class ActionShowChart(Action):
 
 # --- 14. Custom Action: Search Knowledge Base ---
 class ActionSearchKnowledgeBase(Action):
-    """Searches the knowledge base for relevant articles based on user query."""
-    
+    """Searches the knowledge base for relevant articles using hybrid semantic + keyword search."""
+
     def name(self) -> Text:
         return "action_search_knowledge_base"
 
     def __init__(self):
-        self.kb_cache = {}
-        self._load_knowledge_bases()
-    
-    def _load_knowledge_bases(self):
-        """Load all knowledge base JSON files."""
-        import os
-        kb_dir = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base')
-        
-        if os.path.exists(kb_dir):
-            for filename in os.listdir(kb_dir):
-                if filename.endswith('.json'):
-                    filepath = os.path.join(kb_dir, filename)
-                    try:
-                        with open(filepath, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            kb_name = filename.replace('.json', '')
-                            self.kb_cache[kb_name] = data
-                            logger.info(f"Loaded knowledge base: {kb_name} with {len(data.get('articles', []))} articles")
-                    except Exception as e:
-                        logger.error(f"Error loading KB {filename}: {e}")
-    
-    def _calculate_match_score(self, query: str, article: Dict) -> float:
-        """Calculate relevance score between query and article."""
-        query_words = set(query.lower().split())
-        
-        score = 0.0
-        
-        # Check keywords (highest weight)
-        keywords = [k.lower() for k in article.get('keywords', [])]
-        for word in query_words:
-            for keyword in keywords:
-                if word in keyword or keyword in word:
-                    score += 3.0
-                    break
-        
-        # Check title (medium weight)
-        title_words = set(article.get('title', '').lower().split())
-        common_title = query_words.intersection(title_words)
-        score += len(common_title) * 2.0
-        
-        # Check question (medium weight)
-        question_words = set(article.get('question', '').lower().split())
-        common_question = query_words.intersection(question_words)
-        score += len(common_question) * 2.0
-        
-        return score
-    
-    def _search_articles(self, query: str, app_id: str = None) -> List[Dict]:
-        """Search all knowledge bases and return matching articles."""
-        results = []
-        
-        # Determine which KB to search based on app_id
-        kb_priority = []
-        if app_id and 'accounting' in app_id.lower():
-            kb_priority = ['accounting_support', 'it_support']
-        else:
-            kb_priority = ['it_support', 'accounting_support']
-        
-        for kb_name in kb_priority:
-            if kb_name in self.kb_cache:
-                kb_data = self.kb_cache[kb_name]
-                for article in kb_data.get('articles', []):
-                    score = self._calculate_match_score(query, article)
-                    if score > 0:
-                        results.append({
-                            'article': article,
-                            'score': score,
-                            'source': kb_name
-                        })
-        
-        # Sort by score descending
-        results.sort(key=lambda x: x['score'], reverse=True)
-        return results[:3]  # Return top 3 matches
+        # Import KB cache manager (will auto-initialize and start refresh)
+        from actions.kb_cache_manager import kb_cache
+        self.kb_cache = kb_cache
+        logger.info("ActionSearchKnowledgeBase initialized with KB cache manager")
 
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+
         # Get user's original message
         latest_msg = tracker.latest_message
         user_message = latest_msg.get("text", "") if isinstance(latest_msg, dict) else str(latest_msg)
         app_id = tracker.get_slot("app_id")
-        
-        # Search knowledge base
-        results = self._search_articles(user_message, app_id)
+
+        # Search knowledge base using hybrid semantic + keyword search
+        results = self.kb_cache.search_articles(user_message, app_id)
+
+        # Log search with scores for debugging
+        if results:
+            logger.info(f"KB search for '{user_message[:50]}': {len(results)} results")
+            for r in results[:3]:
+                logger.debug(f"  - {r['article']['title']}: score={r['score']:.2f} (semantic={r.get('semantic_score', 0):.2f}, keyword={r.get('keyword_score', 0):.2f})")
         
         if results:
             best_match = results[0]
@@ -1299,6 +1285,14 @@ class ActionSearchKnowledgeBase(Action):
                 response += "\n\n---\n**Related Articles:**\n"
                 for r in results[1:3]:
                     response += f"• {r['article']['title']}\n"
+
+            # Add source indicator
+            source = best_match.get('source', 'unknown')
+            if source == 'glpi':
+                glpi_id = article.get('glpi_id', '')
+                response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
+            elif source == 'json':
+                response += f"\n\n_Source: Local KB_"
             
             # Send text response with buttons (and video if available)
             video_payload = None
@@ -1571,81 +1565,16 @@ class ActionHandleMultiIntent(Action):
 
 # --- KB-First Ticket Creation Action ---
 class ActionSearchKbBeforeTicket(Action):
-    """Searches KB before ticket creation and shows articles if found."""
-    
+    """Searches KB before ticket creation using hybrid semantic + keyword search."""
+
     def name(self) -> Text:
         return "action_search_kb_before_ticket"
-    
+
     def __init__(self):
-        self.kb_cache = {}
-        self._load_knowledge_bases()
-    
-    def _load_knowledge_bases(self):
-        """Load all knowledge base JSON files."""
-        import os
-        kb_dir = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base')
-        
-        if os.path.exists(kb_dir):
-            for filename in os.listdir(kb_dir):
-                if filename.endswith('.json'):
-                    filepath = os.path.join(kb_dir, filename)
-                    try:
-                        with open(filepath, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            kb_name = filename.replace('.json', '')
-                            self.kb_cache[kb_name] = data
-                    except Exception as e:
-                        logger.error(f"Error loading KB {filename}: {e}")
-    
-    def _calculate_match_score(self, query: str, article: Dict) -> float:
-        """Calculate relevance score between query and article."""
-        query_words = set(query.lower().split())
-        score = 0.0
-        
-        # Check keywords (highest weight)
-        keywords = [k.lower() for k in article.get('keywords', [])]
-        for word in query_words:
-            for keyword in keywords:
-                if word in keyword or keyword in word:
-                    score += 3.0
-                    break
-        
-        # Check title (medium weight)
-        title_words = set(article.get('title', '').lower().split())
-        common_title = query_words.intersection(title_words)
-        score += len(common_title) * 2.0
-        
-        # Check question (medium weight)
-        question_words = set(article.get('question', '').lower().split())
-        common_question = query_words.intersection(question_words)
-        score += len(common_question) * 2.0
-        
-        return score
-    
-    def _search_articles(self, query: str, app_id: str = None) -> List[Dict]:
-        """Search all knowledge bases and return matching articles."""
-        results = []
-        
-        # Determine which KB to search based on app_id
-        kb_priority = ['it_support', 'accounting_support']
-        if app_id and 'accounting' in app_id.lower():
-            kb_priority = ['accounting_support', 'it_support']
-        
-        for kb_name in kb_priority:
-            if kb_name in self.kb_cache:
-                kb_data = self.kb_cache[kb_name]
-                for article in kb_data.get('articles', []):
-                    score = self._calculate_match_score(query, article)
-                    if score > 0:
-                        results.append({
-                            'article': article,
-                            'score': score,
-                            'source': kb_name
-                        })
-        
-        # Sort by score descending
-        results.sort(key=lambda x: x['score'], reverse=True)
-        return results[:3]  # Return top 3 matches
+        # Import KB cache manager
+        from actions.kb_cache_manager import kb_cache
+        self.kb_cache = kb_cache
+        logger.info("ActionSearchKbBeforeTicket initialized with KB cache manager")
 
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
@@ -1677,8 +1606,8 @@ class ActionSearchKbBeforeTicket(Action):
 
         results = []
         if not skip_search:
-            # Search knowledge base
-            results = self._search_articles(search_query, app_id)
+            # Search knowledge base using hybrid semantic + keyword search
+            results = self.kb_cache.search_articles(search_query, app_id)
         
         if results:
             # KB articles found - show them to user

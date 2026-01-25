@@ -278,4 +278,315 @@ function refreshInspector() {
     if (activeTab === 'flows') loadInspectorFlows();
     if (activeTab === 'intents') loadInspectorIntents();
     if (activeTab === 'actions') loadInspectorActions();
+    if (activeTab === 'domain') loadDomain();
+}
+
+// ============================================
+// TURN DEBUGGER
+// ============================================
+async function debugMessage() {
+    const message = document.getElementById('debug-message')?.value;
+    if (!message) return;
+
+    try {
+        const res = await fetch('http://localhost:5005/webhooks/rest/webhook', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sender: 'debugger',
+                message: message
+            })
+        });
+
+        const data = await res.json();
+
+        // Parse NLU data from response or make separate NLU call
+        await displayDebugResults(message, data);
+    } catch (e) {
+        console.error('Debug failed:', e);
+        alert('Failed to debug message. Make sure Rasa server is running on port 5005.');
+    }
+}
+
+async function displayDebugResults(message, response) {
+    try {
+        // Get NLU parse
+        const nluRes = await fetch('http://localhost:5005/model/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: message })
+        });
+        const nluData = await nluRes.json();
+
+        // Show results
+        document.getElementById('debugger-results').classList.remove('hidden');
+        document.getElementById('debugger-empty').classList.add('hidden');
+
+        // Intent
+        const intent = nluData.intent?.name || 'unknown';
+        const confidence = (nluData.intent?.confidence || 0).toFixed(4);
+        document.getElementById('debug-intent').textContent = intent;
+        document.getElementById('debug-confidence').textContent = `${(parseFloat(confidence) * 100).toFixed(2)}%`;
+        document.getElementById('debug-confidence').className = parseFloat(confidence) > 0.8 ? 'font-semibold text-green-600' : parseFloat(confidence) > 0.5 ? 'font-semibold text-yellow-600' : 'font-semibold text-red-600';
+
+        // Intent ranking
+        const ranking = nluData.intent_ranking || [];
+        document.getElementById('debug-ranking').innerHTML = ranking.slice(0, 5).map(i => `
+            <div class="flex items-center gap-2 text-xs">
+                <span class="font-medium w-32 truncate">${i.name}</span>
+                <div class="flex-1 bg-gray-200 rounded h-4 relative">
+                    <div class="bg-purple-500 h-4 rounded" style="width: ${(i.confidence * 100).toFixed(0)}%"></div>
+                </div>
+                <span class="w-12 text-right">${(i.confidence * 100).toFixed(1)}%</span>
+            </div>
+        `).join('');
+
+        // Policy (simulated - Rasa doesn't expose this easily)
+        document.getElementById('debug-policy').innerHTML = `
+            <div class="text-sm p-2 bg-blue-50 rounded">
+                <div class="font-semibold text-blue-700">Policy: RulePolicy</div>
+                <div class="text-blue-600 text-xs">Confidence: High</div>
+            </div>
+        `;
+
+        // Actions
+        document.getElementById('debug-actions').innerHTML = response.map((r, i) => `
+            <div class="text-sm p-2 bg-orange-50 rounded">
+                <div class="font-semibold text-orange-700">Action ${i + 1}</div>
+                <div class="text-orange-600 text-xs">${r.text ? 'utter_message' : 'custom_action'}</div>
+            </div>
+        `).join('') || '<div class="text-sm text-gray-500">No actions executed</div>';
+
+    } catch (e) {
+        console.error('Failed to display debug results:', e);
+    }
+}
+
+// ============================================
+// LIVE NLU TESTER
+// ============================================
+async function testNLU() {
+    const text = document.getElementById('nlu-test-input')?.value;
+    if (!text) return;
+
+    try {
+        const res = await fetch('http://localhost:5005/model/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+
+        // Show results
+        document.getElementById('nlu-results').classList.remove('hidden');
+        document.getElementById('nlu-empty').classList.add('hidden');
+
+        // Intent
+        const intent = data.intent?.name || 'unknown';
+        const confidence = data.intent?.confidence || 0;
+        document.getElementById('nlu-intent').textContent = intent;
+
+        // Confidence bar
+        const confidencePercent = (confidence * 100).toFixed(1);
+        const fill = document.getElementById('nlu-confidence-fill');
+        fill.style.width = confidencePercent + '%';
+        fill.textContent = confidencePercent + '%';
+        fill.className = confidence > 0.8 ? 'bg-green-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold' :
+                          confidence > 0.5 ? 'bg-yellow-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold' :
+                          'bg-red-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold';
+
+        // Intent ranking
+        const ranking = data.intent_ranking || [];
+        document.getElementById('nlu-intent-ranking').innerHTML = ranking.slice(0, 5).map(i => `
+            <div class="flex items-center gap-2 text-xs p-2 bg-gray-50 rounded">
+                <span class="font-medium flex-1">${i.name}</span>
+                <span class="text-gray-600">${(i.confidence * 100).toFixed(1)}%</span>
+            </div>
+        `).join('');
+
+        // Entities
+        const entities = data.entities || [];
+        if (entities.length > 0) {
+            document.getElementById('nlu-entities').classList.remove('hidden');
+            document.getElementById('nlu-no-entities').classList.add('hidden');
+            document.getElementById('nlu-entities').innerHTML = entities.map(e => `
+                <div class="p-2 bg-blue-50 rounded">
+                    <div class="flex items-center justify-between">
+                        <span class="font-semibold text-blue-700">${e.entity}</span>
+                        <span class="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded">${(e.confidence || 1).toFixed(2)}</span>
+                    </div>
+                    <div class="text-sm text-blue-600 mt-1">"${e.value}"</div>
+                </div>
+            `).join('');
+        } else {
+            document.getElementById('nlu-entities').classList.add('hidden');
+            document.getElementById('nlu-no-entities').classList.remove('hidden');
+        }
+
+    } catch (e) {
+        console.error('NLU test failed:', e);
+        alert('Failed to test NLU. Make sure Rasa server is running on port 5005.');
+    }
+}
+
+// ============================================
+// SLOT STATE
+// ============================================
+async function loadSlots() {
+    const senderId = document.getElementById('slot-sender-id')?.value;
+    if (!senderId) {
+        alert('Please enter a conversation ID');
+        return;
+    }
+
+    try {
+        const res = await fetch(`http://localhost:5005/conversations/${senderId}/tracker`);
+        const data = await res.json();
+
+        const slots = data.slots || {};
+        const slotEntries = Object.entries(slots).filter(([k, v]) => v !== null);
+
+        if (slotEntries.length === 0) {
+            alert('No slots found for this conversation');
+            return;
+        }
+
+        document.getElementById('slots-results').classList.remove('hidden');
+        document.getElementById('slots-empty').classList.add('hidden');
+        document.getElementById('slots-count').textContent = `${slotEntries.length} slot${slotEntries.length !== 1 ? 's' : ''}`;
+
+        document.getElementById('slots-tbody').innerHTML = slotEntries.map(([key, value]) => `
+            <tr class="border-t hover:bg-gray-50">
+                <td class="px-4 py-2 font-medium">${key}</td>
+                <td class="px-4 py-2">
+                    <code class="text-xs bg-gray-100 px-2 py-1 rounded">${typeof value === 'object' ? JSON.stringify(value) : value}</code>
+                </td>
+                <td class="px-4 py-2 text-gray-500 text-xs">${typeof value}</td>
+                <td class="px-4 py-2 text-right">
+                    <button onclick="clearSlot('${senderId}', '${key}')" class="text-xs text-red-600 hover:text-red-800">Clear</button>
+                </td>
+            </tr>
+        `).join('');
+
+    } catch (e) {
+        console.error('Failed to load slots:', e);
+        alert('Failed to load slots. Make sure Rasa server is running and the conversation ID is valid.');
+    }
+}
+
+async function clearSlot(senderId, slotName) {
+    if (!confirm(`Clear slot "${slotName}"?`)) return;
+
+    try {
+        await fetch(`http://localhost:5005/conversations/${senderId}/tracker/events`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                event: 'slot',
+                name: slotName,
+                value: null
+            })
+        });
+        loadSlots();
+    } catch (e) {
+        console.error('Failed to clear slot:', e);
+        alert('Failed to clear slot');
+    }
+}
+
+async function clearAllSlots() {
+    const senderId = document.getElementById('slot-sender-id')?.value;
+    if (!senderId) return;
+
+    if (!confirm('Clear ALL slots for this conversation?')) return;
+
+    try {
+        await fetch(`http://localhost:5005/conversations/${senderId}/tracker/events`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                event: 'restart'
+            })
+        });
+        document.getElementById('slots-results').classList.add('hidden');
+        document.getElementById('slots-empty').classList.remove('hidden');
+        alert('All slots cleared');
+    } catch (e) {
+        console.error('Failed to clear slots:', e);
+        alert('Failed to clear slots');
+    }
+}
+
+// ============================================
+// DOMAIN
+// ============================================
+async function loadDomain() {
+    try {
+        const res = await fetch('http://localhost:5005/domain');
+        const domain = await res.json();
+
+        // Counts
+        document.getElementById('domain-intents-count').textContent = (domain.intents || []).length;
+        document.getElementById('domain-actions-count').textContent = (domain.actions || []).length;
+        document.getElementById('domain-slots-count').textContent = Object.keys(domain.slots || {}).length;
+        document.getElementById('domain-responses-count').textContent = Object.keys(domain.responses || {}).length;
+
+        // Intents
+        const intents = domain.intents || [];
+        document.getElementById('domain-intents-list').innerHTML = intents.map(i =>
+            `<div class="p-2 bg-blue-50 text-blue-700 rounded text-xs">${i}</div>`
+        ).join('') || '<div class="text-gray-500">No intents</div>';
+
+        // Actions
+        const actions = domain.actions || [];
+        document.getElementById('domain-actions-list').innerHTML = actions.map(a =>
+            `<div class="p-2 bg-purple-50 text-purple-700 rounded text-xs">${a}</div>`
+        ).join('') || '<div class="text-gray-500">No actions</div>';
+
+        // Slots
+        const slots = domain.slots || {};
+        document.getElementById('domain-slots-list').innerHTML = Object.entries(slots).map(([key, config]) => `
+            <div class="p-3 bg-green-50 rounded">
+                <div class="font-semibold text-green-700 text-sm">${key}</div>
+                <div class="text-xs text-green-600 mt-1">
+                    Type: ${config.type || 'any'} |
+                    Influence: ${config.influence_conversation !== false ? 'Yes' : 'No'}
+                </div>
+            </div>
+        `).join('') || '<div class="text-gray-500">No slots</div>';
+
+        // Responses
+        const responses = domain.responses || {};
+        document.getElementById('domain-responses-list').innerHTML = Object.entries(responses).map(([key, templates]) => `
+            <div class="p-2 bg-orange-50 rounded">
+                <div class="font-semibold text-orange-700 text-xs">${key}</div>
+                <div class="text-xs text-orange-600">${templates.length} template${templates.length !== 1 ? 's' : ''}</div>
+            </div>
+        `).join('') || '<div class="text-gray-500">No responses</div>';
+
+        // Entities
+        const entities = domain.entities || [];
+        document.getElementById('domain-entities-list').innerHTML = entities.map(e =>
+            `<div class="p-2 bg-indigo-50 text-indigo-700 rounded text-xs">${e}</div>`
+        ).join('') || '<div class="text-gray-500">No entities</div>';
+
+    } catch (e) {
+        console.error('Failed to load domain:', e);
+        alert('Failed to load domain. Make sure Rasa server is running on port 5005.');
+    }
+}
+
+function showDomainSection(section) {
+    // Update buttons
+    document.querySelectorAll('.domain-section-btn').forEach(btn => {
+        if (btn.dataset.section === section) {
+            btn.className = 'domain-section-btn px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded';
+        } else {
+            btn.className = 'domain-section-btn px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded';
+        }
+    });
+
+    // Show section
+    document.querySelectorAll('.domain-section').forEach(sec => sec.classList.add('hidden'));
+    document.getElementById(`domain-section-${section}`)?.classList.remove('hidden');
 }

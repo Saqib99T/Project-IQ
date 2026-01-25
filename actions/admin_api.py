@@ -21,11 +21,125 @@ from actions.conversation_db import (
 from actions.analytics_store import get_analytics_summary, get_recent_conversations
 from actions.config_manager import get_all_config as get_file_config, set_all_config as save_file_config
 
-# Static files directory
-STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'client_ui', 'dist-widget')
+# Static files directories
+STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'client_ui', 'public')
+WIDGET_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'client_ui', 'dist-widget')
 
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
 CORS(app)
+
+
+# Simple KB cache for admin panel
+class AdminKBCache:
+    """Lightweight KB cache for admin panel - loads GLPI articles at startup."""
+    def __init__(self):
+        self.articles = []
+        self.last_update = None
+        self.is_loading = False
+
+    def load_articles(self):
+        """Load articles from GLPI KB."""
+        if self.is_loading:
+            return False
+
+        self.is_loading = True
+        try:
+            from actions.glpi_service import GlpiService
+            from actions.config_manager import get_glpi_config
+            from datetime import datetime
+
+            glpi_config = get_glpi_config()
+            glpi_service = GlpiService(
+                api_uri=glpi_config['api_url'],
+                app_token=glpi_config['app_token'],
+                user_token=glpi_config['user_token']
+            )
+
+            session_token = glpi_service.init_session()
+            if not session_token:
+                print("[Admin KB Cache] Failed to connect to Project IQ")
+                return False
+
+            try:
+                glpi_articles = glpi_service.get_all_knowbase_items(session_token)
+
+                # Transform to simplified format
+                transformed = []
+                for article in glpi_articles:
+                    transformed.append({
+                        "id": f"glpi_{article['id']}",
+                        "title": article.get('name', 'Untitled'),
+                        "category": "general",
+                        "source": "glpi",
+                        "glpi_id": article['id'],
+                        "is_faq": article.get('is_faq', 0) == 1,
+                        "date_modified": article.get('date_mod', ''),
+                        "question": article.get('question', ''),
+                        "answer": article.get('answer', '')[:200] + '...' if article.get('answer') else ''
+                    })
+
+                self.articles = transformed
+                self.last_update = datetime.now().isoformat()
+                print(f"[Admin KB Cache] Loaded {len(transformed)} articles from Project IQ")
+                return True
+
+            finally:
+                glpi_service.kill_session(session_token)
+
+        except Exception as e:
+            print(f"[Admin KB Cache] Error loading articles: {e}")
+            return False
+        finally:
+            self.is_loading = False
+
+    def get_status(self):
+        """Get cache status."""
+        return {
+            "article_count": len(self.articles),
+            "last_refresh": self.last_update,
+            "source": "glpi",
+            "glpi_connected": True
+        }
+
+    def get_articles(self, page=1, limit=50, search_filter=""):
+        """Get paginated articles."""
+        filtered = self.articles
+
+        if search_filter:
+            search_filter = search_filter.lower()
+            filtered = [
+                article for article in self.articles
+                if search_filter in article.get('title', '').lower() or
+                   search_filter in article.get('question', '').lower()
+            ]
+
+        total_count = len(filtered)
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        paginated = filtered[start_idx:end_idx]
+        total_pages = (total_count + limit - 1) // limit if limit > 0 else 0
+
+        return {
+            "articles": paginated,
+            "count": len(paginated),
+            "total": total_count,
+            "page": page,
+            "total_pages": total_pages,
+            "limit": limit
+        }
+
+# Initialize KB cache
+admin_kb_cache = AdminKBCache()
+
+# Load articles at startup in background
+import threading
+def load_kb_at_startup():
+    import time
+    time.sleep(2)  # Wait for server to start
+    print("[Admin KB Cache] Loading articles from Project IQ at startup...")
+    admin_kb_cache.load_articles()
+
+threading.Thread(target=load_kb_at_startup, daemon=True).start()
 
 
 @app.after_request
@@ -55,7 +169,34 @@ def serve_analytics():
 
 @app.route('/glpi-chat-widget.js')
 def serve_widget_js():
-    return send_from_directory(STATIC_DIR, 'glpi-chat-widget.js')
+    return send_from_directory(WIDGET_DIR, 'glpi-chat-widget.js')
+
+@app.route('/it.html')
+def serve_it_widget():
+    return send_from_directory(WIDGET_DIR, 'it.html')
+
+@app.route('/acc.html')
+def serve_acc_widget():
+    return send_from_directory(WIDGET_DIR, 'acc.html')
+
+@app.route('/modern-web-interface.css')
+def serve_widget_css():
+    return send_from_directory(WIDGET_DIR, 'modern-web-interface.css')
+
+@app.route('/<path:filename>')
+def serve_widget_assets(filename):
+    """Fallback route for widget assets - try widget dir if not in public"""
+    import os
+    # First try public directory (admin panel)
+    public_path = os.path.join(STATIC_DIR, filename)
+    if os.path.exists(public_path):
+        return send_from_directory(STATIC_DIR, filename)
+    # Then try widget directory
+    widget_path = os.path.join(WIDGET_DIR, filename)
+    if os.path.exists(widget_path):
+        return send_from_directory(WIDGET_DIR, filename)
+    # Not found in either
+    return "File not found", 404
 
 # Default configuration keys
 DEFAULT_CONFIG_KEYS = [
@@ -1001,6 +1142,153 @@ def service_health(service):
         })
     except Exception as e:
         return jsonify({"status": "error", "healthy": False, "error": str(e)})
+
+# =============================
+# KNOWLEDGE BASE ENDPOINTS
+# =============================
+
+@app.route('/admin/kb/status', methods=['GET'])
+def get_kb_status():
+    """Get knowledge base status from cache (fast)."""
+    try:
+        status = admin_kb_cache.get_status()
+        return jsonify({
+            "success": True,
+            "status": status
+        })
+    except Exception as e:
+        print(f"Error getting KB status: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "status": {
+                "article_count": 0,
+                "last_refresh": None,
+                "source": "error",
+                "model_info": None
+            }
+        }), 500
+
+@app.route('/admin/kb/refresh', methods=['POST'])
+def refresh_kb_cache():
+    """Refresh KB cache from Project IQ."""
+    try:
+        print("[KB Admin] Manual refresh triggered")
+
+        # Reload articles from GLPI
+        success = admin_kb_cache.load_articles()
+
+        if success:
+            status = admin_kb_cache.get_status()
+            return jsonify({
+                "success": True,
+                "message": f"KB cache refreshed. Loaded {status['article_count']} articles from Project IQ.",
+                "status": status
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": "Failed to refresh KB cache. Check logs for details.",
+                "status": admin_kb_cache.get_status()
+            }), 500
+
+    except Exception as e:
+        print(f"Error refreshing KB cache: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "message": "Failed to refresh KB cache"
+        }), 500
+
+@app.route('/admin/kb/articles', methods=['GET'])
+def get_kb_articles():
+    """Get all KB articles from Admin KB cache with pagination."""
+    try:
+        # Get pagination parameters
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 50))
+        search_filter = request.args.get('filter', '')
+
+        # Get articles from admin KB cache
+        result = admin_kb_cache.get_articles(page, limit, search_filter)
+
+        return jsonify({
+            "success": True,
+            **result,
+            "source": "glpi"
+        })
+
+    except Exception as e:
+        print(f"Error getting KB articles: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "articles": []
+        }), 500
+
+
+
+@app.route('/admin/kb/search', methods=['POST'])
+def test_kb_search():
+    """Test search endpoint with detailed score display for debugging."""
+    try:
+        from actions.kb_cache_manager import kb_cache
+
+        # Get search query from request
+        data = request.get_json()
+        query = data.get('query', '')
+
+        if not query:
+            return jsonify({
+                "success": False,
+                "error": "Query parameter is required"
+            }), 400
+
+        # Perform search
+        results = kb_cache.search_articles(query)
+
+        # Format results with detailed scores
+        formatted_results = []
+        for result in results:
+            formatted_results.append({
+                "article": {
+                    "id": result['article'].get('id'),
+                    "title": result['article'].get('title'),
+                    "category": result['article'].get('category'),
+                    "content": result['article'].get('content', '')[:200] + '...',
+                    "source": result['article'].get('source'),
+                    "glpi_id": result['article'].get('glpi_id'),
+                    "is_faq": result['article'].get('is_faq', False),
+                    "date_modified": result['article'].get('date_modified')
+                },
+                "scores": {
+                    "final_score": round(result.get('score', 0), 3),
+                    "semantic_score": round(result.get('semantic_score', 0), 3),
+                    "keyword_score": round(result.get('keyword_score', 0), 3)
+                },
+                "source": result.get('source', 'unknown')
+            })
+
+        return jsonify({
+            "success": True,
+            "query": query,
+            "result_count": len(formatted_results),
+            "results": formatted_results
+        })
+
+    except Exception as e:
+        print(f"Error in KB search test: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "results": []
+        }), 500
 
 # =====================
 # INSPECTOR ENDPOINTS
@@ -2007,7 +2295,9 @@ def chat_webhook_proxy():
 
 if __name__ == '__main__':
     print("Starting Unified Server on port 80...")
-    print(f"Serving static files from: {STATIC_DIR}")
+    print(f"Admin files from: {STATIC_DIR}")
+    print(f"Widget files from: {WIDGET_DIR}")
     print("  Admin Dashboard:        http://<YOUR_IP>/admin.html")
-    print("  Access from network:     http://<YOUR_IP>/it.html")
+    print("  Chat Widget (IT):       http://<YOUR_IP>/it.html")
+    print("  Chat Widget (ACC):      http://<YOUR_IP>/acc.html")
     app.run(host='0.0.0.0', port=80, debug=True)

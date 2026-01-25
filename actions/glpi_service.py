@@ -535,3 +535,121 @@ class GlpiService:
         except requests.exceptions.RequestException as e:
             logger.error(f"GLPI get_ticket_documents failed: {e}")
             return []
+
+    # --- Knowledge Base API ---
+    def get_all_knowbase_items(self, session_token: str, range_start: int = 0, range_limit: int = 0) -> List[Dict[str, Any]]:
+        """
+        Retrieves ALL knowledge base items from GLPI by handling pagination.
+        Uses 'range' query parameter (e.g. 0-100) to paginate.
+        """
+        all_items = []
+        current_start = 0
+        step = 100
+        
+        try:
+            while True:
+                url = f"{self.api_uri}/KnowbaseItem"
+                headers = self._get_execution_headers(session_token)
+                
+                # Use query param for range, not header (consistent with get_all_users)
+                # Format: start-end (e.g. 0-99 for 100 items)
+                current_end = current_start + step
+                params = {"range": f"{current_start}-{current_end - 1}"}
+                
+                logger.info(f"GLPI: Fetching KB items range {params['range']}")
+                
+                response = requests.get(url, headers=headers, params=params, timeout=30)
+                
+                if response.status_code == 416: # Range not satisfiable
+                    break
+                    
+                response.raise_for_status()
+
+                try:
+                    items = response.json()
+                except Exception as e:
+                    logger.error(f"Failed to parse GLPI JSON response. Error: {e}")
+                    logger.error(f"Response snippet: {response.text[:1000]}")
+                    break
+
+                if not isinstance(items, list):
+                    logger.warning(f"GLPI KB returned non-list: {type(items)}")
+                    break
+                    
+                if not items:
+                    break
+                    
+                all_items.extend(items)
+                logger.info(f"Fetched {len(items)} items. Total so far: {len(all_items)}")
+                
+                # Check Content-Range header if available to know when to stop
+                # But primarily rely on receiving fewer items than requested step
+                
+                # Logic: If we asked for 100 items (step) and got fewer, we are at the end.
+                # Note: GLPI might return 'step' + 1 or similar depending on implementation, 
+                # but 'len(items) < step' is a safe heuristic for "end of list".
+                # However, strict range 0-100 implies 101 items? 
+                # Let's check received count.
+                if len(items) < step:
+                    break
+                    
+                current_start += step
+                
+            logger.info(f"Total KB items retrieved from GLPI: {len(all_items)}")
+            return all_items
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"GLPI get_all_knowbase_items failed: {e}")
+            return all_items
+
+    def get_knowbase_item(self, session_token: str, item_id: int) -> Optional[Dict[str, Any]]:
+        """Retrieves a specific knowledge base item by ID."""
+        url = f"{self.api_uri}/KnowbaseItem/{item_id}"
+        headers = self._get_execution_headers(session_token)
+
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            return response.json()
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"GLPI get_knowbase_item failed: {e}")
+            return None
+
+    def search_knowbase_items(self, session_token: str, query: str) -> List[Dict[str, Any]]:
+        """
+        Search knowledge base items using GLPI search API.
+        Note: This uses GLPI's native search if available.
+        """
+        url = f"{self.api_uri}/search/KnowbaseItem"
+        headers = self._get_execution_headers(session_token)
+
+        # GLPI search criteria format
+        # Field 6 = name (title), Field 4 = answer (content)
+        params = {
+            "criteria[0][field]": "6",
+            "criteria[0][searchtype]": "contains",
+            "criteria[0][value]": query,
+            "criteria[1][link]": "OR",
+            "criteria[1][field]": "4",
+            "criteria[1][searchtype]": "contains",
+            "criteria[1][value]": query,
+            "forcedisplay[0]": "1",  # ID
+            "forcedisplay[1]": "6",  # Name
+            "forcedisplay[2]": "4",  # Answer
+        }
+
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=15)
+            response.raise_for_status()
+
+            result = response.json()
+            # Extract data from GLPI search response format
+            items = result.get('data', [])
+
+            logger.info(f"GLPI KB search for '{query}': {len(items)} results")
+            return items
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"GLPI search_knowbase_items failed: {e}")
+            return []

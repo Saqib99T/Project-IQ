@@ -2417,6 +2417,24 @@ nlu:
     - VPN error
     - VPN disconnecting
     - VPN keeps disconnecting
+    - VPN setup
+    - VPN Setup for Windows
+    - setup VPN
+    - install VPN
+    - VPN installation
+    - configure VPN
+    - VPN configuration
+    - how to setup VPN
+    - how to install VPN
+    - how to configure VPN
+    - VPN setup guide
+    - VPN installation guide
+    - VPN setup instructions
+    - how do I setup VPN
+    - setting up VPN
+    - VPN setup for Mac
+    - VPN setup for Linux
+    - remote VPN setup
     - printer not working
     - my printer is offline
     - how to fix printer
@@ -2480,6 +2498,147 @@ nlu:
     - network drive not working
     - can't access shared folder
     - shared drive issues
+    - vpn issue
+    - printer issue
+    - wifi issue
+    - laptop issue
+    - computer issue
+    - monitor issue
+    - screen issue
+    - mouse issue
+    - keyboard issue
+    - internet issue
+    - network issue
+    - software issue
+    - email issue
+    - phone issue
+    - login issue
+    - password issue
+    - account issue
+    - access issue
+    - connection issue
+    - server issue
+    - database issue
+    - website issue
+    - application issue
+    - outlook problem
+    - teams problem
+    - excel problem
+    - word problem
+    - powerpoint problem
+    - adobe problem
+    - browser problem
+    - chrome problem
+    - firefox problem
+    - edge problem
+    - safari problem
+    - windows problem
+    - mac problem
+    - linux problem
+    - android problem
+    - ios problem
+    - mobile problem
+    - tablet problem
+    - ipad problem
+    - iphone problem
+    - desk phone problem
+    - headset problem
+    - webcam problem
+    - microphone problem
+    - speaker problem
+    - audio problem
+    - video problem
+    - display problem
+    - projector problem
+    - scanner problem
+    - copier problem
+    - fax problem
+    - toner problem
+    - ink problem
+    - paper jam
+    - battery problem
+    - charger problem
+    - cable problem
+    - adapter problem
+    - port problem
+    - usb problem
+    - hdmi problem
+    - vga problem
+    - ethernet problem
+    - wifi problem
+    - bluetooth problem
+    - driver problem
+    - updates problem
+    - patch problem
+    - virus problem
+    - malware problem
+    - security problem
+    - firewall problem
+    - antivirus problem
+    - ransomware problem
+    - phishing problem
+    - spam problem
+    - backup problem
+    - restore problem
+    - recovery problem
+    - storage problem
+    - space problem
+    - memory problem
+    - speed problem
+    - performance problem
+    - crash problem
+    - freeze problem
+    - lag problem
+    - slow problem
+    - error message
+    - warning message
+    - popup message
+    - notification message
+    - alert message
+    - install printer
+    - install scanner
+    - install software
+    - install office
+    - install antivirus
+    - install vpn
+    - install updates
+    - update windows
+    - update driver
+    - update software
+    - upgrade ram
+    - replace battery
+    - clean computer
+    - restart computer
+    - reboot server
+    - reset router
+    - configure email
+    - setup outlook
+    - connect wifi
+    - trouble connecting
+    - no internet
+    - slow internet
+    - wifi signal weak
+    - printer offline
+    - printer error
+    - printer driver
+    - scanner driver
+    - vpn client
+    - remote desktop
+    - anydesk
+    - teamviewer
+    - zoom
+    - skype
+    - slack
+    - discord
+    - whatsapp
+    - telegram
+    - wechat
+    - viber
+    - signal
+    - google meet
+    - webex
+    - goto meeting
+
     - malware on my computer
     - I think I have a virus
     - computer might be infected

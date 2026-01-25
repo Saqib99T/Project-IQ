@@ -160,6 +160,36 @@ def get_widget_config() -> Dict[str, str]:
     }
 
 
+def get_kb_config() -> Dict[str, Any]:
+    """Get Knowledge Base configuration settings."""
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'enabled': _get_secret('KB_GLPI_ENABLED', 'true').lower() == 'true',
+            'refresh_interval': int(_get_secret('KB_REFRESH_INTERVAL', '1800')),
+            'fallback_to_json': _get_secret('KB_FALLBACK_JSON', 'true').lower() == 'true',
+            'semantic_enabled': _get_secret('KB_SEMANTIC_ENABLED', 'true').lower() == 'true',
+            'semantic_model': _get_secret('KB_SEMANTIC_MODEL', 'all-MiniLM-L6-v2'),
+            'semantic_weight': float(_get_secret('KB_SEMANTIC_WEIGHT', '0.6')),
+            'keyword_weight': float(_get_secret('KB_KEYWORD_WEIGHT', '0.4')),
+            'min_score_threshold': float(_get_secret('KB_MIN_SCORE', '0.3')),
+            'max_results': int(_get_secret('KB_MAX_RESULTS', '3')),
+        }
+
+    # Fallback to local config
+    config = load_config()
+    return {
+        'enabled': config.getboolean('KNOWLEDGE_BASE', 'KB_GLPI_ENABLED', fallback=True),
+        'refresh_interval': config.getint('KNOWLEDGE_BASE', 'KB_REFRESH_INTERVAL', fallback=1800),
+        'fallback_to_json': config.getboolean('KNOWLEDGE_BASE', 'KB_FALLBACK_JSON', fallback=True),
+        'semantic_enabled': config.getboolean('KNOWLEDGE_BASE', 'KB_SEMANTIC_ENABLED', fallback=True),
+        'semantic_model': config.get('KNOWLEDGE_BASE', 'KB_SEMANTIC_MODEL', fallback='all-MiniLM-L6-v2'),
+        'semantic_weight': config.getfloat('KNOWLEDGE_BASE', 'KB_SEMANTIC_WEIGHT', fallback=0.6),
+        'keyword_weight': config.getfloat('KNOWLEDGE_BASE', 'KB_KEYWORD_WEIGHT', fallback=0.4),
+        'min_score_threshold': config.getfloat('KNOWLEDGE_BASE', 'KB_MIN_SCORE', fallback=0.3),
+        'max_results': config.getint('KNOWLEDGE_BASE', 'KB_MAX_RESULTS', fallback=3),
+    }
+
+
 def get_all_config() -> Dict[str, str]:
     """Get all configuration as flat dictionary for admin API."""
     if _init_infisical() and _infisical_secrets:
