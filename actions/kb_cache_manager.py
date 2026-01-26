@@ -14,6 +14,8 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from collections import Counter
 import numpy as np
+import asyncio
+
 
 logger = logging.getLogger(__name__)
 
@@ -116,8 +118,8 @@ class KBCacheManager:
             if not self._stop_refresh.is_set():
                 self.refresh_cache()
 
-    def refresh_cache(self) -> bool:
-        """Fetch KB articles from GLPI and update cache."""
+    async def refresh_cache_async(self) -> bool:
+        """Fetch KB articles from GLPI and update cache (Async)."""
         try:
             logger.info("Refreshing KB cache from GLPI...")
 
@@ -132,13 +134,13 @@ class KBCacheManager:
                 user_token=glpi_config['user_token']
             )
 
-            session_token = glpi_service.init_session()
+            session_token = await glpi_service.init_session()
             if not session_token:
                 raise Exception("Failed to initialize GLPI session")
 
             try:
                 # Fetch all KB items (no entity filter as per requirements)
-                articles = glpi_service.get_all_knowbase_items(session_token)
+                articles = await glpi_service.get_all_knowbase_items(session_token)
 
                 if not articles:
                     logger.warning("No KB articles returned from GLPI")
@@ -169,7 +171,7 @@ class KBCacheManager:
                 return True
 
             finally:
-                glpi_service.kill_session(session_token)
+                await glpi_service.kill_session(session_token)
 
         except Exception as e:
             logger.error(f"KB cache refresh failed: {e}")
@@ -180,6 +182,22 @@ class KBCacheManager:
                 self._load_json_fallback()
 
             return False
+    
+    def refresh_cache(self) -> bool:
+        """Synchronous wrapper for refresh_cache_async."""
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        if loop.is_running():
+            logger.warning("refresh_cache called from running loop. Use refresh_cache_async instead.")
+            # We can't block here. If strictly needed, we'd need to spawn a thread or return a task (but this is sync def).
+            # For checking threads (STOPPED) or init, loop shouldn't be running.
+            return False
+        
+        return loop.run_until_complete(self.refresh_cache_async())
 
     def _transform_articles(self, glpi_articles: List[Dict]) -> List[Dict]:
         """Transform GLPI articles to unified KB format."""

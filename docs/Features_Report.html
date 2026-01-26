@@ -1,0 +1,383 @@
+
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Project IQ - Features Report</title>
+            
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap');
+
+    body {
+        font-family: 'Inter', sans-serif;
+        line-height: 1.6;
+        color: #1f2937;
+        max-width: 850px;
+        margin: 40px auto;
+        padding: 0 40px;
+        background-color: #ffffff;
+    }
+    
+    h1, h2, h3 {
+        color: #111827;
+        margin-top: 1.5em;
+        margin-bottom: 0.8em;
+    }
+    
+    h1 {
+        font-size: 2.5em;
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 0.3em;
+        text-align: center;
+        color: #2563eb;
+    }
+
+    h2 {
+        font-size: 1.8em;
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 0.2em;
+        color: #1f2937;
+    }
+
+    h3 {
+        font-size: 1.3em;
+        color: #4b5563;
+    }
+
+    code {
+        font-family: 'JetBrains Mono', monospace;
+        background-color: #f3f4f6;
+        padding: 0.2em 0.4em;
+        border-radius: 4px;
+        font-size: 0.9em;
+        color: #dc2626;
+    }
+
+    pre {
+        background-color: #1f2937;
+        color: #f9fafb;
+        padding: 1.5em;
+        border-radius: 8px;
+        overflow-x: auto;
+    }
+
+    pre code {
+        background-color: transparent;
+        color: inherit;
+        padding: 0;
+    }
+
+    ul {
+        margin-left: 1.5em;
+    }
+
+    li {
+        margin-bottom: 0.4em;
+    }
+
+    hr {
+        border: 0;
+        height: 1px;
+        background: #e5e7eb;
+        margin: 3em 0;
+    }
+
+    blockquote {
+        background-color: #f0f9ff;
+        border-left: 4px solid #0ea5e9;
+        margin: 1.5em 0;
+        padding: 1em;
+        color: #0c4a6e;
+    }
+
+    @media print {
+        body {
+            max-width: 100%;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { color: #000; }
+        a { text-decoration: none; color: #000; }
+        pre, code { border: 1px solid #ccc; }
+    }
+</style>
+
+        </head>
+        <body>
+            <h1>🚀 Project IQ - Features, Achievements &amp; Integrations</h1>
+<p>This document provides a comprehensive overview of the capabilities, technical achievements, and integrations of the Project IQ Chatbot application.</p>
+<h2>1. 🤖 AI &amp; NLU Capabilities (Rasa Core + NLU)</h2>
+<p>The core of the chatbot is built on <strong>Rasa 3.x</strong>, utilizing advanced machine learning policies for robust dialogue management.</p>
+<h3><strong>Intents &amp; Dialogue Management</strong></h3>
+<ul>
+<li><strong>Ticket Lifecycle Management:</strong><ul>
+<li><code>create_ticket</code>: Guided flows to report issues.</li>
+<li><code>check_status</code>: Real-time status lookup by Ticket ID.</li>
+<li><code>list_tickets</code>: View active or closed tickets for the current user.</li>
+<li><code>update_ticket</code>: Add new information to existing tickets.</li>
+<li><code>verify_resolution</code>: Confirm if a solution worked or reopen the ticket.</li>
+</ul>
+</li>
+<li><strong>Knowledge Base Integration:</strong><ul>
+<li><code>ask_knowledge</code>: Search the KB for solutions.</li>
+<li><code>kb_not_helpful</code>: Fallback mechanism to escalate KB queries to ticket creation.</li>
+</ul>
+</li>
+<li><strong>User Interaction:</strong><ul>
+<li><code>greet</code>, <code>goodbye</code>: Natural conversation flow.</li>
+<li><code>help</code>: Context-aware assistance.</li>
+<li><code>clear</code>: Resets the conversation session.</li>
+</ul>
+</li>
+<li><strong>Feedback Mechanism:</strong><ul>
+<li><code>feedback_positive</code> / <code>feedback_negative</code>: Sentiment tracking.</li>
+<li><code>save_satisfaction_rating</code>: 1-5 star rating system stored for analytics.</li>
+</ul>
+</li>
+</ul>
+<h3><strong>Smart Form Handling</strong></h3>
+<ul>
+<li><strong>Interactive Slot Filling:</strong> Uses <code>ticket_form</code> to collect required data:<ul>
+<li><strong>Title/Summary</strong>: <code>ticket_title</code></li>
+<li><strong>Description</strong>: <code>ticket_content</code></li>
+<li><strong>Categorization</strong>: <code>issue_type</code> (Hardware, Software, Network).</li>
+<li><strong>Priority</strong>: <code>urgency</code> (Low, Medium, High).</li>
+</ul>
+</li>
+<li><strong>Context Awareness:</strong> Can extract context from previous messages to pre-fill slots.</li>
+</ul>
+<h3><strong>GuardRails &amp; Safety</strong></h3>
+<ul>
+<li><strong>Edge Case Detection:</strong><ul>
+<li><strong>Fallback Handling:</strong> Uses <code>FallbackClassifier</code> and <code>UnexpecTEDIntentPolicy</code> to catch low-confidence inputs.</li>
+<li><strong>Scope Management:</strong> Gracefully declines out-of-scope requests (e.g., "Make me a sandwich") with <code>utter_out_of_scope</code>.</li>
+<li><strong>Error Recovery:</strong> Automated error handling in actions ensures the bot apologizes and asks for clarification instead of crashing.</li>
+</ul>
+</li>
+<li><strong>Multi-Intent Handling (<code>ActionHandleMultiIntent</code>):</strong><ul>
+<li>Intelligently parses complex user requests containing multiple actions (e.g., "Create a ticket and check my status").</li>
+<li>Queues actions and guides the user through them sequentially to prevent confusion.</li>
+</ul>
+</li>
+<li><strong>KB Deflection (<code>ActionSearchKbBeforeTicket</code>):</strong><ul>
+<li>Proactively searches the Knowledge Base before creating a ticket.</li>
+<li>Reduces support load by suggesting solutions first.</li>
+</ul>
+</li>
+<li><strong>Auth Guardrails:</strong><ul>
+<li>Strict <code>check_user_login</code> validation on all protected actions.</li>
+<li>Prevents unauthorized access to ticket data.</li>
+</ul>
+</li>
+</ul>
+<h3><strong>Advanced AI Policies</strong></h3>
+<ul>
+<li><strong>TEDPolicy (Transformer Embedding Dialogue):</strong> Handles complex, non-linear conversation paths using machine learning.</li>
+<li><strong>RulePolicy:</strong> Enforces strict business logic (e.g., "Always ask for confirmation before submitting").</li>
+<li><strong>UnexpecTEDIntentPolicy:</strong> Gracefully handles unexpected user inputs by guiding them back to supported flows.</li>
+</ul>
+<h3><strong>Rich Responses</strong></h3>
+<ul>
+<li><strong>Interactive Elements:</strong> Buttons for quick choices.</li>
+<li><strong>Data Visualization:</strong><ul>
+<li><code>action_show_chart</code>: Renders dynamic charts.</li>
+<li><code>action_show_ticket_graph</code>: Visualizes ticket statistics.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>2. 🔌 Backend Integrations</h2>
+<p>Technical integration points that power the application's logic.</p>
+<h3><strong>GLPI (IT Service Management)</strong></h3>
+<p>The bot is deeply integrated with GLPI via its REST API.<br />
+*   <strong>CRUD Operations:</strong> Full Create, Read, Update access to Tickets.<br />
+*   <strong>Authentication:</strong><br />
+    *   <code>action_glpi_login</code>: Validates user credentials against GLPI.<br />
+    *   <strong>Profile Checks:</strong> Enforces permissions (e.g., restricting Admin features to "Super-Admin").<br />
+*   <strong>Multi-Entity Support (Department Context):</strong><br />
+    *   <strong>Context Switching:</strong> Dynamically switches GLPI Entities (e.g., "IT" vs "Accounting") based on <code>app_id</code>.<br />
+    *   <strong>Data Isolation:</strong> Ensures users only see tickets relevant to the current department context.<br />
+*   <strong>Knowledge Base Sync:</strong><br />
+    *   <code>kb_cache_manager.py</code>: Background service that caches KB articles for millisecond-latency searches.</p>
+<h3><strong>Database (PostgreSQL)</strong></h3>
+<p>Replaces default SQLite for production-grade reliability.<br />
+*   <strong>Custom Tracker Store:</strong><br />
+    *   Persists conversation history in <code>conversations</code> and <code>messages</code> tables.<br />
+    *   Allows long-term storage and auditing of chat logs.<br />
+*   <strong>Analytics Storage:</strong><br />
+    *   <code>feedback</code> table: Stores user ratings and comments.<br />
+    *   <code>actions</code> table: Logs bot performance and action success rates.</p>
+<h3><strong>Security (Infisical)</strong></h3>
+<p>Enterprise-grade secret management.<br />
+*   <strong>Secret Management:</strong> Uses <strong>Infisical</strong> to manage sensitive Environment Variables.<br />
+    *   Protects <code>GLPI_APP_TOKEN</code>, <code>DB_PASSWORD</code>, and API Keys.<br />
+*   <strong>Environment Isolation:</strong> Supports distinct secrets for <code>dev</code> and <code>prod</code> environments.</p>
+<hr />
+<h2>3. 🔧 Admin &amp; Operations Suite</h2>
+<p>A comprehensive administration microservice (Port <strong>8181</strong>) built with <strong>Flask</strong> + <strong>Vanilla JS</strong>.</p>
+<h3><strong>1. Analytics &amp; Reporting (<code>admin-analytics.js</code>)</strong></h3>
+<ul>
+<li><strong>Real-time Dashboard:</strong> Visual graphs for Conversation Counts, Intent Distribution, and Sentiment Analysis.</li>
+<li><strong>Resolution Tracking:</strong> Monitors the "Ticket Resolution Rate" based on positive/negative user feedback.</li>
+<li><strong>Deep Filtering:</strong> Slice data by Date Range (24h, 7d, 30d, Custom), App ID (IT, HR), or Ticket Status.</li>
+</ul>
+<h3><strong>2. AI Studio &amp; Debugging (<code>admin-studio.js</code>)</strong></h3>
+<ul>
+<li><strong>Interactive Chat Tester:</strong><ul>
+<li>Test bot responses in real-time without deploying.</li>
+<li><strong>NLU Analyzer:</strong> View raw Intent Confidence and Entity Extraction results for every message.</li>
+<li><strong>Response Preview:</strong> See exactly which text or custom payload the bot selected.</li>
+</ul>
+</li>
+<li><strong>Flow Visualizer:</strong> Renders dialogue paths (stories/rules) as <strong>Mermaid.js</strong> flowcharts.</li>
+<li><strong>Response Manager:</strong> Catalog of all bot responses and variations.</li>
+</ul>
+<h3><strong>3. System Observability (<code>admin-observability.js</code>)</strong></h3>
+<ul>
+<li><strong>Health Monitor:</strong> Live status checks for Rasa Core, Action Server, and PostgreSQL Database.</li>
+<li><strong>Resource Tracking:</strong> Real-time gauges for CPU, Memory, and Disk usage via <code>process_monitor.py</code>.</li>
+<li><strong>Log Viewer:</strong> Built-in GUI to stream, search, and filter server logs (INFO/ERROR) via <code>log_parser.py</code>.</li>
+<li><strong>Database Stats:</strong> Metrics on table sizes and transaction rates.</li>
+</ul>
+<h3><strong>4. Knowledge Base Management (<code>admin-knowledge-base.js</code>)</strong></h3>
+<ul>
+<li><strong>Cache Controls:</strong> View status of the In-Memory Article Cache and execution of Vector Embeddings.</li>
+<li><strong>Manual Refresh:</strong> Force-sync KB articles from GLPI immediately.</li>
+<li><strong>Search Tester:</strong> Test the "Hybrid Matching" algorithm (Semantic + Keyword) directly in the Admin UI to tune results.</li>
+</ul>
+<h3><strong>5. Conversation Inspector (<code>admin-inspector.js</code>)</strong></h3>
+<ul>
+<li><strong>Turn-by-Turn Replay:</strong> detailed view of any past conversation.</li>
+<li><strong>Slot Inspection:</strong> View the precise state of all memory slots at any point.</li>
+<li><strong>Flow Tracing:</strong> Identify exactly why a fallback occurred or a rule was triggered.</li>
+</ul>
+<h3><strong>6. Configuration &amp; Theming</strong></h3>
+<ul>
+<li><strong>Theme Builder (<code>admin-themes.js</code>):</strong><ul>
+<li>No-code editor to customize the Chat Widget's appearance (Colors, Fonts, Radius).</li>
+<li><strong>Dark Mode Generator:</strong> One-click creation of dark-themed presets.</li>
+</ul>
+</li>
+<li><strong>Config Manager (<code>admin-config.js</code>):</strong> Hot-swap system settings (GLPI URLs, Keys) without server restarts.</li>
+</ul>
+<hr />
+<h2>4. 💻 Frontend &amp; User Experience</h2>
+<p>A modern, responsive client interface designed for seamless interaction.</p>
+<h3><strong>Observability &amp; Analytics</strong></h3>
+<ul>
+<li><strong>Real-time Process Monitoring:</strong><ul>
+<li>Tracks CPU, Memory, and Disk usage via <code>actions/process_monitor.py</code>.</li>
+<li>Monitors status of Rasa Core, Action Server, and Database services.</li>
+</ul>
+</li>
+<li><strong>Log Analysis &amp; Filtering:</strong><ul>
+<li>Built-in log parser (<code>actions/log_parser.py</code>) for viewing and filtering system logs (INFO, ERROR, DEBUG) directly from the Admin UI.</li>
+</ul>
+</li>
+<li><strong>Conversation Inspector:</strong><ul>
+<li><strong>Turn-by-Turn Debugging:</strong> View full conversation history with intent confidence scores and active slots.</li>
+<li><strong>Flow Visualization:</strong> Graphical representation of dialogue flows (<code>inspector-flows-grid</code>).</li>
+<li><strong>NLU Tester:</strong> Live testing interface for intent classification and entity extraction.</li>
+</ul>
+</li>
+<li><strong>Business Analytics:</strong><ul>
+<li>Tracks "Resolution Rate", "Top Intents", and "User Feedback" (Sentiment Analysis).</li>
+</ul>
+</li>
+</ul>
+<h3><strong>Knowledge Base Engine</strong></h3>
+<ul>
+<li><strong>Hybrid Search Technology:</strong><ul>
+<li>Combines <strong>Semantic Search</strong> (using <code>sentence-transformers</code>) with <strong>Keyword Matching</strong> for high-accuracy results (<code>actions/kb_cache_manager.py</code>).</li>
+<li><strong>Scoring Algorithm:</strong> Weighted ranking (60% Semantic / 40% Keyword) to surface the best answers.</li>
+</ul>
+</li>
+<li><strong>Performance Optimization:</strong><ul>
+<li>In-memory caching with embeddings storage for millisecond-latency responses.</li>
+<li><strong>Auto-Refresh:</strong> Configurable interval to sync with GLPI KB updates.</li>
+</ul>
+</li>
+<li><strong>Sources:</strong><ul>
+<li>Primary: Live GLPI Knowledge Base (API).</li>
+<li>Fallback: Local JSON files for offline redundancy.</li>
+</ul>
+</li>
+</ul>
+<h3><strong>Backend Infrastructure</strong></h3>
+<ul>
+<li><strong>Database Resilience:</strong><ul>
+<li>PostgreSQL connection pooling (<code>actions/conversation_db.py</code>) for handling high concurrency.</li>
+<li><strong>Auto-Migration:</strong> Scripts to migrate data from SQLite to PostgreSQL (<code>scripts/migrate_to_postgres.py</code>).</li>
+</ul>
+</li>
+<li><strong>Security:</strong><ul>
+<li><strong>Secret Management:</strong> Integration with <strong>Infisical</strong> for secure credential injection.</li>
+<li><strong>Session Management:</strong> Secure token handling and automated cleanup (<code>ActionClearSession</code>).</li>
+</ul>
+</li>
+<li><strong>Automation Utilities:</strong><ul>
+<li><strong>Presentation Generator:</strong> Automated PowerPoint creation for reporting (<code>scripts/create_presentation.py</code>).</li>
+<li><strong>Theme Generator:</strong> Scriptable theme creation (<code>scripts/create_default_themes.py</code>).</li>
+</ul>
+</li>
+</ul>
+<h3><strong>Smart Chat Widget</strong></h3>
+<ul>
+<li><strong>Tech Stack:</strong> <strong>Vite</strong> + <strong>TailwindCSS</strong> + Vanilla JS.</li>
+<li><strong>Architecture:</strong><ul>
+<li>Compiles to a single embeddable file: <code>glpi-chat-widget.js</code>.</li>
+<li>Can be dropped into any HTML page or IT Portal.</li>
+</ul>
+</li>
+<li><strong>Theming Engine &amp; Custom Base:</strong><ul>
+<li><strong>Pre-built Themes:</strong> Includes 8 professional presets defined in <code>scripts/create_default_themes.py</code> (e.g., Ocean Blue, Forest Green).</li>
+<li><strong>Customization:</strong> Full control over Colors, Fonts, Border Radius, and Icons via Admin UI.</li>
+<li><strong>Live Preview:</strong> Real-time visual editor for theme adjustments.</li>
+</ul>
+</li>
+<li><strong>Advanced UI:</strong><ul>
+<li><strong>File Uploads:</strong> Drag-and-drop support (<code>action_upload_file</code>).</li>
+<li><strong>Rich Media:</strong> Renders images, links, markdown, and charts/graphs.</li>
+<li><strong>Voice Support:</strong> (Experimental) Text-to-Speech and Speech-to-Text capabilities.</li>
+</ul>
+</li>
+</ul>
+<h3><strong>Specialized Entry Points</strong></h3>
+<ul>
+<li><code>it.html</code>: specialized landing page for IT Support.</li>
+<li><code>acc.html</code>: Landing page for Accounts/HR support (extensible).</li>
+</ul>
+<hr />
+<h2>5. 🏗️ Technical Architecture &amp; Achievements</h2>
+<h3><strong>Microservices Architecture</strong></h3>
+<p>The system is decoupled for scalability and maintenance:<br />
+1.  <strong>Rasa Core (5005):</strong> Handles NLU and Dialogue.<br />
+2.  <strong>Action Server (5055):</strong> Executes Python business logic.<br />
+3.  <strong>Admin API (8181):</strong> Manages configuration and analytics.<br />
+4.  <strong>Nginx:</strong> Reverse proxy unified entry point (Ports 80/443).</p>
+<h3><strong>Robustness &amp; Reliability</strong></h3>
+<ul>
+<li><strong>Threading &amp; Caching:</strong><ul>
+<li><code>kb_cache_manager.py</code> uses background threads to keep data fresh without blocking user requests.</li>
+</ul>
+</li>
+<li><strong>Health Checks:</strong><ul>
+<li>All services expose <code>/health</code> endpoints for monitoring.</li>
+</ul>
+</li>
+<li><strong>Dockerized Deployment:</strong><ul>
+<li>Full <code>docker-compose</code> support with network isolation.</li>
+</ul>
+</li>
+<li><strong>Resilient Database Connections:</strong><ul>
+<li><code>conversation_db.py</code> implements a robust connection pool with auto-reconnection logic.</li>
+</ul>
+</li>
+</ul>
+            <div style="margin-top: 50px; font-size: 0.8em; text-align: center; color: #9ca3af; border-top: 1px solid #eee; padding-top: 20px;">
+                Generated automatically by Project IQ Documentation Engine
+            </div>
+        </body>
+        </html>
+        

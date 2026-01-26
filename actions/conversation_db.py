@@ -134,6 +134,18 @@ def _init_database():
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_msg_intent ON messages(intent)')
         
+        # [Performance] Indexes for Dashboard Sorting
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_conv_last_activity ON conversations(last_activity DESC)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_conv_started_at ON conversations(started_at DESC)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_actions_timestamp ON actions(timestamp DESC)')
+        
+        # [Performance] Optimization Indexes
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_conv_ticket ON conversations(ticket_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_conv_user ON conversations(user_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_actions_conv_name ON actions(conversation_id, action_name)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_feedback_conv ON feedback(conversation_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_msg_ticket ON messages(ticket_id)')
+
         # Add app_id, user_id, ticket_id columns to existing tables (for migrations)
         alter_statements = [
             "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS user_id TEXT",

@@ -1,7 +1,7 @@
 """
 Admin API Module
 Flask API for admin dashboard operations, analytics, and static file serving.
-Consolidated server running on port 8181.
+Consolidated server running on port 80.
 """
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -9,6 +9,8 @@ from flask_cors import CORS
 import json
 import sys
 import os
+import asyncio
+
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -55,38 +57,48 @@ class AdminKBCache:
                 user_token=glpi_config['user_token']
             )
 
-            session_token = glpi_service.init_session()
-            if not session_token:
-                print("[Admin KB Cache] Failed to connect to Project IQ")
+            async def _fetch_articles():
+                session_token = await glpi_service.init_session()
+                if not session_token:
+                    print("[Admin KB Cache] Failed to connect to Project IQ")
+                    return None
+                
+                try:
+                    return await glpi_service.get_all_knowbase_items(session_token)
+                finally:
+                    await glpi_service.kill_session(session_token)
+
+            glpi_articles = asyncio.run(_fetch_articles())
+            if glpi_articles is None:
                 return False
 
-            try:
-                glpi_articles = glpi_service.get_all_knowbase_items(session_token)
+            # Transform to simplified format
+            transformed = []
+            for article in glpi_articles:
+                transformed.append({
+                    "id": f"glpi_{article['id']}",
+                    "title": article.get('name', 'Untitled'),
+                    "category": "general",
+                    "source": "glpi",
+                    "glpi_id": article['id'],
+                    "is_faq": article.get('is_faq', 0) == 1,
+                    "date_modified": article.get('date_mod', ''),
+                    "question": article.get('question', ''),
+                    "answer": article.get('answer', '')[:200] + '...' if article.get('answer') else ''
+                })
 
-                # Transform to simplified format
-                transformed = []
-                for article in glpi_articles:
-                    transformed.append({
-                        "id": f"glpi_{article['id']}",
-                        "title": article.get('name', 'Untitled'),
-                        "category": "general",
-                        "source": "glpi",
-                        "glpi_id": article['id'],
-                        "is_faq": article.get('is_faq', 0) == 1,
-                        "date_modified": article.get('date_mod', ''),
-                        "question": article.get('question', ''),
-                        "answer": article.get('answer', '')[:200] + '...' if article.get('answer') else ''
-                    })
+            self.articles = transformed
+            self.last_update = datetime.now().isoformat()
+            print(f"[Admin KB Cache] Loaded {len(transformed)} articles from Project IQ")
+            return True
 
-                self.articles = transformed
-                self.last_update = datetime.now().isoformat()
-                print(f"[Admin KB Cache] Loaded {len(transformed)} articles from Project IQ")
-                return True
 
-            finally:
-                glpi_service.kill_session(session_token)
 
         except Exception as e:
+            with open("admin_kb_debug.log", "w") as f:
+                f.write(f"Error loading articles: {e}\n")
+                import traceback
+                f.write(traceback.format_exc())
             print(f"[Admin KB Cache] Error loading articles: {e}")
             return False
         finally:
@@ -626,8 +638,9 @@ def admin_login():
             glpi_config['user_token']
         )
         
-        # Authenticate with GLPI
-        result = glpi_service.login_with_credentials(username, password)
+        # Authenticate with GLPI (Async wrapper)
+        import asyncio
+        result = asyncio.run(glpi_service.login_with_credentials(username, password))
         
         if not result['success']:
             return jsonify({

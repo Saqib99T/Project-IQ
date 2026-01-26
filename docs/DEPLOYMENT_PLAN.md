@@ -8,7 +8,7 @@ This plan covers deploying the chatbot to a Windows server where GLPI and Postgr
 |---------|------|---------|
 | Rasa Core | 5005 | NLU + Dialogue Management |
 | Action Server | 5055 | Custom Python Actions |
-| Admin API | 8181 | Flask API + Static Files |
+| Admin API | 80 | Flask API + Static Files |
 | Nginx | 80/443 | Reverse Proxy + SSL |
 | PostgreSQL | 5432 | Database |
 | GLPI | (existing) | Ticketing System |
@@ -261,7 +261,7 @@ http {
 
         # Admin API
         location /admin/ {
-            proxy_pass http://127.0.0.1:8181/admin/;
+            proxy_pass http://127.0.0.1:80/admin/;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
         }
@@ -322,7 +322,7 @@ COPY actions/ ./actions/
 COPY "client_ui/dist-widget" ./static/
 COPY .env .
 
-EXPOSE 8181
+EXPOSE 80
 CMD ["python", "actions/admin_api.py"]
 ```
 
@@ -365,7 +365,7 @@ services:
       context: .
       dockerfile: Dockerfile.admin
     ports:
-      - "8181:8181"
+      - "80:80"
     environment:
       - DB_HOST=host.docker.internal
     networks:
@@ -483,7 +483,7 @@ Run: `python test_infisical.py`
 # Allow internal ports (only if needed externally)
 New-NetFirewallRule -DisplayName "Rasa Core" -Direction Inbound -Port 5005 -Protocol TCP -Action Allow
 New-NetFirewallRule -DisplayName "Rasa Actions" -Direction Inbound -Port 5055 -Protocol TCP -Action Allow
-New-NetFirewallRule -DisplayName "Admin API" -Direction Inbound -Port 8181 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "Admin API" -Direction Inbound -Port 80 -Protocol TCP -Action Allow
 New-NetFirewallRule -DisplayName "HTTP" -Direction Inbound -Port 80 -Protocol TCP -Action Allow
 New-NetFirewallRule -DisplayName "HTTPS" -Direction Inbound -Port 443 -Protocol TCP -Action Allow
 ```
@@ -496,7 +496,7 @@ New-NetFirewallRule -DisplayName "HTTPS" -Direction Inbound -Port 443 -Protocol 
 |------|----------------|-----------------|
 | 1 | `curl http://localhost:5005/` | Rasa version info |
 | 2 | `curl http://localhost:5055/health` | Action server OK |
-| 3 | `curl http://localhost:8181/admin/health` | Admin API OK |
+| 3 | `curl http://localhost:80/admin/health` | Admin API OK |
 | 4 | Open `http://server/it.html` | Chat widget loads |
 | 5 | Open `http://server/admin.html` | Admin dashboard loads |
 | 6 | Send test message | Bot responds |

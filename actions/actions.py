@@ -130,7 +130,7 @@ class ActionGlpiLogin(Action):
             
             # Attempt login with GLPI
             service = get_glpi_service()
-            result = service.login_with_credentials(username, password)
+            result = await service.login_with_credentials(username, password)
             
             if result["success"]:
                 # Login successful
@@ -218,7 +218,7 @@ class ActionInitGlpiSession(Action):
             print(f"DEBUG: Entering action_init_glpi_session")
             logger.info("DEBUG: Entering action_init_glpi_session")
             logger.info(f"DEBUG: Slots: {tracker.slots}")
-            session_token = glpi_service.init_session()
+            session_token = await glpi_service.init_session()
             
             if session_token:
                 logger.info("GLPI session initialized successfully.")
@@ -250,7 +250,7 @@ class ActionInitGlpiSession(Action):
                 target_entity_id = entity_id_map.get(app_id, 0)  # Default to Root
                 
                 # Call changeActiveEntities to scope all subsequent calls
-                entity_switched = glpi_service.change_active_entities(
+                entity_switched = await glpi_service.change_active_entities(
                     session_token, target_entity_id, is_recursive=True
                 )
                 if entity_switched:
@@ -347,7 +347,7 @@ class ActionCreateGlpiTicket(Action):
         entity_id = entity_id_map.get(app_id, 1)  # Default to IT (1)
 
         # 4. Use Service to Create Ticket
-        new_ticket_id = glpi_service.create_ticket(session_token, ticket_data, entity_id)
+        new_ticket_id = await glpi_service.create_ticket(session_token, ticket_data, entity_id)
         
         if new_ticket_id:
             ticket_ref = f"GLPI-{new_ticket_id}"
@@ -414,7 +414,7 @@ class ActionCheckGlpiStatus(Action):
         entity_id = entity_id_map.get(app_id, 1)  # Default to IT (1)
 
         # 2. Use Service to Get Ticket
-        ticket_data = glpi_service.get_ticket(session_token, ticket_number, entity_id)
+        ticket_data = await glpi_service.get_ticket(session_token, ticket_number, entity_id)
 
         if ticket_data:
             # --- Entity Access Control ---
@@ -537,7 +537,7 @@ class ActionUpdateGlpiTicket(Action):
                     dispatcher.utter_message(text=f"I didn't recognize expectations for status '{target_status}'.")
                     return [SlotSet("target_status", None)]
 
-            success = glpi_service.update_ticket_status(session_token, ticket_number, status_id)
+            success = await glpi_service.update_ticket_status(session_token, ticket_number, status_id)
             if success:
                  dispatcher.utter_message(text=f"✅ Ticket **{ticket_id_slot}** status updated to **{target_status}**.")
                  if status_id == 6: # Closed
@@ -549,7 +549,7 @@ class ActionUpdateGlpiTicket(Action):
 
         elif update_content:
             # Handle Comment Update
-            success = glpi_service.add_ticket_followup(session_token, ticket_number, update_content)
+            success = await glpi_service.add_ticket_followup(session_token, ticket_number, update_content)
             if success:
                 dispatcher.utter_message(text=f"✅ Added comment to ticket **{ticket_id_slot}**.")
                 return [SlotSet("update_content", None)]
@@ -558,7 +558,7 @@ class ActionUpdateGlpiTicket(Action):
                 return []
         else:
             # 3. If neither provided, Show Status and Ask
-            ticket_data = glpi_service.get_ticket(session_token, ticket_number)
+            ticket_data = await glpi_service.get_ticket(session_token, ticket_number)
             if ticket_data:
                 status_map_rev = {
                     1: "New", 2: "Processing (Assigned)", 3: "Processing (Planned)", 
@@ -612,7 +612,7 @@ class ActionVerifyGlpiResolution(Action):
         target_status = tracker.get_slot("target_status")
         
         if target_status == "Solved":
-             success = glpi_service.update_ticket_status(session_token, ticket_number, 5)
+             success = await glpi_service.update_ticket_status(session_token, ticket_number, 5)
              if success:
                 dispatcher.utter_message(text=f"✅ Ticket **{ticket_id_slot}** has been marked as **Solved**. Glad I could help!")
                 dispatcher.utter_message(response="utter_ask_satisfaction")
@@ -622,7 +622,7 @@ class ActionVerifyGlpiResolution(Action):
                 return [SlotSet("target_status", None)]
         
         # Fetch current status
-        ticket_data = glpi_service.get_ticket(session_token, ticket_number)
+        ticket_data = await glpi_service.get_ticket(session_token, ticket_number)
         if ticket_data:
             status_map_rev = {
                 1: "New", 2: "Processing (Assigned)", 3: "Processing (Planned)", 
@@ -691,7 +691,7 @@ class ActionViewTicketComments(Action):
         
         ticket_number = int(ticket_id_slot.upper().replace('GLPI-', ''))
         
-        followups = glpi_service.get_ticket_followups(session_token, ticket_number)
+        followups = await glpi_service.get_ticket_followups(session_token, ticket_number)
         
         if not followups:
              dispatcher.utter_message(text=f"No comments found for ticket **{ticket_id_slot}**.")
@@ -806,7 +806,7 @@ class ActionListOpenTickets(Action):
         if status_id is not None:
              filter_active = False # Let status_id dictate
              
-        tickets = glpi_service.get_user_tickets(session_token, active_only=filter_active, entity_id=entity_id, status_id=status_id)
+        tickets = await glpi_service.get_user_tickets(session_token, active_only=filter_active, entity_id=entity_id, status_id=status_id)
         
         if not tickets:
              target_dept = app_id if app_id else "Root"
@@ -878,7 +878,7 @@ class ActionUploadFile(Action):
             return []
 
         # Upload
-        doc_id = glpi_service.upload_document(session_token, file_name, file_data)
+        doc_id = await glpi_service.upload_document(session_token, file_name, file_data)
         
         if doc_id:
             msg = f"✅ **File Uploaded!** (Doc ID: {doc_id})\n"
@@ -888,7 +888,7 @@ class ActionUploadFile(Action):
                 # Cleanup ID if it has prefix
                 clean_id = ticket_id.replace("GLPI-", "") if isinstance(ticket_id, str) else ticket_id
                 
-                success = glpi_service.link_document_to_ticket(session_token, clean_id, doc_id)
+                success = await glpi_service.link_document_to_ticket(session_token, clean_id, doc_id)
                 if success:
                     msg += f"🔗 Successfully attached to Ticket **GLPI-{clean_id}**."
                 else:
@@ -938,7 +938,7 @@ class ActionListAttachments(Action):
         
         # Call service
         try:
-            docs = glpi_service.get_ticket_documents(session_token, ticket_number)
+            docs = await glpi_service.get_ticket_documents(session_token, ticket_number)
             logger.info(f"DEBUG: Docs returned: {docs}")
         except Exception as e:
              logger.error(f"DEBUG: API Call Failed: {e}")
@@ -1002,7 +1002,7 @@ class ActionClearSession(Action):
         # We can also kill the GLPI session on the server if we want strict cleanup
         session_token = tracker.get_slot("session_token")
         if session_token:
-            glpi_service.kill_session(session_token)
+            await glpi_service.kill_session(session_token)
             
         dispatcher.utter_message(response="utter_cleared")
         

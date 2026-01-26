@@ -25,7 +25,7 @@ timeout /t 8 /nobreak >nul
 
 REM Start Actions Server
 echo [2/3] Starting Actions Server (Port 5055)...
-start "Actions Server" cmd /k "cd /d %~dp0 && venv\Scripts\activate && python -m rasa_sdk --actions actions -p 5055"
+start "Actions Server" cmd /k "cd /d %~dp0 && venv\Scripts\activate && python -m rasa_sdk --actions actions -p 5055 --auto-reload --num-workers 4"
 
 REM Wait for Actions Server
 timeout /t 5 /nobreak >nul

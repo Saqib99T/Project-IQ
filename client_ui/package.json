@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:widget": "vite build --config vite.widget.config.js",
-    "serve:widget": "npx -y http-server dist-widget -p 8181 --cors -c-1",
+    "serve:widget": "npx -y http-server dist-widget -p 80 --cors -c-1",
     "lint": "eslint .",
     "preview": "vite preview"
   },

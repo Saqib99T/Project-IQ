@@ -5,7 +5,7 @@ import MessageBubble from './MessageBubble';
 import AnimatedChatIcon from './AnimatedChatIcon';
 import { v4 as uuidv4 } from 'uuid';
 
-const RASA_API_URL = 'http://127.0.0.1/webhooks/rest/webhook';
+const RASA_API_URL = 'http://127.0.0.1:5005/webhooks/rest/webhook';
 
 // localStorage keys with appId prefix for multi-widget support
 const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
