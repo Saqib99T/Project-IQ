@@ -31,7 +31,8 @@
       "Bash(cmd /c \"for /f \"\"tokens=5\"\" %a in \\(''netstat -ano ^| findstr \"\":80\"\" ^| findstr \"\"LISTENING\"\" ^| findstr \"\"0.0.0.0:80\"\"''\\) do @echo Stopping PID %a && taskkill /F /PID %a\")",
       "Bash(wmic process where \"ProcessId=65492\" delete)",
       "Bash(wmic process where \"commandline like ''%admin_api.py%''\" get processid)",
-      "Read(//d/99T/Rasa/Project-IQ/**)"
+      "Read(//d/99T/Rasa/Project-IQ/**)",
+      "Bash(rasa run:*)"
     ]
   }
 }

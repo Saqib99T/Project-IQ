@@ -76,19 +76,27 @@ def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -> bool
     """Check if user is logged in. If not, prompt them to login with a button.
 
     Returns:
-        True if user is logged in (has glpi_user_id), False otherwise
+        True if user is logged in, False otherwise
     """
+    is_authenticated = tracker.get_slot("is_authenticated")
+    session_token = tracker.get_slot("session_token")
     glpi_user_id = tracker.get_slot("glpi_user_id")
+    glpi_user_name = tracker.get_slot("glpi_user_name")
 
-    if not glpi_user_id:
+    logger.info(f"LOGIN CHECK - is_authenticated: {is_authenticated}, session_token: {bool(session_token)}, glpi_user_id: {glpi_user_id}, glpi_user_name: {glpi_user_name}")
+
+    if not is_authenticated:
+        logger.info("LOGIN CHECK FAILED - user not authenticated")
         dispatcher.utter_message(
-            text="🔐 **Please login first**\n\nYou need to be logged in to perform ticket operations.\n\nClick the button below to login:",
+            text="🔐 **Login Required**\n\nTo perform ticket operations, please login with your Project IQ credentials.",
             buttons=[
-                {"title": "🔑 Login", "payload": "/login"}
+                {"title": "🔑 Login Now", "payload": "/login"},
+                {"title": "📚 Search KB Instead", "payload": "/ask_knowledge"}
             ]
         )
         return False
 
+    logger.info("LOGIN CHECK PASSED")
     return True
 
 

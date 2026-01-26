@@ -29,11 +29,11 @@ class CustomTrackerStore(SQLTrackerStore):
     AND logs specific events (User/Bot messages) to our custom 'messages' analytics table.
     """
 
-    def save(self, tracker: DialogueStateTracker) -> None:
+    async def save(self, tracker: DialogueStateTracker) -> None:
         """Saves the current state of the tracker to the database."""
-        
+
         # 1. Persist to default Rasa SQL storage (crucial for core functionality)
-        super().save(tracker)
+        await super().save(tracker)
 
         # 2. Extract new events to log to our custom analytics DB
         # We only want to log events that haven't been logged yet, 
