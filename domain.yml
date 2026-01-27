@@ -1,6 +1,7 @@
 version: "3.1"
 
 intents:
+  - hi
   - greet
   - goodbye
   - login
@@ -172,6 +173,10 @@ slots:
     mappings:
       - type: from_entity
         entity: glpi_username
+      - type: from_text
+        conditions:
+         - active_loop: login_form
+           requested_slot: glpi_username
 
   glpi_password:
     type: text
@@ -179,6 +184,12 @@ slots:
     mappings:
       - type: from_entity
         entity: glpi_password
+      - type: from_text
+        conditions:
+         - active_loop: login_form
+           requested_slot: glpi_password
+
+
 
   is_authenticated:
     type: bool
@@ -267,6 +278,12 @@ How can I assist you today?"
           payload: '/inform_update{{"target_status":"Solved"}}'
 
   # Form prompts
+  utter_ask_glpi_username:
+    - text: "Please enter your **username**:"
+
+  utter_ask_glpi_password:
+    - text: "Please enter your **password**:"
+
   utter_ask_confirm_ticket:
     - text: "I have gathered the following details:\n\n**Title:** {ticket_title}\n**Content:** {ticket_content}\n**Issue Type:** {issue_type}\n**Urgency:** {urgency}\n\nDo you want to create this ticket?"
       buttons:
@@ -399,6 +416,11 @@ forms:
       - ticket_content
       - issue_type
       - urgency
+
+  login_form:
+    required_slots:
+        - glpi_username
+        - glpi_password
 
 session_config:
   session_expiration_time: 60

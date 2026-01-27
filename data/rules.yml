@@ -3,9 +3,20 @@
 version: "3.1"
 
 rules:
-  - rule: Handle GLPI Login
+  - rule: Activate Login Form
     steps:
       - intent: login
+      - action: login_form
+      - active_loop: login_form
+
+  - rule: Submit Login Form
+    condition:
+      - active_loop: login_form
+    steps:
+      - action: login_form
+      - active_loop: null
+      - slot_was_set:
+        - requested_slot: null
       - action: action_glpi_login
 
   - rule: Say hi

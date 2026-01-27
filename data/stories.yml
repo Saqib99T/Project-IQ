@@ -187,13 +187,7 @@ stories:
 # ======================
 # Login Stories
 # ======================
-- story: Login path
-  steps:
-    - intent: login
-      entities:
-        - glpi_username
-        - glpi_password
-    - action: action_glpi_login
+
 
 - story: Cancel ticket creation
   steps:

@@ -22,6 +22,7 @@ from actions.conversation_db import (
 )
 from actions.analytics_store import get_analytics_summary, get_recent_conversations
 from actions.config_manager import get_all_config as get_file_config, set_all_config as save_file_config
+from actions.studio_service import studio_service
 
 # Static files directories
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'client_ui', 'public')
@@ -585,6 +586,8 @@ def satisfaction_ratings():
         })
 
 
+
+
 # =====================
 # HEALTH CHECK
 # =====================
@@ -616,8 +619,7 @@ admin_sessions = {}
 @app.route('/admin/login', methods=['POST'])
 def admin_login():
     """
-    Authenticate admin user via GLPI API.
-    Checks if user has Admin or Super-Admin profile.
+    Authenticate admin user via Local Config OR GLPI API.
     """
     try:
         data = request.get_json()
@@ -629,7 +631,39 @@ def admin_login():
                 "success": False,
                 "error": "Username and password are required"
             }), 400
+            
+        # 1. LOCAL FALLBACK (Priority)
+        # Allows access to Studio even if GLPI is down or user not in GLPI
+        config = get_file_config()
+        local_user = config.get('ADMIN_USER', 'admin')
+        local_pass = config.get('ADMIN_PASSWORD', 'projectiq123')
         
+        if username == local_user and password == local_pass:
+            # Generate local session
+            import uuid
+            token = f"local-{uuid.uuid4()}"
+            
+            admin_sessions[token] = {
+                "user_id": 0,
+                "user_name": "admin",
+                "firstname": "Administrator",
+                "profile_id": 4, # Super-Admin ID equivalent
+                "profile_name": "Super-Admin (Local)"
+            }
+            
+            print(f"[ADMIN AUTH] Local login successful for user: {username}")
+            return jsonify({
+                "success": True,
+                "session_token": token,
+                "user": {
+                    "id": 0,
+                    "name": "admin",
+                    "firstname": "Administrator",
+                    "profile": "Super-Admin (Local)"
+                }
+            })
+
+        # 2. GLPI AUTHENTICATION (Standard)
         # Get GLPI config
         glpi_config = get_glpi_config()
         glpi_service = GlpiService(
@@ -2304,6 +2338,108 @@ def chat_webhook_proxy():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+
+# ============================================================================
+# RASA STUDIO APIs
+# ============================================================================
+
+@app.route('/admin/studio/files', methods=['GET'])
+def studio_list_files():
+    """List editable files."""
+    try:
+        files = studio_service.get_editable_files()
+        return jsonify({"success": True, "files": files})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/admin/studio/file', methods=['GET', 'POST'])
+def studio_manage_file():
+    """Read or write a file."""
+    try:
+        filename = request.args.get('file') if request.method == 'GET' else request.json.get('file')
+        if not filename:
+            return jsonify({"success": False, "error": "Filename required"}), 400
+
+        if request.method == 'GET':
+            content = studio_service.read_file(filename)
+            if content is None:
+                return jsonify({"success": False, "error": "File not found"}), 404
+            return jsonify({"success": True, "content": content})
+            
+        elif request.method == 'POST':
+            content = request.json.get('content')
+            if content is None:
+                return jsonify({"success": False, "error": "Content required"}), 400
+            
+            studio_service.write_file(filename, content)
+            return jsonify({"success": True, "message": "File saved successfully"})
+            
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 403
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/admin/studio/history', methods=['GET'])
+def studio_file_history():
+    """Get backup history for a file."""
+    try:
+        filename = request.args.get('file')
+        if not filename:
+            return jsonify({"success": False, "error": "Filename required"}), 400
+            
+        history = studio_service.get_history(filename)
+        return jsonify({"success": True, "history": history})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/admin/studio/restore', methods=['POST'])
+def studio_restore_backup():
+    """Restore a file from backup."""
+    try:
+        data = request.json
+        filename = data.get('file')
+        backup = data.get('backup')
+        
+        if not filename or not backup:
+            return jsonify({"success": False, "error": "Filename and backup required"}), 400
+            
+        studio_service.restore_backup(filename, backup)
+        return jsonify({"success": True, "message": "File restored successfully"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/admin/studio/train', methods=['POST'])
+def studio_train_model():
+    """Trigger model training."""
+    try:
+        started = studio_service.train_model()
+        if started:
+            return jsonify({"success": True, "message": "Training started"})
+        else:
+            return jsonify({"success": False, "error": "Training already in progress"}), 409
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/admin/studio/train/status', methods=['GET'])
+def studio_train_status():
+    """Get training status."""
+    try:
+        status = studio_service.get_training_status()
+        return jsonify({"success": True, "status": status})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/studio/stats', methods=['GET'])
+def studio_stats():
+    """Get project statistics."""
+    try:
+        stats = studio_service.get_project_stats()
+        return jsonify({"success": True, "data": stats})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == '__main__':

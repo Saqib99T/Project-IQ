@@ -1,357 +1,457 @@
-// Studio Logic - Rasa Studio-like Interface
 
-let studioData = {
-    flows: [],
-    responses: [],
-    intents: []
+// Rasa Studio Logic - Monaco Editor & File Management
+
+// State
+let studioState = {
+    currentFile: null,
+    isDirty: false,
+    editor: null,
+    files: [],
+    trainingInterval: null
 };
 
+// Initialize
 async function loadStudio() {
-    await Promise.all([
-        loadStudioFlows(),
-        loadStudioResponses()
-    ]);
-}
+    console.log('Loading Studio...');
 
-// ===== CHAT TESTING =====
-
-function clearTestChat() {
-    const container = document.getElementById('studio-chat-messages');
-    if (container) {
-        container.innerHTML = `
-            <div class="flex justify-start">
-                <div class="bg-white border border-gray-200 px-4 py-2 rounded-lg rounded-bl-none max-w-xs shadow-sm">
-                    <p class="text-sm text-gray-700">👋 Hello! Type a message to test your bot.</p>
-                </div>
-            </div>
-        `;
-    }
-    // Clear analysis panels
-    document.getElementById('studio-intent-result').innerHTML = '<div class="text-gray-400 text-sm text-center py-4">Send a message to see intent analysis</div>';
-    document.getElementById('studio-entity-result').innerHTML = '<div class="text-gray-400 text-sm text-center py-4">Entities will appear here</div>';
-    document.getElementById('studio-response-preview').innerHTML = '<div class="text-gray-400 text-sm text-center py-4">Bot responses will appear here</div>';
-}
-
-async function sendStudioTestMessage() {
-    const input = document.getElementById('studio-chat-input');
-    const message = input?.value?.trim();
-    if (!message) return;
-
-    input.value = '';
-
-    // Add user message
-    const messagesContainer = document.getElementById('studio-chat-messages');
-    messagesContainer.innerHTML += `
-        <div class="flex justify-end">
-            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg rounded-br-none max-w-xs shadow-sm">
-                <p class="text-sm">${escapeHtml(message)}</p>
-            </div>
-        </div>
-    `;
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-    try {
-        // Send to Rasa
-        const res = await fetch(`${ADMIN_API}/test/message`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, sender: 'studio-test-' + Date.now() })
+    // Initialize Monaco if not already done
+    if (!studioState.editor && window.monaco) {
+        initMonaco();
+    } else if (!window.monaco) {
+        // Wait for loader
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' } });
+        require(['vs/editor/editor.main'], function () {
+            initMonaco();
         });
+    }
+
+    await loadFileList();
+    await loadStats();
+    checkTrainingStatus();
+}
+
+async function loadStats() {
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/stats`);
         const data = await res.json();
 
-        // Add bot responses
-        if (data.responses && data.responses.length > 0) {
-            const responseHtml = data.responses.map(resp => {
-                const text = resp.text || resp.custom?.text || JSON.stringify(resp);
-                return `
-                    <div class="flex justify-start">
-                        <div class="bg-white border border-gray-200 px-4 py-2 rounded-lg rounded-bl-none max-w-xs shadow-sm">
-                            <p class="text-sm text-gray-700">${escapeHtml(text)}</p>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            messagesContainer.innerHTML += responseHtml;
+        if (data.success) {
+            const stats = data.data;
+            const setStat = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = val;
+            };
 
-            // Update response preview
-            updateResponsePreview(data.responses);
-        } else {
-            messagesContainer.innerHTML += `
-                <div class="flex justify-start">
-                    <div class="bg-yellow-50 border border-yellow-200 px-4 py-2 rounded-lg rounded-bl-none max-w-xs">
-                        <p class="text-sm text-yellow-700">No response from bot</p>
-                    </div>
-                </div>
-            `;
+            setStat('stat-intents', stats.intents || 0);
+            setStat('stat-stories', stats.stories || 0);
+            setStat('stat-rules', stats.rules || 0);
         }
-
-        // Update NLU analysis
-        if (data.nlu) {
-            updateIntentAnalysis(data.nlu);
-            updateEntityAnalysis(data.nlu);
-        }
-
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
     } catch (e) {
-        messagesContainer.innerHTML += `
-            <div class="flex justify-start">
-                <div class="bg-red-50 border border-red-200 px-4 py-2 rounded-lg rounded-bl-none max-w-xs">
-                    <p class="text-sm text-red-600">❌ Error: Could not reach Rasa</p>
-                </div>
-            </div>
-        `;
-        console.error('Test message error:', e);
+        console.error('Failed to load stats:', e);
     }
 }
 
-function updateIntentAnalysis(nlu) {
-    const container = document.getElementById('studio-intent-result');
-    if (!container || !nlu) return;
+function initMonaco() {
+    const container = document.getElementById('monaco-container');
+    container.innerHTML = ''; // Clear placeholder
 
-    const intent = nlu.intent || {};
-    const ranking = nlu.intent_ranking || [];
-    const confidence = (intent.confidence || 0) * 100;
+    studioState.editor = monaco.editor.create(container, {
+        value: '# Select a file to start editing',
+        language: 'yaml',
+        theme: 'vs-light',
+        automaticLayout: true,
+        minimap: { enabled: true },
+        scrollBeyondLastLine: false,
+        fontSize: 14,
+        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace"
+    });
 
-    // Determine confidence color
-    let confColor = 'text-green-600';
-    let confBg = 'bg-green-50';
-    if (confidence < 50) { confColor = 'text-red-600'; confBg = 'bg-red-50'; }
-    else if (confidence < 80) { confColor = 'text-yellow-600'; confBg = 'bg-yellow-50'; }
+    // Track changes
+    studioState.editor.onDidChangeModelContent(() => {
+        if (studioState.currentFile && !studioState.isDirty) {
+            setDirty(true);
+        }
+    });
 
-    let html = `
-        <div class="p-4 ${confBg} rounded-lg border">
-            <div class="flex items-center justify-between mb-2">
-                <span class="font-semibold text-lg ${confColor}">${intent.name || 'Unknown'}</span>
-                <span class="text-sm ${confColor} font-medium">${confidence.toFixed(1)}%</span>
-            </div>
-            <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div class="h-full ${confidence >= 80 ? 'bg-green-500' : confidence >= 50 ? 'bg-yellow-500' : 'bg-red-500'} rounded-full transition-all" style="width: ${confidence}%"></div>
-            </div>
-        </div>
-    `;
-
-    // Show top 5 alternative intents
-    if (ranking.length > 1) {
-        html += '<div class="mt-3 space-y-1">';
-        html += '<p class="text-xs text-gray-500 font-medium mb-2">Alternative Intents:</p>';
-        ranking.slice(1, 6).forEach(alt => {
-            const altConf = (alt.confidence || 0) * 100;
-            html += `
-                <div class="flex items-center justify-between text-sm py-1.5 px-2 bg-gray-50 rounded">
-                    <span class="text-gray-600">${alt.name}</span>
-                    <span class="text-gray-400">${altConf.toFixed(1)}%</span>
-                </div>
-            `;
-        });
-        html += '</div>';
-    }
-
-    container.innerHTML = html;
+    // Ctrl+S to save
+    studioState.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+        if (studioState.currentFile) saveCurrentFile();
+    });
 }
 
-function updateEntityAnalysis(nlu) {
-    const container = document.getElementById('studio-entity-result');
+// File Management
+async function loadFileList() {
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/files`);
+        const data = await res.json();
+
+        if (data.success) {
+            studioState.files = data.files;
+            renderFileList();
+        }
+    } catch (e) {
+        console.error('Failed to load files:', e);
+        document.getElementById('studio-file-list').innerHTML = '<div class="text-red-500 text-center p-4">Failed to load files</div>';
+    }
+}
+
+function renderFileList() {
+    const container = document.getElementById('studio-file-list');
     if (!container) return;
 
-    const entities = nlu.entities || [];
-
-    if (entities.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm text-center py-4">No entities detected</div>';
-        return;
-    }
-
-    const colors = {
-        'ticket_subject': 'bg-purple-100 text-purple-700 border-purple-200',
-        'ticket_id': 'bg-blue-100 text-blue-700 border-blue-200',
-        'username': 'bg-green-100 text-green-700 border-green-200',
-        'default': 'bg-gray-100 text-gray-700 border-gray-200'
+    // Icons
+    const icons = {
+        folder: `<svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>`,
+        file: `<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`,
+        config: `<svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`,
+        domain: `<svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>`
     };
 
-    let html = '<div class="space-y-2">';
-    entities.forEach(e => {
-        const colorClass = colors[e.entity] || colors['default'];
-        html += `
-            <div class="flex items-center justify-between p-2 rounded-lg border ${colorClass}">
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-semibold uppercase">${e.entity}</span>
-                </div>
-                <span class="font-medium">"${escapeHtml(e.value)}"</span>
-            </div>
-        `;
-    });
-    html += '</div>';
-
-    container.innerHTML = html;
-}
-
-function updateResponsePreview(responses) {
-    const container = document.getElementById('studio-response-preview');
-    if (!container) return;
-
-    let html = '<div class="space-y-2">';
-    responses.forEach(resp => {
-        const text = resp.text || JSON.stringify(resp);
-        html += `
-            <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <p class="text-sm text-gray-700">${escapeHtml(text)}</p>
-            </div>
-        `;
-    });
-    html += '</div>';
-
-    container.innerHTML = html;
-}
-
-// ===== FLOWS =====
-async function loadStudioFlows() {
-    try {
-        const res = await fetch(`${ADMIN_API}/studio/flows?t=${Date.now()}`);
-        const data = await res.json();
-
-        if (data.success) {
-            studioData.flows = data.flows || [];
-            renderStudioFlowList();
-            document.getElementById('flow-count').textContent = studioData.flows.length;
-        }
-    } catch (e) {
-        console.error('Failed to load flows:', e);
-        document.getElementById('studio-flow-list').innerHTML = '<div class="text-red-400 text-sm">Failed to load flows</div>';
-    }
-}
-
-function renderStudioFlowList() {
-    const container = document.getElementById('studio-flow-list');
-    if (!container) return;
-
-    if (studioData.flows.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm">No flows found</div>';
-        return;
-    }
-
     let html = '';
-    studioData.flows.forEach((flow, idx) => {
-        const icon = flow.type === 'rule' ? '📋' : '📖';
-        const typeLabel = flow.type === 'rule' ? 'Rule' : 'Story';
-        html += `
-            <div onclick="selectStudioFlow(${idx})" 
-                class="p-3 rounded-lg border border-gray-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all group">
-                <div class="flex items-center gap-2">
-                    <span class="text-lg">${icon}</span>
-                    <div class="flex-1 min-w-0">
-                        <p class="font-medium text-gray-800 text-sm truncate group-hover:text-purple-700">${flow.name || 'Unnamed'}</p>
-                        <p class="text-xs text-gray-400">${typeLabel} • ${flow.steps?.length || 0} steps</p>
-                    </div>
-                </div>
+
+    // Group files by logic (Root vs Data)
+    const rootFiles = studioState.files.filter(f => !f.name.includes('/'));
+    const dataFiles = studioState.files.filter(f => f.name.includes('/'));
+
+    const renderFileItem = (file, iconType = 'file', indent = false) => {
+        const isSelected = studioState.currentFile === file.name;
+        const activeClass = isSelected ? 'bg-blue-50 text-blue-700 border-blue-200' : 'hover:bg-gray-50 border-transparent text-gray-700';
+        const pl = indent ? 'pl-8' : 'px-3';
+
+        let icon = icons.file;
+        if (iconType === 'config') icon = icons.config;
+        if (iconType === 'domain') icon = icons.domain;
+
+        return `
+            <div onclick="openFile('${file.name}')" 
+                class="flex items-center gap-2 ${pl} py-2 rounded-lg border cursor-pointer transition-all text-sm mb-1 ${activeClass}">
+                ${icon}
+                <div class="flex-1 truncate font-medium">${file.name.split('/').pop()}</div>
+                ${isSelected ? '<span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>' : ''}
             </div>
         `;
-    });
-    container.innerHTML = html;
-}
+    };
 
-function selectStudioFlow(idx) {
-    const flow = studioData.flows[idx];
-    if (!flow) return;
-
-    const container = document.getElementById('studio-flow-diagram');
-    if (!container) return;
-
-    // Create Mermaid diagram
-    let mermaidDef = 'graph TD\n';
-    mermaidDef += '    Start([Start]) --> Step0\n';
-
-    (flow.steps || []).forEach((step, i) => {
-        const safeStep = step.replace(/[^a-zA-Z0-9_:]/g, ' ').substring(0, 30);
-        const nodeId = `Step${i}`;
-        const nextId = i < flow.steps.length - 1 ? `Step${i + 1}` : 'End';
-
-        if (step.startsWith('intent:')) {
-            mermaidDef += `    ${nodeId}[/"🎯 ${safeStep}"/]\n`;
-        } else if (step.startsWith('action_') || step.startsWith('utter_')) {
-            mermaidDef += `    ${nodeId}["⚙️ ${safeStep}"]\n`;
-        } else {
-            mermaidDef += `    ${nodeId}["${safeStep}"]\n`;
-        }
-        mermaidDef += `    ${nodeId} --> ${nextId}\n`;
-    });
-
-    mermaidDef += '    End([End])\n';
-
-    // Render with Mermaid
-    container.innerHTML = `<div class="mermaid">${mermaidDef}</div>`;
-
-    try {
-        mermaid.init(undefined, container.querySelector('.mermaid'));
-    } catch (e) {
-        // Fallback to simple list if Mermaid fails
-        let fallbackHtml = `<div class="space-y-2">
-            <h4 class="font-semibold text-gray-800 mb-3">${flow.name}</h4>`;
-        (flow.steps || []).forEach((step, i) => {
-            const icon = step.startsWith('intent:') ? '🎯' : step.startsWith('action_') || step.startsWith('utter_') ? '⚙️' : '▶️';
-            fallbackHtml += `
-                <div class="flex items-center gap-2">
-                    <div class="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-medium">${i + 1}</div>
-                    <div class="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm">${icon} ${step}</div>
-                </div>
-                ${i < flow.steps.length - 1 ? '<div class="ml-3 h-3 border-l-2 border-purple-200"></div>' : ''}
-            `;
+    // Render Root Files
+    if (rootFiles.length > 0) {
+        rootFiles.forEach(f => {
+            let type = 'file';
+            if (f.name.includes('config') || f.name.includes('credentials') || f.name.includes('endpoints')) type = 'config';
+            if (f.name.includes('domain')) type = 'domain';
+            html += renderFileItem(f, type);
         });
-        fallbackHtml += '</div>';
-        container.innerHTML = fallbackHtml;
-    }
-}
-
-// ===== RESPONSES =====
-async function loadStudioResponses() {
-    try {
-        const res = await fetch(`${ADMIN_API}/studio/responses?t=${Date.now()}`);
-        const data = await res.json();
-
-        if (data.success) {
-            studioData.responses = data.responses || [];
-            renderStudioResponseList();
-            document.getElementById('response-count').textContent = studioData.responses.length;
-        }
-    } catch (e) {
-        console.error('Failed to load responses:', e);
-    }
-}
-
-function renderStudioResponseList() {
-    const container = document.getElementById('studio-response-list');
-    if (!container) return;
-
-    if (studioData.responses.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm col-span-full">No responses found</div>';
-        return;
     }
 
-    let html = '';
-    studioData.responses.forEach(resp => {
-        const preview = (resp.text || '').substring(0, 80);
+    // Render Data Folder
+    if (dataFiles.length > 0) {
         html += `
-            <div class="p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer response-card" data-name="${resp.name}">
-                <p class="font-medium text-gray-800 text-sm truncate">${resp.name}</p>
-                <p class="text-xs text-gray-500 mt-1 line-clamp-2">${escapeHtml(preview)}${resp.text?.length > 80 ? '...' : ''}</p>
-                ${resp.variations > 1 ? `<span class="text-xs text-blue-600 mt-1 inline-block">${resp.variations} variations</span>` : ''}
+            <div class="mt-4 mb-1 px-3 flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                ${icons.folder}
+                <span>Data</span>
             </div>
+            <div class="space-y-0.5">
         `;
-    });
+        dataFiles.forEach(f => html += renderFileItem(f, 'file', true));
+        html += `</div>`;
+    }
+
     container.innerHTML = html;
 }
 
-function filterStudioResponses() {
-    const query = document.getElementById('studio-response-search')?.value.toLowerCase() || '';
-    const cards = document.querySelectorAll('.response-card');
-    cards.forEach(card => {
-        const name = card.dataset.name.toLowerCase();
-        card.style.display = name.includes(query) ? '' : 'none';
-    });
+async function openFile(filename) {
+    if (studioState.isDirty) {
+        if (!confirm('You have unsaved changes. Discard them?')) return;
+    }
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/file?file=${encodeURIComponent(filename)}`);
+        const data = await res.json();
+
+        if (data.success) {
+            studioState.currentFile = filename;
+            setDirty(false);
+
+            // Set Editor Content
+            if (studioState.editor) {
+                studioState.editor.setValue(data.content);
+                // Scroll to top
+                studioState.editor.setScrollTop(0);
+            }
+
+            // GUI Update
+            document.getElementById('current-filename').textContent = filename;
+            document.getElementById('btn-save').disabled = false;
+            document.getElementById('btn-history').disabled = false;
+
+            // Re-render list to show active state
+            renderFileList();
+        }
+    } catch (e) {
+        showToast('Failed to open file', 'error');
+    }
 }
 
-// Utility
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+async function saveCurrentFile() {
+    if (!studioState.currentFile || !studioState.editor) return;
+
+    const content = studioState.editor.getValue();
+    const btn = document.getElementById('btn-save');
+    const originalText = btn.textContent;
+    btn.textContent = 'Saving...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                file: studioState.currentFile,
+                content: content
+            })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            setDirty(false);
+            showToast('File saved successfully');
+        } else {
+            showToast('Save failed: ' + data.error, 'error');
+        }
+    } catch (e) {
+        showToast('Save failed: Network error', 'error');
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+function setDirty(isDirty) {
+    studioState.isDirty = isDirty;
+    const indicator = document.getElementById('file-unsaved-indicator');
+    if (indicator) {
+        indicator.classList.toggle('hidden', !isDirty);
+    }
+}
+
+// Training Logic
+async function triggerTraining() {
+    const btn = document.getElementById('btn-train');
+    if (btn.classList.contains('opacity-50')) return; // Already training
+
+    if (studioState.isDirty) {
+        alert('Please save your changes before training.');
+        return;
+    }
+
+    if (!confirm('Start model training? This may take several minutes.')) return;
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/train`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('Training started');
+            openConsole();
+            pollTrainingStatus();
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (e) {
+        showToast('Failed to start training', 'error');
+    }
+}
+
+function pollTrainingStatus() {
+    if (studioState.trainingInterval) clearInterval(studioState.trainingInterval);
+
+    studioState.trainingInterval = setInterval(async () => {
+        try {
+            const res = await fetch(`${ADMIN_API}/studio/train/status`);
+            const data = await res.json();
+
+            if (data.success) {
+                const logs = document.getElementById('training-logs');
+                if (logs) logs.textContent = data.status.logs || "Waiting for logs...";
+
+                // Auto-scroll
+                logs.scrollTop = logs.scrollHeight;
+
+                updateTrainingUI(data.status.is_training);
+
+                if (!data.status.is_training) {
+                    clearInterval(studioState.trainingInterval);
+                }
+            }
+        } catch (e) {
+            console.error('Poll error', e);
+        }
+    }, 2000);
+}
+
+function checkTrainingStatus() {
+    fetch(`${ADMIN_API}/studio/train/status`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.status.is_training) {
+                pollTrainingStatus();
+            }
+        });
+}
+
+function updateTrainingUI(isTraining) {
+    const btn = document.getElementById('btn-train');
+    const badge = document.getElementById('train-status-badge');
+    const badgeDot = badge.querySelector('span');
+
+    if (isTraining) {
+        // Training State
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        btn.innerHTML = `
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            Training...
+        `;
+
+        badge.classList.remove('hidden');
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Training in progress';
+
+    } else {
+        // Idle State
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        btn.innerHTML = `
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+            Train Model
+        `;
+
+        // Check logs for success/fail to color the badge
+        const logs = document.getElementById('training-logs').textContent;
+        if (logs.includes('success')) {
+            badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Ready';
+        } else if (logs.includes('failed')) {
+            badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Last Training Failed';
+        } else {
+            badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-400"></span> Idle';
+        }
+        badge.classList.remove('hidden');
+    }
+}
+
+// Console UI
+function toggleConsole() {
+    const console = document.getElementById('training-console');
+    if (console.style.height === '0px' || console.style.height === '') {
+        console.style.height = '200px';
+    } else {
+        console.style.height = '0px';
+    }
+}
+
+function openConsole() {
+    const console = document.getElementById('training-console');
+    console.style.height = '200px';
+}
+
+
+function showHistory() {
+    if (!studioState.currentFile) return;
+
+    const modal = document.getElementById('history-modal');
+    const title = document.getElementById('history-filename');
+    const container = document.getElementById('history-list');
+
+    modal.classList.remove('hidden');
+    title.textContent = studioState.currentFile;
+    container.innerHTML = '<div class="text-center py-8 text-gray-400">Loading history...</div>';
+
+    fetch(`${ADMIN_API}/studio/history?file=${encodeURIComponent(studioState.currentFile)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                renderHistoryList(data.history);
+            } else {
+                container.innerHTML = `<div class="text-red-500 text-center p-4">${data.error}</div>`;
+            }
+        })
+        .catch(e => {
+            container.innerHTML = `<div class="text-red-500 text-center p-4">Failed to load history</div>`;
+        });
+}
+
+function closeHistory() {
+    document.getElementById('history-modal').classList.add('hidden');
+}
+
+function renderHistoryList(history) {
+    const container = document.getElementById('history-list');
+
+    if (!history || history.length === 0) {
+        container.innerHTML = '<div class="text-center py-8 text-gray-400">No backup history found for this file.</div>';
+        return;
+    }
+
+    container.innerHTML = history.map(item => `
+        <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center hover:border-blue-300 transition-colors">
+            <div>
+                <p class="font-bold text-gray-700 text-sm">
+                    ${formatDate(item.timestamp)}
+                </p>
+                <p class="text-xs text-gray-400 mt-1">
+                    Size: ${formatBytes(item.size)}
+                </p>
+            </div>
+            <button onclick="restoreBackup('${item.filename}')" 
+                class="px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">
+                Restore
+            </button>
+        </div>
+    `).join('');
+}
+
+async function restoreBackup(backupFile) {
+    if (!confirm('Are you sure you want to restore this version? Current changes will be overwritten.')) return;
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                file: studioState.currentFile,
+                backup: backupFile
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('File restored successfully');
+            closeHistory();
+            // Reload file content in editor
+            openFile(studioState.currentFile);
+        } else {
+            showToast('Restore failed: ' + data.error, 'error');
+        }
+    } catch (e) {
+        showToast('Restore failed: Network error', 'error');
+    }
+}
+
+function formatDate(timestampStr) {
+    // timestampStr is YYYYMMDD_HHMMSS
+    if (!timestampStr) return 'Unknown Date';
+    // Simple parsing
+    const Y = timestampStr.substring(0, 4);
+    const M = timestampStr.substring(4, 6);
+    const D = timestampStr.substring(6, 8);
+    const h = timestampStr.substring(9, 11);
+    const m = timestampStr.substring(11, 13);
+    const s = timestampStr.substring(13, 15);
+    return `${Y}-${M}-${D} ${h}:${m}:${s}`;
+}
+
+function formatBytes(bytes, decimals = 2) {
+    if (!+bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }

@@ -116,10 +116,13 @@ class ActionGlpiLogin(Action):
     ) -> List[Dict[Text, Any]]:
         print("DEBUG: ActionGlpiLogin.run() CALLED")
         try:
-            # Get credentials from slots
-            username = tracker.get_slot("glpi_username")
-            password = tracker.get_slot("glpi_password")
-            print(f"DEBUG: Credentials received - User: {username}, Password: {'[MASKED]' if password else 'None'}")
+            # Get credentials from slots and strip whitespace
+            username = (tracker.get_slot("glpi_username") or "").strip()
+            password = (tracker.get_slot("glpi_password") or "").strip()
+            
+            # Debug logging (masked password)
+            masked_pw = "*" * len(password) if password else "None"
+            print(f"DEBUG: Credentials received - User: '{username}', Password: '{masked_pw}'")
             
             if not username or not password:
                 dispatcher.utter_message(
@@ -130,6 +133,8 @@ class ActionGlpiLogin(Action):
             
             # Attempt login with GLPI
             service = get_glpi_service()
+            print(f"DEBUG: Connecting to GLPI at: {service.api_uri}")
+            
             result = await service.login_with_credentials(username, password)
             
             if result["success"]:
@@ -186,7 +191,7 @@ How can I assist you today?""",
                 logger.error(f"Login failed for user {username}: {error_msg}")
                 
                 dispatcher.utter_message(
-                    text=f"❌ Login failed: {error_msg}",
+                    text=f"❌ Login failed for user '{username}'. {error_msg}",
                     json_message={"login_error": True, "error": error_msg}
                 )
                 
@@ -194,6 +199,7 @@ How can I assist you today?""",
                 
                 return [
                     SlotSet("is_authenticated", False),
+                    SlotSet("glpi_username", None), # Clear username so form asks again
                     SlotSet("glpi_password", None)  # Clear password
                 ]
                 

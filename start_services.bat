@@ -25,14 +25,15 @@ timeout /t 8 /nobreak >nul
 
 REM Start Actions Server
 echo [2/3] Starting Actions Server (Port 5055)...
-start "Actions Server" cmd /k "cd /d %~dp0 && venv\Scripts\activate && python -m rasa_sdk --actions actions -p 5055 --auto-reload --num-workers 4"
+start "Actions Server" cmd /k "cd /d %~dp0 && venv\Scripts\activate && python -m rasa_sdk --actions actions -p 5055 --auto-reload"
 
 REM Wait for Actions Server
 timeout /t 5 /nobreak >nul
 
 REM Start Admin API Server
 echo [3/3] Starting Admin Dashboard (Port 80)...
-start "Admin Dashboard" cmd /k "cd /d %~dp0 && venv\Scripts\activate && cd actions && python admin_api.py"
+REM Running from root to ensure imports work correctly, assuming sys.path setup in admin_api.py handles it
+start "Admin Dashboard" cmd /k "cd /d %~dp0 && venv\Scripts\activate && python actions/admin_api.py"
 
 echo.
 echo ========================================
