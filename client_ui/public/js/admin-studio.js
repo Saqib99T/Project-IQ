@@ -1,5 +1,5 @@
 
-// Rasa Studio Logic - Monaco Editor & File Management
+// IQ Studio Logic - Monaco Editor & File Management
 
 // State
 let studioState = {

@@ -600,6 +600,31 @@ def health_check():
 
 
 # =====================
+# RASA PROXY (For Remote Debugger)
+# =====================
+import requests
+
+@app.route('/api/rasa/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def proxy_rasa(path):
+    """Proxy requests to Rasa Core (Port 5005) to avoid CORS/Localhost issues."""
+    rasa_url = f"http://localhost:5005/{path}"
+    
+    try:
+        if request.method == 'GET':
+            resp = requests.get(rasa_url, params=request.args)
+        elif request.method == 'POST':
+            resp = requests.post(rasa_url, json=request.get_json())
+        elif request.method == 'PUT':
+            resp = requests.put(rasa_url, json=request.get_json())
+        elif request.method == 'DELETE':
+            resp = requests.delete(rasa_url)
+            
+        return jsonify(resp.json()), resp.status_code
+    except Exception as e:
+        return jsonify({"error": f"Rasa Proxy Error: {str(e)}"}), 500
+
+
+# =====================
 # ADMIN AUTHENTICATION
 # =====================
 

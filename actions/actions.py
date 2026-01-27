@@ -1300,11 +1300,25 @@ class ActionSearchKnowledgeBase(Action):
                 for r in results[1:3]:
                     response += f"• {r['article']['title']}\n"
 
-            # Add source indicator
+            # Add source indicator and link
             source = best_match.get('source', 'unknown')
             if source == 'glpi':
                 glpi_id = article.get('glpi_id', '')
                 response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
+                
+                # Add Clickable Link to Article
+                try:
+                    # Construct link assuming standard GLPI structure: /front/knowbaseitem.form.php?id=ID
+                    # Base URL derived from API URL in Config usually, but hardcoding for safety/speed based on known config
+                    # Config: http://127.0.0.1:8083/apirest.php -> http://127.0.0.1:8083
+                    # TO DO: Get this dynamically from config_manager if possible, but safe fallback here
+                    glpi_base_url = "http://127.0.0.1:8083" 
+                    if glpi_id:
+                        article_link = f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
+                        response += f"\n🔗 **[Read Full Article]({article_link})**"
+                except Exception as e:
+                    logger.error(f"Failed to create article link: {e}")
+
             elif source == 'json':
                 response += f"\n\n_Source: Local KB_"
             
@@ -1457,10 +1471,10 @@ class ActionSaveFeedback(Action):
             dispatcher.utter_message(text="Great! I'm glad I could help! 😊 Is there anything else you need?")
         else:
             dispatcher.utter_message(
-                text="I'm sorry the answer wasn't helpful. Let me help you further:",
+                text="I see your issue is not resolved. Would you like me to create a support ticket for you?",
                 buttons=[
-                    {"title": "🎫 Create a support ticket", "payload": "/create_ticket"},
-                    {"title": "🔍 Search for something else", "payload": "/ask_knowledge"}
+                    {"title": "✅ Yes, Create Ticket", "payload": "/create_ticket"},
+                    {"title": "❌ No, Search Again", "payload": "/help"}
                 ]
             )
         

@@ -1,4 +1,5 @@
 const ADMIN_API = '/admin';
+const RASA_API_URL = 'http://' + window.location.hostname + ':5005';
 
 // Dynamic Component Loader
 async function loadComponent(sectionId) {

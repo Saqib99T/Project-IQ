@@ -289,7 +289,7 @@ async function debugMessage() {
     if (!message) return;
 
     try {
-        const res = await fetch('http://localhost:5005/webhooks/rest/webhook', {
+        const res = await fetch('/api/rasa/webhooks/rest/webhook', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -311,7 +311,7 @@ async function debugMessage() {
 async function displayDebugResults(message, response) {
     try {
         // Get NLU parse
-        const nluRes = await fetch('http://localhost:5005/model/parse', {
+        const nluRes = await fetch('/api/rasa/model/parse', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: message })
@@ -370,7 +370,7 @@ async function testNLU() {
     if (!text) return;
 
     try {
-        const res = await fetch('http://localhost:5005/model/parse', {
+        const res = await fetch('/api/rasa/model/parse', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text })
@@ -392,8 +392,8 @@ async function testNLU() {
         fill.style.width = confidencePercent + '%';
         fill.textContent = confidencePercent + '%';
         fill.className = confidence > 0.8 ? 'bg-green-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold' :
-                          confidence > 0.5 ? 'bg-yellow-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold' :
-                          'bg-red-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold';
+            confidence > 0.5 ? 'bg-yellow-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold' :
+                'bg-red-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold';
 
         // Intent ranking
         const ranking = data.intent_ranking || [];
@@ -440,7 +440,7 @@ async function loadSlots() {
     }
 
     try {
-        const res = await fetch(`http://localhost:5005/conversations/${senderId}/tracker`);
+        const res = await fetch(`/api/rasa/conversations/${senderId}/tracker`);
         const data = await res.json();
 
         const slots = data.slots || {};
@@ -478,7 +478,7 @@ async function clearSlot(senderId, slotName) {
     if (!confirm(`Clear slot "${slotName}"?`)) return;
 
     try {
-        await fetch(`http://localhost:5005/conversations/${senderId}/tracker/events`, {
+        await fetch(`/api/rasa/conversations/${senderId}/tracker/events`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -501,7 +501,7 @@ async function clearAllSlots() {
     if (!confirm('Clear ALL slots for this conversation?')) return;
 
     try {
-        await fetch(`http://localhost:5005/conversations/${senderId}/tracker/events`, {
+        await fetch(`/api/rasa/conversations/${senderId}/tracker/events`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -522,7 +522,7 @@ async function clearAllSlots() {
 // ============================================
 async function loadDomain() {
     try {
-        const res = await fetch('http://localhost:5005/domain');
+        const res = await fetch('/api/rasa/domain');
         const domain = await res.json();
 
         // Counts
