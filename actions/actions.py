@@ -2,6 +2,7 @@
 
 import logging
 import json
+import re
 import datetime
 import traceback
 from typing import Text, List, Any, Dict
@@ -1263,6 +1264,12 @@ class ActionSearchKnowledgeBase(Action):
 
         # Search knowledge base using hybrid semantic + keyword search
         results = self.kb_cache.search_articles(user_message, app_id)
+        section_results = []
+        qa_results = []
+        if getattr(self.kb_cache, 'section_search_enabled', False):
+            section_results = self.kb_cache.search_sections(user_message)
+        if getattr(self.kb_cache, 'qa_search_enabled', False):
+            qa_results = self.kb_cache.search_qa(user_message)
 
         # Log search with scores for debugging
         if results:
@@ -1270,9 +1277,156 @@ class ActionSearchKnowledgeBase(Action):
             for r in results[:3]:
                 logger.debug(f"  - {r['article']['title']}: score={r['score']:.2f} (semantic={r.get('semantic_score', 0):.2f}, keyword={r.get('keyword_score', 0):.2f})")
         
-        if results:
-            best_match = results[0]
-            article = best_match['article']
+        if section_results:
+            best_section = section_results[0]
+            section = best_section['section']
+            section_score = float(best_section.get('score', 0.0))
+            clarify_min = float(getattr(self.kb_cache, 'section_clarify_min_score', 0.60))
+            clarify_max = float(getattr(self.kb_cache, 'section_clarify_max_score', 0.85))
+
+            if clarify_min <= section_score < clarify_max:
+                options = []
+                summary_lines = []
+                for idx, r in enumerate(section_results[:3], start=1):
+                    sec = r['section']
+                    option_title = sec.get('title') or sec.get('article_title') or "More details"
+                    content = (sec.get('content') or '').strip()
+                    short_summary = content.split('\n')[0][:140]
+                    if len(content) > 140:
+                        short_summary = f"{short_summary.rstrip()}..."
+                    summary_lines.append(f"{idx}) **{option_title}** — {short_summary}")
+
+                    options.append({
+                        "title": option_title[:60],
+                        "payload": option_title
+                    })
+
+                options.append({
+                    "title": "Skip clarification",
+                    "payload": section.get('title') or section.get('article_title') or "Best match"
+                })
+
+                dispatcher.utter_message(
+                    text=(
+                        "I found a few close matches. Which topic should I focus on?\n\n" +
+                        "\n".join(summary_lines)
+                    ),
+                    buttons=options
+                )
+                return []
+
+        if qa_results or section_results or results:
+            if qa_results:
+                best_qa = qa_results[0]
+                qa = best_qa['qa']
+                qa_score = float(best_qa.get('score', 0.0))
+                qa_min_score = float(getattr(self.kb_cache, 'qa_min_score', 0.85))
+
+                if qa_score >= qa_min_score:
+                    response = f"📚 **{qa.get('article_title') or qa.get('question', 'Knowledge Base')}**\n\n"
+                    response += f"**Q:** {qa.get('question', '')}\n\n"
+
+                    answer_text = qa.get('answer', 'No answer available.')
+                    # Build short answer (2-3 sentences max)
+                    sentences = re.split(r'(?<=[.!?])\s+', answer_text.strip())
+                    short_answer = ' '.join(sentences[:3]).strip()
+                    if len(answer_text) > len(short_answer):
+                        short_answer = f"{short_answer.rstrip()}..."
+
+                    response += f"**A:** {short_answer}"
+
+                    source = best_qa.get('source', 'unknown')
+                    article_link = None
+                    if source == 'glpi':
+                        glpi_id = qa.get('glpi_id')
+                        response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
+                        try:
+                            glpi_base_url = "http://127.0.0.1:8083"
+                            if glpi_id:
+                                article_link = f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
+                                response += f"\n🔗 **[Read Full Article]({article_link})**"
+                        except Exception as e:
+                            logger.error(f"Failed to create article link: {e}")
+                    elif source == 'json':
+                        response += f"\n\n_Source: Local KB_"
+
+                    response += "\n\n---\n**Was your issue resolved?** If not, I can help you create a support ticket."
+
+                    qa_buttons = [
+                        {"title": "👍 This helped!", "payload": "/feedback_positive"},
+                        {"title": "👎 Not helpful", "payload": "/feedback_negative"},
+                        {"title": "📄 Show full answer", "payload": "/kb_show_full_answer"},
+                    ]
+                    if article_link:
+                        qa_buttons.append({"title": "🔗 Read full article", "url": article_link})
+                    qa_buttons.extend([
+                        {"title": "🎫 Create a ticket", "payload": "/create_ticket"},
+                        {"title": "🔍 Ask another question", "payload": "/help"}
+                    ])
+
+                    dispatcher.utter_message(
+                        text=response,
+                        buttons=qa_buttons
+                    )
+                    return [
+                        SlotSet("kb_last_question", qa.get('question', '')),
+                        SlotSet("kb_last_answer", qa.get('answer', '')),
+                        SlotSet("kb_last_article_title", qa.get('article_title') or qa.get('question', 'Knowledge Base')),
+                        SlotSet("kb_last_source", qa.get('source', 'unknown')),
+                        SlotSet("kb_last_glpi_id", qa.get('glpi_id')),
+                    ]
+
+            best_match = results[0] if results else None
+            article = best_match['article'] if best_match else {}
+
+            if section_results:
+                best_section = section_results[0]
+                section = best_section['section']
+                article_title = section.get('article_title') or article.get('title') or section.get('title')
+
+                response = f"📚 **{article_title}**\n\n"
+                if section.get('title') and section.get('title') != article_title:
+                    response += f"**Section:** {section.get('title')}\n\n"
+                response += section.get('content', 'No content available.')
+
+                source = best_section.get('source', 'unknown')
+                article_link = None
+                if source == 'glpi':
+                    glpi_id = section.get('glpi_id') or article.get('glpi_id', '')
+                    response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
+                    try:
+                        glpi_base_url = "http://127.0.0.1:8083"
+                        if glpi_id:
+                            article_link = f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
+                            response += f"\n🔗 **[Read Full Article]({article_link})**"
+                    except Exception as e:
+                        logger.error(f"Failed to create article link: {e}")
+                elif source == 'json':
+                    response += f"\n\n_Source: Local KB_"
+
+                if len(results) > 1:
+                    response += "\n\n---\n**Related Articles:**\n"
+                    for r in results[1:3]:
+                        response += f"• {r['article']['title']}\n"
+
+                response += "\n\n---\n**Was your issue resolved?** If not, I can help you create a support ticket."
+
+                section_buttons = [
+                    {"title": "👍 This helped!", "payload": "/feedback_positive"},
+                    {"title": "👎 Not helpful", "payload": "/feedback_negative"},
+                ]
+                if article_link:
+                    section_buttons.append({"title": "🔗 Read full article", "url": article_link})
+                section_buttons.extend([
+                    {"title": "🎫 Create a ticket", "payload": "/create_ticket"},
+                    {"title": "🔍 Ask another question", "payload": "/help"}
+                ])
+
+                dispatcher.utter_message(
+                    text=response,
+                    buttons=section_buttons
+                )
+                return []
             
             # Format response
             response = f"📚 **{article['title']}**\n\n"
@@ -1389,6 +1543,48 @@ class ActionSearchKnowledgeBase(Action):
                 ]
             )
         
+        return []
+
+
+class ActionShowKbFullAnswer(Action):
+    """Show the full KB answer from the last QA match."""
+
+    def name(self) -> Text:
+        return "action_show_kb_full_answer"
+
+    async def run(
+        self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
+    ) -> List[Dict[Text, Any]]:
+        question = tracker.get_slot("kb_last_question") or ""
+        answer = tracker.get_slot("kb_last_answer") or ""
+        title = tracker.get_slot("kb_last_article_title") or "Knowledge Base"
+        source = tracker.get_slot("kb_last_source") or "unknown"
+        glpi_id = tracker.get_slot("kb_last_glpi_id")
+
+        if not answer:
+            dispatcher.utter_message(
+                text="I don't have a full answer ready yet. Please ask a KB question first."
+            )
+            return []
+
+        response = f"📚 **{title}**\n\n"
+        if question:
+            response += f"**Q:** {question}\n\n"
+        response += f"**A:** {answer}"
+
+        if source == 'glpi':
+            response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
+            try:
+                glpi_base_url = "http://127.0.0.1:8083"
+                if glpi_id:
+                    article_link = f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
+                    response += f"\n🔗 **[Read Full Article]({article_link})**"
+            except Exception as e:
+                logger.error(f"Failed to create article link: {e}")
+        elif source == 'json':
+            response += f"\n\n_Source: Local KB_"
+
+        dispatcher.utter_message(text=response)
         return []
 
 

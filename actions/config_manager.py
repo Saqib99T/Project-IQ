@@ -173,6 +173,15 @@ def get_kb_config() -> Dict[str, Any]:
             'keyword_weight': float(_get_secret('KB_KEYWORD_WEIGHT', '0.4')),
             'min_score_threshold': float(_get_secret('KB_MIN_SCORE', '0.3')),
             'max_results': int(_get_secret('KB_MAX_RESULTS', '3')),
+            'section_search_enabled': _get_secret('KB_SECTION_SEARCH_ENABLED', 'false').lower() == 'true',
+            'section_min_words': int(_get_secret('KB_SECTION_MIN_WORDS', '60')),
+            'section_max_words': int(_get_secret('KB_SECTION_MAX_WORDS', '220')),
+            'section_max_results': int(_get_secret('KB_SECTION_MAX_RESULTS', '3')),
+            'section_clarify_min_score': float(_get_secret('KB_SECTION_CLARIFY_MIN_SCORE', '0.60')),
+            'section_clarify_max_score': float(_get_secret('KB_SECTION_CLARIFY_MAX_SCORE', '0.85')),
+            'qa_search_enabled': _get_secret('KB_QA_SEARCH_ENABLED', 'false').lower() == 'true',
+            'qa_min_score': float(_get_secret('KB_QA_MIN_SCORE', '0.85')),
+            'qa_max_results': int(_get_secret('KB_QA_MAX_RESULTS', '3')),
         }
 
     # Fallback to local config
@@ -187,6 +196,15 @@ def get_kb_config() -> Dict[str, Any]:
         'keyword_weight': config.getfloat('KNOWLEDGE_BASE', 'KB_KEYWORD_WEIGHT', fallback=0.4),
         'min_score_threshold': config.getfloat('KNOWLEDGE_BASE', 'KB_MIN_SCORE', fallback=0.3),
         'max_results': config.getint('KNOWLEDGE_BASE', 'KB_MAX_RESULTS', fallback=3),
+        'section_search_enabled': config.getboolean('KNOWLEDGE_BASE', 'KB_SECTION_SEARCH_ENABLED', fallback=False),
+        'section_min_words': config.getint('KNOWLEDGE_BASE', 'KB_SECTION_MIN_WORDS', fallback=60),
+        'section_max_words': config.getint('KNOWLEDGE_BASE', 'KB_SECTION_MAX_WORDS', fallback=220),
+        'section_max_results': config.getint('KNOWLEDGE_BASE', 'KB_SECTION_MAX_RESULTS', fallback=3),
+        'section_clarify_min_score': config.getfloat('KNOWLEDGE_BASE', 'KB_SECTION_CLARIFY_MIN_SCORE', fallback=0.60),
+        'section_clarify_max_score': config.getfloat('KNOWLEDGE_BASE', 'KB_SECTION_CLARIFY_MAX_SCORE', fallback=0.85),
+        'qa_search_enabled': config.getboolean('KNOWLEDGE_BASE', 'KB_QA_SEARCH_ENABLED', fallback=False),
+        'qa_min_score': config.getfloat('KNOWLEDGE_BASE', 'KB_QA_MIN_SCORE', fallback=0.85),
+        'qa_max_results': config.getint('KNOWLEDGE_BASE', 'KB_QA_MAX_RESULTS', fallback=3),
     }
 
 

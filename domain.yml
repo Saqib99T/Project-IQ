@@ -28,6 +28,7 @@ intents:
   - feedback_negative
   - multi_action
   - kb_not_helpful
+  - kb_show_full_answer
   - rating_1
   - rating_2
   - rating_3
@@ -214,6 +215,31 @@ slots:
         entity: chart_type
 
   requested_slot:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  kb_last_question:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  kb_last_answer:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  kb_last_article_title:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  kb_last_source:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  kb_last_glpi_id:
     type: text
     influence_conversation: false
     mappings: []
@@ -408,6 +434,7 @@ actions:
   - action_create_ticket_from_form
   - action_save_satisfaction_rating
   - action_show_ticket_graph
+  - action_show_kb_full_answer
 
 forms:
   ticket_form:

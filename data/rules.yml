@@ -96,6 +96,11 @@ rules:
         - intent: rating_5
       - action: action_save_satisfaction_rating
 
+  - rule: Show full KB answer
+    steps:
+      - intent: kb_show_full_answer
+      - action: action_show_kb_full_answer
+
   - rule: Show ticket status graph
     steps:
       - intent: show_ticket_graph

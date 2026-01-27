@@ -277,6 +277,71 @@ Route to best solution for that query type
 
 ---
 
+## 3.1 Hybrid Implementation Plan (Detailed)
+
+### A. Routing Logic (Decision Rules)
+**Inputs:** specificity_score, match_confidence, top_qa_score, top_section_score
+
+**Default thresholds (tunable):**
+- **Low specificity:** specificity_score < 0.40 → ask clarifying questions
+- **Medium specificity:** 0.40–0.75 → return best section + short summary + “Show more”
+- **High specificity:** ≥ 0.75 → return top Q&A answer if top_qa_score ≥ 0.85; else fallback to section
+
+**Fallbacks:**
+- If no section score ≥ 0.60 → return top 2 article titles + ask user to choose
+- If clarification unanswered → return top section summary + “Need more details?”
+
+### B. Data & Index Updates
+**New/updated stores:**
+- **kb_sections** (per-article chunking) with embeddings
+- **kb_qa_pairs** (extracted Q&A) with embeddings
+- **clarifying_questions** (topic-based templates)
+- **kb_metrics** (routing decisions, response length, satisfaction)
+
+**Indexing cadence:**
+- On KB sync: re-chunk, re-embed, update vector indexes
+- Nightly job: refresh Q&A extraction (if enabled)
+
+### C. API & Response Contracts
+**New endpoints (minimum):**
+- `POST /kb/query` → returns route, answer, and follow-ups
+- `POST /kb/clarify` → accepts clarification choice, returns refined answer
+- `POST /kb/feedback` → captures satisfaction, “show more” clicks
+- `POST /kb/reindex` → rebuilds section/Q&A indexes
+
+**Response payload shape:**
+```
+{
+    "route": "clarify|section|qa",
+    "confidence": 0.82,
+    "answer": "...",
+    "follow_ups": ["..."],
+    "show_more": {"type": "section", "id": "sec-002"},
+    "sources": [{"article_id": "...", "section_id": "..."}]
+}
+```
+
+### D. UX Changes (Chat Widget)
+- Show **short answer** (2–5 bullet points) by default
+- “Show full section” button → expands section
+- “Not what you wanted?” → triggers clarification flow
+- Track **click-through** on full article
+
+### E. Evaluation & Acceptance Criteria
+**Acceptance targets:**
+- Avg response length ≤ 300 words for routed answers
+- First-turn satisfaction ≥ 75%
+- Clarification rate between 30–50% for ambiguous queries
+- Section MRR ≥ 0.85 and Q&A precision ≥ 90%
+
+### F. Rollout Plan (Risk-Controlled)
+- **Week 1–2:** internal testing + offline evaluation
+- **Week 3:** 10% traffic (A/B vs baseline full-article)
+- **Week 4:** 50% traffic with KPI gating
+- **Week 5:** 100% if KPIs met; otherwise tune thresholds
+
+---
+
 ## 4. Technical Architecture
 
 ### System Design (Hybrid Approach)

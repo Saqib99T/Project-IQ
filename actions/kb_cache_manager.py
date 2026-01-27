@@ -39,6 +39,10 @@ class KBCacheManager:
         self._initialized = True
         self._cache = []
         self._embeddings = None
+        self._section_cache = []
+        self._section_embeddings = None
+        self._qa_cache = []
+        self._qa_embeddings = None
         self._cache_lock = threading.Lock()
         self._last_refresh = None
         self._refresh_thread = None
@@ -55,6 +59,15 @@ class KBCacheManager:
         self.keyword_weight = 0.4
         self.min_score_threshold = 0.3
         self.max_results = 3
+        self.section_search_enabled = False
+        self.section_min_words = 60
+        self.section_max_words = 220
+        self.section_max_results = 3
+        self.section_clarify_min_score = 0.60
+        self.section_clarify_max_score = 0.85
+        self.qa_search_enabled = False
+        self.qa_min_score = 0.85
+        self.qa_max_results = 3
 
         # Load config and start
         self._load_config()
@@ -80,8 +93,20 @@ class KBCacheManager:
             self.keyword_weight = kb_config.get('keyword_weight', 0.4)
             self.min_score_threshold = kb_config.get('min_score_threshold', 0.3)
             self.max_results = kb_config.get('max_results', 3)
+            self.section_search_enabled = kb_config.get('section_search_enabled', False)
+            self.section_min_words = kb_config.get('section_min_words', 60)
+            self.section_max_words = kb_config.get('section_max_words', 220)
+            self.section_max_results = kb_config.get('section_max_results', 3)
+            self.section_clarify_min_score = kb_config.get('section_clarify_min_score', 0.60)
+            self.section_clarify_max_score = kb_config.get('section_clarify_max_score', 0.85)
+            self.qa_search_enabled = kb_config.get('qa_search_enabled', False)
+            self.qa_min_score = kb_config.get('qa_min_score', 0.85)
+            self.qa_max_results = kb_config.get('qa_max_results', 3)
 
-            logger.info(f"KB Config loaded: semantic_enabled={self.semantic_enabled}, model={self.semantic_model_name}")
+            logger.info(
+                f"KB Config loaded: semantic_enabled={self.semantic_enabled}, model={self.semantic_model_name}, "
+                f"section_search_enabled={self.section_search_enabled}"
+            )
         except Exception as e:
             logger.error(f"Error loading KB config: {e}")
 
@@ -158,10 +183,27 @@ class KBCacheManager:
                     self._load_sentence_transformer()
                     self._generate_embeddings(transformed)
 
+                # Build section cache and embeddings (optional)
+                if self.section_search_enabled and transformed:
+                    if self._model is None:
+                        self._load_sentence_transformer()
+                    self._build_section_cache(transformed)
+
+                # Build QA cache and embeddings (optional)
+                if self.qa_search_enabled and transformed:
+                    if self._model is None:
+                        self._load_sentence_transformer()
+                    self._build_qa_cache(transformed)
+
                 # Update cache atomically
                 with self._cache_lock:
                     self._cache = transformed
                     self._last_refresh = datetime.now()
+                    # Keep section cache aligned with article cache
+                    if self.section_search_enabled:
+                        self._section_cache = self._section_cache or []
+                    if self.qa_search_enabled:
+                        self._qa_cache = self._qa_cache or []
 
                 # Save embeddings cache for faster next startup
                 if self.semantic_enabled and self._embeddings is not None:
@@ -233,6 +275,312 @@ class KBCacheManager:
                 continue
 
         return transformed
+
+    def _split_article_sections(self, article: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Split article content into smaller sections for targeted responses."""
+        content = (article.get('content') or '').strip()
+        if not content:
+            return []
+
+        # Normalize content
+        content = re.sub(r'\r\n', '\n', content)
+        content = re.sub(r'\n{3,}', '\n\n', content)
+
+        sections = []
+
+        # Split by markdown headings if present
+        heading_matches = list(re.finditer(r'(?m)^(#{1,3})\s+(.+)$', content))
+        if heading_matches:
+            split_points = [m.start() for m in heading_matches] + [len(content)]
+            for idx, start in enumerate(split_points[:-1]):
+                end = split_points[idx + 1]
+                block = content[start:end].strip()
+                if not block:
+                    continue
+                lines = block.splitlines()
+                heading_line = lines[0].lstrip('#').strip() if lines else article.get('title', 'Section')
+                body = '\n'.join(lines[1:]).strip()
+                if not body:
+                    continue
+                sections.extend(self._chunk_section_body(article, heading_line, body))
+        else:
+            # Fallback: split by paragraph blocks
+            paragraphs = [p.strip() for p in re.split(r'\n\s*\n', content) if p.strip()]
+            if paragraphs:
+                joined = '\n\n'.join(paragraphs)
+                sections.extend(self._chunk_section_body(article, article.get('title', 'Section'), joined))
+
+        return sections
+
+    def _chunk_section_body(self, article: Dict[str, Any], title: str, body: str) -> List[Dict[str, Any]]:
+        """Chunk a section body into word-size-bounded pieces."""
+        words = body.split()
+        if not words:
+            return []
+
+        chunks = []
+        max_words = max(self.section_max_words, self.section_min_words)
+        min_words = max(20, self.section_min_words)
+
+        start = 0
+        idx = 1
+        while start < len(words):
+            end = min(start + max_words, len(words))
+            chunk_words = words[start:end]
+            if end < len(words) and len(chunk_words) < min_words:
+                end = min(start + min_words, len(words))
+                chunk_words = words[start:end]
+
+            chunk_text = ' '.join(chunk_words).strip()
+            if not chunk_text:
+                break
+
+            chunk_title = title if idx == 1 else f"{title} (Part {idx})"
+            chunks.append({
+                'id': f"{article.get('id', 'article')}_sec_{idx}",
+                'article_id': article.get('id'),
+                'article_title': article.get('title', ''),
+                'title': chunk_title,
+                'content': chunk_text,
+                'word_count': len(chunk_words),
+                'category': article.get('category'),
+                'keywords': article.get('keywords', []),
+                'source': article.get('source'),
+                'glpi_id': article.get('glpi_id')
+            })
+
+            idx += 1
+            start = end
+
+        return chunks
+
+    def _build_section_cache(self, articles: List[Dict[str, Any]]):
+        """Build section cache and embeddings from articles."""
+        section_cache = []
+        for article in articles:
+            section_cache.extend(self._split_article_sections(article))
+
+        self._section_cache = section_cache
+        self._generate_section_embeddings(section_cache)
+        logger.info(f"Section cache built: {len(self._section_cache)} sections")
+
+    def _generate_section_embeddings(self, sections: List[Dict[str, Any]]):
+        """Generate embeddings for section cache."""
+        if not self._model or not sections:
+            self._section_embeddings = None
+            return
+
+        try:
+            texts = []
+            for section in sections:
+                text = f"{section.get('title', '')} {section.get('content', '')} {' '.join(section.get('keywords', []))}"
+                texts.append(text)
+
+            logger.info(f"Generating embeddings for {len(texts)} sections...")
+            embeddings = self._model.encode(texts, show_progress_bar=False)
+            self._section_embeddings = embeddings
+            logger.info(f"Section embeddings generated: shape {embeddings.shape}")
+        except Exception as e:
+            logger.error(f"Error generating section embeddings: {e}")
+            self._section_embeddings = None
+
+    def _semantic_search_sections(self, query: str) -> Dict[int, float]:
+        """Semantic search over section embeddings."""
+        if not self._model or self._section_embeddings is None:
+            return {}
+
+        try:
+            query_embedding = self._model.encode([query], show_progress_bar=False)[0]
+            from sklearn.metrics.pairwise import cosine_similarity
+            query_emb_2d = query_embedding.reshape(1, -1)
+            similarities = cosine_similarity(query_emb_2d, self._section_embeddings)[0]
+            return {i: float(sim) for i, sim in enumerate(similarities)}
+        except Exception as e:
+            logger.error(f"Error in section semantic search: {e}")
+            return {}
+
+    def _keyword_score_section(self, query: str, section: Dict[str, Any]) -> float:
+        """Keyword score for section content and title."""
+        query_words = set(query.lower().split())
+        if not query_words:
+            return 0.0
+
+        title_words = set((section.get('title') or '').lower().split())
+        content_words = set((section.get('content') or '').lower().split())
+        keywords = set([k.lower() for k in section.get('keywords', [])])
+
+        score = 0.0
+        score += len(query_words.intersection(title_words)) * 2.0
+        score += len(query_words.intersection(content_words)) * 1.0
+        score += len(query_words.intersection(keywords)) * 2.5
+        return score
+
+    def search_sections(self, query: str) -> List[Dict[str, Any]]:
+        """Search KB sections using hybrid semantic + keyword scoring."""
+        if not query or not self._section_cache:
+            return []
+
+        results = []
+
+        semantic_scores = {}
+        if self.semantic_enabled and self._section_embeddings is not None and self._model is not None:
+            semantic_scores = self._semantic_search_sections(query)
+
+        for i, section in enumerate(self._section_cache):
+            semantic_score = semantic_scores.get(i, 0.0)
+            keyword_score = self._keyword_score_section(query, section)
+
+            if self.semantic_enabled and semantic_scores:
+                final_score = (semantic_score * self.semantic_weight) + (keyword_score * self.keyword_weight)
+            else:
+                final_score = keyword_score
+
+            if final_score >= self.min_score_threshold:
+                results.append({
+                    'section': section,
+                    'score': final_score,
+                    'semantic_score': semantic_score,
+                    'keyword_score': keyword_score,
+                    'source': section.get('source', 'unknown')
+                })
+
+        results.sort(key=lambda x: x['score'], reverse=True)
+        return results[:self.section_max_results]
+
+    def _build_qa_cache(self, articles: List[Dict[str, Any]]):
+        """Build Q&A cache and embeddings from articles."""
+        qa_cache = []
+
+        for article in articles:
+            question = (article.get('question') or '').strip()
+            answer = (article.get('content') or '').strip()
+            title = (article.get('title') or '').strip()
+
+            if question and answer:
+                qa_cache.append({
+                    'id': f"{article.get('id', 'article')}_qa_1",
+                    'article_id': article.get('id'),
+                    'article_title': title,
+                    'question': question,
+                    'answer': answer,
+                    'keywords': article.get('keywords', []),
+                    'category': article.get('category'),
+                    'source': article.get('source'),
+                    'glpi_id': article.get('glpi_id')
+                })
+
+                # Add a secondary QA using title when it differs from question
+                if title and title.lower() != question.lower():
+                    qa_cache.append({
+                        'id': f"{article.get('id', 'article')}_qa_2",
+                        'article_id': article.get('id'),
+                        'article_title': title,
+                        'question': title,
+                        'answer': answer,
+                        'keywords': article.get('keywords', []),
+                        'category': article.get('category'),
+                        'source': article.get('source'),
+                        'glpi_id': article.get('glpi_id')
+                    })
+            elif title and answer:
+                # Fallback: use title as question if explicit question missing
+                qa_cache.append({
+                    'id': f"{article.get('id', 'article')}_qa_1",
+                    'article_id': article.get('id'),
+                    'article_title': title,
+                    'question': title,
+                    'answer': answer,
+                    'keywords': article.get('keywords', []),
+                    'category': article.get('category'),
+                    'source': article.get('source'),
+                    'glpi_id': article.get('glpi_id')
+                })
+
+        self._qa_cache = qa_cache
+        self._generate_qa_embeddings(qa_cache)
+        logger.info(f"QA cache built: {len(self._qa_cache)} pairs")
+
+    def _generate_qa_embeddings(self, qa_pairs: List[Dict[str, Any]]):
+        """Generate embeddings for QA cache."""
+        if not self._model or not qa_pairs:
+            self._qa_embeddings = None
+            return
+
+        try:
+            texts = []
+            for qa in qa_pairs:
+                text = f"{qa.get('question', '')} {qa.get('answer', '')} {' '.join(qa.get('keywords', []))}"
+                texts.append(text)
+
+            logger.info(f"Generating embeddings for {len(texts)} QA pairs...")
+            embeddings = self._model.encode(texts, show_progress_bar=False)
+            self._qa_embeddings = embeddings
+            logger.info(f"QA embeddings generated: shape {embeddings.shape}")
+        except Exception as e:
+            logger.error(f"Error generating QA embeddings: {e}")
+            self._qa_embeddings = None
+
+    def _semantic_search_qa(self, query: str) -> Dict[int, float]:
+        """Semantic search over QA embeddings."""
+        if not self._model or self._qa_embeddings is None:
+            return {}
+
+        try:
+            query_embedding = self._model.encode([query], show_progress_bar=False)[0]
+            from sklearn.metrics.pairwise import cosine_similarity
+            query_emb_2d = query_embedding.reshape(1, -1)
+            similarities = cosine_similarity(query_emb_2d, self._qa_embeddings)[0]
+            return {i: float(sim) for i, sim in enumerate(similarities)}
+        except Exception as e:
+            logger.error(f"Error in QA semantic search: {e}")
+            return {}
+
+    def _keyword_score_qa(self, query: str, qa: Dict[str, Any]) -> float:
+        """Keyword score for QA content and question."""
+        query_words = set(query.lower().split())
+        if not query_words:
+            return 0.0
+
+        question_words = set((qa.get('question') or '').lower().split())
+        answer_words = set((qa.get('answer') or '').lower().split())
+        keywords = set([k.lower() for k in qa.get('keywords', [])])
+
+        score = 0.0
+        score += len(query_words.intersection(question_words)) * 2.5
+        score += len(query_words.intersection(answer_words)) * 1.0
+        score += len(query_words.intersection(keywords)) * 2.0
+        return score
+
+    def search_qa(self, query: str) -> List[Dict[str, Any]]:
+        """Search KB Q&A pairs using hybrid semantic + keyword scoring."""
+        if not query or not self._qa_cache:
+            return []
+
+        results = []
+        semantic_scores = {}
+        if self.semantic_enabled and self._qa_embeddings is not None and self._model is not None:
+            semantic_scores = self._semantic_search_qa(query)
+
+        for i, qa in enumerate(self._qa_cache):
+            semantic_score = semantic_scores.get(i, 0.0)
+            keyword_score = self._keyword_score_qa(query, qa)
+
+            if self.semantic_enabled and semantic_scores:
+                final_score = (semantic_score * self.semantic_weight) + (keyword_score * self.keyword_weight)
+            else:
+                final_score = keyword_score
+
+            if final_score >= self.min_score_threshold:
+                results.append({
+                    'qa': qa,
+                    'score': final_score,
+                    'semantic_score': semantic_score,
+                    'keyword_score': keyword_score,
+                    'source': qa.get('source', 'unknown')
+                })
+
+        results.sort(key=lambda x: x['score'], reverse=True)
+        return results[:self.qa_max_results]
 
     def _extract_keywords(self, title: str, content: str, question: str) -> List[str]:
         """Extract keywords from article text using simple NLP."""
@@ -329,8 +677,22 @@ class KBCacheManager:
             self._load_sentence_transformer()
             self._generate_embeddings(articles)
 
+        if self.section_search_enabled and articles:
+            if self._model is None:
+                self._load_sentence_transformer()
+            self._build_section_cache(articles)
+
+        if self.qa_search_enabled and articles:
+            if self._model is None:
+                self._load_sentence_transformer()
+            self._build_qa_cache(articles)
+
         with self._cache_lock:
             self._cache = articles
+            if self.section_search_enabled:
+                self._section_cache = self._section_cache or []
+            if self.qa_search_enabled:
+                self._qa_cache = self._qa_cache or []
             self._last_refresh = datetime.now()
 
         logger.info(f"JSON fallback loaded: {len(articles)} articles")
@@ -416,6 +778,16 @@ class KBCacheManager:
             self._embeddings = cache_data['embeddings']
             self._cache = cache_data['articles']
             self._last_refresh = datetime.fromisoformat(cache_data['timestamp'])
+
+            if self.section_search_enabled:
+                if self._model is None:
+                    self._load_sentence_transformer()
+                self._build_section_cache(self._cache)
+
+            if self.qa_search_enabled:
+                if self._model is None:
+                    self._load_sentence_transformer()
+                self._build_qa_cache(self._cache)
 
             logger.info(f"Embeddings cache loaded: {len(self._cache)} articles from {self._last_refresh}")
 
@@ -563,6 +935,10 @@ class KBCacheManager:
         with self._cache_lock:
             self._cache = []
             self._embeddings = None
+            self._section_cache = []
+            self._section_embeddings = None
+            self._qa_cache = []
+            self._qa_embeddings = None
             self._last_refresh = None
         logger.info("KB cache cleared")
 
