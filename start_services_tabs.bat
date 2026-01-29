@@ -7,6 +7,9 @@ if not exist "venv\Scripts\activate.bat" (
     exit /b 1
 )
 
+REM Ensure Log directory exists
+if not exist "Log" mkdir Log
+
 REM Check if wt.exe is available
 where wt >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
@@ -16,6 +19,6 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 REM Launch using wt
-wt -w 0 new-tab --title "Rasa Core" -d "%~dp0." cmd /k "venv\Scripts\activate && rasa run --enable-api --cors * --port 5005" ; new-tab --title "Actions Server" -d "%~dp0." cmd /k "venv\Scripts\activate && python -m rasa_sdk --actions actions -p 5055 --auto-reload" ; new-tab --title "Admin Dashboard" -d "%~dp0actions" cmd /k "..\venv\Scripts\activate && python admin_api.py"
+wt -w 0 new-tab --title "Rasa Core" -d "%~dp0." cmd /k "venv\Scripts\activate && rasa run --enable-api --cors * --port 5005 >> Log\core.log 2>&1" ; new-tab --title "Actions Server" -d "%~dp0." cmd /k "venv\Scripts\activate && python -m rasa_sdk --actions actions -p 5055 --auto-reload >> Log\actions.log 2>&1" ; new-tab --title "Admin Dashboard" -d "%~dp0actions" cmd /k "..\venv\Scripts\activate && python admin_api.py >> ..\Log\admin.log 2>&1"
 
 echo Services launched in Windows Terminal!

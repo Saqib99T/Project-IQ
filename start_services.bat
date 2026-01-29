@@ -13,19 +13,22 @@ if not exist "venv\Scripts\activate.bat" (
     exit /b 1
 )
 
+REM Ensure Log directory exists
+if not exist "Log" mkdir Log
+
 echo Starting services...
 echo.
 
 REM Start Rasa Core Server
 echo [1/3] Starting Rasa Core Server (Port 5005)...
-start "Rasa Core Server" cmd /k "cd /d %~dp0 && venv\Scripts\activate && rasa run --enable-api --cors * --port 5005"
+start "Rasa Core Server" cmd /k "cd /d %~dp0 && venv\Scripts\activate && rasa run --enable-api --cors * --port 5005 >> Log\core.log 2>&1"
 
 REM Wait for Rasa to initialize
 timeout /t 8 /nobreak >nul
 
 REM Start Actions Server
 echo [2/3] Starting Actions Server (Port 5055)...
-start "Actions Server" cmd /k "cd /d %~dp0 && venv\Scripts\activate && python -m rasa_sdk --actions actions -p 5055 --auto-reload"
+start "Actions Server" cmd /k "cd /d %~dp0 && venv\Scripts\activate && python -m rasa_sdk --actions actions -p 5055 --auto-reload >> Log\actions.log 2>&1"
 
 REM Wait for Actions Server
 timeout /t 5 /nobreak >nul
@@ -33,7 +36,7 @@ timeout /t 5 /nobreak >nul
 REM Start Admin API Server
 echo [3/3] Starting Admin Dashboard (Port 80)...
 REM Running from root to ensure imports work correctly, assuming sys.path setup in admin_api.py handles it
-start "Admin Dashboard" cmd /k "cd /d %~dp0 && venv\Scripts\activate && python actions/admin_api.py"
+start "Admin Dashboard" cmd /k "cd /d %~dp0 && venv\Scripts\activate && python actions/admin_api.py >> Log\admin.log 2>&1"
 
 echo.
 echo ========================================

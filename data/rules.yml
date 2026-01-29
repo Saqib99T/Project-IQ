@@ -101,6 +101,11 @@ rules:
       - intent: kb_show_full_answer
       - action: action_show_kb_full_answer
 
+  - rule: Show full KB article
+    steps:
+      - intent: kb_show_full_article
+      - action: action_show_kb_full_article
+
   - rule: Show ticket status graph
     steps:
       - intent: show_ticket_graph

@@ -62,7 +62,7 @@ class KBCacheManager:
         self.section_search_enabled = False
         self.section_min_words = 60
         self.section_max_words = 220
-        self.section_max_results = 3
+        self.section_max_results = 5
         self.section_clarify_min_score = 0.60
         self.section_clarify_max_score = 0.85
         self.qa_search_enabled = False
@@ -313,28 +313,32 @@ class KBCacheManager:
         return sections
 
     def _chunk_section_body(self, article: Dict[str, Any], title: str, body: str) -> List[Dict[str, Any]]:
-        """Chunk a section body into word-size-bounded pieces."""
-        words = body.split()
-        if not words:
+        """Chunk a section body into logical, paragraph-bounded pieces."""
+        body = body.strip()
+        if not body:
             return []
 
-        chunks = []
         max_words = max(self.section_max_words, self.section_min_words)
         min_words = max(20, self.section_min_words)
 
-        start = 0
+        paragraphs = [p.strip() for p in re.split(r'\n\s*\n', body) if p.strip()]
+        if not paragraphs:
+            paragraphs = [body]
+
+        chunks = []
+        current = []
+        current_words = 0
         idx = 1
-        while start < len(words):
-            end = min(start + max_words, len(words))
-            chunk_words = words[start:end]
-            if end < len(words) and len(chunk_words) < min_words:
-                end = min(start + min_words, len(words))
-                chunk_words = words[start:end]
 
-            chunk_text = ' '.join(chunk_words).strip()
+        def flush_chunk(force: bool = False):
+            nonlocal idx, current, current_words
+            if not current:
+                return
+            if not force and current_words < min_words and chunks:
+                return
+            chunk_text = '\n\n'.join(current).strip()
             if not chunk_text:
-                break
-
+                return
             chunk_title = title if idx == 1 else f"{title} (Part {idx})"
             chunks.append({
                 'id': f"{article.get('id', 'article')}_sec_{idx}",
@@ -342,16 +346,39 @@ class KBCacheManager:
                 'article_title': article.get('title', ''),
                 'title': chunk_title,
                 'content': chunk_text,
-                'word_count': len(chunk_words),
+                'word_count': current_words,
                 'category': article.get('category'),
                 'keywords': article.get('keywords', []),
                 'source': article.get('source'),
                 'glpi_id': article.get('glpi_id')
             })
-
             idx += 1
-            start = end
+            current = []
+            current_words = 0
 
+        for paragraph in paragraphs:
+            para_words = paragraph.split()
+            if len(para_words) > max_words:
+                sentences = re.split(r'(?<=[.!?])\s+', paragraph)
+                for sentence in sentences:
+                    sentence = sentence.strip()
+                    if not sentence:
+                        continue
+                    sentence_words = sentence.split()
+                    if current_words + len(sentence_words) > max_words and current_words >= min_words:
+                        flush_chunk(force=True)
+                    current.append(sentence)
+                    current_words += len(sentence_words)
+                    if current_words >= max_words:
+                        flush_chunk(force=True)
+                continue
+
+            if current_words + len(para_words) > max_words and current_words >= min_words:
+                flush_chunk(force=True)
+            current.append(paragraph)
+            current_words += len(para_words)
+
+        flush_chunk(force=True)
         return chunks
 
     def _build_section_cache(self, articles: List[Dict[str, Any]]):
@@ -415,7 +442,7 @@ class KBCacheManager:
         score += len(query_words.intersection(keywords)) * 2.5
         return score
 
-    def search_sections(self, query: str) -> List[Dict[str, Any]]:
+    def search_sections(self, query: str, article_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Search KB sections using hybrid semantic + keyword scoring."""
         if not query or not self._section_cache:
             return []
@@ -427,6 +454,8 @@ class KBCacheManager:
             semantic_scores = self._semantic_search_sections(query)
 
         for i, section in enumerate(self._section_cache):
+            if article_id and section.get('article_id') != article_id:
+                continue
             semantic_score = semantic_scores.get(i, 0.0)
             keyword_score = self._keyword_score_section(query, section)
 
@@ -446,6 +475,24 @@ class KBCacheManager:
 
         results.sort(key=lambda x: x['score'], reverse=True)
         return results[:self.section_max_results]
+
+    def get_article_by_id(self, article_id: str) -> Optional[Dict[str, Any]]:
+        """Return an article by id from cache."""
+        if not article_id:
+            return None
+        for article in self._cache:
+            if article.get('id') == article_id:
+                return article
+        return None
+
+    def get_section_by_id(self, section_id: str) -> Optional[Dict[str, Any]]:
+        """Return a section by id from cache."""
+        if not section_id:
+            return None
+        for section in self._section_cache:
+            if section.get('id') == section_id:
+                return section
+        return None
 
     def _build_qa_cache(self, articles: List[Dict[str, Any]]):
         """Build Q&A cache and embeddings from articles."""

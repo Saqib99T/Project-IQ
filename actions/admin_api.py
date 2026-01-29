@@ -96,7 +96,10 @@ class AdminKBCache:
 
 
         except Exception as e:
-            with open("admin_kb_debug.log", "w") as f:
+            log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Log')
+            os.makedirs(log_dir, exist_ok=True)
+            debug_log = os.path.join(log_dir, "admin_kb_debug.log")
+            with open(debug_log, "w") as f:
                 f.write(f"Error loading articles: {e}\n")
                 import traceback
                 f.write(traceback.format_exc())
@@ -1136,7 +1139,7 @@ def get_recent_logs():
         log_files = {
             'rasa': os.path.join(base_path, 'Log', 'core.log'),
             'actions': os.path.join(base_path, 'Log', 'actions.log'),
-            'admin': os.path.join(base_path, 'admin_new.err')
+            'admin': os.path.join(base_path, 'Log', 'admin_new.err')
         }
 
         for source, path in log_files.items():

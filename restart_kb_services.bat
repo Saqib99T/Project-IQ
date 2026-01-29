@@ -10,6 +10,9 @@ echo.
 
 cd /d "%~dp0"
 
+REM Ensure Log directory exists
+if not exist "Log" mkdir Log
+
 echo [STEP 1/5] Stopping running services...
 echo ------------------------------------------------------------
 
@@ -96,7 +99,7 @@ echo Starting Action Server on port 5055...
 echo IMPORTANT: Watch for KB cache initialization messages
 echo.
 
-start "Project IQ - Action Server" cmd /k "title Project IQ - Action Server && echo ================================================ && echo    ACTION SERVER WITH KB CACHE MANAGER && echo ================================================ && echo. && python -m rasa_sdk --actions actions -p 5055"
+start "Project IQ - Action Server" cmd /k "title Project IQ - Action Server && echo ================================================ && echo    ACTION SERVER WITH KB CACHE MANAGER && echo ================================================ && echo. && python -m rasa_sdk --actions actions -p 5055 >> Log\actions.log 2>&1"
 
 echo Waiting 10 seconds for Action Server to initialize...
 echo (Watch the Action Server window for KB cache messages)
@@ -119,7 +122,7 @@ echo ------------------------------------------------------------
 echo Starting Admin API on port 80...
 echo.
 
-start "Project IQ - Admin API" cmd /k "title Project IQ - Admin API && echo ================================================ && echo    ADMIN API SERVER && echo ================================================ && echo. && cd actions && python admin_api.py"
+start "Project IQ - Admin API" cmd /k "title Project IQ - Admin API && echo ================================================ && echo    ADMIN API SERVER && echo ================================================ && echo. && cd actions && python admin_api.py >> ..\Log\admin.log 2>&1"
 
 echo Waiting 5 seconds for Admin API to initialize...
 timeout /t 5 /nobreak

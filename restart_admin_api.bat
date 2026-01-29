@@ -6,6 +6,9 @@ echo.
 
 cd /d "%~dp0"
 
+REM Ensure Log directory exists
+if not exist "Log" mkdir Log
+
 echo Stopping Admin API (port 80)...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":80 " ^| findstr "LISTENING"') do (
     echo Stopping PID: %%a
@@ -17,7 +20,7 @@ timeout /t 3 /nobreak >nul
 
 echo.
 echo Starting Admin API...
-start "Admin API" cmd /k "title Admin API && cd actions && python admin_api.py"
+start "Admin API" cmd /k "title Admin API && cd actions && python admin_api.py >> ..\Log\admin.log 2>&1"
 
 echo Waiting 5 seconds for Admin API to start...
 timeout /t 5 /nobreak >nul

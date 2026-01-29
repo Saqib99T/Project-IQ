@@ -29,6 +29,7 @@ intents:
   - multi_action
   - kb_not_helpful
   - kb_show_full_answer
+  - kb_show_full_article
   - rating_1
   - rating_2
   - rating_3
@@ -234,6 +235,11 @@ slots:
     influence_conversation: false
     mappings: []
 
+  kb_last_article_content:
+    type: text
+    influence_conversation: false
+    mappings: []
+
   kb_last_source:
     type: text
     influence_conversation: false
@@ -241,6 +247,21 @@ slots:
 
   kb_last_glpi_id:
     type: text
+    influence_conversation: false
+    mappings: []
+
+  kb_target_article_id:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  kb_clarify_options:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  kb_clarify_attempts:
+    type: float
     influence_conversation: false
     mappings: []
 
@@ -435,6 +456,7 @@ actions:
   - action_save_satisfaction_rating
   - action_show_ticket_graph
   - action_show_kb_full_answer
+  - action_show_kb_full_article
 
 forms:
   ticket_form:

@@ -3,6 +3,11 @@ Write-Host "Starting Rasa GLPI Bot Services..." -ForegroundColor Cyan
 $VenvScripts = Join-Path $PSScriptRoot "venv\Scripts"
 $PythonExe = Join-Path $VenvScripts "python.exe"
 
+$LogDir = Join-Path $PSScriptRoot "Log"
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir | Out-Null
+}
+
 if (-not (Test-Path $PythonExe)) {
     Write-Error "Virtual environment not found at $VenvScripts. Please create it first."
     exit 1
