@@ -883,3 +883,67 @@ def get_default_theme() -> Optional[Dict]:
         return None
     finally:
         _release_connection(conn)
+
+
+# =====================
+# KB ARTICLES FUNCTIONS
+# =====================
+
+def add_kb_article(article_id: str, title: str, content: str, category: str = None, keywords: List[str] = None, question: str = None) -> bool:
+    """Add or update a KB article in the database."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        
+        keywords_str = json.dumps(keywords) if keywords else '[]'
+        
+        cursor.execute('''
+            INSERT INTO kb_articles (id, title, content, category, keywords, question, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET
+                title = EXCLUDED.title,
+                content = EXCLUDED.content,
+                category = EXCLUDED.category,
+                keywords = EXCLUDED.keywords,
+                question = EXCLUDED.question,
+                updated_at = EXCLUDED.updated_at
+        ''', (article_id, title, content, category, keywords_str, question, datetime.now()))
+        
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving KB article {article_id}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        _release_connection(conn)
+
+
+def get_all_kb_articles() -> List[Dict]:
+    """Get all KB articles from database."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute('SELECT * FROM kb_articles')
+        articles = []
+        for row in cursor.fetchall():
+            article = dict(row)
+            # Parse keywords JSON
+            if article.get('keywords'):
+                try:
+                    article['keywords'] = json.loads(article['keywords'])
+                except:
+                    article['keywords'] = []
+            else:
+                article['keywords'] = []
+            
+            # Format dates
+            if article.get('created_at'):
+                article['created_at'] = article.get('created_at').isoformat()
+            if article.get('updated_at'):
+                article['updated_at'] = article.get('updated_at').isoformat()
+                
+            articles.append(article)
+        return articles
+    finally:
+        _release_connection(conn)

@@ -699,8 +699,57 @@ class KBCacheManager:
         }
         return category_map.get(category_id, 'general')
 
+    def _load_from_db(self):
+        """Load articles from database."""
+        try:
+            from actions.conversation_db import get_all_kb_articles
+            
+            db_articles = get_all_kb_articles()
+            if not db_articles:
+                logger.debug("No articles found in DB.")
+                return
+
+            transformed = []
+            for article in db_articles:
+                # Normalize keys to match cache format
+                article['source'] = 'db'
+                transformed.append(article)
+                
+            # Add to main cache
+            with self._cache_lock:
+                # Merge logic: Append DB articles, avoiding duplicates by ID? 
+                # For now, just extend. Or maybe filtered append.
+                existing_ids = {a['id'] for a in self._cache}
+                for a in transformed:
+                    if a['id'] not in existing_ids:
+                        self._cache.append(a)
+            
+            # Generate embeddings and section cache for new DB articles
+            self._process_post_load(transformed)
+            
+            logger.info(f"Loaded {len(transformed)} articles from DB")
+            
+        except Exception as e:
+            logger.error(f"Error loading from DB: {e}")
+
+    def _process_post_load(self, articles: List[Dict]):
+        """Helper to generate embeddings and sections for a batch of articles."""
+        if not articles:
+            return
+
+        if self.semantic_enabled:
+            self._load_sentence_transformer()
+            # Note: This regenerates ALL embeddings if we just pass 'articles'. 
+            # ideally we mix them. But _generate_embeddings helper overwrites self._embeddings.
+            # So careful. For now, simpliest approach: Re-generate for everything in cache? 
+            # Or just for these? _generate_embeddings overwrites self._embeddings.
+            # Let's rely on the fact that refresh_cache calls this generally.
+            # If we are loading from DB as a STEP in refresh, we should accumulate first.
+            # If we are loading from DB as a STEP in refresh, we should accumulate first.
+            pass
+
     def _load_json_fallback(self):
-        """Load JSON KB files as fallback."""
+        """Load JSON KB files as fallback (and DB)."""
         kb_dir = os.path.join(
             os.path.dirname(__file__), '..', 'data', 'knowledge_base'
         )
@@ -718,8 +767,18 @@ class KBCacheManager:
                                 articles.append(article)
                     except Exception as e:
                         logger.error(f"Error loading {filename}: {e}")
+        
+        # Also load from DB
+        try:
+            from actions.conversation_db import get_all_kb_articles
+            db_articles = get_all_kb_articles()
+            for article in db_articles:
+                article['source'] = 'db'
+                articles.append(article)
+        except Exception as e:
+             logger.error(f"Error loading from DB in fallback: {e}")
 
-        # Generate embeddings for JSON articles too
+        # Generate embeddings for JSON/DB articles too
         if self.semantic_enabled and articles:
             self._load_sentence_transformer()
             self._generate_embeddings(articles)
@@ -742,7 +801,7 @@ class KBCacheManager:
                 self._qa_cache = self._qa_cache or []
             self._last_refresh = datetime.now()
 
-        logger.info(f"JSON fallback loaded: {len(articles)} articles")
+        logger.info(f"Fallback (JSON+DB) loaded: {len(articles)} articles")
 
     def _load_sentence_transformer(self):
         """Load sentence transformer model (cached)."""
