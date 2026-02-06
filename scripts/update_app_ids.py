@@ -6,7 +6,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from actions.conversation_db import _get_connection, _release_connection
+from common.conversation_db import _get_connection, _release_connection
 
 def update_existing_data():
     """Update existing records with distributed app_id values."""

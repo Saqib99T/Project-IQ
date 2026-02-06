@@ -17,7 +17,7 @@ async def test_retrieval():
     # actions.kb_cache_manager expects data/knowledge_base relative to project root usually
     # or relative to itself. The code uses os.path.dirname(__file__) which is good.
     
-    from actions.kb_cache_manager import KBCacheManager
+    from admin.api.kb_cache_manager import KBCacheManager
     
     kb = KBCacheManager()
     

@@ -17,19 +17,21 @@ if (-not (Test-Path $PythonExe)) {
 Write-Host "Stopping existing rasa/python processes..." -ForegroundColor Yellow
 Get-Process -Name "rasa", "python", "node" -ErrorAction SilentlyContinue | Stop-Process -Force
 
-# 2. Start Action Server
+# 2. Start Action Server (from action_server directory)
 Write-Host "Starting Action Server (Port 5055)..." -ForegroundColor Green
-Start-Process -FilePath $PythonExe -ArgumentList "-m", "rasa", "run", "actions", "--debug" -RedirectStandardOutput "Log/actions.log" -RedirectStandardError "Log/actions.err" -WindowStyle Hidden
+$ActionServerDir = Join-Path $PSScriptRoot "action_server"
+Start-Process -FilePath $PythonExe -ArgumentList "-m", "rasa", "run", "actions", "--debug" -WorkingDirectory $ActionServerDir -RedirectStandardOutput "Log/actions.log" -RedirectStandardError "Log/actions.err" -WindowStyle Hidden
 Start-Sleep -Seconds 5
 
-# 3. Start Rasa Core
+# 3. Start Rasa Core (from core directory)
 Write-Host "Starting Rasa Core (Port 5005)..." -ForegroundColor Green
-Start-Process -FilePath $PythonExe -ArgumentList "-m", "rasa", "run", "--enable-api", "--cors", "*", "--debug" -RedirectStandardOutput "Log/core.log" -RedirectStandardError "Log/core.err" -WindowStyle Hidden
+$CoreDir = Join-Path $PSScriptRoot "core"
+Start-Process -FilePath $PythonExe -ArgumentList "-m", "rasa", "run", "--enable-api", "--cors", "*", "--debug" -WorkingDirectory $CoreDir -RedirectStandardOutput "Log/core.log" -RedirectStandardError "Log/core.err" -WindowStyle Hidden
 Start-Sleep -Seconds 5
 
 # 4. Start Unified Server (Admin API + Static Files on Port 80)
 Write-Host "Starting Unified Server (Port 80)..." -ForegroundColor Green
-Start-Process -FilePath $PythonExe -ArgumentList "-m", "actions.admin_api" -RedirectStandardOutput "Log/admin.log" -RedirectStandardError "Log/admin.err" -WindowStyle Hidden
+Start-Process -FilePath $PythonExe -ArgumentList "-m", "admin.api.admin_api" -RedirectStandardOutput "Log/admin.log" -RedirectStandardError "Log/admin.err" -WindowStyle Hidden
 Start-Sleep -Seconds 2
 
 # 5. Status Check

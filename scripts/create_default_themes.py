@@ -8,7 +8,7 @@ import json
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from actions.conversation_db import create_theme, get_themes
+from common.conversation_db import create_theme, get_themes
 
 # Define 8 distinct themes
 DEFAULT_THEMES = [

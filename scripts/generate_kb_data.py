@@ -7,7 +7,7 @@ import sys
 # Add parent directory to path to import actions
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from actions import conversation_db
+from common import conversation_db
 
 def generate_long_articles():
     categories = ["hardware", "software", "network", "security", "account"]
