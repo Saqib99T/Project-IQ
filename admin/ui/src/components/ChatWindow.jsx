@@ -4,10 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MessageBubble from './MessageBubble';
 import AnimatedChatIcon from './AnimatedChatIcon';
 import { v4 as uuidv4 } from 'uuid';
+import { getCookie, setCookie, deleteCookie } from '../utils/cookieUtils';
 
 const RASA_API_URL = 'http://127.0.0.1:5005/webhooks/rest/webhook';
 
-// localStorage keys with appId prefix for multi-widget support
+// Storage keys with appId prefix for multi-widget support
+// Cookies: auth data (senderId, isAuthenticated, authUser, privacyDismissed)
+// localStorage: large data (messages)
 const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
 
 const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) => {
@@ -49,27 +52,27 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
     }
 
-    // Persist senderId across sessions
+    // Persist senderId across sessions (cookie)
     const [senderId] = useState(() => {
-        const stored = localStorage.getItem(getStorageKey(appId, 'senderId'));
+        const stored = getCookie(getStorageKey(appId, 'senderId'));
         if (stored) return stored;
         const newId = uuidv4();
-        localStorage.setItem(getStorageKey(appId, 'senderId'), newId);
+        setCookie(getStorageKey(appId, 'senderId'), newId);
         return newId;
     });
 
-    // Authentication state - check localStorage for persisted login
+    // Authentication state - check cookies for persisted login
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
-        const stored = localStorage.getItem(getStorageKey(appId, 'isAuthenticated'));
+        const stored = getCookie(getStorageKey(appId, 'isAuthenticated'));
         return stored === 'true';
     });
     const [isGuest, setIsGuest] = useState(() => {
         // Guest if not authenticated
-        const loggedIn = localStorage.getItem(getStorageKey(appId, 'isAuthenticated')) === 'true';
+        const loggedIn = getCookie(getStorageKey(appId, 'isAuthenticated')) === 'true';
         return !loggedIn;
     });
     const [authUser, setAuthUser] = useState(() => {
-        const stored = localStorage.getItem(getStorageKey(appId, 'authUser'));
+        const stored = getCookie(getStorageKey(appId, 'authUser'));
         return stored || '';
     });
     const [loginUsername, setLoginUsername] = useState('');
@@ -92,8 +95,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             }
         }
         // Different welcome for logged-in vs guest users
-        const loggedIn = localStorage.getItem(getStorageKey(appId, 'isAuthenticated')) === 'true';
-        const userName = localStorage.getItem(getStorageKey(appId, 'authUser'));
+        const loggedIn = getCookie(getStorageKey(appId, 'isAuthenticated')) === 'true';
+        const userName = getCookie(getStorageKey(appId, 'authUser'));
         if (loggedIn && userName) {
             return [{ id: 'init', sender: 'bot', text: `Welcome back, ${userName}! How can I help you today?` }];
         }
@@ -102,7 +105,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     });
 
     const [showPrivacyPopup, setShowPrivacyPopup] = useState(() => {
-        const dismissed = localStorage.getItem(getStorageKey(appId, 'privacyDismissed')) === 'true';
+        const dismissed = getCookie(getStorageKey(appId, 'privacyDismissed')) === 'true';
         return isAuthenticated && !dismissed;
     });
 
@@ -199,9 +202,9 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 setIsGuest(false);  // No longer a guest
                 setShowLoginPrompt(false);  // Hide login prompt if shown
                 setAuthUser(loginUsername);
-                localStorage.setItem(getStorageKey(appId, 'isAuthenticated'), 'true');
-                localStorage.setItem(getStorageKey(appId, 'authUser'), loginUsername);
-                localStorage.removeItem(getStorageKey(appId, 'privacyDismissed')); // Reset dismissal on new login
+                setCookie(getStorageKey(appId, 'isAuthenticated'), 'true');
+                setCookie(getStorageKey(appId, 'authUser'), loginUsername);
+                deleteCookie(getStorageKey(appId, 'privacyDismissed')); // Reset dismissal on new login
                 setShowPrivacyPopup(true); // Show privacy popup
 
                 // Add welcome message to chat with buttons
@@ -232,8 +235,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         setIsAuthenticated(false);
         setIsGuest(true);  // Return to guest mode
         setAuthUser('');
-        localStorage.removeItem(getStorageKey(appId, 'isAuthenticated'));
-        localStorage.removeItem(getStorageKey(appId, 'authUser'));
+        deleteCookie(getStorageKey(appId, 'isAuthenticated'));
+        deleteCookie(getStorageKey(appId, 'authUser'));
         localStorage.removeItem(getStorageKey(appId, 'messages'));
         setMessages([{ id: 'init', sender: 'bot', text: `You've been logged out. Continuing as guest.\n\n📚 You can still search the Knowledge Base and ask questions!\n🔑 Login anytime for full ticket features.` }]);
     };
@@ -688,15 +691,15 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                         <LogOut size={15} />
                                     </button>
                                 )}
-                                {/* Clear History - clears localStorage and resets */}
+                                {/* Clear History - clears messages and resets senderId */}
                                 {isAuthenticated && (
                                     <button
                                         onClick={() => {
                                             localStorage.removeItem(getStorageKey(appId, 'messages'));
-                                            localStorage.removeItem(getStorageKey(appId, 'senderId'));
+                                            deleteCookie(getStorageKey(appId, 'senderId'));
                                             // Generate new senderId for fresh start
                                             const newId = uuidv4();
-                                            localStorage.setItem(getStorageKey(appId, 'senderId'), newId);
+                                            setCookie(getStorageKey(appId, 'senderId'), newId);
                                             setMessages([{ id: 'init', sender: 'bot', text: `Hello! Welcome to ${title}. How can I help you?` }]);
                                         }}
                                         className="p-1.5 hover:bg-white/10 rounded transition-colors"
@@ -1090,7 +1093,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                             <button
                                                 onClick={() => {
                                                     setShowPrivacyPopup(false);
-                                                    localStorage.setItem(getStorageKey(appId, 'privacyDismissed'), 'true');
+                                                    setCookie(getStorageKey(appId, 'privacyDismissed'), 'true');
                                                 }}
                                                 className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-black/5 transition-colors"
                                                 title="Dismiss"

@@ -12,21 +12,21 @@ const AdminAuth = {
      * Check if user is authenticated
      */
     isAuthenticated() {
-        return !!sessionStorage.getItem(this.SESSION_KEY);
+        return !!CookieUtils.get(this.SESSION_KEY);
     },
 
     /**
      * Get stored session token
      */
     getSessionToken() {
-        return sessionStorage.getItem(this.SESSION_KEY);
+        return CookieUtils.get(this.SESSION_KEY);
     },
 
     /**
      * Get stored user info
      */
     getUser() {
-        const userStr = sessionStorage.getItem(this.USER_KEY);
+        const userStr = CookieUtils.get(this.USER_KEY);
         return userStr ? JSON.parse(userStr) : null;
     },
 
@@ -44,8 +44,8 @@ const AdminAuth = {
             const data = await response.json();
 
             if (data.success) {
-                sessionStorage.setItem(this.SESSION_KEY, data.session_token);
-                sessionStorage.setItem(this.USER_KEY, JSON.stringify(data.user));
+                CookieUtils.set(this.SESSION_KEY, data.session_token, { session: true });
+                CookieUtils.set(this.USER_KEY, JSON.stringify(data.user), { session: true });
                 return { success: true, user: data.user };
             } else {
                 return { success: false, error: data.error || 'Authentication failed' };
@@ -65,7 +65,7 @@ const AdminAuth = {
             if (token) {
                 await fetch(`${this.API_BASE}/logout`, {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         'Content-Type': 'application/json',
                         'X-Session-Token': token
                     },
@@ -75,8 +75,8 @@ const AdminAuth = {
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
-            sessionStorage.removeItem(this.SESSION_KEY);
-            sessionStorage.removeItem(this.USER_KEY);
+            CookieUtils.delete(this.SESSION_KEY);
+            CookieUtils.delete(this.USER_KEY);
             this.showLoginOverlay();
         }
     },
@@ -93,7 +93,7 @@ const AdminAuth = {
         try {
             const response = await fetch(`${this.API_BASE}/verify`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'X-Session-Token': token
                 },
@@ -102,7 +102,7 @@ const AdminAuth = {
 
             const data = await response.json();
             if (data.valid) {
-                sessionStorage.setItem(this.USER_KEY, JSON.stringify(data.user));
+                CookieUtils.set(this.USER_KEY, JSON.stringify(data.user), { session: true });
                 return true;
             }
         } catch (error) {
@@ -110,8 +110,8 @@ const AdminAuth = {
         }
 
         // Session invalid - clear and show login
-        sessionStorage.removeItem(this.SESSION_KEY);
-        sessionStorage.removeItem(this.USER_KEY);
+        CookieUtils.delete(this.SESSION_KEY);
+        CookieUtils.delete(this.USER_KEY);
         return false;
     },
 
@@ -133,7 +133,7 @@ const AdminAuth = {
         const content = document.getElementById('main-content');
         if (overlay) overlay.classList.add('hidden');
         if (content) content.classList.remove('hidden');
-        
+
         // Update user display
         const user = this.getUser();
         const userDisplay = document.getElementById('user-display');
@@ -158,23 +158,23 @@ const AdminAuth = {
 // Login form handler
 function handleLoginSubmit(event) {
     event.preventDefault();
-    
+
     const username = document.getElementById('admin-username').value;
     const password = document.getElementById('admin-password').value;
     const errorDiv = document.getElementById('login-error');
     const submitBtn = document.getElementById('login-submit');
-    
+
     if (!username || !password) {
         errorDiv.textContent = 'Please enter both username and password';
         errorDiv.classList.remove('hidden');
         return;
     }
-    
+
     // Show loading state
     submitBtn.disabled = true;
     submitBtn.textContent = 'Signing in...';
     errorDiv.classList.add('hidden');
-    
+
     AdminAuth.login(username, password).then(result => {
         if (result.success) {
             AdminAuth.hideLoginOverlay();

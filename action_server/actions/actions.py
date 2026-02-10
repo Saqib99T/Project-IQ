@@ -1259,6 +1259,19 @@ class ActionSearchKnowledgeBase(Action):
         # Import KB cache manager (will auto-initialize and start refresh)
         from admin.api.kb_cache_manager import kb_cache
         self.kb_cache = kb_cache
+        
+        # Import vector search for semantic similarity
+        try:
+            from common.vector_search import search_single, ensure_loaded
+            self.vector_search = search_single
+            ensure_loaded()
+            self.use_vector_search = True
+            logger.info("ActionSearchKnowledgeBase initialized with VECTOR search")
+        except Exception as e:
+            logger.warning(f"Vector search not available: {e}. Falling back to keyword search.")
+            self.vector_search = None
+            self.use_vector_search = False
+        
         logger.info("ActionSearchKnowledgeBase initialized with KB cache manager")
 
     def _normalize_text(self, text: str) -> str:
@@ -1460,6 +1473,34 @@ class ActionSearchKnowledgeBase(Action):
                 SlotSet("kb_target_article_id", None),
             ]
 
+
+        # ===== VECTOR SEARCH (Primary - returns focused single chunk) =====
+        if self.use_vector_search and self.vector_search:
+            try:
+                vector_result = self.vector_search(user_message)
+                if vector_result and vector_result.get('similarity', 0) >= 0.35:
+                    chunk_content = vector_result.get('content', '')
+                    chunk_title = vector_result.get('title', 'Knowledge Base')
+                    similarity = vector_result.get('similarity', 0)
+                    
+                    logger.info(f"VECTOR search hit: '{chunk_title[:50]}' score={similarity:.3f}")
+                    
+                    # Format focused response (single chunk, ~150 words)
+                    response = f"**{chunk_title}**\n\n{chunk_content}"
+                    
+                    dispatcher.utter_message(text=response)
+                    return [
+                        SlotSet("kb_last_article_title", chunk_title),
+                        SlotSet("kb_last_article_content", chunk_content),
+                        SlotSet("kb_last_source", "vector_search"),
+                        SlotSet("kb_clarify_options", None),
+                    ]
+                else:
+                    logger.info(f"Vector search score too low ({vector_result.get('similarity', 0) if vector_result else 0:.3f}), trying keyword search...")
+            except Exception as e:
+                logger.warning(f"Vector search failed: {e}, falling back to keyword search")
+        
+        # ===== KEYWORD SEARCH FALLBACK =====
         # Search knowledge base using hybrid semantic + keyword search (article first)
         results = self.kb_cache.search_articles(user_message, app_id)
         section_results = []
