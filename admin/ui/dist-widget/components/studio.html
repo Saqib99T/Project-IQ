@@ -1,237 +1,141 @@
-<div class="mb-6">
-    <div class="flex justify-between items-center">
+<!-- IQ Studio-like Component -->
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
         <div>
-            <h2 class="text-2xl font-bold text-gray-800">🎨 Rasa Studio</h2>
-            <p class="text-gray-500 mt-1">No-code interface for managing training data, conversation flows, and model
-                training</p>
-        </div>
-        <div class="flex gap-2">
-            <button onclick="refreshStudioData()" class="btn-secondary flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Studio Tabs -->
-<div class="border-b border-gray-200 mb-6">
-    <nav class="flex gap-4">
-        <button onclick="showStudioTab('nlu')"
-            class="studio-tab px-4 py-2 font-medium border-b-2 border-purple-600 text-purple-600" data-tab="nlu">
-            📝 NLU Training Data
-        </button>
-        <button onclick="showStudioTab('flows')"
-            class="studio-tab px-4 py-2 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700"
-            data-tab="flows">
-            🔀 Stories & Rules
-        </button>
-        <button onclick="showStudioTab('responses')"
-            class="studio-tab px-4 py-2 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700"
-            data-tab="responses">
-            💬 Responses
-        </button>
-        <button onclick="showStudioTab('training')"
-            class="studio-tab px-4 py-2 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700"
-            data-tab="training">
-            🚀 Training
-        </button>
-    </nav>
-</div>
-
-<!-- Tab: NLU Training Data -->
-<div id="studio-tab-nlu" class="studio-tab-content">
-    <div class="grid grid-cols-3 gap-6">
-        <!-- Intent List -->
-        <div class="card p-4">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-semibold text-gray-800">Intents</h3>
-                <span id="nlu-intent-count"
-                    class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">0</span>
-            </div>
-            <input type="text" id="nlu-intent-search" placeholder="Search intents..."
-                class="w-full px-3 py-2 text-sm border rounded-lg mb-3" onkeyup="filterNLUIntents(this.value)">
-            <div id="nlu-intent-list" class="space-y-1 max-h-96 overflow-y-auto">
-                <div class="text-gray-400 text-sm">Loading...</div>
-            </div>
-        </div>
-
-        <!-- Examples Editor -->
-        <div class="col-span-2 card p-4">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-semibold text-gray-800">
-                    Examples: <span id="nlu-selected-intent" class="text-purple-600">Select an intent</span>
-                    <span id="nlu-example-count"
-                        class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full ml-2">0</span>
-                </h3>
-                <button onclick="showAddExampleModal()" id="btn-add-example" class="btn-primary text-sm" disabled>
-                    + Add Example
-                </button>
-            </div>
-
-            <div id="nlu-examples-container" class="space-y-2 max-h-96 overflow-y-auto">
-                <div class="text-gray-400 text-sm text-center py-8">Select an intent to view and edit examples</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Tab: Stories & Rules -->
-<div id="studio-tab-flows" class="studio-tab-content hidden">
-    <div class="grid grid-cols-2 gap-6">
-        <!-- Stories List -->
-        <div class="card p-4">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-semibold text-gray-800 flex items-center gap-2">
-                    <span class="text-blue-600">📖</span> Stories
-                    <span id="flow-story-count"
-                        class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">0</span>
-                </h3>
-            </div>
-            <div id="flow-stories-list" class="space-y-2 max-h-80 overflow-y-auto">
-                <div class="text-gray-400 text-sm">Loading...</div>
-            </div>
-        </div>
-
-        <!-- Rules List -->
-        <div class="card p-4">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-semibold text-gray-800 flex items-center gap-2">
-                    <span class="text-purple-600">📋</span> Rules
-                    <span id="flow-rule-count"
-                        class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">0</span>
-                </h3>
-            </div>
-            <div id="flow-rules-list" class="space-y-2 max-h-80 overflow-y-auto">
-                <div class="text-gray-400 text-sm">Loading...</div>
-            </div>
+            <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <span class="text-3xl">🎨</span> Studio
+            </h2>
+            <p class="text-gray-500 mt-1">Visual conversation design, testing, and content management</p>
         </div>
     </div>
 
-    <!-- Flow Visualizer -->
-    <div class="card p-4 mt-6">
-        <h3 class="font-semibold text-gray-800 mb-4">
-            Flow Visualizer: <span id="flow-selected-name" class="text-purple-600">Select a story or rule</span>
-        </h3>
-        <div id="flow-visualizer" class="flex flex-wrap gap-4 items-center min-h-32 p-4 bg-gray-50 rounded-lg">
-            <div class="text-gray-400 text-center w-full">Click a story or rule to visualize its flow</div>
-        </div>
-    </div>
-</div>
-
-<!-- Tab: Responses -->
-<div id="studio-tab-responses" class="studio-tab-content hidden">
-    <div class="card p-4">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="font-semibold text-gray-800">Response Templates</h3>
-            <span id="response-count" class="text-xs bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full">0</span>
-        </div>
-        <input type="text" id="response-search" placeholder="Search responses..."
-            class="w-full px-3 py-2 text-sm border rounded-lg mb-4" onkeyup="filterResponses(this.value)">
-        <div id="responses-container" class="grid grid-cols-2 gap-4 max-h-[500px] overflow-y-auto">
-            <div class="text-gray-400 text-sm">Loading...</div>
-        </div>
-    </div>
-</div>
-
-<!-- Tab: Training -->
-<div id="studio-tab-training" class="studio-tab-content hidden">
-    <div class="grid grid-cols-2 gap-6">
-        <!-- Training Panel -->
-        <div class="card p-6">
-            <h3 class="font-semibold text-gray-800 mb-4">🚀 Train New Model</h3>
-
-            <div class="card p-4 bg-gray-50 mb-4">
-                <div class="text-sm text-gray-600 mb-2">Current Status</div>
-                <div id="training-status" class="text-lg font-medium text-green-600">Ready</div>
-            </div>
-
-            <div id="training-progress-container" class="hidden mb-4">
-                <div class="flex justify-between text-sm text-gray-600 mb-1">
-                    <span>Training Progress</span>
-                    <span id="training-progress-text">0%</span>
+    <!-- Main Layout - Split View -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left Panel - Chat Testing -->
+        <div class="card p-0 overflow-hidden flex flex-col" style="height: 600px;">
+            <!-- Chat Header -->
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 text-white">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">💬</span>
+                        <span class="font-semibold">Live Test Console</span>
+                    </div>
+                    <button onclick="clearTestChat()" class="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30">
+                        Clear Chat
+                    </button>
                 </div>
-                <div class="bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div id="training-progress-bar"
-                        class="bg-gradient-to-r from-purple-500 to-blue-500 h-full transition-all duration-500"
-                        style="width: 0%"></div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div id="studio-chat-messages" class="flex-1 p-4 overflow-y-auto bg-gray-50 space-y-3">
+                <div class="flex justify-start">
+                    <div
+                        class="bg-white border border-gray-200 px-4 py-2 rounded-lg rounded-bl-none max-w-xs shadow-sm">
+                        <p class="text-sm text-gray-700">👋 Hello! Type a message to test your bot.</p>
+                    </div>
                 </div>
-                <div id="training-output"
-                    class="mt-2 text-xs text-gray-500 max-h-20 overflow-y-auto font-mono bg-gray-100 p-2 rounded"></div>
             </div>
 
-            <button onclick="startTraining()" id="btn-train"
-                class="btn-primary w-full flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Start Training
-            </button>
-
-            <div class="mt-4 text-xs text-gray-500">
-                <p>⚠️ Training may take 5-15 minutes depending on data size.</p>
-                <p class="mt-1">💡 The model will be automatically saved to /models/</p>
+            <!-- Chat Input -->
+            <div class="border-t border-gray-200 bg-white p-3">
+                <div class="flex gap-2">
+                    <input type="text" id="studio-chat-input" placeholder="Type your test message..."
+                        class="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                        onkeypress="if(event.key==='Enter')sendStudioTestMessage()">
+                    <button onclick="sendStudioTestMessage()"
+                        class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:opacity-90 transition-opacity font-medium">
+                        Send
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- Models List -->
-        <div class="card p-6">
-            <h3 class="font-semibold text-gray-800 mb-4">📦 Available Models</h3>
-            <div id="models-list" class="space-y-2 max-h-80 overflow-y-auto">
-                <div class="text-gray-400 text-sm">Loading...</div>
+        <!-- Right Panel - NLU Analysis -->
+        <div class="space-y-4" style="height: 600px; overflow-y: auto;">
+            <!-- Last Message Analysis -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="text-xl">🎯</span> Intent Classification
+                </h3>
+                <div id="studio-intent-result" class="space-y-3">
+                    <div class="text-gray-400 text-sm text-center py-4">
+                        Send a message to see intent analysis
+                    </div>
+                </div>
+            </div>
+
+            <!-- Entity Extraction -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="text-xl">🏷️</span> Entity Extraction
+                </h3>
+                <div id="studio-entity-result" class="space-y-2">
+                    <div class="text-gray-400 text-sm text-center py-4">
+                        Entities will appear here
+                    </div>
+                </div>
+            </div>
+
+            <!-- Response Preview -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="text-xl">💬</span> Bot Response
+                </h3>
+                <div id="studio-response-preview" class="space-y-2">
+                    <div class="text-gray-400 text-sm text-center py-4">
+                        Bot responses will appear here
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Data Summary -->
-    <div class="card p-4 mt-6">
-        <h3 class="font-semibold text-gray-800 mb-4">📊 Training Data Summary</h3>
-        <div class="grid grid-cols-4 gap-4">
-            <div class="text-center p-4 bg-green-50 rounded-lg">
-                <div id="summary-intents" class="text-2xl font-bold text-green-600">—</div>
-                <div class="text-sm text-gray-600">Intents</div>
+    <!-- Bottom Section - Flows & Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Stories/Rules List -->
+        <div class="card p-5">
+            <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="text-xl">📖</span> Conversation Flows
+                <span id="flow-count" class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded ml-auto">0</span>
+            </h3>
+            <div id="studio-flow-list" class="space-y-2 max-h-64 overflow-y-auto">
+                <div class="text-gray-400 text-sm">Loading flows...</div>
             </div>
-            <div class="text-center p-4 bg-blue-50 rounded-lg">
-                <div id="summary-examples" class="text-2xl font-bold text-blue-600">—</div>
-                <div class="text-sm text-gray-600">NLU Examples</div>
+        </div>
+
+        <!-- Flow Diagram -->
+        <div class="lg:col-span-2 card p-5">
+            <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="text-xl">🔀</span> Flow Diagram
+            </h3>
+            <div id="studio-flow-diagram" class="bg-gray-50 rounded-lg p-4 min-h-64 overflow-auto">
+                <div class="text-gray-400 text-sm text-center py-8">
+                    Click a flow to visualize its steps
+                </div>
             </div>
-            <div class="text-center p-4 bg-purple-50 rounded-lg">
-                <div id="summary-stories" class="text-2xl font-bold text-purple-600">—</div>
-                <div class="text-sm text-gray-600">Stories</div>
-            </div>
-            <div class="text-center p-4 bg-orange-50 rounded-lg">
-                <div id="summary-rules" class="text-2xl font-bold text-orange-600">—</div>
-                <div class="text-sm text-gray-600">Rules</div>
-            </div>
+        </div>
+    </div>
+
+    <!-- Response Templates -->
+    <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-gray-800 flex items-center gap-2">
+                <span class="text-xl">📝</span> Response Templates
+                <span id="response-count" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">0</span>
+            </h3>
+            <input type="text" id="studio-response-search" placeholder="Search responses..."
+                class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 w-64" onkeyup="filterStudioResponses()">
+        </div>
+        <div id="studio-response-list"
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto">
+            <div class="text-gray-400 text-sm">Loading responses...</div>
         </div>
     </div>
 </div>
 
-<!-- Add Example Modal -->
-<div id="add-example-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50"
-    onclick="hideAddExampleModal(event)">
-    <div class="bg-white rounded-lg p-6 w-96 max-w-full" onclick="event.stopPropagation()">
-        <h3 class="font-semibold text-lg mb-4">Add Training Example</h3>
-        <div class="space-y-4">
-            <div>
-                <label class="block text-sm text-gray-600 mb-1">Intent:</label>
-                <input type="text" id="modal-intent" class="w-full px-3 py-2 border rounded-lg" readonly>
-            </div>
-            <div>
-                <label class="block text-sm text-gray-600 mb-1">Example Text:</label>
-                <textarea id="modal-example-text" rows="3" class="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Enter a training example..."></textarea>
-                <p class="text-xs text-gray-500 mt-1">Use [value](entity) format for entities, e.g., "I have a
-                    [laptop](device) problem"</p>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="hideAddExampleModal()" class="btn-secondary flex-1">Cancel</button>
-                <button onclick="saveNewExample()" class="btn-primary flex-1">Add Example</button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Mermaid.js for flow diagrams -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+</script>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KB Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-box {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+        }
+        .test-box.fail {
+            border-left-color: #f44336;
+        }
+        .status {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        h1 { color: #333; }
+        .code {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .warn {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Knowledge Base Integration Test</h1>
+
+    <div class="test-box">
+        <span class="status">📄</span>
+        <strong>Test Page Version:</strong> v1.0 (January 25, 2026 23:30)
+        <div class="code">
+            If you see this page, the Admin API is serving updated files correctly.
+        </div>
+    </div>
+
+    <div class="test-box" id="admin-html-test">
+        <span class="status">⏳</span>
+        <strong>Checking admin.html for KB section...</strong>
+    </div>
+
+    <div class="test-box" id="component-test">
+        <span class="status">⏳</span>
+        <strong>Checking knowledge_base.html component...</strong>
+    </div>
+
+    <div class="test-box" id="js-test">
+        <span class="status">⏳</span>
+        <strong>Checking admin-knowledge-base.js script...</strong>
+    </div>
+
+    <div class="test-box" id="api-test">
+        <span class="status">⏳</span>
+        <strong>Checking KB API endpoints...</strong>
+    </div>
+
+    <div class="test-box warn">
+        <h3>If tests fail:</h3>
+        <button onclick="clearCache()">1. Clear Browser Cache</button>
+        <button onclick="hardRefresh()">2. Hard Refresh (Ctrl+F5)</button>
+        <button onclick="goToAdmin()">3. Go to Admin Panel</button>
+    </div>
+
+    <script>
+        async function checkAdminHTML() {
+            const box = document.getElementById('admin-html-test');
+            try {
+                const response = await fetch('/admin.html');
+                const html = await response.text();
+
+                if (html.includes('knowledge-base')) {
+                    box.innerHTML = '<span class="status">✅</span><strong>admin.html contains KB section</strong><div class="code">Found: knowledge-base navigation, section, and script</div>';
+                } else {
+                    box.classList.add('fail');
+                    box.innerHTML = '<span class="status">❌</span><strong>admin.html missing KB section</strong><div class="code">KB section not found - browser may be caching old version</div>';
+                }
+            } catch (e) {
+                box.classList.add('fail');
+                box.innerHTML = '<span class="status">❌</span><strong>Error loading admin.html: ' + e.message + '</strong>';
+            }
+        }
+
+        async function checkComponent() {
+            const box = document.getElementById('component-test');
+            try {
+                const response = await fetch('/components/knowledge_base.html');
+
+                if (response.ok) {
+                    const html = await response.text();
+                    const sizeKB = (html.length / 1024).toFixed(1);
+                    box.innerHTML = '<span class="status">✅</span><strong>knowledge_base.html exists (' + sizeKB + ' KB)</strong><div class="code">Component HTML loaded successfully</div>';
+                } else {
+                    box.classList.add('fail');
+                    box.innerHTML = '<span class="status">❌</span><strong>knowledge_base.html not found (404)</strong>';
+                }
+            } catch (e) {
+                box.classList.add('fail');
+                box.innerHTML = '<span class="status">❌</span><strong>Error: ' + e.message + '</strong>';
+            }
+        }
+
+        async function checkJS() {
+            const box = document.getElementById('js-test');
+            try {
+                const response = await fetch('/js/admin-knowledge-base.js');
+
+                if (response.ok) {
+                    const js = await response.text();
+                    const sizeKB = (js.length / 1024).toFixed(1);
+                    const hasLoadFunction = js.includes('loadKnowledgeBase');
+
+                    if (hasLoadFunction) {
+                        box.innerHTML = '<span class="status">✅</span><strong>admin-knowledge-base.js exists (' + sizeKB + ' KB)</strong><div class="code">Contains loadKnowledgeBase() function</div>';
+                    } else {
+                        box.classList.add('fail');
+                        box.innerHTML = '<span class="status">⚠️</span><strong>JavaScript file incomplete</strong>';
+                    }
+                } else {
+                    box.classList.add('fail');
+                    box.innerHTML = '<span class="status">❌</span><strong>admin-knowledge-base.js not found (404)</strong>';
+                }
+            } catch (e) {
+                box.classList.add('fail');
+                box.innerHTML = '<span class="status">❌</span><strong>Error: ' + e.message + '</strong>';
+            }
+        }
+
+        async function checkAPI() {
+            const box = document.getElementById('api-test');
+            try {
+                const response = await fetch('/api/admin/kb/status');
+                const data = await response.json();
+
+                if (data.success) {
+                    const count = data.status.article_count || 0;
+                    const source = data.status.source || 'unknown';
+                    box.innerHTML = '<span class="status">✅</span><strong>KB API Working!</strong><div class="code">Articles: ' + count + '<br>Source: ' + source + '</div>';
+                } else {
+                    box.classList.add('fail');
+                    box.innerHTML = '<span class="status">⚠️</span><strong>API returned error: ' + data.error + '</strong>';
+                }
+            } catch (e) {
+                box.classList.add('fail');
+                box.innerHTML = '<span class="status">❌</span><strong>API Error: ' + e.message + '</strong><div class="code">Action Server may not have KB cache loaded yet</div>';
+            }
+        }
+
+        function clearCache() {
+            alert('Press Ctrl+Shift+Delete to open browser cache settings.\n\nThen:\n1. Select "Cached images and files"\n2. Click "Clear data"\n3. Refresh this page');
+        }
+
+        function hardRefresh() {
+            alert('Press Ctrl+F5 (or Cmd+Shift+R on Mac) to force refresh.\n\nThis will reload all files from server.');
+            window.location.reload(true);
+        }
+
+        function goToAdmin() {
+            window.location.href = '/admin.html';
+        }
+
+        // Run tests on load
+        window.onload = async () => {
+            await checkAdminHTML();
+            await checkComponent();
+            await checkJS();
+            await checkAPI();
+        };
+    </script>
+</body>
+</html>

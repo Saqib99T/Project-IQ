@@ -202,6 +202,19 @@ def _init_database():
                     app
                 )
         
+        # KB Data Sources table - tracks Firecrawl URL ingestions and Airbyte connector syncs
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS kb_data_sources (
+                id SERIAL PRIMARY KEY,
+                source_type VARCHAR(50),
+                source_config TEXT,
+                last_sync TIMESTAMP,
+                articles_count INT DEFAULT 0,
+                status VARCHAR(20) DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         conn.commit()
     finally:
         _release_connection(conn)

@@ -90,96 +90,21 @@
     </div>
 </div>
 
-<!-- Recent Conversations with Advanced Filters -->
+<!-- Recent Conversations -->
 <div class="card p-6">
-    <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-800">Chat History</h3>
-        <span id="conv-count" class="text-sm text-gray-500">0 conversations</span>
-    </div>
-
-    <!-- Filter Bar -->
-    <div class="mb-4 p-4 bg-gray-50 rounded-lg">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <!-- User Search -->
-            <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Search User</label>
-                <input type="text" id="conv-filter-user" placeholder="Name or ID..."
-                    class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    onkeyup="debounceConvFilter()">
-            </div>
-
-            <!-- App Filter -->
-            <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">App</label>
-                <select id="conv-filter-app" class="w-full px-3 py-2 text-sm border rounded-lg"
-                    onchange="applyConvFilters()">
-                    <option value="all">All Apps</option>
-                </select>
-            </div>
-
-            <!-- Ticket Status Filter -->
-            <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Ticket Status</label>
-                <select id="conv-filter-ticket" class="w-full px-3 py-2 text-sm border rounded-lg"
-                    onchange="applyConvFilters()">
-                    <option value="all">All Chats</option>
-                    <option value="created">🎫 Ticket Created</option>
-                    <option value="updated">✏️ Ticket Updated</option>
-                    <option value="pending">⏳ Pending</option>
-                    <option value="resolved">✅ Resolved</option>
-                    <option value="closed">🔒 Closed</option>
-                    <option value="none">💬 No Ticket</option>
-                </select>
-            </div>
-
-            <!-- Date Filter - Simple Dropdown -->
-            <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Time Period</label>
-                <select id="conv-filter-date" class="w-full px-3 py-2 text-sm border rounded-lg"
-                    onchange="applyConvFilters()">
-                    <option value="all">All Time</option>
-                    <option value="24h">Last 24 Hours</option>
-                    <option value="7d">Last 7 Days</option>
-                    <option value="30d">Last 30 Days</option>
-                    <option value="90d">Last 90 Days</option>
-                </select>
-            </div>
-
-            <!-- Clear Filters -->
-            <div class="flex items-end">
-                <button onclick="clearConvFilters()"
-                    class="w-full px-3 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                    Clear Filters
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Conversations Table -->
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Recent Conversations</h3>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="text-left text-gray-500 border-b">
-                    <th class="pb-3 pr-2">User</th>
-                    <th class="pb-3 pr-2">App</th>
-                    <th class="pb-3 pr-2">Messages</th>
-                    <th class="pb-3 pr-2">Ticket</th>
-                    <th class="pb-3 pr-2">Intents</th>
-                    <th class="pb-3 pr-2">Feedback</th>
-                    <th class="pb-3 pr-2">Last Activity</th>
-                    <th class="pb-3">Actions</th>
+                    <th class="pb-3">User</th>
+                    <th class="pb-3">App</th>
+                    <th class="pb-3">Messages</th>
+                    <th class="pb-3">Intents</th>
+                    <th class="pb-3">Feedback</th>
                 </tr>
             </thead>
             <tbody id="conversations-table"></tbody>
         </table>
-    </div>
-
-    <!-- No Results Message -->
-    <div id="conv-no-results" class="hidden text-center py-8 text-gray-400">
-        <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <p>No conversations match your filters</p>
     </div>
 </div>

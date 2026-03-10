@@ -105,8 +105,8 @@ async function loadMetrics(t) {
             // Update service cards with per-service metrics
             const services = metrics.services || {};
 
-            // Service 1: Rasa Core
-            const rasaMetrics = services.rasa || {cpu: 0, memory: 0};
+            // Service 1: IQ Core
+            const rasaMetrics = services.rasa || { cpu: 0, memory: 0 };
             const cpuEl1 = document.getElementById('service-cpu');
             const memEl1 = document.getElementById('service-memory');
             const diskEl1 = document.getElementById('service-disk');
@@ -115,7 +115,7 @@ async function loadMetrics(t) {
             if (diskEl1) diskEl1.textContent = 'N/A';  // Disk is system-wide, not per-service
 
             // Service 2: Action Server
-            const actionsMetrics = services.actions || {cpu: 0, memory: 0};
+            const actionsMetrics = services.actions || { cpu: 0, memory: 0 };
             const cpuEl2 = document.getElementById('service-cpu-2');
             const memEl2 = document.getElementById('service-memory-2');
             const diskEl2 = document.getElementById('service-disk-2');
@@ -124,7 +124,7 @@ async function loadMetrics(t) {
             if (diskEl2) diskEl2.textContent = 'N/A';  // Disk is system-wide, not per-service
 
             // Service 3: Database
-            const dbMetrics = services.database || {cpu: 0, memory: 0};
+            const dbMetrics = services.database || { cpu: 0, memory: 0 };
             const cpuEl3 = document.getElementById('service-cpu-3');
             const memEl3 = document.getElementById('service-memory-3');
             const diskEl3 = document.getElementById('service-disk-3');
@@ -133,7 +133,7 @@ async function loadMetrics(t) {
             if (diskEl3) diskEl3.textContent = 'N/A';  // Disk is system-wide, not per-service
 
             // Service 4: Admin API
-            const adminMetrics = services.admin || {cpu: 0, memory: 0};
+            const adminMetrics = services.admin || { cpu: 0, memory: 0 };
             const cpuEl4 = document.getElementById('service-cpu-4');
             const memEl4 = document.getElementById('service-memory-4');
             const diskEl4 = document.getElementById('service-disk-4');

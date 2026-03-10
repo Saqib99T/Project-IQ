@@ -98,10 +98,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         const loggedIn = getCookie(getStorageKey(appId, 'isAuthenticated')) === 'true';
         const userName = getCookie(getStorageKey(appId, 'authUser'));
         if (loggedIn && userName) {
-            return [{ id: 'init', sender: 'bot', text: `Welcome back, ${userName}! How can I help you today?` }];
+            return [{ id: 'init', sender: 'bot', text: `**Hi ${userName}!**\n\nWelcome back. How can I help you today?` }];
         }
         // Guest welcome message
-        return [{ id: 'init', sender: 'bot', text: `👋 Hello! Welcome to ${title}!\n\nI can help you with:\n📚 **Knowledge Base** - Search for solutions\n❓ **General Questions** - Ask me anything\n\n🔐 **Login** for full features like creating and viewing tickets.` }];
+        return [{ id: 'init', sender: 'bot', text: `**Hi, I'm ${title}** 👋\n\nI'm here to help you with:\n\n*   **Finding answers** in our knowledge base\n*   **Answering** general IT questions\n*   **Managing** your support tickets\n\n*Log in to unlock full ticket management features.*` }];
     });
 
     const [showPrivacyPopup, setShowPrivacyPopup] = useState(() => {
@@ -599,12 +599,12 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 const fallbackMessage = {
                     id: uuidv4(),
                     sender: 'bot',
-                    text: "I'm not sure I understand. Here's what I can help you with:",
+                    text: "I'm not sure I understand. Here are some things I can help with:",
                     buttons: [
-                        { title: "📋 List my tickets", payload: "/list_tickets" },
-                        { title: "🎫 Create a ticket", payload: "/create_ticket" },
-                        { title: "🔍 Check ticket status", payload: "/check_status" },
-                        { title: "❓ Help", payload: "/help" }
+                        { title: "List my tickets", payload: "/list_tickets" },
+                        { title: "Create a ticket", payload: "/create_ticket" },
+                        { title: "Check ticket status", payload: "/check_status" },
+                        { title: "Help", payload: "/help" }
                     ]
                 };
 
@@ -654,9 +654,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                     >
                         {/* Header */}
                         <div
-                            className="p-4 flex items-center justify-between text-white shadow-md"
+                            className="p-4 flex items-center justify-between shadow-sm border-b border-gray-100"
                             style={{
-                                background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                                backgroundColor: bgColor,
+                                color: textColor,
                                 fontSize: `${headerFontSize}px`
                             }}
                         >
@@ -675,7 +676,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                 {isGuest && (
                                     <button
                                         onClick={() => setShowLoginPrompt(true)}
-                                        className="px-2 py-1 text-xs bg-white/20 hover:bg-white/30 rounded transition-colors flex items-center gap-1"
+                                        className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors flex items-center gap-1"
                                         title="Login"
                                     >
                                         🔑 Login
@@ -685,7 +686,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                 {isAuthenticated && !isGuest && (
                                     <button
                                         onClick={handleLogout}
-                                        className="p-1.5 hover:bg-white/10 rounded transition-colors"
+                                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600"
                                         title="Logout"
                                     >
                                         <LogOut size={15} />
@@ -702,14 +703,14 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                             setCookie(getStorageKey(appId, 'senderId'), newId);
                                             setMessages([{ id: 'init', sender: 'bot', text: `Hello! Welcome to ${title}. How can I help you?` }]);
                                         }}
-                                        className="p-1.5 hover:bg-white/10 rounded transition-colors"
+                                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600"
                                         title="Clear chat history"
                                     >
                                         <Trash2 size={15} />
                                     </button>
                                 )}
                                 {/* Minimize */}
-                                <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-white/10 rounded transition-colors" title="Minimize">
+                                <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600" title="Minimize">
                                     <Minimize2 size={15} />
                                 </button>
                             </div>
@@ -1020,19 +1021,19 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                 </div>
 
                                 {/* Quick Actions - Fixed Buttons */}
-                                <div className="px-4 py-2 bg-gray-50/80 backdrop-blur-sm border-t border-gray-100 overflow-x-auto flex gap-2 no-scrollbar">
+                                <div className="px-4 py-2 bg-transparent overflow-x-auto flex gap-2 no-scrollbar border-t border-gray-50">
                                     {[
-                                        { label: '🎫 Create Ticket', payload: '/create_ticket' },
-                                        { label: '📋 List Tickets', payload: '/list_tickets' },
-                                        { label: '🔍 Check Status', payload: '/check_status' },
-                                        { label: '❓ Help', payload: '/help' }
+                                        { label: 'Create Ticket', payload: '/create_ticket' },
+                                        { label: 'List Tickets', payload: '/list_tickets' },
+                                        { label: 'Check Status', payload: '/check_status' },
+                                        { label: 'Help', payload: '/help' }
                                     ].map((action, idx) => (
                                         <button
                                             key={idx}
                                             onClick={() => handleButtonClick(action.payload)}
-                                            className="flex-shrink-0 px-3 py-1.5 bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-600 text-gray-600 text-xs rounded-full transition-all shadow-sm whitespace-nowrap"
+                                            className="flex-shrink-0 px-3 py-1.5 bg-transparent border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-gray-700 text-[11px] rounded-full transition-colors whitespace-nowrap"
                                             style={{
-                                                fontSize: `${buttonFontSize}px`
+                                                fontSize: '12px'
                                             }}
                                         >
                                             {action.label}
@@ -1041,45 +1042,43 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                 </div>
 
                                 {/* Input Area */}
-                                <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-gray-100 flex items-center gap-2">
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        className="hidden"
-                                        onChange={handleFileSelect}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="p-2 text-gray-400 transition-colors hover:bg-gray-50 rounded-full"
-                                        style={{ '--hover-color': primaryColor }}
-                                        onMouseEnter={(e) => e.target.style.color = primaryColor}
-                                        onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                                        title="Attach File"
-                                    >
-                                        <Paperclip size={20} />
-                                    </button>
-                                    <input
-                                        type="text"
-                                        value={inputText}
-                                        onChange={(e) => setInputText(e.target.value)}
-                                        placeholder="Type your message..."
-                                        className="flex-1 bg-gray-100 text-gray-800 rounded-full px-4 py-2 focus:outline-none focus:ring-2 transition-all font-light"
-                                        style={{ '--tw-ring-color': `${primaryColor}80`, fontSize: `${inputFontSize}px` }}
-                                    />
-                                    <button
-                                        type="submit"
-                                        disabled={!inputText.trim() || isLoading}
-                                        className="p-2 text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                        style={{
-                                            backgroundColor: primaryColor,
-                                            boxShadow: `0 10px 15px -3px ${shadowColor}`,
-                                        }}
-                                        onMouseEnter={(e) => !e.target.disabled && (e.target.style.backgroundColor = hoverColor)}
-                                        onMouseLeave={(e) => !e.target.disabled && (e.target.style.backgroundColor = primaryColor)}
-                                    >
-                                        <Send size={20} />
-                                    </button>
+                                <form onSubmit={handleSendMessage} className="p-4 bg-white flex items-center gap-2">
+                                    <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 focus-within:ring-2 transition-all shadow-sm border border-gray-200" style={{ '--tw-ring-color': `${primaryColor}80` }}>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            onChange={handleFileSelect}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="text-gray-400 hover:text-gray-600 transition-colors mr-2"
+                                            style={{ '--hover-color': primaryColor }}
+                                            onMouseEnter={(e) => e.target.style.color = primaryColor}
+                                            onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
+                                            title="Attach File"
+                                        >
+                                            <Paperclip size={20} />
+                                        </button>
+                                        <input
+                                            type="text"
+                                            value={inputText}
+                                            onChange={(e) => setInputText(e.target.value)}
+                                            placeholder="Message Project IQ..."
+                                            className="flex-1 bg-transparent text-gray-800 focus:outline-none font-light py-1"
+                                            style={{ fontSize: `${inputFontSize}px` }}
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={!inputText.trim() || isLoading}
+                                            className="text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2"
+                                            onMouseEnter={(e) => !e.target.disabled && (e.target.style.color = primaryColor)}
+                                            onMouseLeave={(e) => !e.target.disabled && (e.target.style.color = '#9ca3af')}
+                                        >
+                                            <Send size={20} />
+                                        </button>
+                                    </div>
                                 </form>
                                 {/* Privacy Consent Popup - Dismissible - Absolute Positioned */}
                                 <AnimatePresence>

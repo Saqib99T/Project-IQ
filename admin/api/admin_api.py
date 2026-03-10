@@ -1366,6 +1366,155 @@ def test_kb_search():
         }), 500
 
 # =====================
+# URL INGESTION (FIRECRAWL)
+# =====================
+
+@app.route('/admin/kb/ingest-url', methods=['POST'])
+def ingest_url():
+    """Scrape a single URL and add it to the KB."""
+    try:
+        data = request.get_json()
+        url = data.get('url', '')
+        category = data.get('category', None)
+
+        if not url:
+            return jsonify({"success": False, "error": "URL is required"}), 400
+
+        from common.firecrawl_ingester import ingest_url_to_kb
+        result = ingest_url_to_kb(url, category)
+
+        return jsonify({"success": True, **result})
+    except ImportError as e:
+        return jsonify({"success": False, "error": f"Firecrawl not installed: {e}"}), 500
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:
+        print(f"Error ingesting URL: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/kb/crawl-site', methods=['POST'])
+def crawl_site_endpoint():
+    """Crawl an entire website and add all pages to the KB."""
+    try:
+        data = request.get_json()
+        url = data.get('url', '')
+        limit = data.get('limit', 50)
+        category = data.get('category', None)
+
+        if not url:
+            return jsonify({"success": False, "error": "URL is required"}), 400
+
+        from common.firecrawl_ingester import ingest_crawl_to_kb
+        result = ingest_crawl_to_kb(url, limit, category)
+
+        return jsonify({"success": True, **result})
+    except ImportError as e:
+        return jsonify({"success": False, "error": f"Firecrawl not installed: {e}"}), 500
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:
+        print(f"Error crawling site: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/kb/ingest-urls', methods=['POST'])
+def ingest_urls():
+    """Batch scrape multiple URLs and add them to the KB."""
+    try:
+        data = request.get_json()
+        urls = data.get('urls', [])
+        category = data.get('category', None)
+
+        if not urls or not isinstance(urls, list):
+            return jsonify({"success": False, "error": "urls (list) is required"}), 400
+
+        from common.firecrawl_ingester import ingest_batch_to_kb
+        result = ingest_batch_to_kb(urls, category)
+
+        return jsonify({"success": True, **result})
+    except ImportError as e:
+        return jsonify({"success": False, "error": f"Firecrawl not installed: {e}"}), 500
+    except Exception as e:
+        print(f"Error batch ingesting URLs: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/kb/data-sources', methods=['GET'])
+def get_data_sources():
+    """Get all tracked data sources (Firecrawl + Airbyte)."""
+    try:
+        from common.firecrawl_ingester import get_data_sources as _get_sources
+        sources = _get_sources()
+        return jsonify({"success": True, "data": sources})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "data": []}), 500
+
+
+# =====================
+# DATA CONNECTORS (AIRBYTE)
+# =====================
+
+@app.route('/admin/connectors/sources', methods=['GET'])
+def list_connector_sources():
+    """List available Airbyte connector types."""
+    try:
+        from common.airbyte_connector import list_available_sources
+        sources = list_available_sources()
+        return jsonify({"success": True, "sources": sources})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/connectors/sources/<source_type>/schema', methods=['GET'])
+def get_connector_schema(source_type):
+    """Get configuration schema for a specific connector type."""
+    try:
+        from common.airbyte_connector import get_source_config_schema
+        schema = get_source_config_schema(source_type)
+        if schema:
+            return jsonify({"success": True, "schema": schema})
+        return jsonify({"success": False, "error": f"Unknown source type: {source_type}"}), 404
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/connectors/sync', methods=['POST'])
+def sync_connector():
+    """Trigger a sync from an Airbyte data source."""
+    try:
+        data = request.get_json()
+        source_type = data.get('source_type', '')
+        config = data.get('config', {})
+        streams = data.get('streams', None)
+
+        if not source_type:
+            return jsonify({"success": False, "error": "source_type is required"}), 400
+        if not config:
+            return jsonify({"success": False, "error": "config is required"}), 400
+
+        from common.airbyte_connector import sync_source
+        result = sync_source(source_type, config, streams)
+
+        return jsonify({"success": True, **result})
+    except ImportError as e:
+        return jsonify({"success": False, "error": f"PyAirbyte not installed: {e}"}), 500
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:
+        print(f"Error syncing connector: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# =====================
 # INSPECTOR ENDPOINTS
 # =====================
 

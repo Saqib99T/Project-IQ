@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, User, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Bot, User, ThumbsUp, ThumbsDown, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ChartRenderer from './ChartRenderer';
 import TicketForm from './TicketForm';
@@ -75,23 +75,27 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
             className={`flex w-full mb-4 ${isBot ? 'justify-start' : 'justify-end'}`}
         >
             <div className={`flex ${message.ticket_form ? 'w-full max-w-full' : 'max-w-[90%]'} ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
-                {/* Avatar - Using emoji icons */}
+                {/* Avatar - Using SVG or emoji icons */}
                 <div
-                    className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-lg ${isBot ? 'mr-2' : 'ml-2'}`}
-                    style={isBot ? { backgroundColor: botBgColor } : { backgroundColor: userIconColor }}
+                    className={`flex-shrink-0 h-8 w-8 flex items-center justify-center text-xl ${isBot ? 'mr-3 mt-1' : 'ml-2 rounded-full'}`}
+                    style={isBot ? { backgroundColor: botBgColor, borderRadius: '50%', color: '#ffffff' } : { backgroundColor: userIconColor }}
                 >
-                    {isBot ? botIcon : userIcon}
+                    {isBot ? (
+                        <Bot size={18} strokeWidth={2} />
+                    ) : (
+                        userIcon
+                    )}
                 </div>
 
                 {/* Bubble + Feedback container */}
                 <div className="flex flex-col">
                     {/* Bubble */}
                     <div
-                        className={`p-3 rounded-2xl shadow-sm text-sm ${isBot
-                            ? 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
-                            : 'text-white rounded-tr-none'
+                        className={`p-3 text-sm ${isBot
+                            ? 'text-gray-800'
+                            : 'rounded-3xl rounded-tr-none text-gray-800 px-5 bg-gray-100'
                             }`}
-                        style={!isBot ? { backgroundColor: primaryColor } : {}}
+                        style={!isBot ? { backgroundColor: '#f0f4f9' } : {}}
                     >
                         {isBot ? (
                             <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-table:my-2">

@@ -759,7 +759,21 @@ class ActionListOpenTickets(Action):
         # Entity context is already set in ActionInitGlpiSession via changeActiveEntities
         # GLPI will automatically filter tickets to the active entity
         
+        # Get app_id from slot first, then fallback to message metadata
         app_id = tracker.get_slot("app_id")
+        latest_msg = tracker.latest_message
+        if isinstance(latest_msg, dict):
+            msg_metadata = latest_msg.get("metadata", {})
+            if isinstance(msg_metadata, str):
+                try:
+                    msg_metadata = json.loads(msg_metadata)
+                except:
+                    msg_metadata = {}
+            elif msg_metadata is None:
+                msg_metadata = {}
+            if isinstance(msg_metadata, dict) and msg_metadata.get("app_id"):
+                app_id = msg_metadata.get("app_id")
+        
         session_token = tracker.get_slot("session_token")
         
         # Check for status_id in custom payload entities
@@ -811,7 +825,13 @@ class ActionListOpenTickets(Action):
         # Map app_id to entity_id for GLPI-Entity header
         entity_id_map = {"Root": 0, "IT": 1, "Accounting": 2}
         entity_id = entity_id_map.get(app_id, 1)  # Default to IT (1)
-        logger.info(f"ActionListOpenTickets: entity_id={entity_id}, status_id={status_id}")
+        logger.info(f"ActionListOpenTickets: app_id={app_id}, entity_id={entity_id}, status_id={status_id}")
+
+        # Re-scope GLPI entity context in case app_id changed mid-session
+        try:
+            await glpi_service.change_active_entities(session_token, entity_id, is_recursive=True)
+        except Exception as e:
+            logger.warning(f"Failed to switch GLPI entity context: {e}")
 
         # Call service (GLPI returns only tickets visible in current entity context)
         # If status_id is set, active_only should technically be ignored by the service if we rely on criteria,
@@ -1341,7 +1361,7 @@ class ActionSearchKnowledgeBase(Action):
 
     def _respond_with_section(self, dispatcher: CollectingDispatcher, section: Dict[str, Any], article: Dict[str, Any], section_score: float) -> List[Dict[str, Any]]:
         article_title = section.get('article_title') or article.get('title') or section.get('title')
-        response = f"📚 **{article_title}**\n\n"
+        response = f"### 📚 {article_title}\n\n"
         if section.get('title') and section.get('title') != article_title:
             response += f"**Section:** {section.get('title')}\n\n"
 
@@ -1457,7 +1477,7 @@ class ActionSearchKnowledgeBase(Action):
             article = self.kb_cache.get_article_by_id(target_article_id) or {}
             glpi_id = article.get('glpi_id')
             article_link = self._build_article_link(glpi_id)
-            response = f"📚 **{article.get('title', 'Knowledge Base')}**\n\nI couldn't pinpoint a single section."
+            response = f"### 📚 {article.get('title', 'Knowledge Base')}\n\nI couldn't pinpoint a single section."
             response += "\n\nWould you like the full article or the KB link?"
             buttons = [{"title": "📄 Show full article", "payload": "/kb_show_full_article"}]
             if article_link:
@@ -1486,7 +1506,7 @@ class ActionSearchKnowledgeBase(Action):
                     logger.info(f"VECTOR search hit: '{chunk_title[:50]}' score={similarity:.3f}")
                     
                     # Format focused response (single chunk, ~150 words)
-                    response = f"**{chunk_title}**\n\n{chunk_content}"
+                    response = f"### 📚 {chunk_title}\n\n{chunk_content}"
                     
                     dispatcher.utter_message(text=response)
                     return [
@@ -1571,7 +1591,7 @@ class ActionSearchKnowledgeBase(Action):
 
             glpi_id = article.get('glpi_id')
             article_link = self._build_article_link(glpi_id)
-            response = f"📚 **{article.get('title', 'Knowledge Base')}**\n\nI found the right article, but I couldn't isolate a section."
+            response = f"### 📚 {article.get('title', 'Knowledge Base')}\n\nI found the right article, but I couldn't isolate a section."
             response += "\n\nWould you like the full article or the KB link?"
             buttons = [{"title": "📄 Show full article", "payload": "/kb_show_full_article"}]
             if article_link:
@@ -1585,7 +1605,7 @@ class ActionSearchKnowledgeBase(Action):
             ]
             
             # Format response
-            response = f"📚 **{article['title']}**\n\n"
+            response = f"### 📚 {article['title']}\n\n"
             response += article.get('content', 'No content available.')
             
             # Add video tutorial if available (support both old video_url and new video object)
@@ -1723,7 +1743,7 @@ class ActionShowKbFullAnswer(Action):
             )
             return []
 
-        response = f"📚 **{title}**\n\n"
+        response = f"### 📚 {title}\n\n"
         if question:
             response += f"**Q:** {question}\n\n"
         response += f"**A:** {answer}"
@@ -1762,7 +1782,7 @@ class ActionShowKbFullArticle(Action):
             dispatcher.utter_message(text="I don't have a full article saved yet. Please ask a KB question first.")
             return []
 
-        response = f"📚 **{title}**\n\n{content}"
+        response = f"### 📚 {title}\n\n{content}"
 
         if source == 'glpi':
             response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"

@@ -1,0 +1,391 @@
+"""
+Firecrawl URL Ingester Module
+Scrapes/crawls URLs using Firecrawl and ingests them into the KB pipeline.
+"""
+
+import os
+import sys
+import re
+import json
+import hashlib
+import logging
+from typing import List, Dict, Optional, Any
+from datetime import datetime
+
+# Add project root to path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+logger = logging.getLogger(__name__)
+
+
+def _get_firecrawl_client():
+    """Get configured Firecrawl client."""
+    try:
+        from firecrawl import Firecrawl
+    except ImportError:
+        raise ImportError(
+            "firecrawl-py is not installed. Run: pip install firecrawl-py"
+        )
+
+    from common.config_manager import load_config
+
+    config = load_config()
+    api_key = config.get('FIRECRAWL', 'FIRECRAWL_API_KEY', fallback='')
+    api_url = config.get('FIRECRAWL', 'FIRECRAWL_API_URL', fallback='')
+
+    if not api_key:
+        raise ValueError(
+            "FIRECRAWL_API_KEY not configured. "
+            "Set it in app.config under [FIRECRAWL] or via admin settings."
+        )
+
+    kwargs = {"api_key": api_key}
+    if api_url:
+        kwargs["api_url"] = api_url
+
+    return Firecrawl(**kwargs)
+
+
+def _generate_article_id(url: str, chunk_index: int = 0) -> str:
+    """Generate a deterministic article ID from URL + chunk index."""
+    raw = f"firecrawl:{url}:{chunk_index}"
+    return hashlib.md5(raw.encode()).hexdigest()
+
+
+def _clean_markdown(text: str) -> str:
+    """Clean up markdown content for KB storage."""
+    if not text:
+        return ""
+    
+    # Remove excessive whitespace/newlines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    # Remove navigation/cookie banners (common patterns)
+    text = re.sub(r'(?i)(skip to (?:main )?content|accept cookies|cookie policy).*?\n', '', text)
+    
+    return text.strip()
+
+
+def _extract_title(metadata: dict, markdown: str) -> str:
+    """Extract best title from metadata or content."""
+    # Try metadata title first
+    title = metadata.get('title') or metadata.get('ogTitle', '')
+    if title:
+        return title.strip()
+    
+    # Try first H1 from markdown
+    h1_match = re.search(r'^#\s+(.+)$', markdown, re.MULTILINE)
+    if h1_match:
+        return h1_match.group(1).strip()
+    
+    # Fallback to URL
+    source_url = metadata.get('sourceURL', '')
+    if source_url:
+        return source_url.split('/')[-1].replace('-', ' ').replace('_', ' ').title()
+    
+    return "Untitled Article"
+
+
+def _process_to_article(data: dict, source_url: str, category: str = None) -> Dict:
+    """Transform Firecrawl scrape result into KB article format."""
+    markdown = data.get('markdown', '') or data.get('content', '')
+    metadata = data.get('metadata', {})
+
+    title = _extract_title(metadata, markdown)
+    content = _clean_markdown(markdown)
+
+    if not content or len(content) < 30:
+        return None
+
+    # Extract keywords from metadata
+    keywords = []
+    if metadata.get('keywords'):
+        keywords = [k.strip() for k in metadata['keywords'].split(',')]
+    if metadata.get('description'):
+        keywords.append(metadata['description'][:100])
+
+    article_id = _generate_article_id(source_url)
+    effective_category = category or metadata.get('ogSiteName', 'Web')
+
+    return {
+        "id": article_id,
+        "title": title,
+        "content": content,
+        "category": effective_category,
+        "keywords": keywords,
+        "source_url": source_url,
+        "source_type": "firecrawl_scrape",
+        "scraped_at": datetime.now().isoformat()
+    }
+
+
+def scrape_url(url: str, category: str = None) -> Dict:
+    """
+    Scrape a single URL and return it as a KB article.
+    
+    Args:
+        url: The URL to scrape
+        category: Optional category for the article
+        
+    Returns:
+        Article dict ready for add_kb_article(), or None on failure
+    """
+    logger.info(f"Scraping URL: {url}")
+    
+    client = _get_firecrawl_client()
+    
+    try:
+        result = client.scrape(url, formats=["markdown"])
+    except Exception as e:
+        logger.error(f"Firecrawl scrape failed for {url}: {e}")
+        raise RuntimeError(f"Failed to scrape {url}: {e}")
+
+    if not result or not result.get('success', True):
+        raise RuntimeError(f"Scrape returned no data for {url}")
+
+    # Handle both response formats (v1 has 'data', newer may not)
+    data = result.get('data', result)
+    article = _process_to_article(data, url, category)
+
+    if not article:
+        raise RuntimeError(f"Could not extract meaningful content from {url}")
+
+    return article
+
+
+def crawl_site(url: str, limit: int = 50, category: str = None) -> List[Dict]:
+    """
+    Crawl a website recursively and return all pages as KB articles.
+    
+    Args:
+        url: Base URL to start crawling
+        limit: Maximum number of pages to crawl
+        category: Optional category for all articles
+        
+    Returns:
+        List of article dicts
+    """
+    logger.info(f"Crawling site: {url} (limit={limit})")
+    
+    client = _get_firecrawl_client()
+    
+    try:
+        result = client.crawl(url=url, limit=limit)
+    except Exception as e:
+        logger.error(f"Firecrawl crawl failed for {url}: {e}")
+        raise RuntimeError(f"Failed to crawl {url}: {e}")
+
+    if not result:
+        raise RuntimeError(f"Crawl returned no data for {url}")
+
+    # Crawl returns a list of documents
+    docs = result.get('data', []) if isinstance(result, dict) else result
+    if not isinstance(docs, list):
+        docs = [docs]
+
+    articles = []
+    for i, doc in enumerate(docs):
+        source_url = doc.get('metadata', {}).get('sourceURL', f"{url}#page-{i}")
+        article = _process_to_article(doc, source_url, category)
+        if article:
+            # Give unique IDs for each crawled page
+            article['id'] = _generate_article_id(source_url)
+            article['source_type'] = 'firecrawl_crawl'
+            articles.append(article)
+
+    logger.info(f"Crawl complete: {len(articles)} articles from {url}")
+    return articles
+
+
+def batch_scrape(urls: List[str], category: str = None) -> List[Dict]:
+    """
+    Scrape multiple URLs and return them as KB articles.
+    
+    Args:
+        urls: List of URLs to scrape
+        category: Optional category for all articles
+        
+    Returns:
+        List of article dicts (skips failures)
+    """
+    logger.info(f"Batch scraping {len(urls)} URLs")
+    
+    articles = []
+    errors = []
+    
+    for url in urls:
+        try:
+            article = scrape_url(url, category)
+            if article:
+                articles.append(article)
+        except Exception as e:
+            errors.append({"url": url, "error": str(e)})
+            logger.warning(f"Skipping {url}: {e}")
+
+    logger.info(f"Batch scrape complete: {len(articles)} success, {len(errors)} failed")
+    return articles, errors
+
+
+def ingest_url_to_kb(url: str, category: str = None) -> Dict:
+    """
+    Full pipeline: scrape URL → save to KB → rebuild embeddings.
+    
+    Returns:
+        Result dict with status and article info
+    """
+    from common.conversation_db import add_kb_article
+    
+    article = scrape_url(url, category)
+    
+    success = add_kb_article(
+        article_id=article['id'],
+        title=article['title'],
+        content=article['content'],
+        category=article['category'],
+        keywords=article['keywords']
+    )
+    
+    if not success:
+        raise RuntimeError(f"Failed to save article to database for {url}")
+
+    # Rebuild embeddings cache
+    _rebuild_embeddings()
+
+    return {
+        "status": "success",
+        "article_id": article['id'],
+        "title": article['title'],
+        "content_length": len(article['content']),
+        "category": article['category'],
+        "source_url": url
+    }
+
+
+def ingest_crawl_to_kb(url: str, limit: int = 50, category: str = None) -> Dict:
+    """
+    Full pipeline: crawl site → save all pages to KB → rebuild embeddings.
+    
+    Returns:
+        Result dict with status and summary
+    """
+    from common.conversation_db import add_kb_article
+    
+    articles = crawl_site(url, limit, category)
+    
+    saved = 0
+    for article in articles:
+        success = add_kb_article(
+            article_id=article['id'],
+            title=article['title'],
+            content=article['content'],
+            category=article['category'],
+            keywords=article['keywords']
+        )
+        if success:
+            saved += 1
+
+    # Rebuild embeddings cache
+    if saved > 0:
+        _rebuild_embeddings()
+
+    return {
+        "status": "success",
+        "total_pages": len(articles),
+        "saved": saved,
+        "source_url": url,
+        "articles": [
+            {"id": a['id'], "title": a['title'], "content_length": len(a['content'])}
+            for a in articles
+        ]
+    }
+
+
+def ingest_batch_to_kb(urls: List[str], category: str = None) -> Dict:
+    """
+    Full pipeline: batch scrape URLs → save to KB → rebuild embeddings.
+    """
+    from common.conversation_db import add_kb_article
+    
+    articles, errors = batch_scrape(urls, category)
+    
+    saved = 0
+    for article in articles:
+        success = add_kb_article(
+            article_id=article['id'],
+            title=article['title'],
+            content=article['content'],
+            category=article['category'],
+            keywords=article['keywords']
+        )
+        if success:
+            saved += 1
+
+    if saved > 0:
+        _rebuild_embeddings()
+
+    return {
+        "status": "success",
+        "total_urls": len(urls),
+        "scraped": len(articles),
+        "saved": saved,
+        "errors": errors
+    }
+
+
+def _rebuild_embeddings():
+    """Rebuild the vector search embeddings cache."""
+    try:
+        from common.vector_search import load_and_process_articles
+        load_and_process_articles()
+        logger.info("Embeddings cache rebuilt successfully")
+    except Exception as e:
+        logger.warning(f"Could not rebuild embeddings (non-critical): {e}")
+
+
+# =====================
+# DATA SOURCE TRACKING
+# =====================
+
+def log_data_source(source_type: str, source_config: dict, articles_count: int):
+    """Log a data source ingestion to the kb_data_sources table."""
+    from common.conversation_db import _get_connection, _release_connection
+
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO kb_data_sources (source_type, source_config, articles_count, last_sync, status)
+            VALUES (%s, %s, %s, %s, 'active')
+        ''', (source_type, json.dumps(source_config), articles_count, datetime.now()))
+        conn.commit()
+    except Exception as e:
+        logger.warning(f"Could not log data source: {e}")
+        conn.rollback()
+    finally:
+        _release_connection(conn)
+
+
+def get_data_sources() -> List[Dict]:
+    """Get all tracked data sources."""
+    from common.conversation_db import _get_connection, _release_connection
+    from psycopg2.extras import RealDictCursor
+
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute('SELECT * FROM kb_data_sources ORDER BY created_at DESC')
+        results = []
+        for row in cursor.fetchall():
+            item = dict(row)
+            if item.get('last_sync'):
+                item['last_sync'] = item['last_sync'].isoformat()
+            if item.get('created_at'):
+                item['created_at'] = item['created_at'].isoformat()
+            results.append(item)
+        return results
+    except Exception as e:
+        logger.warning(f"Could not fetch data sources: {e}")
+        return []
+    finally:
+        _release_connection(conn)

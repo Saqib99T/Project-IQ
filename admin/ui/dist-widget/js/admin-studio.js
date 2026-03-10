@@ -1,541 +1,457 @@
-// Studio Dashboard - No-Code Editor
-// NLU editing, story visualization, model training
 
-let studioNluData = {};
-let studioFlowsData = [];
-let studioResponsesData = {};
-let selectedIntent = null;
-let currentTrainingJobId = null;
+// IQ Studio Logic - Monaco Editor & File Management
 
-async function loadStudioData() {
-    await Promise.all([
-        loadNLUData(),
-        loadFlowsData(),
-        loadResponsesData(),
-        loadModelsData(),
-        loadDataSummary()
-    ]);
-}
+// State
+let studioState = {
+    currentFile: null,
+    isDirty: false,
+    editor: null,
+    files: [],
+    trainingInterval: null
+};
 
-// Alias for admin-core.js compatibility
+// Initialize
 async function loadStudio() {
-    await loadStudioData();
-}
+    console.log('Loading Studio...');
 
-function refreshStudioData() {
-    showToast('Refreshing data...', false);
-    loadStudioData();
-}
-
-// ============================================================================
-// NLU Tab
-// ============================================================================
-
-async function loadNLUData() {
-    try {
-        const res = await fetch(`${ADMIN_API}/studio/nlu`);
-        const data = await res.json();
-
-        if (data.success) {
-            studioNluData = data.intents || {};
-            renderNLUIntentList(studioNluData);
-            document.getElementById('nlu-intent-count').textContent = Object.keys(studioNluData).length;
-            document.getElementById('summary-intents').textContent = data.total_intents || 0;
-            document.getElementById('summary-examples').textContent = data.total_examples || 0;
-        } else {
-            document.getElementById('nlu-intent-list').innerHTML = `<div class="text-yellow-600 text-sm">${data.error}</div>`;
-        }
-    } catch (e) {
-        console.error('Failed to load NLU data:', e);
-        document.getElementById('nlu-intent-list').innerHTML = '<div class="text-red-400 text-sm">Failed to load</div>';
-    }
-}
-
-function renderNLUIntentList(intents) {
-    const container = document.getElementById('nlu-intent-list');
-    const intentNames = Object.keys(intents).sort();
-
-    if (intentNames.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm">No intents found</div>';
-        return;
-    }
-
-    const html = intentNames.map(name => {
-        const count = intents[name].length;
-        const isSelected = selectedIntent === name;
-
-        return `
-        <div onclick="selectNLUIntent('${name}')" 
-             class="p-2 rounded-lg cursor-pointer flex justify-between items-center transition-all ${isSelected ? 'bg-purple-100 border-purple-300 border' : 'hover:bg-gray-100 border border-transparent'}">
-            <span class="font-mono text-sm ${isSelected ? 'text-purple-700 font-medium' : 'text-gray-700'}">${name}</span>
-            <span class="text-xs ${isSelected ? 'bg-purple-200 text-purple-800' : 'bg-gray-200 text-gray-600'} px-2 py-0.5 rounded-full">${count}</span>
-        </div>`;
-    }).join('');
-
-    container.innerHTML = html;
-}
-
-function filterNLUIntents(query) {
-    const filtered = {};
-    for (const [name, examples] of Object.entries(studioNluData)) {
-        if (name.toLowerCase().includes(query.toLowerCase())) {
-            filtered[name] = examples;
-        }
-    }
-    renderNLUIntentList(filtered);
-}
-
-function selectNLUIntent(intentName) {
-    selectedIntent = intentName;
-    const examples = studioNluData[intentName] || [];
-
-    document.getElementById('nlu-selected-intent').textContent = intentName;
-    document.getElementById('nlu-example-count').textContent = examples.length;
-    document.getElementById('btn-add-example').disabled = false;
-
-    // Re-render intent list to show selection
-    renderNLUIntentList(studioNluData);
-
-    // Render examples
-    renderNLUExamples(examples);
-}
-
-function renderNLUExamples(examples) {
-    const container = document.getElementById('nlu-examples-container');
-
-    if (!examples || examples.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm text-center py-8">No examples for this intent</div>';
-        return;
-    }
-
-    const html = examples.map((ex, i) => {
-        const hasEntities = ex.entities && ex.entities.length > 0;
-
-        return `
-        <div class="p-3 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors group">
-            <div class="flex justify-between items-start">
-                <div class="flex-1">
-                    <div class="text-sm">${highlightEntities(ex.text)}</div>
-                    ${hasEntities ? `
-                    <div class="mt-1 flex flex-wrap gap-1">
-                        ${ex.entities.map(e => `
-                            <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
-                                ${e.entity}: "${e.value}"
-                            </span>
-                        `).join('')}
-                    </div>` : ''}
-                </div>
-                <button onclick="deleteNLUExample('${selectedIntent}', '${escapeForJs(ex.text)}')" 
-                    class="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity p-1">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                </button>
-            </div>
-        </div>`;
-    }).join('');
-
-    container.innerHTML = html;
-}
-
-function highlightEntities(text) {
-    // Highlight [value](entity) patterns
-    return escapeHtml(text).replace(/\[([^\]]+)\]\(([^)]+)\)/g,
-        '<span class="bg-blue-100 text-blue-700 px-1 rounded">$1</span><span class="text-xs text-blue-500">:$2</span>');
-}
-
-function showAddExampleModal() {
-    if (!selectedIntent) return;
-
-    document.getElementById('modal-intent').value = selectedIntent;
-    document.getElementById('modal-example-text').value = '';
-    document.getElementById('add-example-modal').classList.remove('hidden');
-    document.getElementById('add-example-modal').classList.add('flex');
-}
-
-function hideAddExampleModal(event) {
-    if (event && event.target !== event.currentTarget) return;
-    document.getElementById('add-example-modal').classList.add('hidden');
-    document.getElementById('add-example-modal').classList.remove('flex');
-}
-
-async function saveNewExample() {
-    const intent = document.getElementById('modal-intent').value;
-    const text = document.getElementById('modal-example-text').value.trim();
-
-    if (!text) {
-        showToast('Please enter example text', true);
-        return;
-    }
-
-    try {
-        const res = await fetch(`${ADMIN_API}/studio/nlu/example`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ intent, text })
+    // Initialize Monaco if not already done
+    if (!studioState.editor && window.monaco) {
+        initMonaco();
+    } else if (!window.monaco) {
+        // Wait for loader
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' } });
+        require(['vs/editor/editor.main'], function () {
+            initMonaco();
         });
-
-        const data = await res.json();
-
-        if (data.success) {
-            showToast('Example added successfully!', false);
-            hideAddExampleModal();
-            await loadNLUData();
-            if (selectedIntent === intent) {
-                selectNLUIntent(intent);
-            }
-        } else {
-            showToast(data.error || 'Failed to add example', true);
-        }
-    } catch (e) {
-        showToast('Failed to add example: ' + e.message, true);
     }
+
+    await loadFileList();
+    await loadStats();
+    checkTrainingStatus();
 }
 
-async function deleteNLUExample(intent, text) {
-    if (!confirm('Delete this example?')) return;
-
+async function loadStats() {
     try {
-        const res = await fetch(`${ADMIN_API}/studio/nlu/example`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ intent, text })
-        });
-
+        const res = await fetch(`${ADMIN_API}/studio/stats`);
         const data = await res.json();
 
         if (data.success) {
-            showToast('Example deleted', false);
-            await loadNLUData();
-            if (selectedIntent === intent) {
-                selectNLUIntent(intent);
-            }
-        } else {
-            showToast(data.error || 'Failed to delete', true);
+            const stats = data.data;
+            const setStat = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = val;
+            };
+
+            setStat('stat-intents', stats.intents || 0);
+            setStat('stat-stories', stats.stories || 0);
+            setStat('stat-rules', stats.rules || 0);
         }
     } catch (e) {
-        showToast('Failed to delete: ' + e.message, true);
+        console.error('Failed to load stats:', e);
     }
 }
 
-// ============================================================================
-// Flows Tab (Stories & Rules)
-// ============================================================================
+function initMonaco() {
+    const container = document.getElementById('monaco-container');
+    container.innerHTML = ''; // Clear placeholder
 
-async function loadFlowsData() {
-    try {
-        const res = await fetch(`${ADMIN_API}/studio/flows`);
-        const data = await res.json();
-
-        if (data.success) {
-            studioFlowsData = data.flows || [];
-
-            const stories = studioFlowsData.filter(f => f.type === 'story');
-            const rules = studioFlowsData.filter(f => f.type === 'rule');
-
-            renderFlowsList('story', stories, 'flow-stories-list');
-            renderFlowsList('rule', rules, 'flow-rules-list');
-
-            document.getElementById('flow-story-count').textContent = stories.length;
-            document.getElementById('flow-rule-count').textContent = rules.length;
-            document.getElementById('summary-stories').textContent = stories.length;
-            document.getElementById('summary-rules').textContent = rules.length;
-        }
-    } catch (e) {
-        console.error('Failed to load flows:', e);
-    }
-}
-
-function renderFlowsList(type, flows, containerId) {
-    const container = document.getElementById(containerId);
-
-    if (!flows || flows.length === 0) {
-        container.innerHTML = `<div class="text-gray-400 text-sm">No ${type}s found</div>`;
-        return;
-    }
-
-    const html = flows.map(flow => `
-        <div onclick="visualizeFlow('${escapeForJs(flow.name)}', '${type}')" 
-             class="p-3 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 cursor-pointer transition-all">
-            <div class="font-medium text-sm">${flow.name}</div>
-            <div class="text-xs text-gray-500 mt-1">${flow.steps.length} steps</div>
-        </div>
-    `).join('');
-
-    container.innerHTML = html;
-}
-
-function visualizeFlow(name, type) {
-    const flow = studioFlowsData.find(f => f.name === name && f.type === type);
-    if (!flow) return;
-
-    document.getElementById('flow-selected-name').textContent = name;
-
-    const container = document.getElementById('flow-visualizer');
-    const steps = flow.steps || [];
-
-    if (steps.length === 0) {
-        container.innerHTML = '<div class="text-gray-400">No steps in this flow</div>';
-        return;
-    }
-
-    const html = steps.map((step, i) => {
-        let stepHtml = '';
-        let bgColor = 'bg-gray-100';
-        let icon = '❓';
-
-        switch (step.type) {
-            case 'intent':
-                bgColor = 'bg-green-100 text-green-700';
-                icon = '🎯';
-                stepHtml = `<span class="font-mono">${step.name}</span>`;
-                break;
-            case 'action':
-                bgColor = 'bg-orange-100 text-orange-700';
-                icon = '⚡';
-                stepHtml = `<span class="font-mono">${step.name}</span>`;
-                break;
-            case 'slot':
-                bgColor = 'bg-purple-100 text-purple-700';
-                icon = '🗂️';
-                stepHtml = `<span class="font-mono">${step.name}=${JSON.stringify(step.value)}</span>`;
-                break;
-            case 'or':
-                bgColor = 'bg-blue-100 text-blue-700';
-                icon = '🔀';
-                stepHtml = 'OR branch';
-                break;
-            case 'checkpoint':
-                bgColor = 'bg-pink-100 text-pink-700';
-                icon = '📍';
-                stepHtml = `<span class="font-mono">${step.name}</span>`;
-                break;
-        }
-
-        return `
-            <div class="flex items-center">
-                <div class="p-3 rounded-lg ${bgColor} min-w-32 text-center">
-                    <div class="text-lg mb-1">${icon}</div>
-                    <div class="text-xs">${stepHtml}</div>
-                </div>
-                ${i < steps.length - 1 ? '<div class="mx-2 text-gray-400">→</div>' : ''}
-            </div>
-        `;
-    }).join('');
-
-    container.innerHTML = `<div class="flex flex-wrap items-center gap-2">${html}</div>`;
-}
-
-// ============================================================================
-// Responses Tab
-// ============================================================================
-
-async function loadResponsesData() {
-    try {
-        const res = await fetch(`${ADMIN_API}/studio/responses`);
-        const data = await res.json();
-
-        if (data.success) {
-            studioResponsesData = data.responses || {};
-            renderResponses(studioResponsesData);
-            document.getElementById('response-count').textContent = data.total || 0;
-        }
-    } catch (e) {
-        console.error('Failed to load responses:', e);
-    }
-}
-
-function renderResponses(responses) {
-    const container = document.getElementById('responses-container');
-    const entries = Object.entries(responses);
-
-    if (entries.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm">No responses found</div>';
-        return;
-    }
-
-    const html = entries.map(([name, variations]) => `
-        <div class="p-3 rounded-lg border border-gray-200">
-            <div class="font-mono text-sm text-purple-700 mb-2">${name}</div>
-            <div class="space-y-1">
-                ${variations.map(v => `
-                    <div class="text-xs text-gray-600 p-2 bg-gray-50 rounded">"${escapeHtml(v)}"</div>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    container.innerHTML = html;
-}
-
-function filterResponses(query) {
-    const filtered = {};
-    for (const [name, variations] of Object.entries(studioResponsesData)) {
-        if (name.toLowerCase().includes(query.toLowerCase())) {
-            filtered[name] = variations;
-        }
-    }
-    renderResponses(filtered);
-}
-
-// ============================================================================
-// Training Tab
-// ============================================================================
-
-async function loadModelsData() {
-    try {
-        const res = await fetch(`${ADMIN_API}/studio/models`);
-        const data = await res.json();
-
-        if (data.success) {
-            renderModelsList(data.models || []);
-        }
-    } catch (e) {
-        console.error('Failed to load models:', e);
-    }
-}
-
-function renderModelsList(models) {
-    const container = document.getElementById('models-list');
-
-    if (!models || models.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm">No trained models found</div>';
-        return;
-    }
-
-    const html = models.map((m, i) => `
-        <div class="p-3 rounded-lg border ${i === 0 ? 'border-green-300 bg-green-50' : 'border-gray-200'}">
-            <div class="flex justify-between items-start">
-                <div>
-                    <div class="font-mono text-sm ${i === 0 ? 'text-green-700' : 'text-gray-700'}">${m.name}</div>
-                    <div class="text-xs text-gray-500 mt-1">${m.size_mb} MB • ${formatDate(m.created)}</div>
-                </div>
-                ${i === 0 ? '<span class="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">Latest</span>' : ''}
-            </div>
-        </div>
-    `).join('');
-
-    container.innerHTML = html;
-}
-
-async function loadDataSummary() {
-    // Summary is populated by loadNLUData and loadFlowsData
-}
-
-async function startTraining() {
-    const btn = document.getElementById('btn-train');
-    btn.disabled = true;
-    btn.textContent = 'Starting...';
-
-    document.getElementById('training-status').textContent = 'Starting training...';
-    document.getElementById('training-status').className = 'text-lg font-medium text-yellow-600';
-    document.getElementById('training-progress-container').classList.remove('hidden');
-
-    try {
-        const res = await fetch(`${ADMIN_API}/studio/train`, {
-            method: 'POST'
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-            currentTrainingJobId = data.job_id;
-            showToast('Training started!', false);
-            pollTrainingStatus();
-        } else {
-            btn.disabled = false;
-            btn.textContent = 'Start Training';
-            document.getElementById('training-status').textContent = 'Failed to start: ' + data.error;
-            document.getElementById('training-status').className = 'text-lg font-medium text-red-600';
-        }
-    } catch (e) {
-        btn.disabled = false;
-        btn.textContent = 'Start Training';
-        showToast('Failed to start training: ' + e.message, true);
-    }
-}
-
-async function pollTrainingStatus() {
-    if (!currentTrainingJobId) return;
-
-    try {
-        const res = await fetch(`${ADMIN_API}/studio/train/${currentTrainingJobId}`);
-        const data = await res.json();
-
-        if (data.success) {
-            const progress = data.progress || 0;
-            document.getElementById('training-progress-bar').style.width = `${progress}%`;
-            document.getElementById('training-progress-text').textContent = `${progress}%`;
-
-            if (data.output && data.output.length > 0) {
-                document.getElementById('training-output').textContent = data.output.join('\n');
-            }
-
-            if (data.status === 'completed') {
-                document.getElementById('training-status').textContent = '✅ Training completed!';
-                document.getElementById('training-status').className = 'text-lg font-medium text-green-600';
-                document.getElementById('btn-train').disabled = false;
-                document.getElementById('btn-train').textContent = 'Start Training';
-                showToast('Model trained successfully: ' + (data.model || 'new model'), false);
-                loadModelsData();
-                currentTrainingJobId = null;
-            } else if (data.status === 'failed') {
-                document.getElementById('training-status').textContent = '❌ Training failed: ' + (data.error || 'Unknown error');
-                document.getElementById('training-status').className = 'text-lg font-medium text-red-600';
-                document.getElementById('btn-train').disabled = false;
-                document.getElementById('btn-train').textContent = 'Start Training';
-                currentTrainingJobId = null;
-            } else {
-                document.getElementById('training-status').textContent = `🔄 ${data.status}...`;
-                document.getElementById('training-status').className = 'text-lg font-medium text-blue-600';
-                setTimeout(pollTrainingStatus, 3000);  // Poll every 3 seconds
-            }
-        }
-    } catch (e) {
-        console.error('Poll error:', e);
-        setTimeout(pollTrainingStatus, 5000);  // Retry after 5 seconds
-    }
-}
-
-// ============================================================================
-// Tab Navigation
-// ============================================================================
-
-function showStudioTab(tabName) {
-    // Hide all tabs
-    document.querySelectorAll('.studio-tab-content').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('.studio-tab').forEach(el => {
-        el.classList.remove('border-purple-600', 'text-purple-600');
-        el.classList.add('border-transparent', 'text-gray-500');
+    studioState.editor = monaco.editor.create(container, {
+        value: '# Select a file to start editing',
+        language: 'yaml',
+        theme: 'vs-light',
+        automaticLayout: true,
+        minimap: { enabled: true },
+        scrollBeyondLastLine: false,
+        fontSize: 14,
+        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace"
     });
 
-    // Show selected tab
-    const tabContent = document.getElementById(`studio-tab-${tabName}`);
-    const tabButton = document.querySelector(`.studio-tab[data-tab="${tabName}"]`);
+    // Track changes
+    studioState.editor.onDidChangeModelContent(() => {
+        if (studioState.currentFile && !studioState.isDirty) {
+            setDirty(true);
+        }
+    });
 
-    if (tabContent) tabContent.classList.remove('hidden');
-    if (tabButton) {
-        tabButton.classList.add('border-purple-600', 'text-purple-600');
-        tabButton.classList.remove('border-transparent', 'text-gray-500');
+    // Ctrl+S to save
+    studioState.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+        if (studioState.currentFile) saveCurrentFile();
+    });
+}
+
+// File Management
+async function loadFileList() {
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/files`);
+        const data = await res.json();
+
+        if (data.success) {
+            studioState.files = data.files;
+            renderFileList();
+        }
+    } catch (e) {
+        console.error('Failed to load files:', e);
+        document.getElementById('studio-file-list').innerHTML = '<div class="text-red-500 text-center p-4">Failed to load files</div>';
     }
 }
 
-// ============================================================================
-// Utilities
-// ============================================================================
+function renderFileList() {
+    const container = document.getElementById('studio-file-list');
+    if (!container) return;
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
+    // Icons
+    const icons = {
+        folder: `<svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>`,
+        file: `<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`,
+        config: `<svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`,
+        domain: `<svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>`
+    };
+
+    let html = '';
+
+    // Group files by logic (Root vs Data)
+    const rootFiles = studioState.files.filter(f => !f.name.includes('/'));
+    const dataFiles = studioState.files.filter(f => f.name.includes('/'));
+
+    const renderFileItem = (file, iconType = 'file', indent = false) => {
+        const isSelected = studioState.currentFile === file.name;
+        const activeClass = isSelected ? 'bg-blue-50 text-blue-700 border-blue-200' : 'hover:bg-gray-50 border-transparent text-gray-700';
+        const pl = indent ? 'pl-8' : 'px-3';
+
+        let icon = icons.file;
+        if (iconType === 'config') icon = icons.config;
+        if (iconType === 'domain') icon = icons.domain;
+
+        return `
+            <div onclick="openFile('${file.name}')" 
+                class="flex items-center gap-2 ${pl} py-2 rounded-lg border cursor-pointer transition-all text-sm mb-1 ${activeClass}">
+                ${icon}
+                <div class="flex-1 truncate font-medium">${file.name.split('/').pop()}</div>
+                ${isSelected ? '<span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>' : ''}
+            </div>
+        `;
+    };
+
+    // Render Root Files
+    if (rootFiles.length > 0) {
+        rootFiles.forEach(f => {
+            let type = 'file';
+            if (f.name.includes('config') || f.name.includes('credentials') || f.name.includes('endpoints')) type = 'config';
+            if (f.name.includes('domain')) type = 'domain';
+            html += renderFileItem(f, type);
+        });
+    }
+
+    // Render Data Folder
+    if (dataFiles.length > 0) {
+        html += `
+            <div class="mt-4 mb-1 px-3 flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                ${icons.folder}
+                <span>Data</span>
+            </div>
+            <div class="space-y-0.5">
+        `;
+        dataFiles.forEach(f => html += renderFileItem(f, 'file', true));
+        html += `</div>`;
+    }
+
+    container.innerHTML = html;
 }
 
-function escapeForJs(text) {
-    return (text || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+async function openFile(filename) {
+    if (studioState.isDirty) {
+        if (!confirm('You have unsaved changes. Discard them?')) return;
+    }
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/file?file=${encodeURIComponent(filename)}`);
+        const data = await res.json();
+
+        if (data.success) {
+            studioState.currentFile = filename;
+            setDirty(false);
+
+            // Set Editor Content
+            if (studioState.editor) {
+                studioState.editor.setValue(data.content);
+                // Scroll to top
+                studioState.editor.setScrollTop(0);
+            }
+
+            // GUI Update
+            document.getElementById('current-filename').textContent = filename;
+            document.getElementById('btn-save').disabled = false;
+            document.getElementById('btn-history').disabled = false;
+
+            // Re-render list to show active state
+            renderFileList();
+        }
+    } catch (e) {
+        showToast('Failed to open file', 'error');
+    }
 }
 
-function formatDate(isoString) {
-    if (!isoString) return '';
-    const date = new Date(isoString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+async function saveCurrentFile() {
+    if (!studioState.currentFile || !studioState.editor) return;
+
+    const content = studioState.editor.getValue();
+    const btn = document.getElementById('btn-save');
+    const originalText = btn.textContent;
+    btn.textContent = 'Saving...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                file: studioState.currentFile,
+                content: content
+            })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            setDirty(false);
+            showToast('File saved successfully');
+        } else {
+            showToast('Save failed: ' + data.error, 'error');
+        }
+    } catch (e) {
+        showToast('Save failed: Network error', 'error');
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+function setDirty(isDirty) {
+    studioState.isDirty = isDirty;
+    const indicator = document.getElementById('file-unsaved-indicator');
+    if (indicator) {
+        indicator.classList.toggle('hidden', !isDirty);
+    }
+}
+
+// Training Logic
+async function triggerTraining() {
+    const btn = document.getElementById('btn-train');
+    if (btn.classList.contains('opacity-50')) return; // Already training
+
+    if (studioState.isDirty) {
+        alert('Please save your changes before training.');
+        return;
+    }
+
+    if (!confirm('Start model training? This may take several minutes.')) return;
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/train`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('Training started');
+            openConsole();
+            pollTrainingStatus();
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (e) {
+        showToast('Failed to start training', 'error');
+    }
+}
+
+function pollTrainingStatus() {
+    if (studioState.trainingInterval) clearInterval(studioState.trainingInterval);
+
+    studioState.trainingInterval = setInterval(async () => {
+        try {
+            const res = await fetch(`${ADMIN_API}/studio/train/status`);
+            const data = await res.json();
+
+            if (data.success) {
+                const logs = document.getElementById('training-logs');
+                if (logs) logs.textContent = data.status.logs || "Waiting for logs...";
+
+                // Auto-scroll
+                logs.scrollTop = logs.scrollHeight;
+
+                updateTrainingUI(data.status.is_training);
+
+                if (!data.status.is_training) {
+                    clearInterval(studioState.trainingInterval);
+                }
+            }
+        } catch (e) {
+            console.error('Poll error', e);
+        }
+    }, 2000);
+}
+
+function checkTrainingStatus() {
+    fetch(`${ADMIN_API}/studio/train/status`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.status.is_training) {
+                pollTrainingStatus();
+            }
+        });
+}
+
+function updateTrainingUI(isTraining) {
+    const btn = document.getElementById('btn-train');
+    const badge = document.getElementById('train-status-badge');
+    const badgeDot = badge.querySelector('span');
+
+    if (isTraining) {
+        // Training State
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        btn.innerHTML = `
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            Training...
+        `;
+
+        badge.classList.remove('hidden');
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Training in progress';
+
+    } else {
+        // Idle State
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        btn.innerHTML = `
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+            Train Model
+        `;
+
+        // Check logs for success/fail to color the badge
+        const logs = document.getElementById('training-logs').textContent;
+        if (logs.includes('success')) {
+            badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Ready';
+        } else if (logs.includes('failed')) {
+            badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Last Training Failed';
+        } else {
+            badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-400"></span> Idle';
+        }
+        badge.classList.remove('hidden');
+    }
+}
+
+// Console UI
+function toggleConsole() {
+    const console = document.getElementById('training-console');
+    if (console.style.height === '0px' || console.style.height === '') {
+        console.style.height = '200px';
+    } else {
+        console.style.height = '0px';
+    }
+}
+
+function openConsole() {
+    const console = document.getElementById('training-console');
+    console.style.height = '200px';
+}
+
+
+function showHistory() {
+    if (!studioState.currentFile) return;
+
+    const modal = document.getElementById('history-modal');
+    const title = document.getElementById('history-filename');
+    const container = document.getElementById('history-list');
+
+    modal.classList.remove('hidden');
+    title.textContent = studioState.currentFile;
+    container.innerHTML = '<div class="text-center py-8 text-gray-400">Loading history...</div>';
+
+    fetch(`${ADMIN_API}/studio/history?file=${encodeURIComponent(studioState.currentFile)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                renderHistoryList(data.history);
+            } else {
+                container.innerHTML = `<div class="text-red-500 text-center p-4">${data.error}</div>`;
+            }
+        })
+        .catch(e => {
+            container.innerHTML = `<div class="text-red-500 text-center p-4">Failed to load history</div>`;
+        });
+}
+
+function closeHistory() {
+    document.getElementById('history-modal').classList.add('hidden');
+}
+
+function renderHistoryList(history) {
+    const container = document.getElementById('history-list');
+
+    if (!history || history.length === 0) {
+        container.innerHTML = '<div class="text-center py-8 text-gray-400">No backup history found for this file.</div>';
+        return;
+    }
+
+    container.innerHTML = history.map(item => `
+        <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center hover:border-blue-300 transition-colors">
+            <div>
+                <p class="font-bold text-gray-700 text-sm">
+                    ${formatDate(item.timestamp)}
+                </p>
+                <p class="text-xs text-gray-400 mt-1">
+                    Size: ${formatBytes(item.size)}
+                </p>
+            </div>
+            <button onclick="restoreBackup('${item.filename}')" 
+                class="px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors">
+                Restore
+            </button>
+        </div>
+    `).join('');
+}
+
+async function restoreBackup(backupFile) {
+    if (!confirm('Are you sure you want to restore this version? Current changes will be overwritten.')) return;
+
+    try {
+        const res = await fetch(`${ADMIN_API}/studio/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                file: studioState.currentFile,
+                backup: backupFile
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('File restored successfully');
+            closeHistory();
+            // Reload file content in editor
+            openFile(studioState.currentFile);
+        } else {
+            showToast('Restore failed: ' + data.error, 'error');
+        }
+    } catch (e) {
+        showToast('Restore failed: Network error', 'error');
+    }
+}
+
+function formatDate(timestampStr) {
+    // timestampStr is YYYYMMDD_HHMMSS
+    if (!timestampStr) return 'Unknown Date';
+    // Simple parsing
+    const Y = timestampStr.substring(0, 4);
+    const M = timestampStr.substring(4, 6);
+    const D = timestampStr.substring(6, 8);
+    const h = timestampStr.substring(9, 11);
+    const m = timestampStr.substring(11, 13);
+    const s = timestampStr.substring(13, 15);
+    return `${Y}-${M}-${D} ${h}:${m}:${s}`;
+}
+
+function formatBytes(bytes, decimals = 2) {
+    if (!+bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }

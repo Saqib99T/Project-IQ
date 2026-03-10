@@ -14,7 +14,7 @@ async function loadThemes() {
             if (selector) {
                 selector.innerHTML = '<option value="new">+ New Theme</option>';
                 data.themes.forEach(theme => {
-                    selector.innerHTML += `<option value="${theme.id}">${theme.name}${theme.is_default ? ' ★' : ''}</option>`;
+                    selector.innerHTML += `<option value="${theme.id}">${theme.id} - ${theme.name}${theme.is_default ? ' ★' : ''}</option>`;
                 });
             }
 

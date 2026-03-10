@@ -12,7 +12,7 @@ function generateEmbedCode() {
 
     const code = `&lt;!-- GLPI Chat Widget --&gt;
 &lt;glpi-chat-widget ${attrs}&gt;&lt;/glpi-chat-widget&gt;
-&lt;script src="http://localhost:8181/glpi-chat-widget.js"&gt;&lt;\/script&gt;`;
+&lt;script src="http://localhost/glpi-chat-widget.js"&gt;&lt;\/script&gt;`;
 
     document.getElementById('embed-code').textContent = code;
 }

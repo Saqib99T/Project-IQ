@@ -12532,6 +12532,15 @@ if (typeof window !== "undefined" && !window.process) {
     Component.displayName = toPascalCase(iconName);
     return Component;
   };
+  const __iconNode$c = [
+    ["path", { d: "M12 8V4H8", key: "hb8ula" }],
+    ["rect", { width: "16", height: "12", x: "4", y: "8", rx: "2", key: "enze0r" }],
+    ["path", { d: "M2 14h2", key: "vft8re" }],
+    ["path", { d: "M20 14h2", key: "4cs60a" }],
+    ["path", { d: "M15 13v2", key: "1xurst" }],
+    ["path", { d: "M9 13v2", key: "rq6x2g" }]
+  ];
+  const Bot = createLucideIcon("bot", __iconNode$c);
   const __iconNode$b = [
     ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
     ["line", { x1: "12", x2: "12", y1: "8", y2: "12", key: "1pkeuh" }],
@@ -33096,17 +33105,17 @@ if (typeof window !== "undefined" && !window.process) {
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "div",
             {
-              className: `flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-lg ${isBot ? "mr-2" : "ml-2"}`,
-              style: isBot ? { backgroundColor: botBgColor } : { backgroundColor: userIconColor },
-              children: isBot ? botIcon : userIcon
+              className: `flex-shrink-0 h-8 w-8 flex items-center justify-center text-xl ${isBot ? "mr-3 mt-1" : "ml-2 rounded-full"}`,
+              style: isBot ? { backgroundColor: botBgColor, borderRadius: "50%", color: "#ffffff" } : { backgroundColor: userIconColor },
+              children: isBot ? /* @__PURE__ */ jsxRuntimeExports.jsx(Bot, { size: 18, strokeWidth: 2 }) : userIcon
             }
           ),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "div",
               {
-                className: `p-3 rounded-2xl shadow-sm text-sm ${isBot ? "bg-white text-gray-800 rounded-tl-none border border-gray-100" : "text-white rounded-tr-none"}`,
-                style: !isBot ? { backgroundColor: primaryColor } : {},
+                className: `p-3 text-sm ${isBot ? "text-gray-800" : "rounded-3xl rounded-tr-none text-gray-800 px-5 bg-gray-100"}`,
+                style: !isBot ? { backgroundColor: "#f0f4f9" } : {},
                 children: isBot ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-table:my-2", children: [
                   message.text && /* @__PURE__ */ jsxRuntimeExports.jsx(
                     Markdown,
@@ -33458,11 +33467,43 @@ if (typeof window !== "undefined" && !window.process) {
     }
     return _v4(options);
   }
-  const RASA_API_URL = "http://127.0.0.1/webhooks/rest/webhook";
+  const DEFAULT_OPTIONS = {
+    path: "/",
+    sameSite: "Lax",
+    maxAge: 30 * 24 * 60 * 60
+    // 30 days
+  };
+  function getCookie(name2) {
+    const cookies = document.cookie.split("; ");
+    for (const cookie of cookies) {
+      const [key, ...valueParts] = cookie.split("=");
+      if (key === name2) {
+        return decodeURIComponent(valueParts.join("="));
+      }
+    }
+    return null;
+  }
+  function setCookie(name2, value, options = {}) {
+    const opts = { ...DEFAULT_OPTIONS, ...options };
+    let cookieStr = `${name2}=${encodeURIComponent(value)}`;
+    cookieStr += `; path=${opts.path}`;
+    cookieStr += `; SameSite=${opts.sameSite}`;
+    if (!opts.session && opts.maxAge) {
+      cookieStr += `; max-age=${opts.maxAge}`;
+    }
+    if (opts.secure || window.location.protocol === "https:") {
+      cookieStr += "; Secure";
+    }
+    document.cookie = cookieStr;
+  }
+  function deleteCookie(name2, path2 = "/") {
+    document.cookie = `${name2}=; path=${path2}; max-age=0`;
+  }
+  const RASA_API_URL = "http://127.0.0.1:5005/webhooks/rest/webhook";
   const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
   const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) => {
     const primaryColor = theme?.primaryColor || "#000000";
-    const secondaryColor = theme?.secondaryColor || adjustBrightness(primaryColor, 20);
+    theme?.secondaryColor || adjustBrightness(primaryColor, 20);
     const bgColor = theme?.bgColor || "#ffffff";
     const textColor = theme?.textColor || "#1f2937";
     const fontFamily = theme?.fontFamily || "Inter";
@@ -33478,7 +33519,7 @@ if (typeof window !== "undefined" && !window.process) {
     const messageFontSize = theme?.messageFontSize || "14";
     const buttonFontSize = theme?.buttonFontSize || "13";
     const inputFontSize = theme?.inputFontSize || "14";
-    const hoverColor = adjustBrightness(primaryColor, 20);
+    adjustBrightness(primaryColor, 20);
     const shadowColor = `${primaryColor}4D`;
     function adjustBrightness(hex2, percent2) {
       if (!hex2.startsWith("#")) return hex2;
@@ -33490,22 +33531,22 @@ if (typeof window !== "undefined" && !window.process) {
       return "#" + (16777216 + R * 65536 + G * 256 + B).toString(16).slice(1);
     }
     const [senderId] = reactExports.useState(() => {
-      const stored = localStorage.getItem(getStorageKey(appId, "senderId"));
+      const stored = getCookie(getStorageKey(appId, "senderId"));
       if (stored) return stored;
       const newId = v4();
-      localStorage.setItem(getStorageKey(appId, "senderId"), newId);
+      setCookie(getStorageKey(appId, "senderId"), newId);
       return newId;
     });
     const [isAuthenticated, setIsAuthenticated] = reactExports.useState(() => {
-      const stored = localStorage.getItem(getStorageKey(appId, "isAuthenticated"));
+      const stored = getCookie(getStorageKey(appId, "isAuthenticated"));
       return stored === "true";
     });
     const [isGuest, setIsGuest] = reactExports.useState(() => {
-      const loggedIn = localStorage.getItem(getStorageKey(appId, "isAuthenticated")) === "true";
+      const loggedIn = getCookie(getStorageKey(appId, "isAuthenticated")) === "true";
       return !loggedIn;
     });
     const [authUser, setAuthUser] = reactExports.useState(() => {
-      const stored = localStorage.getItem(getStorageKey(appId, "authUser"));
+      const stored = getCookie(getStorageKey(appId, "authUser"));
       return stored || "";
     });
     const [loginUsername, setLoginUsername] = reactExports.useState("");
@@ -33525,21 +33566,25 @@ if (typeof window !== "undefined" && !window.process) {
           console.warn("Failed to parse saved messages:", e);
         }
       }
-      const loggedIn = localStorage.getItem(getStorageKey(appId, "isAuthenticated")) === "true";
-      const userName = localStorage.getItem(getStorageKey(appId, "authUser"));
+      const loggedIn = getCookie(getStorageKey(appId, "isAuthenticated")) === "true";
+      const userName = getCookie(getStorageKey(appId, "authUser"));
       if (loggedIn && userName) {
-        return [{ id: "init", sender: "bot", text: `Welcome back, ${userName}! How can I help you today?` }];
+        return [{ id: "init", sender: "bot", text: `**Hi ${userName}!**
+
+Welcome back. How can I help you today?` }];
       }
-      return [{ id: "init", sender: "bot", text: `👋 Hello! Welcome to ${title}!
+      return [{ id: "init", sender: "bot", text: `**Hi, I'm ${title}** 👋
 
-I can help you with:
-📚 **Knowledge Base** - Search for solutions
-❓ **General Questions** - Ask me anything
+I'm here to help you with:
 
-🔐 **Login** for full features like creating and viewing tickets.` }];
+*   **Finding answers** in our knowledge base
+*   **Answering** general IT questions
+*   **Managing** your support tickets
+
+*Log in to unlock full ticket management features.*` }];
     });
     const [showPrivacyPopup, setShowPrivacyPopup] = reactExports.useState(() => {
-      const dismissed = localStorage.getItem(getStorageKey(appId, "privacyDismissed")) === "true";
+      const dismissed = getCookie(getStorageKey(appId, "privacyDismissed")) === "true";
       return isAuthenticated && !dismissed;
     });
     reactExports.useEffect(() => {
@@ -33612,9 +33657,9 @@ I can help you with:
           setIsGuest(false);
           setShowLoginPrompt(false);
           setAuthUser(loginUsername);
-          localStorage.setItem(getStorageKey(appId, "isAuthenticated"), "true");
-          localStorage.setItem(getStorageKey(appId, "authUser"), loginUsername);
-          localStorage.removeItem(getStorageKey(appId, "privacyDismissed"));
+          setCookie(getStorageKey(appId, "isAuthenticated"), "true");
+          setCookie(getStorageKey(appId, "authUser"), loginUsername);
+          deleteCookie(getStorageKey(appId, "privacyDismissed"));
           setShowPrivacyPopup(true);
           const welcomeData = data.find((m) => m.text);
           console.log("LOGIN DEBUG - welcomeData:", welcomeData);
@@ -33639,8 +33684,8 @@ I can help you with:
       setIsAuthenticated(false);
       setIsGuest(true);
       setAuthUser("");
-      localStorage.removeItem(getStorageKey(appId, "isAuthenticated"));
-      localStorage.removeItem(getStorageKey(appId, "authUser"));
+      deleteCookie(getStorageKey(appId, "isAuthenticated"));
+      deleteCookie(getStorageKey(appId, "authUser"));
       localStorage.removeItem(getStorageKey(appId, "messages"));
       setMessages([{ id: "init", sender: "bot", text: `You've been logged out. Continuing as guest.
 
@@ -33946,12 +33991,12 @@ Priority: ${data.priority}`;
           const fallbackMessage = {
             id: v4(),
             sender: "bot",
-            text: "I'm not sure I understand. Here's what I can help you with:",
+            text: "I'm not sure I understand. Here are some things I can help with:",
             buttons: [
-              { title: "📋 List my tickets", payload: "/list_tickets" },
-              { title: "🎫 Create a ticket", payload: "/create_ticket" },
-              { title: "🔍 Check ticket status", payload: "/check_status" },
-              { title: "❓ Help", payload: "/help" }
+              { title: "List my tickets", payload: "/list_tickets" },
+              { title: "Create a ticket", payload: "/create_ticket" },
+              { title: "Check ticket status", payload: "/check_status" },
+              { title: "Help", payload: "/help" }
             ]
           };
           const contactInfo = {
@@ -33993,9 +34038,10 @@ Priority: ${data.priority}`;
             /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "div",
               {
-                className: "p-4 flex items-center justify-between text-white shadow-md",
+                className: "p-4 flex items-center justify-between shadow-sm border-b border-gray-100",
                 style: {
-                  background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                  backgroundColor: bgColor,
+                  color: textColor,
                   fontSize: `${headerFontSize}px`
                 },
                 children: [
@@ -34014,7 +34060,7 @@ Priority: ${data.priority}`;
                       "button",
                       {
                         onClick: () => setShowLoginPrompt(true),
-                        className: "px-2 py-1 text-xs bg-white/20 hover:bg-white/30 rounded transition-colors flex items-center gap-1",
+                        className: "px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors flex items-center gap-1",
                         title: "Login",
                         children: "🔑 Login"
                       }
@@ -34023,7 +34069,7 @@ Priority: ${data.priority}`;
                       "button",
                       {
                         onClick: handleLogout,
-                        className: "p-1.5 hover:bg-white/10 rounded transition-colors",
+                        className: "p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600",
                         title: "Logout",
                         children: /* @__PURE__ */ jsxRuntimeExports.jsx(LogOut, { size: 15 })
                       }
@@ -34033,17 +34079,17 @@ Priority: ${data.priority}`;
                       {
                         onClick: () => {
                           localStorage.removeItem(getStorageKey(appId, "messages"));
-                          localStorage.removeItem(getStorageKey(appId, "senderId"));
+                          deleteCookie(getStorageKey(appId, "senderId"));
                           const newId = v4();
-                          localStorage.setItem(getStorageKey(appId, "senderId"), newId);
+                          setCookie(getStorageKey(appId, "senderId"), newId);
                           setMessages([{ id: "init", sender: "bot", text: `Hello! Welcome to ${title}. How can I help you?` }]);
                         },
-                        className: "p-1.5 hover:bg-white/10 rounded transition-colors",
+                        className: "p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600",
                         title: "Clear chat history",
                         children: /* @__PURE__ */ jsxRuntimeExports.jsx(Trash2, { size: 15 })
                       }
                     ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setIsOpen(false), className: "p-1.5 hover:bg-white/10 rounded transition-colors", title: "Minimize", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Minimize2, { size: 15 }) })
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setIsOpen(false), className: "p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600", title: "Minimize", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Minimize2, { size: 15 }) })
                   ] })
                 ]
               }
@@ -34357,24 +34403,24 @@ Priority: ${data.priority}`;
                 ] }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: messagesEndRef })
               ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-4 py-2 bg-gray-50/80 backdrop-blur-sm border-t border-gray-100 overflow-x-auto flex gap-2 no-scrollbar", children: [
-                { label: "🎫 Create Ticket", payload: "/create_ticket" },
-                { label: "📋 List Tickets", payload: "/list_tickets" },
-                { label: "🔍 Check Status", payload: "/check_status" },
-                { label: "❓ Help", payload: "/help" }
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-4 py-2 bg-transparent overflow-x-auto flex gap-2 no-scrollbar border-t border-gray-50", children: [
+                { label: "Create Ticket", payload: "/create_ticket" },
+                { label: "List Tickets", payload: "/list_tickets" },
+                { label: "Check Status", payload: "/check_status" },
+                { label: "Help", payload: "/help" }
               ].map((action, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
                 {
                   onClick: () => handleButtonClick(action.payload),
-                  className: "flex-shrink-0 px-3 py-1.5 bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-600 text-gray-600 text-xs rounded-full transition-all shadow-sm whitespace-nowrap",
+                  className: "flex-shrink-0 px-3 py-1.5 bg-transparent border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-gray-700 text-[11px] rounded-full transition-colors whitespace-nowrap",
                   style: {
-                    fontSize: `${buttonFontSize}px`
+                    fontSize: "12px"
                   },
                   children: action.label
                 },
                 idx
               )) }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { onSubmit: handleSendMessage, className: "p-4 bg-white border-t border-gray-100 flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("form", { onSubmit: handleSendMessage, className: "p-4 bg-white flex items-center gap-2", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 focus-within:ring-2 transition-all shadow-sm border border-gray-200", style: { "--tw-ring-color": `${primaryColor}80` }, children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
                   "input",
                   {
@@ -34389,7 +34435,7 @@ Priority: ${data.priority}`;
                   {
                     type: "button",
                     onClick: () => fileInputRef.current?.click(),
-                    className: "p-2 text-gray-400 transition-colors hover:bg-gray-50 rounded-full",
+                    className: "text-gray-400 hover:text-gray-600 transition-colors mr-2",
                     style: { "--hover-color": primaryColor },
                     onMouseEnter: (e) => e.target.style.color = primaryColor,
                     onMouseLeave: (e) => e.target.style.color = "#9ca3af",
@@ -34403,9 +34449,9 @@ Priority: ${data.priority}`;
                     type: "text",
                     value: inputText,
                     onChange: (e) => setInputText(e.target.value),
-                    placeholder: "Type your message...",
-                    className: "flex-1 bg-gray-100 text-gray-800 rounded-full px-4 py-2 focus:outline-none focus:ring-2 transition-all font-light",
-                    style: { "--tw-ring-color": `${primaryColor}80`, fontSize: `${inputFontSize}px` }
+                    placeholder: "Message Project IQ...",
+                    className: "flex-1 bg-transparent text-gray-800 focus:outline-none font-light py-1",
+                    style: { fontSize: `${inputFontSize}px` }
                   }
                 ),
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -34413,17 +34459,13 @@ Priority: ${data.priority}`;
                   {
                     type: "submit",
                     disabled: !inputText.trim() || isLoading,
-                    className: "p-2 text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors",
-                    style: {
-                      backgroundColor: primaryColor,
-                      boxShadow: `0 10px 15px -3px ${shadowColor}`
-                    },
-                    onMouseEnter: (e) => !e.target.disabled && (e.target.style.backgroundColor = hoverColor),
-                    onMouseLeave: (e) => !e.target.disabled && (e.target.style.backgroundColor = primaryColor),
+                    className: "text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2",
+                    onMouseEnter: (e) => !e.target.disabled && (e.target.style.color = primaryColor),
+                    onMouseLeave: (e) => !e.target.disabled && (e.target.style.color = "#9ca3af"),
                     children: /* @__PURE__ */ jsxRuntimeExports.jsx(Send, { size: 20 })
                   }
                 )
-              ] }),
+              ] }) }),
               /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: showPrivacyPopup && /* @__PURE__ */ jsxRuntimeExports.jsxs(
                 motion.div,
                 {
@@ -34437,7 +34479,7 @@ Priority: ${data.priority}`;
                       {
                         onClick: () => {
                           setShowPrivacyPopup(false);
-                          localStorage.setItem(getStorageKey(appId, "privacyDismissed"), "true");
+                          setCookie(getStorageKey(appId, "privacyDismissed"), "true");
                         },
                         className: "absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-black/5 transition-colors",
                         title: "Dismiss",
