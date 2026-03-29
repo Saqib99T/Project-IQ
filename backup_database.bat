@@ -8,7 +8,7 @@ REM Configuration
 set BACKUP_DIR=%~dp0backups
 set DB_NAME=rasa_conversations
 set DB_USER=postgres
-set PG_BIN="C:\Program Files\PostgreSQL\14\bin"
+set PG_BIN="C:\Program Files\PostgreSQL\18\bin"
 
 REM Create timestamp
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I

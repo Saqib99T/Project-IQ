@@ -1,0 +1,18 @@
+# Ignore Python environments & Caches
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Ignore heavy directories in siblings
+models/
+admin/ui/node_modules/
+admin/ui/dist-widget/
+admin/ui/dist/
+mobile-app/node_modules/
+core/node_modules/
+common/node_modules/
+Backup/
+
+# Database
+*.db

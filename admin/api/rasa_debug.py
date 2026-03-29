@@ -9,8 +9,12 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 
 
-# Rasa endpoints
-RASA_URL = os.getenv("RASA_URL", "http://localhost:5005")
+# Rasa endpoints — read from profile config, fall back to env var
+try:
+    from common.config_manager import get_rasa_config as _get_rasa_config
+    RASA_URL = _get_rasa_config()['api_url']
+except Exception:
+    RASA_URL = os.getenv("RASA_URL", "http://localhost:5005")
 
 
 def parse_message(text: str, sender_id: str = "debug_user") -> Dict:

@@ -1,4 +1,4 @@
 @echo off
 echo Starting Rasa Action Server...
 cd /d "%~dp0"
-rasa run actions -p 5055
+..\venv\Scripts\python.exe -m rasa run actions -p 5055

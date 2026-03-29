@@ -1,0 +1,71 @@
+# Self-hosted Firecrawl (completely free, no API key needed)
+# Run with: docker-compose -f docker-compose-firecrawl.yml up -d
+# Access API at: http://localhost:3002
+# Use any value for FIRECRAWL_API_KEY in app.config (e.g. "fc-selfhosted")
+
+services:
+  playwright-service:
+    image: ghcr.io/mendableai/firecrawl-playwright-service:latest
+    container_name: firecrawl-playwright
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+    networks:
+      - firecrawl-net
+
+  firecrawl-api:
+    image: ghcr.io/mendableai/firecrawl:latest
+    container_name: firecrawl-api
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      - REDIS_URL=redis://firecrawl-redis:6379
+      - REDIS_RATE_LIMIT_URL=redis://firecrawl-redis:6379
+      - PLAYWRIGHT_MICROSERVICE_URL=http://playwright-service:3000
+      - USE_DB_AUTHENTICATION=false
+      - PORT=3002
+      - NUM_WORKERS_PER_QUEUE=8
+      - HOST=0.0.0.0
+      - SELF_HOSTED_WEBHOOK_URL=
+      - LOGGING_LEVEL=info
+    depends_on:
+      - firecrawl-redis
+      - playwright-service
+    networks:
+      - firecrawl-net
+
+  firecrawl-worker:
+    image: ghcr.io/mendableai/firecrawl:latest
+    container_name: firecrawl-worker
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://firecrawl-redis:6379
+      - REDIS_RATE_LIMIT_URL=redis://firecrawl-redis:6379
+      - PLAYWRIGHT_MICROSERVICE_URL=http://playwright-service:3000
+      - USE_DB_AUTHENTICATION=false
+      - PORT=3002
+      - NUM_WORKERS_PER_QUEUE=8
+      - LOGGING_LEVEL=info
+    entrypoint: ["pnpm", "run", "workers"]
+    depends_on:
+      - firecrawl-redis
+      - playwright-service
+    networks:
+      - firecrawl-net
+
+  firecrawl-redis:
+    image: redis:7-alpine
+    container_name: firecrawl-redis
+    restart: unless-stopped
+    volumes:
+      - firecrawl-redis-data:/data
+    networks:
+      - firecrawl-net
+
+networks:
+  firecrawl-net:
+    driver: bridge
+
+volumes:
+  firecrawl-redis-data:

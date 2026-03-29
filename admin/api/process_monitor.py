@@ -93,30 +93,46 @@ def format_uptime(delta: timedelta) -> str:
         return f"{seconds}s"
 
 
+def _get_service_ports() -> tuple:
+    """Get Rasa and action server ports from config."""
+    try:
+        from common.config_manager import get_rasa_config
+        cfg = get_rasa_config()
+        import re
+        rasa_port_match = re.search(r':(\d+)', cfg.get('api_url', ''))
+        action_port_match = re.search(r':(\d+)', cfg.get('action_url', ''))
+        rasa_port = int(rasa_port_match.group(1)) if rasa_port_match else 5005
+        action_port = int(action_port_match.group(1)) if action_port_match else 5055
+        return rasa_port, action_port
+    except Exception:
+        return 5005, 5055
+
+
 def get_all_service_processes() -> Dict:
     """Get status of all Rasa-related services."""
     services = {}
-    
-    # Rasa Core (port 5005)
-    rasa_core = get_process_by_port(5005)
+    rasa_port, action_port = _get_service_ports()
+
+    # Rasa Core
+    rasa_core = get_process_by_port(rasa_port)
     if rasa_core:
-        services["rasa_core"] = {**rasa_core, "service_name": "Rasa Core", "expected_port": 5005}
+        services["rasa_core"] = {**rasa_core, "service_name": "Rasa Core", "expected_port": rasa_port}
     else:
         services["rasa_core"] = {
             "service_name": "Rasa Core",
             "status": "stopped",
-            "expected_port": 5005
+            "expected_port": rasa_port
         }
-    
-    # Action Server (port 5055)
-    action_server = get_process_by_port(5055)
+
+    # Action Server
+    action_server = get_process_by_port(action_port)
     if action_server:
-        services["action_server"] = {**action_server, "service_name": "Action Server", "expected_port": 5055}
+        services["action_server"] = {**action_server, "service_name": "Action Server", "expected_port": action_port}
     else:
         services["action_server"] = {
             "service_name": "Action Server",
             "status": "stopped",
-            "expected_port": 5055
+            "expected_port": action_port
         }
     
     # Admin API (port 80)

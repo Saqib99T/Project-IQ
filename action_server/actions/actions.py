@@ -36,6 +36,12 @@ def get_glpi_service() -> GlpiService:
     )
 
 
+def get_glpi_base_url() -> str:
+    """Derive GLPI web base URL from config (strips /apirest.php)."""
+    api_url = get_glpi_config().get('api_url', 'http://127.0.0.1:8083/apirest.php')
+    return api_url.replace('/apirest.php', '').rstrip('/')
+
+
 def log_bot_response(tracker: Tracker, text: str):
     """Log bot response - DISABLED (Handled by CustomTrackerStore)."""
     pass
@@ -922,19 +928,20 @@ class ActionUploadFile(Action):
             if ticket_id:
                 # Cleanup ID if it has prefix
                 clean_id = ticket_id.replace("GLPI-", "") if isinstance(ticket_id, str) else ticket_id
+                clean_id = ticket_id.replace("GLPI-", "").replace("TICKET-", "") if isinstance(ticket_id, str) else ticket_id
                 
                 success = await glpi_service.link_document_to_ticket(session_token, clean_id, doc_id)
                 if success:
-                    msg += f"🔗 Successfully attached to Ticket **GLPI-{clean_id}**."
+                    msg += f"🔗 Successfully attached to Ticket **TICKET-{clean_id}**."
                 else:
-                    msg += f"⚠️ Uploaded, but **failed to link** to Ticket GLPI-{clean_id}."
+                    msg += f"⚠️ Uploaded, but **failed to link** to Ticket TICKET-{clean_id}."
             else:
                  msg += "ℹ️ File is in GLPI documents, but **not attached** to any ticket.\nTip: Open or create a ticket first to attach files automatically."
             
             dispatcher.utter_message(text=msg)
             return [SlotSet("file_name", None), SlotSet("file_data", None)]
-            dispatcher.utter_message(text="❌ Failed to upload file to GLPI.")
-            return []
+        dispatcher.utter_message(text="❌ Failed to upload file to GLPI.")
+        return []
 
 class ActionListAttachments(Action):
     def name(self) -> Text:
@@ -964,7 +971,7 @@ class ActionListAttachments(Action):
             return []
         
         try:
-            ticket_number = int(ticket_id_slot.upper().replace('GLPI-', ''))
+            ticket_number = int(ticket_id_slot.upper().replace('GLPI-', '').replace('TICKET-', ''))
             logger.info(f"DEBUG: Ticket number parsed: {ticket_number}")
         except Exception as e:
             logger.error(f"DEBUG: Failed to parse ticket number: {e}")
@@ -1300,7 +1307,7 @@ class ActionSearchKnowledgeBase(Action):
     def _build_article_link(self, glpi_id: Any) -> Optional[str]:
         try:
             if glpi_id:
-                glpi_base_url = "http://127.0.0.1:8083"
+                glpi_base_url = get_glpi_base_url()
                 return f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
         except Exception as e:
             logger.error(f"Failed to create article link: {e}")
@@ -1640,9 +1647,7 @@ class ActionSearchKnowledgeBase(Action):
                 try:
                     # Construct link assuming standard GLPI structure: /front/knowbaseitem.form.php?id=ID
                     # Base URL derived from API URL in Config usually, but hardcoding for safety/speed based on known config
-                    # Config: http://127.0.0.1:8083/apirest.php -> http://127.0.0.1:8083
-                    # TO DO: Get this dynamically from config_manager if possible, but safe fallback here
-                    glpi_base_url = "http://127.0.0.1:8083" 
+                    glpi_base_url = get_glpi_base_url()
                     if glpi_id:
                         article_link = f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
                         response += f"\n🔗 **[Read Full Article]({article_link})**"
@@ -1751,7 +1756,7 @@ class ActionShowKbFullAnswer(Action):
         if source == 'glpi':
             response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
             try:
-                glpi_base_url = "http://127.0.0.1:8083"
+                glpi_base_url = get_glpi_base_url()
                 if glpi_id:
                     article_link = f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
                     response += f"\n🔗 **[Read Full Article]({article_link})**"
@@ -1787,7 +1792,7 @@ class ActionShowKbFullArticle(Action):
         if source == 'glpi':
             response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
             try:
-                glpi_base_url = "http://127.0.0.1:8083"
+                glpi_base_url = get_glpi_base_url()
                 if glpi_id:
                     article_link = f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
                     response += f"\n🔗 **[Read Full Article]({article_link})**"
@@ -2300,10 +2305,10 @@ class ActionCreateTicketFromForm(Action):
         entity_id = entity_id_map.get(app_id, 1)
 
         # Create Ticket
-        new_ticket_id = glpi_service.create_ticket(session_token, ticket_data, entity_id)
+        new_ticket_id = await glpi_service.create_ticket(session_token, ticket_data, entity_id)
         
         if new_ticket_id:
-            ticket_ref = f"GLPI-{new_ticket_id}"
+            ticket_ref = f"TICKET-{new_ticket_id}"
             dispatcher.utter_message(
                 text=f"✅ Success! Ticket **{ticket_ref}** created.",
                 buttons=[

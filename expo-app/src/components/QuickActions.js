@@ -1,5 +1,5 @@
-import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { THEME } from '../config';
 
 const ACTIONS = [
     { label: '📝 Create Ticket', payload: '/create_ticket' },
@@ -31,10 +31,10 @@ const QuickActions = ({ onAction }) => (
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#fff',
+        backgroundColor: THEME.background,
         borderTopWidth: 1,
-        borderTopColor: '#f3f4f6',
-        paddingVertical: 8,
+        borderTopColor: THEME.border,
+        paddingVertical: 10,
     },
     scrollContent: {
         paddingHorizontal: 16,
@@ -43,13 +43,15 @@ const styles = StyleSheet.create({
     chip: {
         paddingHorizontal: 16,
         paddingVertical: 10,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: THEME.secondary,
         borderRadius: 20,
+        borderWidth: 1,
+        borderColor: THEME.primary + '20', // Very light primary border
     },
     chipText: {
         fontSize: 13,
-        color: '#4b5563',
-        fontWeight: '500',
+        color: THEME.primary,
+        fontWeight: '600',
     },
 });
 

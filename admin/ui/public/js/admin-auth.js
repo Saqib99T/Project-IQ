@@ -197,7 +197,25 @@ function handleLogout() {
     AdminAuth.logout();
 }
 
+// Load and display the active profile badge
+async function loadProfileBadge() {
+    try {
+        const res = await fetch('/admin/profile');
+        const data = await res.json();
+        const badge = document.getElementById('profile-badge');
+        if (!badge) return;
+        if (data.is_prod) {
+            badge.textContent = 'PROD';
+            badge.className = 'ml-auto text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700';
+        } else {
+            badge.textContent = 'LOCAL';
+            badge.className = 'ml-auto text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700';
+        }
+    } catch (e) { /* badge stays as default */ }
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     AdminAuth.init();
+    loadProfileBadge();
 });

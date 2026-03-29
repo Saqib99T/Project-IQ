@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { Ionicons } from '@expo/vector-icons';
+import { THEME } from '../config';
 
 const MessageBubble = ({ message, onButtonClick, onFeedback }) => {
-    const [feedbackGiven, setFeedbackGiven] = useState(null);
+    const [feedbackGiven, setFeedbackGiven] = React.useState(null);
     const isBot = message.sender === 'bot';
 
     const handleFeedback = (type) => {
@@ -13,23 +13,23 @@ const MessageBubble = ({ message, onButtonClick, onFeedback }) => {
     };
 
     const mdStyles = {
-        body: { color: isBot ? '#1f2937' : '#fff', fontSize: 15, lineHeight: 22 },
+        body: { color: THEME.text, fontSize: 16, lineHeight: 24, padding: 0, margin: 0 },
         strong: { fontWeight: '700' },
         em: { fontStyle: 'italic' },
-        bullet_list: { marginLeft: 4 },
-        ordered_list: { marginLeft: 4 },
+        bullet_list: { marginLeft: 4, marginVertical: 4 },
+        ordered_list: { marginLeft: 4, marginVertical: 4 },
         list_item: { marginVertical: 2 },
-        link: { color: isBot ? '#2563eb' : '#93c5fd', textDecorationLine: 'underline' },
-        heading1: { fontSize: 20, fontWeight: '700', marginVertical: 6, color: isBot ? '#111' : '#fff' },
-        heading2: { fontSize: 18, fontWeight: '600', marginVertical: 4, color: isBot ? '#111' : '#fff' },
-        heading3: { fontSize: 16, fontWeight: '600', marginVertical: 3, color: isBot ? '#111' : '#fff' },
-        table: { borderWidth: 1, borderColor: isBot ? '#e5e7eb' : 'rgba(255,255,255,0.3)', borderRadius: 8, marginVertical: 8 },
-        thead: { backgroundColor: isBot ? '#f9fafb' : 'rgba(255,255,255,0.1)' },
-        th: { padding: 8, fontWeight: '600', fontSize: 13, color: isBot ? '#374151' : '#fff' },
-        td: { padding: 8, fontSize: 13, color: isBot ? '#4b5563' : '#e5e7eb', borderTopWidth: 1, borderColor: isBot ? '#e5e7eb' : 'rgba(255,255,255,0.2)' },
-        code_inline: { backgroundColor: isBot ? '#f3f4f6' : 'rgba(255,255,255,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 13 },
-        fence: { backgroundColor: isBot ? '#f3f4f6' : 'rgba(255,255,255,0.1)', padding: 12, borderRadius: 8, marginVertical: 8 },
-        code_block: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 13, color: isBot ? '#374151' : '#e5e7eb' },
+        link: { color: THEME.primary, textDecorationLine: 'underline' },
+        heading1: { fontSize: 22, fontWeight: '700', marginVertical: 8, color: '#111' },
+        heading2: { fontSize: 18, fontWeight: '600', marginVertical: 6, color: '#111' },
+        heading3: { fontSize: 16, fontWeight: '600', marginVertical: 4, color: '#111' },
+        table: { borderWidth: 1, borderColor: THEME.border, borderRadius: 12, marginVertical: 12 },
+        thead: { backgroundColor: '#f9fafb' },
+        th: { padding: 10, fontWeight: '600', fontSize: 14, color: '#374151' },
+        td: { padding: 10, fontSize: 14, color: '#4b5563', borderTopWidth: 1, borderColor: THEME.border },
+        code_inline: { backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, fontFamily: 'monospace', fontSize: 14, color: THEME.text },
+        fence: { backgroundColor: '#f8fafc', padding: 16, borderRadius: 12, marginVertical: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+        code_block: { fontFamily: 'monospace', fontSize: 13, color: '#0f172a' },
     };
 
     return (
@@ -37,7 +37,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback }) => {
             {/* Avatar */}
             {isBot && (
                 <View style={styles.botAvatar}>
-                    <Text style={styles.avatarText}>🤖</Text>
+                    <Ionicons name="sparkles" size={16} color="#ffffff" />
                 </View>
             )}
 
@@ -68,6 +68,8 @@ const MessageBubble = ({ message, onButtonClick, onFeedback }) => {
                     </View>
                 )}
 
+ 
+
                 {/* Feedback buttons for bot messages */}
                 {isBot && message.id !== 'init' && (
                     <View style={styles.feedbackRow}>
@@ -78,7 +80,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback }) => {
                             <Ionicons
                                 name={feedbackGiven === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
                                 size={14}
-                                color={feedbackGiven === 'up' ? '#10b981' : '#9ca3af'}
+                                color={feedbackGiven === 'up' ? THEME.success : THEME.textSecondary}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -88,7 +90,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback }) => {
                             <Ionicons
                                 name={feedbackGiven === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
                                 size={14}
-                                color={feedbackGiven === 'down' ? '#ef4444' : '#9ca3af'}
+                                color={feedbackGiven === 'down' ? THEME.error : THEME.textSecondary}
                             />
                         </TouchableOpacity>
                     </View>
@@ -103,54 +105,55 @@ import { Platform } from 'react-native';
 const styles = StyleSheet.create({
     row: {
         flexDirection: 'row',
-        marginVertical: 4,
-        paddingHorizontal: 4,
+        marginVertical: 12,
+        paddingHorizontal: 8,
     },
     botRow: { justifyContent: 'flex-start' },
-    userRow: { justifyContent: 'flex-end' },
+    userRow: { justifyContent: 'flex-end', marginLeft: 40 },
     botAvatar: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#f3f4f6',
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: THEME.primary,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 8,
-        marginTop: 4,
+        marginRight: 10,
+        marginTop: 2,
     },
-    avatarText: { fontSize: 16 },
     bubble: {
-        maxWidth: '80%',
-        borderRadius: 18,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
+        flex: 1,
+        borderRadius: 24,
     },
     botBubble: {
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#e5e7eb',
-        borderBottomLeftRadius: 4,
+        backgroundColor: 'transparent',
     },
     userBubble: {
-        backgroundColor: '#111',
-        borderBottomRightRadius: 4,
+        backgroundColor: THEME.userBubble,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 24,
     },
     buttonsContainer: {
         marginTop: 10,
-        gap: 6,
+        gap: 8,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
     },
     actionButton: {
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#e5e7eb',
-        backgroundColor: '#f9fafb',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: THEME.primary,
+        shadowColor: THEME.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+        elevation: 2,
     },
     actionButtonText: {
         fontSize: 13,
-        color: '#374151',
-        fontWeight: '500',
+        color: '#ffffff',
+        fontWeight: '600',
     },
     feedbackRow: {
         flexDirection: 'row',

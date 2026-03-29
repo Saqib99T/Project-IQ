@@ -1,0 +1,51 @@
+[PROFILE]
+profile = local
+debug = true
+
+[GLPI]
+glpi_api_url = http://127.0.0.1:8083/apirest.php
+glpi_app_token = c2xAtAzqKzx5YXcleWDqB6rAirV5yoUIRsbxR9Dv
+glpi_user_token = BHht1jncO8wZEi6MDLtqinFU13jIPgXHu4VxpUwq
+
+[DATABASE]
+db_host = localhost
+db_port = 5432
+db_name = Chatbot
+db_user = postgres
+db_password = 12345
+
+[RASA]
+rasa_api_url = http://localhost:5005
+rasa_action_url = http://127.0.0.1:5055/webhook
+
+[SERVER]
+admin_port = 8181
+cors_origins = *
+
+[WIDGET]
+widget_title = IT Support [LOCAL]
+widget_subtitle = How can I help you today?
+
+[KNOWLEDGE_BASE]
+kb_glpi_enabled = true
+kb_refresh_interval = 1800
+kb_fallback_json = true
+kb_semantic_enabled = true
+kb_semantic_model = all-MiniLM-L6-v2
+kb_semantic_weight = 0.6
+kb_keyword_weight = 0.4
+kb_min_score = 0.3
+kb_max_results = 3
+kb_section_search_enabled = true
+kb_section_min_words = 60
+kb_section_max_words = 220
+kb_section_max_results = 3
+kb_section_clarify_min_score = 0.60
+kb_section_clarify_max_score = 0.85
+kb_qa_search_enabled = true
+kb_qa_min_score = 0.85
+kb_qa_max_results = 3
+
+[FIRECRAWL]
+firecrawl_api_key = fc-selfhosted
+firecrawl_api_url = http://localhost:3002

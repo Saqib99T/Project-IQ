@@ -248,7 +248,7 @@ function renderSearchResults(results, query) {
                 <div class="flex gap-4 text-xs text-gray-500">
                     <span>🧠 Semantic: ${scores.semantic_score.toFixed(3)}</span>
                     <span>🔤 Keyword: ${scores.keyword_score.toFixed(3)}</span>
-                    ${article.glpi_id ? `<span>📋 GLPI ID: ${article.glpi_id}</span>` : ''}
+                    ${article.glpi_id ? `<span>📋 Ticket ID: ${article.glpi_id}</span>` : ''}
                 </div>
             </div>
         `;
@@ -411,7 +411,7 @@ function viewArticle(article) {
                     <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${escapeHtml(article.category)}</span>
                     ${article.is_faq ? '<span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">FAQ</span>' : ''}
                     <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">${escapeHtml(article.source || 'unknown')}</span>
-                    ${article.glpi_id ? `<span class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">GLPI #${article.glpi_id}</span>` : ''}
+                    ${article.glpi_id ? `<span class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">Ticket #${article.glpi_id}</span>` : ''}
                 </div>
                 ${article.question ? `<div class="bg-yellow-50 p-3 rounded"><strong>Question:</strong> ${escapeHtml(article.question)}</div>` : ''}
                 <div class="prose max-w-none">${article.content || 'No content available'}</div>

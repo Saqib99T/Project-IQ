@@ -251,6 +251,7 @@ class StudioService:
 
 import sys
 # Initialize global instance
-# Assuming root_dir is the parent of the 'actions' directory
-_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Assuming root_dir is the 'core' directory where Rasa project exists
+_base_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_project_root = os.path.join(_base_root, 'core')
 studio_service = StudioService(_project_root)

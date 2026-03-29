@@ -1,7 +1,8 @@
 """
 Admin API Module
 Flask API for admin dashboard operations, analytics, and static file serving.
-Consolidated server running on port 80.
+Consolidated server running on port 8181.
+Extensible for any plugin modules like Firecrawl, Airbyte...
 """
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -21,12 +22,17 @@ from common.conversation_db import (
     _get_connection, _release_connection
 )
 from common.analytics_store import get_analytics_summary, get_recent_conversations
-from common.config_manager import get_all_config as get_file_config, set_all_config as save_file_config
+from common.config_manager import get_all_config as get_file_config, set_all_config as save_file_config, get_profile, get_rasa_config
 from admin.api.studio_service import studio_service
 
 # Static files directories
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ui', 'public')
 WIDGET_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ui', 'dist-widget')
+
+# Service URLs from profile config (resolved once at startup)
+_rasa_cfg = get_rasa_config()
+RASA_URL = _rasa_cfg['api_url'].rstrip('/')
+ACTION_URL = _rasa_cfg['action_url']
 
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
 CORS(app)
@@ -226,8 +232,17 @@ DEFAULT_CONFIG_KEYS = [
     'DB_USER',
     'DB_PASSWORD',
     'WIDGET_TITLE',
-    'WIDGET_SUBTITLE'
+    'WIDGET_SUBTITLE',
+    'FIRECRAWL_API_KEY',
+    'FIRECRAWL_API_URL',
 ]
+
+
+@app.route('/admin/profile', methods=['GET'])
+def get_active_profile():
+    """Get the active profile name (local or prod)."""
+    profile = get_profile()
+    return jsonify({"success": True, "profile": profile, "is_prod": profile == "prod"})
 
 
 @app.route('/admin/config', methods=['GET'])
@@ -239,6 +254,7 @@ def get_all_config():
         for key in DEFAULT_CONFIG_KEYS:
             if key not in config:
                 config[key] = ''
+        config['_profile'] = get_profile()
         return jsonify({"success": True, "config": config})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -553,7 +569,7 @@ def satisfaction_ratings():
         
         results = cursor.fetchall()
         
-        ratings = {{1: 0, 2: 0, 3: 0, 4: 0, 5: 0}}
+        ratings = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         total = 0
         weighted_sum = 0
         
@@ -610,17 +626,18 @@ import requests
 @app.route('/api/rasa/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy_rasa(path):
     """Proxy requests to Rasa Core (Port 5005) to avoid CORS/Localhost issues."""
-    rasa_url = f"http://localhost:5005/{path}"
+    rasa_url = f"{RASA_URL}/{path}"
     
     try:
+        json_headers = {'Accept': 'application/json'}
         if request.method == 'GET':
-            resp = requests.get(rasa_url, params=request.args)
+            resp = requests.get(rasa_url, params=request.args, headers=json_headers)
         elif request.method == 'POST':
-            resp = requests.post(rasa_url, json=request.get_json())
+            resp = requests.post(rasa_url, json=request.get_json(), headers=json_headers)
         elif request.method == 'PUT':
-            resp = requests.put(rasa_url, json=request.get_json())
+            resp = requests.put(rasa_url, json=request.get_json(), headers=json_headers)
         elif request.method == 'DELETE':
-            resp = requests.delete(rasa_url)
+            resp = requests.delete(rasa_url, headers=json_headers)
             
         return jsonify(resp.json()), resp.status_code
     except Exception as e:
@@ -1196,7 +1213,7 @@ def service_health(service):
         elif service == 'rasa':
             try:
                 response = requests.get(
-                    'http://localhost:5005/status',
+                    f'{RASA_URL}/status',
                     headers={'Accept': 'application/json'},
                     timeout=3
                 )
@@ -1205,7 +1222,8 @@ def service_health(service):
                 healthy = False
         elif service == 'actions':
             try:
-                response = requests.get('http://localhost:5055/health', timeout=3)
+                action_health = ACTION_URL.replace('/webhook', '/health')
+                response = requests.get(action_health, timeout=3)
                 healthy = response.status_code == 200
             except:
                 healthy = False
@@ -1458,6 +1476,74 @@ def get_data_sources():
 
 
 # =====================
+# FIRECRAWL CONFIGURATION & UTILITIES
+# =====================
+
+@app.route('/admin/firecrawl/config', methods=['GET'])
+def get_firecrawl_config():
+    """Get Firecrawl configuration (API key + URL)."""
+    try:
+        config = get_file_config()
+        return jsonify({
+            "success": True,
+            "api_key": config.get('FIRECRAWL_API_KEY', ''),
+            "api_url": config.get('FIRECRAWL_API_URL', 'http://localhost:3002'),
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/firecrawl/config', methods=['POST'])
+def save_firecrawl_config():
+    """Save Firecrawl configuration."""
+    try:
+        data = request.get_json()
+        save_file_config({
+            'FIRECRAWL_API_KEY': data.get('api_key', 'fc-selfhosted'),
+            'FIRECRAWL_API_URL': data.get('api_url', 'http://localhost:3002'),
+        })
+        return jsonify({"success": True, "message": "Firecrawl configuration saved"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/admin/firecrawl/test', methods=['POST'])
+def test_firecrawl_connection():
+    """Test connection to the Firecrawl instance."""
+    try:
+        import requests as _requests
+        data = request.get_json() or {}
+        api_url = data.get('api_url') or get_file_config().get('FIRECRAWL_API_URL', 'http://localhost:3002')
+        api_key = data.get('api_key') or get_file_config().get('FIRECRAWL_API_KEY', 'fc-selfhosted')
+
+        # Firecrawl responds at / with {"message":"Firecrawl API"}
+        root_url = api_url.rstrip('/') + '/'
+        resp = _requests.get(root_url, timeout=5)
+
+        if resp.status_code == 200 and 'firecrawl' in resp.text.lower():
+            return jsonify({"success": True, "message": "Firecrawl is running", "status_code": resp.status_code})
+        elif resp.status_code == 200:
+            return jsonify({"success": True, "message": "Server reachable", "status_code": resp.status_code})
+        else:
+            return jsonify({"success": False, "message": f"Unexpected status {resp.status_code}", "status_code": resp.status_code})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "message": "Could not reach Firecrawl — is it running?"}), 200
+
+
+@app.route('/admin/firecrawl/crawl-jobs', methods=['GET'])
+def get_firecrawl_crawl_jobs():
+    """Get history of all Firecrawl crawl/scrape jobs."""
+    try:
+        from common.firecrawl_ingester import get_data_sources as _get_sources
+        sources = _get_sources()
+        # Filter to only firecrawl sources
+        fc_sources = [s for s in sources if 'firecrawl' in s.get('source_type', '').lower()]
+        return jsonify({"success": True, "data": fc_sources})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "data": []}), 500
+
+
+# =====================
 # DATA CONNECTORS (AIRBYTE)
 # =====================
 
@@ -1527,40 +1613,28 @@ from psycopg2.extras import RealDictCursor
 def get_stories_and_rules():
     """Parse stories.yml and rules.yml to extract flow definitions."""
     flows = {"stories": [], "rules": []}
-    base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    print(f"[DEBUG] Base path for studio files: {base_path}")
-    
-    stories_path = os.path.join(base_path, "data", "stories.yml")
-    print(f"[DEBUG] Loading stories from: {stories_path}")
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+    stories_path = os.path.join(project_root, "core", "data", "stories.yml")
     if os.path.exists(stories_path):
         with open(stories_path, 'r', encoding='utf-8') as f:
             try:
-                print(f"[DEBUG] Reading {stories_path}...")
                 data = yaml.safe_load(f)
                 if data:
-                    print(f"[DEBUG] Parsed stories.yml. Keys: {list(data.keys())}")
                     flows["stories"] = data.get("stories", [])
-                    print(f"[DEBUG] Found {len(flows['stories'])} stories")
-                else:
-                    print("[DEBUG] stories.yml parsed as None/Empty")
             except Exception as e:
                 print(f"[ERROR] Error parsing stories.yml: {e}")
-    
-    rules_path = os.path.join(base_path, "data", "rules.yml")
+
+    rules_path = os.path.join(project_root, "core", "data", "rules.yml")
     if os.path.exists(rules_path):
         with open(rules_path, 'r', encoding='utf-8') as f:
             try:
-                print(f"[DEBUG] Reading {rules_path}...")
                 data = yaml.safe_load(f)
                 if data:
-                    print(f"[DEBUG] Parsed rules.yml. Keys: {list(data.keys())}")
                     flows["rules"] = data.get("rules", [])
-                    print(f"[DEBUG] Found {len(flows['rules'])} rules")
-                else:
-                    print("[DEBUG] rules.yml parsed as None/Empty")
             except Exception as e:
                 print(f"[ERROR] Error parsing rules.yml: {e}")
-    
+
     return flows
 
 
@@ -1709,10 +1783,7 @@ def test_message():
         if not message:
             return jsonify({"success": False, "error": "Message required"})
         
-        # Get Rasa config
-        from common.config_manager import get_rasa_config
-        rasa_config = get_rasa_config()
-        rasa_url = rasa_config.get('api_url', 'http://localhost:5005')
+        rasa_url = RASA_URL
         
         # Send to Rasa webhook
         response = requests.post(
@@ -2002,7 +2073,7 @@ def health_rasa():
     try:
         import requests
         response = requests.get(
-            'http://localhost:5005/status',
+            f'{RASA_URL}/status',
             headers={'Accept': 'application/json'},
             timeout=3
         )
@@ -2016,7 +2087,8 @@ def health_actions():
     """Check if Action Server is running."""
     try:
         import requests
-        response = requests.get('http://localhost:5055/health', timeout=3)
+        action_health = ACTION_URL.replace('/webhook', '/health')
+        response = requests.get(action_health, timeout=3)
         return jsonify({"healthy": response.status_code == 200, "service": "action-server"})
     except:
         return jsonify({"healthy": False, "service": "action-server"})
@@ -2492,7 +2564,7 @@ def chat_webhook_proxy():
         log_message(sender_id, 'user', message_text, intent=None, app_id=app_id, user_id=user_id, ticket_id=ticket_id)
 
         # Forward to Rasa
-        rasa_url = 'http://localhost:5005'
+        rasa_url = RASA_URL
 
         rasa_response = requests.post(
             f"{rasa_url}/webhooks/rest/webhook",
@@ -2620,10 +2692,12 @@ def studio_stats():
 
 
 if __name__ == '__main__':
-    print("Starting Unified Server on port 80...")
+    import os as _os
+    _port = int(_os.environ.get('ADMIN_PORT', 8181))
+    print(f"Starting Unified Server on port {_port}...")
     print(f"Admin files from: {STATIC_DIR}")
     print(f"Widget files from: {WIDGET_DIR}")
-    print("  Admin Dashboard:        http://<YOUR_IP>/admin.html")
-    print("  Chat Widget (IT):       http://<YOUR_IP>/it.html")
-    print("  Chat Widget (ACC):      http://<YOUR_IP>/acc.html")
-    app.run(host='0.0.0.0', port=80, debug=True)
+    print(f"  Admin Dashboard:        http://<YOUR_IP>:{_port}/admin.html")
+    print(f"  Chat Widget (IT):       http://<YOUR_IP>:{_port}/it.html")
+    print(f"  Chat Widget (ACC):      http://<YOUR_IP>:{_port}/acc.html")
+    app.run(host='0.0.0.0', port=_port)

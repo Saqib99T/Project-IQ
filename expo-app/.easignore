@@ -1,0 +1,26 @@
+node_modules/
+.expo/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Exclude monorepo siblings (not needed for mobile build)
+../admin/
+../action_server/
+../core/
+../common/
+../scripts/
+../mobile-app/
+../data/
+../docs/
+../venv/
+../.venv/
+../Log/
+../__pycache__/
+../rasa.db
+../*.pyc

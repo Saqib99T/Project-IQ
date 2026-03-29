@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File start_all.ps1)"
     ]
   }
 }

@@ -73,22 +73,50 @@ def _extract_title(metadata: dict, markdown: str) -> str:
     title = metadata.get('title') or metadata.get('ogTitle', '')
     if title:
         return title.strip()
-    
+
     # Try first H1 from markdown
     h1_match = re.search(r'^#\s+(.+)$', markdown, re.MULTILINE)
     if h1_match:
         return h1_match.group(1).strip()
-    
+
     # Fallback to URL
-    source_url = metadata.get('sourceURL', '')
+    source_url = metadata.get('sourceURL', '') or metadata.get('url', '')
     if source_url:
         return source_url.split('/')[-1].replace('-', ' ').replace('_', ' ').title()
-    
+
     return "Untitled Article"
 
 
-def _process_to_article(data: dict, source_url: str, category: str = None) -> Dict:
-    """Transform Firecrawl scrape result into KB article format."""
+def _doc_to_dict(doc) -> dict:
+    """Convert a Firecrawl v2 Document (or dict) to a plain dict."""
+    if isinstance(doc, dict):
+        return doc
+    # Pydantic model — extract fields we need
+    result = {}
+    result['markdown'] = getattr(doc, 'markdown', None) or ''
+    result['content'] = result['markdown']
+    # metadata may be a DocumentMetadata pydantic model or a dict
+    meta = getattr(doc, 'metadata', None)
+    if meta is None:
+        result['metadata'] = {}
+    elif isinstance(meta, dict):
+        result['metadata'] = meta
+    else:
+        # Pydantic model — convert to dict
+        try:
+            result['metadata'] = meta.model_dump(exclude_none=True)
+            # Include extra fields
+            extra = getattr(meta, '__pydantic_extra__', None)
+            if isinstance(extra, dict):
+                result['metadata'].update({k: v for k, v in extra.items() if v is not None})
+        except Exception:
+            result['metadata'] = {}
+    return result
+
+
+def _process_to_article(data, source_url: str, category: str = None) -> Dict:
+    """Transform Firecrawl scrape result (dict or Document) into KB article format."""
+    data = _doc_to_dict(data)
     markdown = data.get('markdown', '') or data.get('content', '')
     metadata = data.get('metadata', {})
 
@@ -100,13 +128,17 @@ def _process_to_article(data: dict, source_url: str, category: str = None) -> Di
 
     # Extract keywords from metadata
     keywords = []
-    if metadata.get('keywords'):
-        keywords = [k.strip() for k in metadata['keywords'].split(',')]
-    if metadata.get('description'):
-        keywords.append(metadata['description'][:100])
+    kw = metadata.get('keywords', '')
+    if isinstance(kw, list):
+        keywords = [k.strip() for k in kw if k]
+    elif isinstance(kw, str) and kw:
+        keywords = [k.strip() for k in kw.split(',')]
+    desc = metadata.get('description', '')
+    if desc:
+        keywords.append(str(desc)[:100])
 
     article_id = _generate_article_id(source_url)
-    effective_category = category or metadata.get('ogSiteName', 'Web')
+    effective_category = category or metadata.get('ogSiteName', '') or metadata.get('og_site_name', '') or 'Web'
 
     return {
         "id": article_id,
@@ -136,17 +168,20 @@ def scrape_url(url: str, category: str = None) -> Dict:
     client = _get_firecrawl_client()
     
     try:
-        result = client.scrape(url, formats=["markdown"])
+        result = client.scrape(url, formats=["markdown"], block_ads=True)
     except Exception as e:
-        logger.error(f"Firecrawl scrape failed for {url}: {e}")
-        raise RuntimeError(f"Failed to scrape {url}: {e}")
+        # Retry once in mobile mode
+        try:
+            result = client.scrape(url, formats=["markdown"], mobile=True)
+        except Exception as e2:
+            logger.error(f"Firecrawl scrape failed for {url}: {e2}")
+            raise RuntimeError(f"Failed to scrape {url}: {e2}")
 
-    if not result or not result.get('success', True):
+    if not result:
         raise RuntimeError(f"Scrape returned no data for {url}")
 
-    # Handle both response formats (v1 has 'data', newer may not)
-    data = result.get('data', result)
-    article = _process_to_article(data, url, category)
+    # v2 returns a Document object directly; v1 may return a dict with 'data' key
+    article = _process_to_article(result, url, category)
 
     if not article:
         raise RuntimeError(f"Could not extract meaningful content from {url}")
@@ -171,7 +206,9 @@ def crawl_site(url: str, limit: int = 50, category: str = None) -> List[Dict]:
     client = _get_firecrawl_client()
     
     try:
-        result = client.crawl(url=url, limit=limit)
+        from firecrawl.v2.types import ScrapeOptions as _ScrapeOptions
+        _scrape_opts = _ScrapeOptions(formats=["markdown"], block_ads=True)
+        result = client.crawl(url=url, limit=limit, scrape_options=_scrape_opts)
     except Exception as e:
         logger.error(f"Firecrawl crawl failed for {url}: {e}")
         raise RuntimeError(f"Failed to crawl {url}: {e}")
@@ -179,15 +216,20 @@ def crawl_site(url: str, limit: int = 50, category: str = None) -> List[Dict]:
     if not result:
         raise RuntimeError(f"Crawl returned no data for {url}")
 
-    # Crawl returns a list of documents
-    docs = result.get('data', []) if isinstance(result, dict) else result
+    # v2 returns a CrawlJob object with .data (list of Documents); v1 returns a dict
+    if isinstance(result, dict):
+        docs = result.get('data', [])
+    else:
+        docs = getattr(result, 'data', []) or []
     if not isinstance(docs, list):
         docs = [docs]
 
     articles = []
     for i, doc in enumerate(docs):
-        source_url = doc.get('metadata', {}).get('sourceURL', f"{url}#page-{i}")
-        article = _process_to_article(doc, source_url, category)
+        doc_dict = _doc_to_dict(doc)
+        meta = doc_dict.get('metadata', {})
+        source_url = meta.get('sourceURL') or meta.get('url') or f"{url}#page-{i}"
+        article = _process_to_article(doc_dict, source_url, category)
         if article:
             # Give unique IDs for each crawled page
             article['id'] = _generate_article_id(source_url)

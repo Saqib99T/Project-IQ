@@ -8,7 +8,7 @@ REM Configuration
 set BACKUP_DIR=%~dp0backups
 set DB_NAME=rasa_conversations
 set DB_USER=postgres
-set PG_BIN="C:\Program Files\PostgreSQL\14\bin"
+set PG_BIN="C:\Program Files\PostgreSQL\18\bin"
 
 REM Check if backup directory exists
 if not exist "%BACKUP_DIR%" (

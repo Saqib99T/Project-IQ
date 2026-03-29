@@ -7,7 +7,8 @@ let studioState = {
     isDirty: false,
     editor: null,
     files: [],
-    trainingInterval: null
+    trainingInterval: null,
+    isInternalChange: false
 };
 
 // Initialize
@@ -68,7 +69,7 @@ function initMonaco() {
 
     // Track changes
     studioState.editor.onDidChangeModelContent(() => {
-        if (studioState.currentFile && !studioState.isDirty) {
+        if (!studioState.isInternalChange && studioState.currentFile && !studioState.isDirty) {
             setDirty(true);
         }
     });
@@ -173,9 +174,12 @@ async function openFile(filename) {
 
             // Set Editor Content
             if (studioState.editor) {
+                studioState.isInternalChange = true;
                 studioState.editor.setValue(data.content);
                 // Scroll to top
                 studioState.editor.setScrollTop(0);
+                // Reset internal change flag after event loop
+                setTimeout(() => { studioState.isInternalChange = false; }, 0);
             }
 
             // GUI Update

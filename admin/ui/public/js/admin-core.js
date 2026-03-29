@@ -70,6 +70,9 @@ async function showSection(section) {
     else if (section === 'knowledge-base' && window.loadKnowledgeBase) {
         loadKnowledgeBase();
     }
+    else if (section === 'firecrawl' && window.loadFirecrawl) {
+        loadFirecrawl();
+    }
 }
 
 // Toast Notification

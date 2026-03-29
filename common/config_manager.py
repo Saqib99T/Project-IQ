@@ -10,8 +10,15 @@ from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# Path to local config file (fallback)
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app.config')
+# Active profile: local or prod (set via APP_PROFILE env var)
+_PROFILE = os.environ.get('APP_PROFILE', 'local').lower()
+
+_config_dir = os.path.dirname(os.path.abspath(__file__))
+_profile_config = os.path.join(_config_dir, f'app.config.{_PROFILE}')
+_default_config = os.path.join(_config_dir, 'app.config')
+
+# Use profile-specific config if it exists, otherwise fall back to app.config
+CONFIG_FILE = _profile_config if os.path.exists(_profile_config) else _default_config
 
 # Load .env file if it exists (for Infisical credentials)
 try:
@@ -160,6 +167,20 @@ def get_widget_config() -> Dict[str, str]:
     }
 
 
+def get_rasa_config() -> Dict[str, str]:
+    """Get Rasa service URLs."""
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'api_url': _get_secret('RASA_API_URL', 'http://localhost:5005'),
+            'action_url': _get_secret('RASA_ACTION_URL', 'http://127.0.0.1:5055/webhook'),
+        }
+    config = load_config()
+    return {
+        'api_url': config.get('RASA', 'RASA_API_URL', fallback='http://localhost:5005'),
+        'action_url': config.get('RASA', 'RASA_ACTION_URL', fallback='http://127.0.0.1:5055/webhook'),
+    }
+
+
 def get_kb_config() -> Dict[str, Any]:
     """Get Knowledge Base configuration settings."""
     if _init_infisical() and _infisical_secrets:
@@ -290,6 +311,27 @@ def set_all_config(settings: Dict[str, str]):
 def set_config_value(key: str, value: str):
     """Set a single configuration value."""
     set_all_config({key: value})
+
+
+def get_profile() -> str:
+    """Return the active profile name (local or prod)."""
+    return _PROFILE
+
+
+def get_server_config() -> Dict[str, Any]:
+    """Get server configuration (port, CORS, debug mode)."""
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'admin_port': int(_get_secret('ADMIN_PORT', '8181')),
+            'cors_origins': _get_secret('CORS_ORIGINS', '*'),
+            'debug': _get_secret('DEBUG', 'false').lower() == 'true',
+        }
+    config = load_config()
+    return {
+        'admin_port': config.getint('SERVER', 'ADMIN_PORT', fallback=8181),
+        'cors_origins': config.get('SERVER', 'CORS_ORIGINS', fallback='*'),
+        'debug': config.getboolean('PROFILE', 'DEBUG', fallback=False),
+    }
 
 
 def is_using_infisical() -> bool:

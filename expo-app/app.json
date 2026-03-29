@@ -2,7 +2,7 @@
   "expo": {
     "name": "Project IQ",
     "slug": "project-iq-mobile",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,6 +17,14 @@
     },
     "android": {
       "package": "com.projectiq.mobile",
+      "usesCleartextTraffic": true,
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "NEARBY_WIFI_DEVICES"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -26,6 +34,22 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0d7e2ca9-6532-4678-9fff-8979716164f3"
+      }
+    },
+    "owner": "sidrees73"
   }
 }

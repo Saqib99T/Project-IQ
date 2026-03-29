@@ -6,7 +6,7 @@ import AnimatedChatIcon from './AnimatedChatIcon';
 import { v4 as uuidv4 } from 'uuid';
 import { getCookie, setCookie, deleteCookie } from '../utils/cookieUtils';
 
-const RASA_API_URL = 'http://127.0.0.1:5005/webhooks/rest/webhook';
+const RASA_API_URL = `${window.location.protocol}//${window.location.hostname}:5005/webhooks/rest/webhook`;
 
 // Storage keys with appId prefix for multi-widget support
 // Cookies: auth data (senderId, isAuthenticated, authUser, privacyDismissed)

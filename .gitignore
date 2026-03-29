@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.infisical.template
+core/.rasa
+.agent
+.claude
 
 # Python
 __pycache__/

@@ -116,8 +116,8 @@ const SettingsScreen = ({ navigation }) => {
                             <Ionicons name="server" size={22} color="#fff" />
                         </View>
                         <View>
-                            <Text style={styles.cardTitle}>Rasa Server</Text>
-                            <Text style={styles.cardSub}>Chatbot backend URL</Text>
+                            <Text style={styles.cardTitle}>Chatbot Server</Text>
+                            <Text style={styles.cardSub}>Backend URL</Text>
                         </View>
                     </View>
 
@@ -126,7 +126,7 @@ const SettingsScreen = ({ navigation }) => {
                         style={[styles.urlInput, styles.urlInputDisabled]}
                         value={url}
                         editable={false}
-                        placeholder="http://192.168.71.36:5005"
+                        placeholder="http://198.233.100.77:5005"
                     />
                     <Text style={styles.hint}>
                         Server URL is pre-configured and cannot be changed.

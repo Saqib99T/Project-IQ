@@ -5,15 +5,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { v4 as uuidv4 } from 'uuid';
 import { storage } from '../utils/storage';
-import { getWebhookUrl, getAppId } from '../config';
+import { getWebhookUrl, getAppId, THEME, APP_TITLE } from '../config';
 import MessageBubble from '../components/MessageBubble';
 import QuickActions from '../components/QuickActions';
 import LoginModal from '../components/LoginModal';
-import { TicketFilterModal, TicketIdModal } from '../components/TicketModals';
+import { TicketFilterModal, TicketIdModal, TicketFormModal } from '../components/TicketModals';
 
-const TITLE = 'Project IQ';
+// Fallback UUID generator for React Native to avoid crypto requirement
+const uuidv4 = () => {
+    return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 10);
+};
+
+const TITLE = APP_TITLE;
 
 const ChatScreen = ({ navigation }) => {
     // State
@@ -34,6 +38,7 @@ const ChatScreen = ({ navigation }) => {
     const [loginLoading, setLoginLoading] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
     const [showTicketId, setShowTicketId] = useState(false);
+    const [showTicketForm, setShowTicketForm] = useState(false);
 
     const flatListRef = useRef(null);
 
@@ -74,11 +79,20 @@ const ChatScreen = ({ navigation }) => {
 
     // Initialize on mount
     useEffect(() => {
+        let mounted = true;
         (async () => {
-            const currentAppId = await getAppId();
-            await loadSession(currentAppId);
-            setReady(true);
+            try {
+                const currentAppId = await getAppId();
+                if (mounted) {
+                    await loadSession(currentAppId);
+                }
+            } catch (err) {
+                console.error("Failed to initialize session:", err);
+            } finally {
+                if (mounted) setReady(true);
+            }
         })();
+        return () => { mounted = false; };
     }, []);
 
     // Re-check app-id when screen gains focus (works reliably on web + native)
@@ -170,6 +184,7 @@ const ChatScreen = ({ navigation }) => {
             const responses = processResponse(data);
             if (responses.length > 0) {
                 setMessages(prev => [...prev, ...responses]);
+                if (responses.some(m => m.ticket_form)) setShowTicketForm(true);
             } else {
                 setMessages(prev => [...prev, {
                     id: uuidv4(), sender: 'bot',
@@ -193,6 +208,7 @@ const ChatScreen = ({ navigation }) => {
     // Button click handler
     const handleButtonClick = async (payload) => {
         if (payload === '__LOGIN__') { setShowLogin(true); return; }
+        if (payload === '__SHOW_TICKET_FORM__') { setShowTicketForm(true); return; }
 
         const restricted = ['/create_ticket', '/list_tickets', '/check_status', '/update_ticket', '/verify_resolution'];
         if (isGuest && restricted.some(p => payload.startsWith(p))) {
@@ -221,7 +237,10 @@ const ChatScreen = ({ navigation }) => {
         try {
             const data = await sendToRasa(message);
             const responses = processResponse(data);
-            if (responses.length > 0) setMessages(prev => [...prev, ...responses]);
+            if (responses.length > 0) {
+                setMessages(prev => [...prev, ...responses]);
+                if (responses.some(m => m.ticket_form)) setShowTicketForm(true);
+            }
         } catch (err) {
             setMessages(prev => [...prev, { id: uuidv4(), sender: 'bot', text: '⚠️ Error connecting to server.' }]);
         } finally {
@@ -308,10 +327,16 @@ const ChatScreen = ({ navigation }) => {
         handleButtonClick(`/check_status{"ticket_id":"${id}"}`);
     };
 
+    // Ticket FormSubmit
+    const handleTicketFormSubmit = (data) => {
+        const payload = `/submit_ticket_form${JSON.stringify(data)}`;
+        handleButtonClick(payload);
+    };
+
     if (!ready) {
         return (
             <SafeAreaView style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#000" />
+                <ActivityIndicator size="large" color={THEME.primary} />
                 <Text style={styles.loadingText}>Loading...</Text>
             </SafeAreaView>
         );
@@ -329,7 +354,7 @@ const ChatScreen = ({ navigation }) => {
                     ) : null}
                     {isGuest ? (
                         <View style={styles.guestBadge}>
-                            <Text style={styles.guestText}>Guest</Text>
+                            <Text style={styles.guestText}>GUEST</Text>
                         </View>
                     ) : null}
                 </View>
@@ -339,7 +364,7 @@ const ChatScreen = ({ navigation }) => {
                     </TouchableOpacity>
                     {isGuest ? (
                         <TouchableOpacity style={styles.loginBadge} onPress={() => setShowLogin(true)}>
-                            <Text style={styles.loginBadgeText}>🔑 Login</Text>
+                            <Text style={styles.loginBadgeText}>🔑 LOGIN</Text>
                         </TouchableOpacity>
                     ) : (
                         <>
@@ -356,8 +381,8 @@ const ChatScreen = ({ navigation }) => {
 
             <KeyboardAvoidingView
                 style={styles.flex}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={0}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
             >
                 {/* Messages */}
                 <FlatList
@@ -405,7 +430,7 @@ const ChatScreen = ({ navigation }) => {
                                 disabled={!inputText.trim() || isLoading}
                                 style={[styles.sendBtn, (!inputText.trim() || isLoading) && styles.sendBtnDisabled]}
                             >
-                                <Ionicons name="send" size={18} color={inputText.trim() && !isLoading ? '#000' : '#d1d5db'} />
+                                <Ionicons name="send" size={18} color={inputText.trim() && !isLoading ? THEME.primary : THEME.border} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -430,69 +455,76 @@ const ChatScreen = ({ navigation }) => {
                 onClose={() => setShowTicketId(false)}
                 onSubmit={handleTicketIdSubmit}
             />
+            <TicketFormModal
+                visible={showTicketForm}
+                onClose={() => setShowTicketForm(false)}
+                onSubmit={handleTicketFormSubmit}
+            />
         </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f9fafb' },
+    container: { flex: 1, backgroundColor: THEME.background },
     flex: { flex: 1 },
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: THEME.background },
     loadingText: { marginTop: 12, color: '#6b7280', fontSize: 14 },
 
-    // Header
+    // Header (Naked / Gemini Style)
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#fff',
+        paddingTop: 16,
+        paddingBottom: 12,
+        backgroundColor: THEME.background,
         borderBottomWidth: 1,
-        borderBottomColor: '#f3f4f6',
+        borderBottomColor: THEME.border,
     },
     headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4ade80' },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#111' },
-    headerUser: { fontSize: 12, color: '#6b7280' },
-    guestBadge: { backgroundColor: '#f3f4f6', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-    guestText: { fontSize: 11, color: '#6b7280', fontWeight: '500' },
+    onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: THEME.success },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: THEME.text },
+    headerUser: { fontSize: 12, color: THEME.textSecondary },
+    guestBadge: { backgroundColor: THEME.secondary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+    guestText: { fontSize: 10, color: THEME.primary, fontWeight: '700', letterSpacing: 0.5 },
     headerBtn: { padding: 8, borderRadius: 20 },
-    loginBadge: { backgroundColor: '#000', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-    loginBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+    loginBadge: { backgroundColor: THEME.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+    loginBadgeText: { color: '#ffffff', fontSize: 11, fontWeight: '700' },
 
     // Messages
     messagesList: { paddingVertical: 12, paddingHorizontal: 12 },
     typingRow: { flexDirection: 'row', gap: 4, marginLeft: 16, marginTop: 8, marginBottom: 8 },
     typingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#9ca3af' },
 
-    // Input
-    inputSafeArea: { backgroundColor: '#fff' },
+    // Input (Floating Pill Style)
+    inputSafeArea: { backgroundColor: THEME.background },
     inputContainer: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#f3f4f6',
+        backgroundColor: THEME.background,
     },
     inputRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f3f4f6',
-        borderRadius: 24,
+        backgroundColor: '#f0f4f9',
+        borderRadius: 30,
+        marginHorizontal: 16,
+        marginBottom: 16,
         paddingHorizontal: 16,
-        paddingVertical: Platform.OS === 'ios' ? 10 : 4,
-        borderWidth: 1,
-        borderColor: '#e5e7eb',
+        paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     textInput: {
         flex: 1,
         fontSize: 16,
-        color: '#111',
-        paddingVertical: 6,
+        color: THEME.text,
+        paddingVertical: 8,
     },
-    sendBtn: { padding: 8, borderRadius: 16, marginLeft: 8 },
+    sendBtn: { padding: 10, borderRadius: 20, marginLeft: 8 },
     sendBtnDisabled: { opacity: 0.3 },
 });
 

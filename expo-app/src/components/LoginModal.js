@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { THEME, APP_TITLE } from '../config';
 
 const LoginModal = ({ visible, onClose, onLogin, isLoading, error }) => {
     const [username, setUsername] = useState('');
@@ -24,7 +25,7 @@ const LoginModal = ({ visible, onClose, onLogin, isLoading, error }) => {
                 <View style={styles.card}>
                     {/* Header */}
                     <View style={styles.header}>
-                        <Text style={styles.headerText}>🔐 Login to Project IQ</Text>
+                        <Text style={styles.headerText}>🔐 Login to {APP_TITLE}</Text>
                         <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
                             <Ionicons name="close-circle" size={24} color="rgba(255,255,255,0.7)" />
                         </TouchableOpacity>
@@ -99,19 +100,19 @@ const styles = StyleSheet.create({
     card: {
         width: '100%',
         maxWidth: 380,
-        backgroundColor: '#fff',
+        backgroundColor: THEME.background,
         borderRadius: 20,
         overflow: 'hidden',
     },
     header: {
-        backgroundColor: '#000',
+        backgroundColor: THEME.primary,
         paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingVertical: 18,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    headerText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    headerText: { color: '#ffffff', fontSize: 17, fontWeight: '700' },
     closeBtn: { padding: 4 },
     form: { padding: 20 },
     label: { fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 6 },
@@ -119,9 +120,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#d1d5db',
+        borderColor: THEME.border,
         borderRadius: 12,
-        backgroundColor: '#fff',
+        backgroundColor: '#ffffff',
     },
     inputIcon: { marginLeft: 12 },
     input: {
@@ -152,11 +153,11 @@ const styles = StyleSheet.create({
     loginBtn: {
         flex: 1,
         paddingVertical: 14,
-        backgroundColor: '#000',
+        backgroundColor: THEME.primary,
         borderRadius: 12,
         alignItems: 'center',
     },
-    loginText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+    loginText: { color: '#fff', fontWeight: '700', fontSize: 15 },
     disabledBtn: { opacity: 0.5 },
 });
 

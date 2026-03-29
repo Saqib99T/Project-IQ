@@ -32,7 +32,8 @@
       "Bash(wmic process where \"ProcessId=65492\" delete)",
       "Bash(wmic process where \"commandline like ''%admin_api.py%''\" get processid)",
       "Read(//d/99T/Rasa/Project-IQ/**)",
-      "Bash(rasa run:*)"
+      "Bash(rasa run:*)",
+      "Bash(docker compose:*)"
     ]
   }
 }

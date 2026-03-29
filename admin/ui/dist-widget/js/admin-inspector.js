@@ -195,6 +195,7 @@ function showInspectorTab(tab) {
     if (tab === 'flows') loadInspectorFlows();
     if (tab === 'intents') loadInspectorIntents();
     if (tab === 'actions') loadInspectorActions();
+    if (tab === 'domain') loadDomain();
 }
 
 async function loadInspectorFlows() {
@@ -282,102 +283,29 @@ function refreshInspector() {
 }
 
 // ============================================
-// TURN DEBUGGER
-// ============================================
-async function debugMessage() {
-    const message = document.getElementById('debug-message')?.value;
-    if (!message) return;
-
-    try {
-        const res = await fetch('/api/rasa/webhooks/rest/webhook', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sender: 'debugger',
-                message: message
-            })
-        });
-
-        const data = await res.json();
-
-        // Parse NLU data from response or make separate NLU call
-        await displayDebugResults(message, data);
-    } catch (e) {
-        console.error('Debug failed:', e);
-        alert('Failed to debug message. Make sure Rasa server is running on port 5005.');
-    }
-}
-
-async function displayDebugResults(message, response) {
-    try {
-        // Get NLU parse
-        const nluRes = await fetch('/api/rasa/model/parse', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: message })
-        });
-        const nluData = await nluRes.json();
-
-        // Show results
-        document.getElementById('debugger-results').classList.remove('hidden');
-        document.getElementById('debugger-empty').classList.add('hidden');
-
-        // Intent
-        const intent = nluData.intent?.name || 'unknown';
-        const confidence = (nluData.intent?.confidence || 0).toFixed(4);
-        document.getElementById('debug-intent').textContent = intent;
-        document.getElementById('debug-confidence').textContent = `${(parseFloat(confidence) * 100).toFixed(2)}%`;
-        document.getElementById('debug-confidence').className = parseFloat(confidence) > 0.8 ? 'font-semibold text-green-600' : parseFloat(confidence) > 0.5 ? 'font-semibold text-yellow-600' : 'font-semibold text-red-600';
-
-        // Intent ranking
-        const ranking = nluData.intent_ranking || [];
-        document.getElementById('debug-ranking').innerHTML = ranking.slice(0, 5).map(i => `
-            <div class="flex items-center gap-2 text-xs">
-                <span class="font-medium w-32 truncate">${i.name}</span>
-                <div class="flex-1 bg-gray-200 rounded h-4 relative">
-                    <div class="bg-purple-500 h-4 rounded" style="width: ${(i.confidence * 100).toFixed(0)}%"></div>
-                </div>
-                <span class="w-12 text-right">${(i.confidence * 100).toFixed(1)}%</span>
-            </div>
-        `).join('');
-
-        // Policy (simulated - Rasa doesn't expose this easily)
-        document.getElementById('debug-policy').innerHTML = `
-            <div class="text-sm p-2 bg-blue-50 rounded">
-                <div class="font-semibold text-blue-700">Policy: RulePolicy</div>
-                <div class="text-blue-600 text-xs">Confidence: High</div>
-            </div>
-        `;
-
-        // Actions
-        document.getElementById('debug-actions').innerHTML = response.map((r, i) => `
-            <div class="text-sm p-2 bg-orange-50 rounded">
-                <div class="font-semibold text-orange-700">Action ${i + 1}</div>
-                <div class="text-orange-600 text-xs">${r.text ? 'utter_message' : 'custom_action'}</div>
-            </div>
-        `).join('') || '<div class="text-sm text-gray-500">No actions executed</div>';
-
-    } catch (e) {
-        console.error('Failed to display debug results:', e);
-    }
-}
-
-// ============================================
-// LIVE NLU TESTER
+// NLU TESTER
 // ============================================
 async function testNLU() {
     const text = document.getElementById('nlu-test-input')?.value;
     if (!text) return;
 
     try {
-        const res = await fetch('/api/rasa/model/parse', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
-        });
-        const data = await res.json();
+        const [parseRes, webhookRes] = await Promise.all([
+            fetch('/api/rasa/model/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            }),
+            fetch('/api/rasa/webhooks/rest/webhook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender: 'nlu_tester', message: text })
+            })
+        ]);
 
-        // Show results
+        const data = await parseRes.json();
+        const botResponse = await webhookRes.json();
+
         document.getElementById('nlu-results').classList.remove('hidden');
         document.getElementById('nlu-empty').classList.add('hidden');
 
@@ -391,16 +319,21 @@ async function testNLU() {
         const fill = document.getElementById('nlu-confidence-fill');
         fill.style.width = confidencePercent + '%';
         fill.textContent = confidencePercent + '%';
-        fill.className = confidence > 0.8 ? 'bg-green-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold' :
-            confidence > 0.5 ? 'bg-yellow-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold' :
-                'bg-red-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold';
+        fill.className = confidence > 0.8
+            ? 'bg-green-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold'
+            : confidence > 0.5
+                ? 'bg-yellow-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold'
+                : 'bg-red-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold';
 
         // Intent ranking
         const ranking = data.intent_ranking || [];
         document.getElementById('nlu-intent-ranking').innerHTML = ranking.slice(0, 5).map(i => `
             <div class="flex items-center gap-2 text-xs p-2 bg-gray-50 rounded">
-                <span class="font-medium flex-1">${i.name}</span>
-                <span class="text-gray-600">${(i.confidence * 100).toFixed(1)}%</span>
+                <span class="font-medium w-32 truncate">${i.name}</span>
+                <div class="flex-1 bg-gray-200 rounded h-3">
+                    <div class="bg-purple-500 h-3 rounded" style="width: ${(i.confidence * 100).toFixed(0)}%"></div>
+                </div>
+                <span class="w-10 text-right">${(i.confidence * 100).toFixed(1)}%</span>
             </div>
         `).join('');
 
@@ -423,6 +356,14 @@ async function testNLU() {
             document.getElementById('nlu-no-entities').classList.remove('hidden');
         }
 
+        // Bot response & actions
+        document.getElementById('nlu-actions').innerHTML = botResponse.map(r => `
+            <div class="text-sm p-2 bg-orange-50 rounded">
+                <div class="font-semibold text-orange-700">${r.text ? 'utter_message' : 'custom_action'}</div>
+                ${r.text ? `<div class="text-orange-600 text-xs mt-1">${r.text}</div>` : ''}
+            </div>
+        `).join('') || '<div class="text-sm text-gray-500">No actions executed</div>';
+
     } catch (e) {
         console.error('NLU test failed:', e);
         alert('Failed to test NLU. Make sure Rasa server is running on port 5005.');
@@ -444,29 +385,34 @@ async function loadSlots() {
         const data = await res.json();
 
         const slots = data.slots || {};
-        const slotEntries = Object.entries(slots).filter(([k, v]) => v !== null);
+        const slotEntries = Object.entries(slots);
 
         if (slotEntries.length === 0) {
             alert('No slots found for this conversation');
             return;
         }
 
+        const filledEntries = slotEntries.filter(([k, v]) => v !== null);
+
         document.getElementById('slots-results').classList.remove('hidden');
         document.getElementById('slots-empty').classList.add('hidden');
-        document.getElementById('slots-count').textContent = `${slotEntries.length} slot${slotEntries.length !== 1 ? 's' : ''}`;
+        document.getElementById('slots-count').textContent = `${filledEntries.length} filled / ${slotEntries.length} total`;
 
-        document.getElementById('slots-tbody').innerHTML = slotEntries.map(([key, value]) => `
-            <tr class="border-t hover:bg-gray-50">
+        document.getElementById('slots-tbody').innerHTML = slotEntries.map(([key, value]) => {
+            const isFilled = value !== null;
+            const displayVal = value === null ? '—' : (typeof value === 'object' ? JSON.stringify(value) : value);
+            return `
+            <tr class="border-t hover:bg-gray-50 ${isFilled ? '' : 'opacity-40'}">
                 <td class="px-4 py-2 font-medium">${key}</td>
                 <td class="px-4 py-2">
-                    <code class="text-xs bg-gray-100 px-2 py-1 rounded">${typeof value === 'object' ? JSON.stringify(value) : value}</code>
+                    <code class="text-xs ${isFilled ? 'bg-gray-100' : 'bg-transparent text-gray-400'} px-2 py-1 rounded">${displayVal}</code>
                 </td>
-                <td class="px-4 py-2 text-gray-500 text-xs">${typeof value}</td>
+                <td class="px-4 py-2 text-gray-500 text-xs">${value === null ? 'null' : typeof value}</td>
                 <td class="px-4 py-2 text-right">
-                    <button onclick="clearSlot('${senderId}', '${key}')" class="text-xs text-red-600 hover:text-red-800">Clear</button>
+                    ${isFilled ? `<button onclick="clearSlot('${senderId}', '${key}')" class="text-xs text-red-600 hover:text-red-800">Clear</button>` : ''}
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
 
     } catch (e) {
         console.error('Failed to load slots:', e);
