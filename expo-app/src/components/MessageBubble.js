@@ -1,10 +1,11 @@
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../config';
 
 const MessageBubble = ({ message, onButtonClick, onFeedback }) => {
-    const [feedbackGiven, setFeedbackGiven] = React.useState(null);
+    const [feedbackGiven, setFeedbackGiven] = useState(null);
     const isBot = message.sender === 'bot';
 
     const handleFeedback = (type) => {
@@ -99,8 +100,6 @@ const MessageBubble = ({ message, onButtonClick, onFeedback }) => {
         </View>
     );
 };
-
-import { Platform } from 'react-native';
 
 const styles = StyleSheet.create({
     row: {

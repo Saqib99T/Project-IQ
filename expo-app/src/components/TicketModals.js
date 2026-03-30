@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../config';
@@ -46,7 +47,7 @@ export const TicketFilterModal = ({ visible, onClose, onSelect }) => {
 
 // Ticket ID Input Modal
 export const TicketIdModal = ({ visible, onClose, onSubmit }) => {
-    const [ticketId, setTicketId] = React.useState('');
+    const [ticketId, setTicketId] = useState('');
 
     const handleSubmit = () => {
         if (ticketId.trim()) {
@@ -125,11 +126,11 @@ const CustomSelect = ({ label, options, selectedValue, onSelect }) => {
 
 // Ticket Create Form Modal - Chatbot style
 export const TicketFormModal = ({ visible, onClose, onSubmit }) => {
-    const [formData, setFormData] = React.useState({
+    const [formData, setFormData] = useState({
         title: '', detail: '', priority: 'Medium', urgency: 'Medium', category: 'Hardware'
     });
-    const [error, setError] = React.useState('');
-    const [showConfirm, setShowConfirm] = React.useState(false);
+    const [error, setError] = useState('');
+    const [showConfirm, setShowConfirm] = useState(false);
 
     const priorityOptions = ['Minor', 'Major', 'Medium', 'High', 'Critical'];
     const urgencyOptions = ['Low', 'Medium', 'High'];

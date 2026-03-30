@@ -20,7 +20,17 @@ npm-debug.*
 ../docs/
 ../venv/
 ../.venv/
+../Backup/
+../firecrawl-selfhost/
 ../Log/
 ../__pycache__/
 ../rasa.db
 ../*.pyc
+../requirements.txt
+../docker-compose*.yml
+../rebrand.py
+../start_*.ps1
+../run_tests.ps1
+../test_*.ps1
+../test_*.py
+../_nul

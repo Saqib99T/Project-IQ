@@ -19,9 +19,32 @@
                 "EAS_NO_VCS": "1"
             }
         },
-        "production": {}
+        "preview-ios": {
+            "distribution": "internal",
+            "ios": {
+                "simulator": false
+            },
+            "env": {
+                "EAS_NO_VCS": "1"
+            }
+        },
+        "production": {
+            "distribution": "store",
+            "ios": {
+                "simulator": false
+            },
+            "env": {
+                "EAS_NO_VCS": "1"
+            }
+        }
     },
     "submit": {
-        "production": {}
+        "production": {
+            "ios": {
+                "appleId": "YOUR_APPLE_ID@example.com",
+                "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
+                "appleTeamId": "YOUR_APPLE_TEAM_ID"
+            }
+        }
     }
 }
