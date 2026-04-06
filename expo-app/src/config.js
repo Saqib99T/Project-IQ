@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const DEFAULT_API_URL = 'http://198.233.100.77:5005';
 const WEBHOOK_PATH = '/webhooks/rest/webhook';
 const DEFAULT_APP_ID = 'IT';
-const APP_TITLE = 'Project IQ';
+const APP_TITLE = 'Project IQ Bot';
 
 export const THEME = {
     primary: '#3b82f6', // Project IQ Blue

@@ -106,7 +106,7 @@ Add to your website:
   RasaWidget.init({
     socketUrl: 'http://localhost:5005',
     customData: {app_id: 'your-app-id'},
-    title: 'IT Support Bot'
+    title: 'Project IQ Bot'
   });
 </script>
 ```

@@ -12532,46 +12532,44 @@ if (typeof window !== "undefined" && !window.process) {
     Component.displayName = toPascalCase(iconName);
     return Component;
   };
-  const __iconNode$c = [
-    ["path", { d: "M12 8V4H8", key: "hb8ula" }],
-    ["rect", { width: "16", height: "12", x: "4", y: "8", rx: "2", key: "enze0r" }],
-    ["path", { d: "M2 14h2", key: "vft8re" }],
-    ["path", { d: "M20 14h2", key: "4cs60a" }],
-    ["path", { d: "M15 13v2", key: "1xurst" }],
-    ["path", { d: "M9 13v2", key: "rq6x2g" }]
-  ];
-  const Bot = createLucideIcon("bot", __iconNode$c);
-  const __iconNode$b = [
+  const __iconNode$e = [["path", { d: "m15 18-6-6 6-6", key: "1wnfg3" }]];
+  const ChevronLeft = createLucideIcon("chevron-left", __iconNode$e);
+  const __iconNode$d = [
     ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
     ["line", { x1: "12", x2: "12", y1: "8", y2: "12", key: "1pkeuh" }],
     ["line", { x1: "12", x2: "12.01", y1: "16", y2: "16", key: "4dfq90" }]
   ];
-  const CircleAlert = createLucideIcon("circle-alert", __iconNode$b);
-  const __iconNode$a = [
+  const CircleAlert = createLucideIcon("circle-alert", __iconNode$d);
+  const __iconNode$c = [
     ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
     ["path", { d: "m15 9-6 6", key: "1uzhvr" }],
     ["path", { d: "m9 9 6 6", key: "z0biqf" }]
   ];
-  const CircleX = createLucideIcon("circle-x", __iconNode$a);
+  const CircleX = createLucideIcon("circle-x", __iconNode$c);
+  const __iconNode$b = [
+    ["rect", { width: "14", height: "14", x: "8", y: "8", rx: "2", ry: "2", key: "17jyea" }],
+    ["path", { d: "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2", key: "zix9uf" }]
+  ];
+  const Copy = createLucideIcon("copy", __iconNode$b);
+  const __iconNode$a = [
+    ["path", { d: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", key: "1357e3" }],
+    ["path", { d: "M3 3v5h5", key: "1xhq8a" }],
+    ["path", { d: "M12 7v5l4 2", key: "1fdv2h" }]
+  ];
+  const History = createLucideIcon("history", __iconNode$a);
   const __iconNode$9 = [
     ["rect", { width: "18", height: "11", x: "3", y: "11", rx: "2", ry: "2", key: "1w4ew1" }],
     ["path", { d: "M7 11V7a5 5 0 0 1 10 0v4", key: "fwvmzm" }]
   ];
   const Lock = createLucideIcon("lock", __iconNode$9);
   const __iconNode$8 = [
-    ["path", { d: "m16 17 5-5-5-5", key: "1bji2h" }],
-    ["path", { d: "M21 12H9", key: "dn1m92" }],
-    ["path", { d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4", key: "1uf3rs" }]
-  ];
-  const LogOut = createLucideIcon("log-out", __iconNode$8);
-  const __iconNode$7 = [
     ["path", { d: "m14 10 7-7", key: "oa77jy" }],
     ["path", { d: "M20 10h-6V4", key: "mjg0md" }],
     ["path", { d: "m3 21 7-7", key: "tjx5ai" }],
     ["path", { d: "M4 14h6v6", key: "rmj7iw" }]
   ];
-  const Minimize2 = createLucideIcon("minimize-2", __iconNode$7);
-  const __iconNode$6 = [
+  const Minimize2 = createLucideIcon("minimize-2", __iconNode$8);
+  const __iconNode$7 = [
     [
       "path",
       {
@@ -12580,7 +12578,12 @@ if (typeof window !== "undefined" && !window.process) {
       }
     ]
   ];
-  const Paperclip = createLucideIcon("paperclip", __iconNode$6);
+  const Paperclip = createLucideIcon("paperclip", __iconNode$7);
+  const __iconNode$6 = [
+    ["path", { d: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", key: "1357e3" }],
+    ["path", { d: "M3 3v5h5", key: "1xhq8a" }]
+  ];
+  const RotateCcw = createLucideIcon("rotate-ccw", __iconNode$6);
   const __iconNode$5 = [
     [
       "path",
@@ -12596,14 +12599,27 @@ if (typeof window !== "undefined" && !window.process) {
     [
       "path",
       {
+        d: "M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z",
+        key: "1s2grr"
+      }
+    ],
+    ["path", { d: "M20 2v4", key: "1rf3ol" }],
+    ["path", { d: "M22 4h-4", key: "gwowj6" }],
+    ["circle", { cx: "4", cy: "20", r: "2", key: "6kqj1y" }]
+  ];
+  const Sparkles = createLucideIcon("sparkles", __iconNode$4);
+  const __iconNode$3 = [
+    [
+      "path",
+      {
         d: "M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z",
         key: "emmmcr"
       }
     ],
     ["path", { d: "M7 10v12", key: "1qc93n" }]
   ];
-  const ThumbsUp = createLucideIcon("thumbs-up", __iconNode$4);
-  const __iconNode$3 = [
+  const ThumbsUp = createLucideIcon("thumbs-up", __iconNode$3);
+  const __iconNode$2 = [
     [
       "path",
       {
@@ -12613,15 +12629,7 @@ if (typeof window !== "undefined" && !window.process) {
     ],
     ["path", { d: "M17 14V2", key: "8ymqnk" }]
   ];
-  const ThumbsDown = createLucideIcon("thumbs-down", __iconNode$3);
-  const __iconNode$2 = [
-    ["path", { d: "M10 11v6", key: "nco0om" }],
-    ["path", { d: "M14 11v6", key: "outv1u" }],
-    ["path", { d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6", key: "miytrc" }],
-    ["path", { d: "M3 6h18", key: "d0wm0j" }],
-    ["path", { d: "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2", key: "e791ji" }]
-  ];
-  const Trash2 = createLucideIcon("trash-2", __iconNode$2);
+  const ThumbsDown = createLucideIcon("thumbs-down", __iconNode$2);
   const __iconNode$1 = [
     ["path", { d: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2", key: "975kel" }],
     ["circle", { cx: "12", cy: "7", r: "4", key: "17ys0d" }]
@@ -33071,11 +33079,10 @@ if (typeof window !== "undefined" && !window.process) {
     }
     return { id: videoId, start: startTime };
   };
-  const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, botIcon = "🤖", botIconColor = null, userIcon = "👤", userIconColor = "#e5e7eb", buttonFontSize = "13" }) => {
+  const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, botIcon = "🤖", botIconColor = null, userIcon = "👤", userIconColor = "#e5e7eb", buttonFontSize = "13", readonly = false }) => {
     const isBot = message.sender === "bot";
     const primaryColor = themeColor || "#000000";
-    const hoverColor = adjustBrightness(primaryColor, -15);
-    const botBgColor = botIconColor || primaryColor;
+    adjustBrightness(primaryColor, -15);
     function adjustBrightness(hex2, percent2) {
       const num = parseInt(hex2.replace("#", ""), 16);
       const amt = Math.round(2.55 * percent2);
@@ -33095,6 +33102,21 @@ if (typeof window !== "undefined" && !window.process) {
         onFeedback(message.id, type);
       }
     };
+    if (message.type === "warning" || message.type === "system") {
+      const isSystem = message.type === "system";
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(
+        motion.div,
+        {
+          initial: { opacity: 0, y: 6 },
+          animate: { opacity: 1, y: 0 },
+          className: "flex w-full justify-center mb-4",
+          children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex items-start gap-2 px-4 py-3 rounded-2xl text-sm max-w-[90%] ${isSystem ? "bg-gray-100 text-gray-500" : "bg-amber-50 border border-amber-200 text-amber-800"}`, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-lg leading-none mt-0.5", children: isSystem ? "💬" : "⏰" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "prose prose-sm max-w-none prose-p:my-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Markdown, { remarkPlugins: [remarkGfm], children: message.text }) })
+          ] })
+        }
+      );
+    }
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
       motion.div,
       {
@@ -33105,9 +33127,9 @@ if (typeof window !== "undefined" && !window.process) {
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "div",
             {
-              className: `flex-shrink-0 h-8 w-8 flex items-center justify-center text-xl ${isBot ? "mr-3 mt-1" : "ml-2 rounded-full"}`,
-              style: isBot ? { backgroundColor: botBgColor, borderRadius: "50%", color: "#ffffff" } : { backgroundColor: userIconColor },
-              children: isBot ? /* @__PURE__ */ jsxRuntimeExports.jsx(Bot, { size: 18, strokeWidth: 2 }) : userIcon
+              className: `flex-shrink-0 h-8 w-8 flex items-center justify-center ${isBot ? "mr-3 mt-1" : "ml-2 rounded-full text-base"}`,
+              style: isBot ? { backgroundColor: "#e8f0fe", borderRadius: "50%", color: "#1a73e8" } : { backgroundColor: userIconColor },
+              children: isBot ? /* @__PURE__ */ jsxRuntimeExports.jsx(Sparkles, { size: 15, strokeWidth: 2 }) : userIcon
             }
           ),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col", children: [
@@ -33126,7 +33148,7 @@ if (typeof window !== "undefined" && !window.process) {
                         thead: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("thead", { className: "bg-gray-50", ...props }),
                         th: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b", ...props }),
                         td: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-2 whitespace-normal text-sm text-gray-700 border-b border-r last:border-r-0 border-gray-100 bg-white", ...props }),
-                        a: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("a", { style: { color: primaryColor }, className: "hover:underline", target: "_blank", rel: "noopener noreferrer", ...props }),
+                        a: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("a", { style: { color: readonly ? "inherit" : primaryColor, pointerEvents: readonly ? "none" : "auto", textDecoration: readonly ? "none" : void 0 }, className: readonly ? "" : "hover:underline", target: readonly ? void 0 : "_blank", rel: "noopener noreferrer", ...props }),
                         ul: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "list-disc pl-5", ...props }),
                         ol: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("ol", { className: "list-decimal pl-5", ...props })
                       },
@@ -33162,7 +33184,7 @@ if (typeof window !== "undefined" && !window.process) {
                       ) })
                     ] });
                   })(),
-                  message.ticket_form && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "not-prose", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  message.ticket_form && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "not-prose", children: readonly ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 px-3 py-2 bg-gray-100 rounded-lg text-xs text-gray-400 italic", children: "Ticket form (archived)" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
                     TicketForm,
                     {
                       primaryColor,
@@ -33178,11 +33200,22 @@ if (typeof window !== "undefined" && !window.process) {
                   message.buttons && message.buttons.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2 mt-3 not-prose", children: message.buttons.map((button, index2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "button",
                     {
-                      onClick: () => onButtonClick && onButtonClick(button.payload),
-                      className: "px-3 py-2 text-white rounded-lg transition-colors shadow-sm",
-                      style: { backgroundColor: primaryColor, fontSize: `${buttonFontSize}px` },
-                      onMouseEnter: (e) => e.target.style.backgroundColor = hoverColor,
-                      onMouseLeave: (e) => e.target.style.backgroundColor = primaryColor,
+                      onClick: () => !readonly && onButtonClick && onButtonClick(button.payload),
+                      className: "px-3 py-2 rounded-full transition-colors bg-transparent",
+                      style: {
+                        fontSize: `${buttonFontSize}px`,
+                        color: primaryColor,
+                        border: `1.5px solid ${primaryColor}`,
+                        opacity: readonly ? 0.4 : 1,
+                        pointerEvents: readonly ? "none" : "auto",
+                        cursor: readonly ? "default" : "pointer"
+                      },
+                      onMouseEnter: (e) => {
+                        if (!readonly) e.currentTarget.style.backgroundColor = `${primaryColor}15`;
+                      },
+                      onMouseLeave: (e) => {
+                        if (!readonly) e.currentTarget.style.backgroundColor = "transparent";
+                      },
                       children: button.title
                     },
                     index2
@@ -33190,26 +33223,27 @@ if (typeof window !== "undefined" && !window.process) {
                 ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "whitespace-pre-wrap", children: message.text })
               }
             ),
-            isBot && message.id !== "init" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1 mt-1 ml-1", children: [
+            isBot && message.id !== "init" && !readonly && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-0.5 mt-1.5 ml-1", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
                 {
                   onClick: () => handleFeedback("up"),
-                  className: `p-1.5 rounded-full transition-all duration-200 ${feedback === "up" ? "bg-green-100 text-green-600 scale-110" : "text-gray-400 hover:text-green-500 hover:bg-green-50"}`,
-                  title: "Helpful",
-                  children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUp, { size: 14, fill: feedback === "up" ? "currentColor" : "none" })
+                  className: `p-1.5 rounded-full transition-colors ${feedback === "up" ? "text-blue-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`,
+                  title: "Good response",
+                  children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUp, { size: 15, fill: feedback === "up" ? "currentColor" : "none" })
                 }
               ),
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
                 {
                   onClick: () => handleFeedback("down"),
-                  className: `p-1.5 rounded-full transition-all duration-200 ${feedback === "down" ? "bg-red-100 text-red-600 scale-110" : "text-gray-400 hover:text-red-500 hover:bg-red-50"}`,
-                  title: "Not helpful",
-                  children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDown, { size: 14, fill: feedback === "down" ? "currentColor" : "none" })
+                  className: `p-1.5 rounded-full transition-colors ${feedback === "down" ? "text-red-500" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`,
+                  title: "Bad response",
+                  children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDown, { size: 15, fill: feedback === "down" ? "currentColor" : "none" })
                 }
               ),
-              feedback && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-gray-400 ml-1 animate-pulse", children: "Thanks for feedback!" })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors", title: "Regenerate", children: /* @__PURE__ */ jsxRuntimeExports.jsx(RotateCcw, { size: 15 }) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors", title: "Copy", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Copy, { size: 15 }) })
             ] })
           ] })
         ] })
@@ -33500,6 +33534,7 @@ if (typeof window !== "undefined" && !window.process) {
     document.cookie = `${name2}=; path=${path2}; max-age=0`;
   }
   const RASA_API_URL = `${window.location.protocol}//${window.location.hostname}:5005/webhooks/rest/webhook`;
+  const ADMIN_API_URL$1 = window.location.origin;
   const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
   const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) => {
     const primaryColor = theme?.primaryColor || "#000000";
@@ -33590,12 +33625,26 @@ I'm here to help you with:
     reactExports.useEffect(() => {
       console.log("Privacy Popup State:", showPrivacyPopup, "Authenticated:", isAuthenticated);
     }, [showPrivacyPopup, isAuthenticated]);
+    const [sessionEnded, setSessionEnded] = reactExports.useState(false);
+    const isWelcomeState = messages.length === 1 && messages[0]?.id === "init";
+    const [timeoutMinutes, setTimeoutMinutes] = reactExports.useState(10);
+    const lastActivityRef = reactExports.useRef(Date.now());
+    const warningShownRef = reactExports.useRef(false);
+    const sessionEndedRef = reactExports.useRef(false);
+    const inactivityIntervalRef = reactExports.useRef(null);
     const [showTicketFilterPopup, setShowTicketFilterPopup] = reactExports.useState(false);
     const [showTicketIdPopup, setShowTicketIdPopup] = reactExports.useState(false);
     const [ticketIdInput, setTicketIdInput] = reactExports.useState("");
     const [inputText, setInputText] = reactExports.useState("");
     const [isLoading, setIsLoading] = reactExports.useState(false);
     const [isOpen, setIsOpen] = reactExports.useState(false);
+    const [historyView, setHistoryView] = reactExports.useState("chat");
+    const [selectedSession, setSelectedSession] = reactExports.useState(null);
+    const [sessions, setSessions] = reactExports.useState([]);
+    const [showUserMenu, setShowUserMenu] = reactExports.useState(false);
+    const [historyLoading, setHistoryLoading] = reactExports.useState(false);
+    const [sessionLoading, setSessionLoading] = reactExports.useState(false);
+    const userMenuRef = reactExports.useRef(null);
     const messagesEndRef = reactExports.useRef(null);
     const fileInputRef = reactExports.useRef(null);
     const scrollToBottom = () => {
@@ -33607,6 +33656,65 @@ I'm here to help you with:
     reactExports.useEffect(() => {
       scrollToBottom();
     }, [messages]);
+    reactExports.useEffect(() => {
+      fetch(`${ADMIN_API_URL$1}/admin/config/SESSION_TIMEOUT_MINUTES`).then((r) => r.json()).then((d) => {
+        const val = parseInt(d.value || d.SESSION_TIMEOUT_MINUTES || "10", 10);
+        if (!isNaN(val) && val > 0) setTimeoutMinutes(val);
+      }).catch(() => {
+      });
+    }, []);
+    reactExports.useEffect(() => {
+      const handler = (e) => {
+        if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+          setShowUserMenu(false);
+        }
+      };
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
+    }, []);
+    reactExports.useEffect(() => {
+      if (!isOpen || sessionEndedRef.current) {
+        clearInterval(inactivityIntervalRef.current);
+        return;
+      }
+      lastActivityRef.current = Date.now();
+      warningShownRef.current = false;
+      inactivityIntervalRef.current = setInterval(() => {
+        if (sessionEndedRef.current) {
+          clearInterval(inactivityIntervalRef.current);
+          return;
+        }
+        const idleMs = Date.now() - lastActivityRef.current;
+        const timeoutMs = timeoutMinutes * 60 * 1e3;
+        const warningMs = (timeoutMinutes - 2) * 60 * 1e3;
+        if (idleMs >= timeoutMs) {
+          clearInterval(inactivityIntervalRef.current);
+          sessionEndedRef.current = true;
+          setSessionEnded(true);
+          setMessages((prev) => {
+            if (prev.some((m) => m.type === "system")) return prev;
+            return [...prev, {
+              id: v4(),
+              sender: "bot",
+              text: "**Session ended due to inactivity.** Thank you for chatting! Start a new conversation anytime.",
+              type: "system"
+            }];
+          });
+        } else if (idleMs >= warningMs && !warningShownRef.current) {
+          warningShownRef.current = true;
+          setMessages((prev) => {
+            if (prev.some((m) => m.type === "warning")) return prev;
+            return [...prev, {
+              id: v4(),
+              sender: "bot",
+              text: `⏰ **Still there?** You've been inactive for ${timeoutMinutes - 2} minute${timeoutMinutes - 2 !== 1 ? "s" : ""}. Your session will end automatically in **2 minutes** if there's no activity.`,
+              type: "warning"
+            }];
+          });
+        }
+      }, 15e3);
+      return () => clearInterval(inactivityIntervalRef.current);
+    }, [isOpen, timeoutMinutes]);
     reactExports.useEffect(() => {
       if (isOpen) {
         setTimeout(() => {
@@ -33680,9 +33788,39 @@ I'm here to help you with:
         setIsLoggingIn(false);
       }
     };
+    const fetchUserHistory = async () => {
+      if (!authUser) return;
+      setHistoryLoading(true);
+      try {
+        const res = await fetch(`${ADMIN_API_URL$1}/api/user/conversations?user_name=${encodeURIComponent(authUser)}&app_id=${encodeURIComponent(appId)}`);
+        const data = await res.json();
+        if (data.success) setSessions(data.data);
+      } catch (e) {
+        console.error("Failed to fetch history", e);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+    const fetchSessionMessages = async (session) => {
+      setSessionLoading(true);
+      try {
+        const res = await fetch(`${ADMIN_API_URL$1}/api/user/conversation/${encodeURIComponent(session.sender_id)}/messages`);
+        const data = await res.json();
+        if (data.success) {
+          setSelectedSession({ ...session, messages: data.data });
+          setHistoryView("session");
+        }
+      } catch (e) {
+        console.error("Failed to fetch session messages", e);
+      } finally {
+        setSessionLoading(false);
+      }
+    };
     const handleLogout = () => {
       setIsAuthenticated(false);
       setIsGuest(true);
+      sessionEndedRef.current = false;
+      setSessionEnded(false);
       setAuthUser("");
       deleteCookie(getStorageKey(appId, "isAuthenticated"));
       deleteCookie(getStorageKey(appId, "authUser"));
@@ -33691,6 +33829,41 @@ I'm here to help you with:
 
 📚 You can still search the Knowledge Base and ask questions!
 🔑 Login anytime for full ticket features.` }]);
+    };
+    const handleEndSession = () => {
+      clearInterval(inactivityIntervalRef.current);
+      sessionEndedRef.current = true;
+      setSessionEnded(true);
+      setMessages((prev) => {
+        if (prev.some((m) => m.type === "system")) return prev;
+        return [...prev, {
+          id: v4(),
+          sender: "bot",
+          text: "**Session ended.** Thank you for chatting! Start a new conversation anytime."
+        }];
+      });
+    };
+    const handleNewConversation = () => {
+      lastActivityRef.current = Date.now();
+      warningShownRef.current = false;
+      sessionEndedRef.current = false;
+      localStorage.removeItem(getStorageKey(appId, "messages"));
+      deleteCookie(getStorageKey(appId, "senderId"));
+      const newId = v4();
+      setCookie(getStorageKey(appId, "senderId"), newId);
+      setSessionEnded(false);
+      const welcomeMsg = isAuthenticated && authUser ? `**Hi ${authUser}!**
+
+Welcome back. How can I help you today?` : `**Hi, I'm ${title}** 👋
+
+I'm here to help you with:
+
+*   **Finding answers** in our knowledge base
+*   **Answering** general IT questions
+*   **Managing** your support tickets
+
+*Log in to unlock full ticket management features.*`;
+      setMessages([{ id: "init", sender: "bot", text: welcomeMsg }]);
     };
     const handleFileSelect = (e) => {
       const file = e.target.files[0];
@@ -33782,6 +33955,8 @@ I'm here to help you with:
       handleButtonClick(payload);
     };
     const handleButtonClick = async (payload) => {
+      lastActivityRef.current = Date.now();
+      warningShownRef.current = false;
       if (payload === "__LOGIN__") {
         setShowLoginPrompt(true);
         return;
@@ -33909,6 +34084,8 @@ Priority: ${data.priority}`;
     const handleSendMessage = async (e) => {
       e.preventDefault();
       if (!inputText.trim()) return;
+      lastActivityRef.current = Date.now();
+      warningShownRef.current = false;
       const validation = validateInput(inputText);
       if (!validation.valid) {
         setMessages((prev) => [...prev, {
@@ -34038,59 +34215,106 @@ Priority: ${data.priority}`;
             /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "div",
               {
-                className: "p-4 flex items-center justify-between shadow-sm border-b border-gray-100",
-                style: {
-                  backgroundColor: bgColor,
-                  color: textColor,
-                  fontSize: `${headerFontSize}px`
-                },
+                className: "flex items-center justify-between px-2 py-3",
+                style: { backgroundColor: bgColor, color: textColor },
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center space-x-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-2 h-2 bg-green-400 rounded-full animate-pulse" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "font-semibold", style: { fontSize: `${parseInt(headerFontSize) + 2}px` }, children: title }),
-                    isAuthenticated && authUser && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-xs opacity-75", children: [
-                      "(",
-                      authUser,
-                      ")"
-                    ] }),
-                    isGuest && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs bg-white/20 px-2 py-0.5 rounded-full", children: "Guest" })
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex space-x-1", children: [
-                    isGuest && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      onClick: () => setIsOpen(false),
+                      className: "p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600",
+                      title: "Close",
+                      children: /* @__PURE__ */ jsxRuntimeExports.jsx(Minimize2, { size: 18 })
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "h1",
+                    {
+                      className: "font-normal text-gray-800 tracking-wide",
+                      style: { fontSize: `${parseInt(headerFontSize) + 2}px` },
+                      children: title
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center gap-1", ref: userMenuRef, children: isAuthenticated && !isGuest ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
                       "button",
                       {
-                        onClick: () => setShowLoginPrompt(true),
-                        className: "px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors flex items-center gap-1",
-                        title: "Login",
-                        children: "🔑 Login"
+                        onClick: () => setShowUserMenu((v) => !v),
+                        className: "w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold focus:outline-none",
+                        style: { backgroundColor: primaryColor },
+                        children: authUser ? authUser[0].toUpperCase() : "U"
                       }
                     ),
-                    isAuthenticated && !isGuest && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "button",
-                      {
-                        onClick: handleLogout,
-                        className: "p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600",
-                        title: "Logout",
-                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(LogOut, { size: 15 })
-                      }
-                    ),
-                    isAuthenticated && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "button",
-                      {
-                        onClick: () => {
-                          localStorage.removeItem(getStorageKey(appId, "messages"));
-                          deleteCookie(getStorageKey(appId, "senderId"));
-                          const newId = v4();
-                          setCookie(getStorageKey(appId, "senderId"), newId);
-                          setMessages([{ id: "init", sender: "bot", text: `Hello! Welcome to ${title}. How can I help you?` }]);
-                        },
-                        className: "p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600",
-                        title: "Clear chat history",
-                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(Trash2, { size: 15 })
-                      }
-                    ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setIsOpen(false), className: "p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600", title: "Minimize", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Minimize2, { size: 15 }) })
-                  ] })
+                    showUserMenu && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute right-0 top-10 w-56 rounded-xl shadow-2xl z-[80] overflow-hidden", style: { backgroundColor: "#1c1c1e", border: "1px solid rgba(255,255,255,0.08)" }, children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-4 py-3", style: { borderBottom: "1px solid rgba(255,255,255,0.08)" }, children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-white font-semibold text-sm", children: authUser }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs mt-0.5", style: { color: "rgba(255,255,255,0.4)" }, children: authUser })
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "py-1", children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "button",
+                          {
+                            className: "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                            style: { color: "rgba(255,255,255,0.6)" },
+                            onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)",
+                            onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
+                            children: "My Profile"
+                          }
+                        ),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "button",
+                          {
+                            className: "w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors",
+                            style: { color: "#ffffff" },
+                            onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)",
+                            onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
+                            onClick: () => {
+                              setShowUserMenu(false);
+                              fetchUserHistory();
+                              setHistoryView("history");
+                            },
+                            children: "History"
+                          }
+                        ),
+                        !isWelcomeState && !sessionEnded && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "button",
+                          {
+                            className: "w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors",
+                            style: { color: "#ffffff" },
+                            onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)",
+                            onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
+                            onClick: () => {
+                              setShowUserMenu(false);
+                              handleEndSession();
+                            },
+                            children: "End This Conversation"
+                          }
+                        )
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { borderTop: "1px solid rgba(255,255,255,0.08)" }, className: "py-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "button",
+                        {
+                          className: "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                          style: { color: "rgba(255,255,255,0.6)" },
+                          onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)",
+                          onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
+                          onClick: () => {
+                            setShowUserMenu(false);
+                            handleLogout();
+                          },
+                          children: "Logout"
+                        }
+                      ) })
+                    ] })
+                  ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      onClick: () => setShowLoginPrompt(true),
+                      className: "p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-500",
+                      title: "Login",
+                      children: /* @__PURE__ */ jsxRuntimeExports.jsx(User, { size: 18 })
+                    }
+                  ) })
                 ]
               }
             ),
@@ -34308,6 +34532,136 @@ Priority: ${data.priority}`;
                 )
               }
             ) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: historyView === "history" && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              motion.div,
+              {
+                initial: { x: -400, opacity: 0 },
+                animate: { x: 0, opacity: 1 },
+                exit: { x: -400, opacity: 0 },
+                transition: { type: "tween", duration: 0.22 },
+                className: "absolute inset-0 z-[60] flex flex-col",
+                style: { backgroundColor: bgColor },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-2 py-3 border-b border-gray-100", style: { backgroundColor: bgColor }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        onClick: () => setHistoryView("chat"),
+                        className: "p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600",
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronLeft, { size: 18 })
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "font-normal text-gray-800 text-base flex-1 text-center pr-8", children: "Conversation History" })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto p-3 space-y-1", style: { backgroundColor: "#f9fafb" }, children: historyLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-full text-gray-400 gap-2 pt-10", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "animate-spin", width: "28", height: "28", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" }) }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "Loading history..." })
+                  ] }) : sessions.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-full text-gray-400 gap-2 pt-10", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(History, { size: 32, strokeWidth: 1.2 }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "No previous conversations" })
+                  ] }) : (() => {
+                    const formatLabel = (iso) => {
+                      const d = new Date(iso);
+                      const today = /* @__PURE__ */ new Date();
+                      const yesterday = new Date(today);
+                      yesterday.setDate(today.getDate() - 1);
+                      if (d.toDateString() === today.toDateString()) return "Today";
+                      if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+                      return d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
+                    };
+                    const formatTime = (iso) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                    const grouped = sessions.reduce((acc, s) => {
+                      const lbl = formatLabel(s.started_at);
+                      (acc[lbl] = acc[lbl] || []).push(s);
+                      return acc;
+                    }, {});
+                    return Object.entries(grouped).map(([label, group]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 py-2", children: label }),
+                      group.map((session) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                        "button",
+                        {
+                          onClick: () => fetchSessionMessages(session),
+                          disabled: sessionLoading,
+                          className: "w-full text-left bg-white rounded-xl px-4 py-3 mb-1.5 shadow-sm border border-gray-100 hover:border-gray-300 hover:shadow transition-all disabled:opacity-50",
+                          children: [
+                            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-xs text-gray-400 mb-1", children: [
+                              formatLabel(session.started_at),
+                              " · ",
+                              formatTime(session.started_at)
+                            ] }),
+                            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-sm text-gray-700 truncate", children: [
+                              '"',
+                              session.preview,
+                              '"'
+                            ] })
+                          ]
+                        },
+                        session.sender_id
+                      ))
+                    ] }, label));
+                  })() })
+                ]
+              }
+            ) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: historyView === "session" && selectedSession && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              motion.div,
+              {
+                initial: { x: 400, opacity: 0 },
+                animate: { x: 0, opacity: 1 },
+                exit: { x: 400, opacity: 0 },
+                transition: { type: "tween", duration: 0.22 },
+                className: "absolute inset-0 z-[61] flex flex-col",
+                style: { backgroundColor: bgColor },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-2 py-3 border-b border-gray-100", style: { backgroundColor: bgColor }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        onClick: () => {
+                          setHistoryView("history");
+                          setSelectedSession(null);
+                        },
+                        className: "p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600",
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronLeft, { size: 18 })
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "font-normal text-gray-700 text-sm flex-1 truncate pr-2", children: [
+                      new Date(selectedSession.started_at).toLocaleDateString("en-US", { day: "2-digit", month: "short" }),
+                      " · ",
+                      selectedSession.preview.slice(0, 35),
+                      selectedSession.preview.length > 35 ? "..." : ""
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto p-4 space-y-1 bg-gray-50/50", style: { fontSize: `${messageFontSize}px` }, children: sessionLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-full text-gray-400 gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "animate-spin", width: "28", height: "28", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" }) }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "Loading messages..." })
+                  ] }) : (selectedSession.messages || []).map((msg) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    MessageBubble,
+                    {
+                      message: msg,
+                      readonly: true,
+                      themeColor: primaryColor,
+                      botIcon,
+                      botIconColor,
+                      userIcon,
+                      userIconColor,
+                      buttonFontSize
+                    },
+                    msg.id
+                  )) }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-4 py-2.5 border-t border-gray-100 flex items-center justify-center gap-1.5 bg-gray-50 text-xs text-gray-400", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
+                    ] }),
+                    "Read-only · ",
+                    new Date(selectedSession.started_at).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }),
+                    " ",
+                    new Date(selectedSession.started_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+                  ] })
+                ]
+              }
+            ) }),
             !isAuthenticated && !isGuest ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 flex flex-col p-6 bg-gray-50/50", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-sm mx-auto flex-1 flex flex-col justify-center", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-center mb-6", children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -34380,7 +34734,30 @@ Priority: ${data.priority}`;
                 )
               ] })
             ] }) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50", style: { fontSize: `${messageFontSize}px` }, children: [
+              isWelcomeState ? (
+                /* Welcome state — Gemini style */
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto p-5", style: { backgroundColor: "#EEF2FA" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-1 text-2xl font-normal text-gray-800", children: [
+                    "Hi ",
+                    isAuthenticated && authUser ? authUser : "there"
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-6 text-2xl font-semibold text-gray-800", children: "Where should we start?" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: [
+                    { label: "📝 Create Ticket", payload: "/create_ticket" },
+                    { label: "📋 My Tickets", payload: "/list_tickets" },
+                    { label: "🔍 Check Status", payload: "/check_status" },
+                    { label: "❓ Get Help", payload: "/help" }
+                  ].map((action, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      onClick: () => handleButtonClick(action.payload),
+                      className: "px-4 py-2 bg-white rounded-full shadow-sm hover:shadow-md text-gray-700 text-sm font-normal transition-shadow whitespace-nowrap",
+                      children: action.label
+                    },
+                    idx
+                  )) })
+                ] })
+              ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50", style: { fontSize: `${messageFontSize}px` }, children: [
                 messages.map((msg) => /* @__PURE__ */ jsxRuntimeExports.jsx(
                   MessageBubble,
                   {
@@ -34403,7 +34780,7 @@ Priority: ${data.priority}`;
                 ] }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: messagesEndRef })
               ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-4 py-2 bg-transparent overflow-x-auto flex gap-2 no-scrollbar border-t border-gray-50", children: [
+              !isWelcomeState && !sessionEnded && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-3 py-1.5 flex gap-1.5 border-t border-gray-100", children: [
                 { label: "Create Ticket", payload: "/create_ticket" },
                 { label: "List Tickets", payload: "/list_tickets" },
                 { label: "Check Status", payload: "/check_status" },
@@ -34412,60 +34789,89 @@ Priority: ${data.priority}`;
                 "button",
                 {
                   onClick: () => handleButtonClick(action.payload),
-                  className: "flex-shrink-0 px-3 py-1.5 bg-transparent border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-gray-700 text-[11px] rounded-full transition-colors whitespace-nowrap",
-                  style: {
-                    fontSize: "12px"
-                  },
+                  className: "flex-1 py-1 bg-transparent border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-gray-700 rounded-full transition-colors text-center",
+                  style: { fontSize: "11px" },
                   children: action.label
                 },
                 idx
               )) }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("form", { onSubmit: handleSendMessage, className: "p-4 bg-white flex items-center gap-2", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 focus-within:ring-2 transition-all shadow-sm border border-gray-200", style: { "--tw-ring-color": `${primaryColor}80` }, children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "input",
-                  {
-                    type: "file",
-                    ref: fileInputRef,
-                    className: "hidden",
-                    onChange: handleFileSelect
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "button",
-                  {
-                    type: "button",
-                    onClick: () => fileInputRef.current?.click(),
-                    className: "text-gray-400 hover:text-gray-600 transition-colors mr-2",
-                    style: { "--hover-color": primaryColor },
-                    onMouseEnter: (e) => e.target.style.color = primaryColor,
-                    onMouseLeave: (e) => e.target.style.color = "#9ca3af",
-                    title: "Attach File",
-                    children: /* @__PURE__ */ jsxRuntimeExports.jsx(Paperclip, { size: 20 })
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "input",
-                  {
-                    type: "text",
-                    value: inputText,
-                    onChange: (e) => setInputText(e.target.value),
-                    placeholder: "Message Project IQ...",
-                    className: "flex-1 bg-transparent text-gray-800 focus:outline-none font-light py-1",
-                    style: { fontSize: `${inputFontSize}px` }
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "button",
-                  {
-                    type: "submit",
-                    disabled: !inputText.trim() || isLoading,
-                    className: "text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2",
-                    onMouseEnter: (e) => !e.target.disabled && (e.target.style.color = primaryColor),
-                    onMouseLeave: (e) => !e.target.disabled && (e.target.style.color = "#9ca3af"),
-                    children: /* @__PURE__ */ jsxRuntimeExports.jsx(Send, { size: 20 })
-                  }
-                )
-              ] }) }),
+              sessionEnded ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "p-4 flex justify-center",
+                  style: { backgroundColor: bgColor },
+                  children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                    "button",
+                    {
+                      onClick: handleNewConversation,
+                      className: "flex items-center gap-2 px-6 py-3 text-white rounded-full font-semibold text-sm transition-all shadow-md hover:shadow-lg",
+                      style: { backgroundColor: primaryColor },
+                      onMouseEnter: (e) => e.currentTarget.style.opacity = "0.9",
+                      onMouseLeave: (e) => e.currentTarget.style.opacity = "1",
+                      children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "10" }),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "8", x2: "12", y2: "16" }),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "8", y1: "12", x2: "16", y2: "12" })
+                        ] }),
+                        "New Conversation"
+                      ]
+                    }
+                  )
+                }
+              ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "form",
+                {
+                  onSubmit: handleSendMessage,
+                  className: "p-4 flex items-center gap-2",
+                  style: { backgroundColor: isWelcomeState ? "#EEF2FA" : bgColor },
+                  children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 focus-within:ring-2 transition-all shadow-sm border border-gray-200", style: { "--tw-ring-color": `${primaryColor}80` }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "input",
+                      {
+                        type: "file",
+                        ref: fileInputRef,
+                        className: "hidden",
+                        onChange: handleFileSelect
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: () => fileInputRef.current?.click(),
+                        className: "text-gray-400 hover:text-gray-600 transition-colors mr-2",
+                        onMouseEnter: (e) => e.target.style.color = primaryColor,
+                        onMouseLeave: (e) => e.target.style.color = "#9ca3af",
+                        title: "Attach File",
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(Paperclip, { size: 20 })
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "input",
+                      {
+                        type: "text",
+                        value: inputText,
+                        onChange: (e) => setInputText(e.target.value),
+                        placeholder: "Message Project IQ...",
+                        className: "flex-1 bg-transparent text-gray-800 focus:outline-none font-light py-1",
+                        style: { fontSize: `${inputFontSize}px` }
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "submit",
+                        disabled: !inputText.trim() || isLoading,
+                        className: "text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2",
+                        onMouseEnter: (e) => !e.target.disabled && (e.target.style.color = primaryColor),
+                        onMouseLeave: (e) => !e.target.disabled && (e.target.style.color = "#9ca3af"),
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(Send, { size: 20 })
+                      }
+                    )
+                  ] })
+                }
+              ),
               /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: showPrivacyPopup && /* @__PURE__ */ jsxRuntimeExports.jsxs(
                 motion.div,
                 {

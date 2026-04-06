@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Minimize2, RefreshCw, X, Trash2, LogOut, User, Lock, XCircle } from 'lucide-react';
+import { Send, Paperclip, Minimize2, X, User, Lock, XCircle, Sparkles, History, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MessageBubble from './MessageBubble';
 import AnimatedChatIcon from './AnimatedChatIcon';
@@ -7,11 +7,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { getCookie, setCookie, deleteCookie } from '../utils/cookieUtils';
 
 const RASA_API_URL = `${window.location.protocol}//${window.location.hostname}:5005/webhooks/rest/webhook`;
+const ADMIN_API_URL = window.location.origin;
 
 // Storage keys with appId prefix for multi-widget support
 // Cookies: auth data (senderId, isAuthenticated, authUser, privacyDismissed)
 // localStorage: large data (messages)
 const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
+
 
 const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) => {
     // Extract theme properties with defaults
@@ -114,12 +116,28 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         console.log('Privacy Popup State:', showPrivacyPopup, 'Authenticated:', isAuthenticated);
     }, [showPrivacyPopup, isAuthenticated]);
 
+    const [sessionEnded, setSessionEnded] = useState(false);
+    const isWelcomeState = messages.length === 1 && messages[0]?.id === 'init';
+
+    // Inactivity timeout
+    const [timeoutMinutes, setTimeoutMinutes] = useState(10);
+    const lastActivityRef = useRef(Date.now());
+    const warningShownRef = useRef(false);
+    const sessionEndedRef = useRef(false);
+    const inactivityIntervalRef = useRef(null);
     const [showTicketFilterPopup, setShowTicketFilterPopup] = useState(false);
     const [showTicketIdPopup, setShowTicketIdPopup] = useState(false);
     const [ticketIdInput, setTicketIdInput] = useState('');
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+    const [historyView, setHistoryView] = useState('chat'); // 'chat' | 'history' | 'session'
+    const [selectedSession, setSelectedSession] = useState(null);
+    const [sessions, setSessions] = useState([]);
+    const [showUserMenu, setShowUserMenu] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [sessionLoading, setSessionLoading] = useState(false);
+    const userMenuRef = useRef(null);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -135,6 +153,79 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+
+    // Fetch session timeout from admin config on mount
+    useEffect(() => {
+        fetch(`${ADMIN_API_URL}/admin/config/SESSION_TIMEOUT_MINUTES`)
+            .then(r => r.json())
+            .then(d => {
+                const val = parseInt(d.value || d.SESSION_TIMEOUT_MINUTES || '10', 10);
+                if (!isNaN(val) && val > 0) setTimeoutMinutes(val);
+            })
+            .catch(() => {}); // silently fall back to default 10
+    }, []);
+
+    // Close user menu on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+                setShowUserMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    // Inactivity timer — runs while chat is open and session is active
+    useEffect(() => {
+        if (!isOpen || sessionEndedRef.current) {
+            clearInterval(inactivityIntervalRef.current);
+            return;
+        }
+
+        // Reset on open only if session is not ended
+        lastActivityRef.current = Date.now();
+        warningShownRef.current = false;
+
+        inactivityIntervalRef.current = setInterval(() => {
+            // Use ref to avoid stale closure
+            if (sessionEndedRef.current) {
+                clearInterval(inactivityIntervalRef.current);
+                return;
+            }
+            const idleMs = Date.now() - lastActivityRef.current;
+            const timeoutMs = timeoutMinutes * 60 * 1000;
+            const warningMs = (timeoutMinutes - 2) * 60 * 1000;
+
+            if (idleMs >= timeoutMs) {
+                clearInterval(inactivityIntervalRef.current);
+                sessionEndedRef.current = true;
+                setSessionEnded(true);
+                setMessages(prev => {
+                    if (prev.some(m => m.type === 'system')) return prev;
+                    return [...prev, {
+                        id: uuidv4(),
+                        sender: 'bot',
+                        text: '**Session ended due to inactivity.** Thank you for chatting! Start a new conversation anytime.',
+                        type: 'system',
+                    }];
+                });
+            } else if (idleMs >= warningMs && !warningShownRef.current) {
+                warningShownRef.current = true;
+                setMessages(prev => {
+                    if (prev.some(m => m.type === 'warning')) return prev;
+                    return [...prev, {
+                        id: uuidv4(),
+                        sender: 'bot',
+                        text: `⏰ **Still there?** You've been inactive for ${timeoutMinutes - 2} minute${timeoutMinutes - 2 !== 1 ? 's' : ''}. Your session will end automatically in **2 minutes** if there's no activity.`,
+                        type: 'warning',
+                    }];
+                });
+            }
+        }, 15000);
+
+        return () => clearInterval(inactivityIntervalRef.current);
+    }, [isOpen, timeoutMinutes]);
 
     // Scroll to bottom when chat opens (for history reload)
     useEffect(() => {
@@ -230,15 +321,78 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         }
     };
 
+    // Fetch conversation history list from DB
+    const fetchUserHistory = async () => {
+        if (!authUser) return;
+        setHistoryLoading(true);
+        try {
+            const res = await fetch(`${ADMIN_API_URL}/api/user/conversations?user_name=${encodeURIComponent(authUser)}&app_id=${encodeURIComponent(appId)}`);
+            const data = await res.json();
+            if (data.success) setSessions(data.data);
+        } catch (e) {
+            console.error('Failed to fetch history', e);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    // Fetch messages for a selected session
+    const fetchSessionMessages = async (session) => {
+        setSessionLoading(true);
+        try {
+            const res = await fetch(`${ADMIN_API_URL}/api/user/conversation/${encodeURIComponent(session.sender_id)}/messages`);
+            const data = await res.json();
+            if (data.success) {
+                setSelectedSession({ ...session, messages: data.data });
+                setHistoryView('session');
+            }
+        } catch (e) {
+            console.error('Failed to fetch session messages', e);
+        } finally {
+            setSessionLoading(false);
+        }
+    };
+
     // Handle Logout - returns to guest mode
     const handleLogout = () => {
         setIsAuthenticated(false);
-        setIsGuest(true);  // Return to guest mode
+        setIsGuest(true);
+        sessionEndedRef.current = false;
+        setSessionEnded(false);
         setAuthUser('');
         deleteCookie(getStorageKey(appId, 'isAuthenticated'));
         deleteCookie(getStorageKey(appId, 'authUser'));
         localStorage.removeItem(getStorageKey(appId, 'messages'));
         setMessages([{ id: 'init', sender: 'bot', text: `You've been logged out. Continuing as guest.\n\n📚 You can still search the Knowledge Base and ask questions!\n🔑 Login anytime for full ticket features.` }]);
+    };
+
+    const handleEndSession = () => {
+        clearInterval(inactivityIntervalRef.current);
+        sessionEndedRef.current = true;
+        setSessionEnded(true);
+        setMessages(prev => {
+            if (prev.some(m => m.type === 'system')) return prev;
+            return [...prev, {
+                id: uuidv4(),
+                sender: 'bot',
+                text: '**Session ended.** Thank you for chatting! Start a new conversation anytime.'
+            }];
+        });
+    };
+
+    const handleNewConversation = () => {
+        lastActivityRef.current = Date.now();
+        warningShownRef.current = false;
+        sessionEndedRef.current = false;
+        localStorage.removeItem(getStorageKey(appId, 'messages'));
+        deleteCookie(getStorageKey(appId, 'senderId'));
+        const newId = uuidv4();
+        setCookie(getStorageKey(appId, 'senderId'), newId);
+        setSessionEnded(false);
+        const welcomeMsg = isAuthenticated && authUser
+            ? `**Hi ${authUser}!**\n\nWelcome back. How can I help you today?`
+            : `**Hi, I'm ${title}** 👋\n\nI'm here to help you with:\n\n*   **Finding answers** in our knowledge base\n*   **Answering** general IT questions\n*   **Managing** your support tickets\n\n*Log in to unlock full ticket management features.*`;
+        setMessages([{ id: 'init', sender: 'bot', text: welcomeMsg }]);
     };
 
     const handleFileSelect = (e) => {
@@ -355,6 +509,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
 
     // Handle button clicks from fallback suggestions
     const handleButtonClick = async (payload) => {
+        // Reset inactivity timer on user action
+        lastActivityRef.current = Date.now();
+        warningShownRef.current = false;
+
         // Handle login button click
         if (payload === '__LOGIN__') {
             setShowLoginPrompt(true);
@@ -501,6 +659,9 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const handleSendMessage = async (e) => {
         e.preventDefault();
         if (!inputText.trim()) return;
+        // Reset inactivity timer on user action
+        lastActivityRef.current = Date.now();
+        warningShownRef.current = false;
 
         // Guard Rails: Validate input
         const validation = validateInput(inputText);
@@ -652,67 +813,98 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             color: textColor
                         }}
                     >
-                        {/* Header */}
+                        {/* Header — Gemini style: hamburger | title | avatar */}
                         <div
-                            className="p-4 flex items-center justify-between shadow-sm border-b border-gray-100"
-                            style={{
-                                backgroundColor: bgColor,
-                                color: textColor,
-                                fontSize: `${headerFontSize}px`
-                            }}
+                            className="flex items-center justify-between px-2 py-3"
+                            style={{ backgroundColor: bgColor, color: textColor }}
                         >
-                            <div className="flex items-center space-x-2">
-                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                                <h1 className="font-semibold" style={{ fontSize: `${parseInt(headerFontSize) + 2}px` }}>{title}</h1>
-                                {isAuthenticated && authUser && (
-                                    <span className="text-xs opacity-75">({authUser})</span>
-                                )}
-                                {isGuest && (
-                                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">Guest</span>
-                                )}
-                            </div>
-                            <div className="flex space-x-1">
-                                {/* Login button - show for guests */}
-                                {isGuest && (
+                            {/* Left: hamburger / minimize */}
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600"
+                                title="Close"
+                            >
+                                <Minimize2 size={18} />
+                            </button>
+
+                            {/* Center: title */}
+                            <h1
+                                className="font-normal text-gray-800 tracking-wide"
+                                style={{ fontSize: `${parseInt(headerFontSize) + 2}px` }}
+                            >
+                                {title}
+                            </h1>
+
+                            {/* Right: avatar dropdown / login */}
+                            <div className="flex items-center gap-1" ref={userMenuRef}>
+                                {isAuthenticated && !isGuest ? (
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setShowUserMenu(v => !v)}
+                                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold focus:outline-none"
+                                            style={{ backgroundColor: primaryColor }}
+                                        >
+                                            {authUser ? authUser[0].toUpperCase() : 'U'}
+                                        </button>
+                                        {showUserMenu && (
+                                            <div className="absolute right-0 top-10 w-56 rounded-xl shadow-2xl z-[80] overflow-hidden" style={{ backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.08)' }}>
+                                                {/* User info */}
+                                                <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                                                    <div className="font-semibold text-sm" style={{ color: '#111827' }}>{authUser}</div>
+                                                    <div className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{authUser}</div>
+                                                </div>
+                                                {/* Menu items */}
+                                                <div className="py-1">
+                                                    <button className="w-full text-left px-4 py-2.5 text-sm transition-colors" style={{ color: '#4b5563' }}
+                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
+                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                    >
+                                                        My Profile
+                                                    </button>
+                                                    <button
+                                                        className="w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors"
+                                                        style={{ color: '#111827' }}
+                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
+                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                        onClick={() => { setShowUserMenu(false); fetchUserHistory(); setHistoryView('history'); }}
+                                                    >
+                                                        History
+                                                    </button>
+                                                    {!isWelcomeState && !sessionEnded && (
+                                                        <button
+                                                            className="w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors"
+                                                            style={{ color: '#111827' }}
+                                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
+                                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                            onClick={() => { setShowUserMenu(false); handleEndSession(); }}
+                                                        >
+                                                            End This Conversation
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }} className="py-1">
+                                                    <button
+                                                        className="w-full text-left px-4 py-2.5 text-sm transition-colors"
+                                                        style={{ color: '#4b5563' }}
+                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
+                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                        onClick={() => { setShowUserMenu(false); handleLogout(); }}
+                                                    >
+                                                        Logout
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
                                     <button
                                         onClick={() => setShowLoginPrompt(true)}
-                                        className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors flex items-center gap-1"
+                                        className="p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
                                         title="Login"
                                     >
-                                        🔑 Login
+                                        <User size={18} />
                                     </button>
                                 )}
-                                {/* Logout - only show when logged in (not guest) */}
-                                {isAuthenticated && !isGuest && (
-                                    <button
-                                        onClick={handleLogout}
-                                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600"
-                                        title="Logout"
-                                    >
-                                        <LogOut size={15} />
-                                    </button>
-                                )}
-                                {/* Clear History - clears messages and resets senderId */}
-                                {isAuthenticated && (
-                                    <button
-                                        onClick={() => {
-                                            localStorage.removeItem(getStorageKey(appId, 'messages'));
-                                            deleteCookie(getStorageKey(appId, 'senderId'));
-                                            // Generate new senderId for fresh start
-                                            const newId = uuidv4();
-                                            setCookie(getStorageKey(appId, 'senderId'), newId);
-                                            setMessages([{ id: 'init', sender: 'bot', text: `Hello! Welcome to ${title}. How can I help you?` }]);
-                                        }}
-                                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600"
-                                        title="Clear chat history"
-                                    >
-                                        <Trash2 size={15} />
-                                    </button>
-                                )}
-                                {/* Minimize */}
-                                <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600" title="Minimize">
-                                    <Minimize2 size={15} />
-                                </button>
                             </div>
                         </div>
 
@@ -915,6 +1107,129 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             )}
                         </AnimatePresence>
 
+                        {/* History List Panel */}
+                        <AnimatePresence>
+                            {historyView === 'history' && (
+                                <motion.div
+                                    initial={{ x: -400, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    exit={{ x: -400, opacity: 0 }}
+                                    transition={{ type: 'tween', duration: 0.22 }}
+                                    className="absolute inset-0 z-[60] flex flex-col"
+                                    style={{ backgroundColor: bgColor }}
+                                >
+                                    {/* Panel header */}
+                                    <div className="flex items-center gap-2 px-2 py-3 border-b border-gray-100" style={{ backgroundColor: bgColor }}>
+                                        <button
+                                            onClick={() => setHistoryView('chat')}
+                                            className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600"
+                                        >
+                                            <ChevronLeft size={18} />
+                                        </button>
+                                        <h2 className="font-normal text-gray-800 text-base flex-1 text-center pr-8">Conversation History</h2>
+                                    </div>
+                                    {/* Session list */}
+                                    <div className="flex-1 overflow-y-auto p-3 space-y-1" style={{ backgroundColor: '#f9fafb' }}>
+                                        {historyLoading ? (
+                                            <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2 pt-10">
+                                                <svg className="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                                <p className="text-sm">Loading history...</p>
+                                            </div>
+                                        ) : sessions.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2 pt-10">
+                                                <History size={32} strokeWidth={1.2} />
+                                                <p className="text-sm">No previous conversations</p>
+                                            </div>
+                                        ) : (() => {
+                                            const formatLabel = (iso) => {
+                                                const d = new Date(iso);
+                                                const today = new Date();
+                                                const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+                                                if (d.toDateString() === today.toDateString()) return 'Today';
+                                                if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+                                                return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+                                            };
+                                            const formatTime = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                                            const grouped = sessions.reduce((acc, s) => {
+                                                const lbl = formatLabel(s.started_at);
+                                                (acc[lbl] = acc[lbl] || []).push(s);
+                                                return acc;
+                                            }, {});
+                                            return Object.entries(grouped).map(([label, group]) => (
+                                                <div key={label}>
+                                                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 py-2">{label}</div>
+                                                    {group.map(session => (
+                                                        <button
+                                                            key={session.sender_id}
+                                                            onClick={() => fetchSessionMessages(session)}
+                                                            disabled={sessionLoading}
+                                                            className="w-full text-left bg-white rounded-xl px-4 py-3 mb-1.5 shadow-sm border border-gray-100 hover:border-gray-300 hover:shadow transition-all disabled:opacity-50"
+                                                        >
+                                                            <div className="text-xs text-gray-400 mb-1">{formatLabel(session.started_at)} · {formatTime(session.started_at)}</div>
+                                                            <div className="text-sm text-gray-700 truncate">"{session.preview}"</div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ));
+                                        })()}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Session Read-Only View Panel */}
+                        <AnimatePresence>
+                            {historyView === 'session' && selectedSession && (
+                                <motion.div
+                                    initial={{ x: 400, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    exit={{ x: 400, opacity: 0 }}
+                                    transition={{ type: 'tween', duration: 0.22 }}
+                                    className="absolute inset-0 z-[61] flex flex-col"
+                                    style={{ backgroundColor: bgColor }}
+                                >
+                                    {/* Panel header */}
+                                    <div className="flex items-center gap-2 px-2 py-3 border-b border-gray-100" style={{ backgroundColor: bgColor }}>
+                                        <button
+                                            onClick={() => { setHistoryView('history'); setSelectedSession(null); }}
+                                            className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600"
+                                        >
+                                            <ChevronLeft size={18} />
+                                        </button>
+                                        <h2 className="font-normal text-gray-700 text-sm flex-1 truncate pr-2">
+                                            {new Date(selectedSession.started_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short' })} · {selectedSession.preview.slice(0, 35)}{selectedSession.preview.length > 35 ? '...' : ''}
+                                        </h2>
+                                    </div>
+                                    {/* Messages read-only */}
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-gray-50/50" style={{ fontSize: `${messageFontSize}px` }}>
+                                        {sessionLoading ? (
+                                            <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
+                                                <svg className="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                                <p className="text-sm">Loading messages...</p>
+                                            </div>
+                                        ) : (selectedSession.messages || []).map(msg => (
+                                            <MessageBubble
+                                                key={msg.id}
+                                                message={msg}
+                                                readonly={true}
+                                                themeColor={primaryColor}
+                                                botIcon={botIcon}
+                                                botIconColor={botIconColor}
+                                                userIcon={userIcon}
+                                                userIconColor={userIconColor}
+                                                buttonFontSize={buttonFontSize}
+                                            />
+                                        ))}
+                                    </div>
+                                    {/* Read-only footer strip */}
+                                    <div className="px-4 py-2.5 border-t border-gray-100 flex items-center justify-center gap-1.5 bg-gray-50 text-xs text-gray-400">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                        Read-only · {new Date(selectedSession.started_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })} {new Date(selectedSession.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
                         {/* Login Form - Show when not authenticated AND not guest (legacy - for apps that require login) */}
                         {/* For guest mode, users see the chat directly */}
                         {!isAuthenticated && !isGuest ? (
@@ -994,92 +1309,141 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             </div>
                         ) : (
                             <>
-                                {/* Messages Area - Only show when authenticated */}
-                                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50" style={{ fontSize: `${messageFontSize}px` }}>
-                                    {messages.map(msg => (
-                                        <MessageBubble
-                                            key={msg.id}
-                                            message={msg}
-                                            onButtonClick={handleButtonClick}
-                                            onFeedback={handleFeedback}
-                                            themeColor={primaryColor}
-                                            botIcon={botIcon}
-                                            botIconColor={botIconColor}
-                                            userIcon={userIcon}
-                                            userIconColor={userIconColor}
-                                            buttonFontSize={buttonFontSize}
-                                        />
-                                    ))}
-                                    {isLoading && (
-                                        <div className="flex items-center space-x-2 text-gray-400 text-sm ml-2">
-                                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                {/* Messages Area */}
+                                {isWelcomeState ? (
+                                    /* Welcome state — Gemini style */
+                                    <div className="flex-1 overflow-y-auto p-5" style={{ backgroundColor: '#EEF2FA' }}>
+                                        <div className="mb-1 text-2xl font-normal text-gray-800">
+                                            Hi {isAuthenticated && authUser ? authUser : 'there'}
                                         </div>
-                                    )}
-                                    <div ref={messagesEndRef} />
-                                </div>
+                                        <div className="mb-6 text-2xl font-semibold text-gray-800">
+                                            Where should we start?
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {[
+                                                { label: '📝 Create Ticket', payload: '/create_ticket' },
+                                                { label: '📋 My Tickets', payload: '/list_tickets' },
+                                                { label: '🔍 Check Status', payload: '/check_status' },
+                                                { label: '❓ Get Help', payload: '/help' },
+                                            ].map((action, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => handleButtonClick(action.payload)}
+                                                    className="px-4 py-2 bg-white rounded-full shadow-sm hover:shadow-md text-gray-700 text-sm font-normal transition-shadow whitespace-nowrap"
+                                                >
+                                                    {action.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50" style={{ fontSize: `${messageFontSize}px` }}>
+                                        {messages.map(msg => (
+                                            <MessageBubble
+                                                key={msg.id}
+                                                message={msg}
+                                                onButtonClick={handleButtonClick}
+                                                onFeedback={handleFeedback}
+                                                themeColor={primaryColor}
+                                                botIcon={botIcon}
+                                                botIconColor={botIconColor}
+                                                userIcon={userIcon}
+                                                userIconColor={userIconColor}
+                                                buttonFontSize={buttonFontSize}
+                                            />
+                                        ))}
+                                        {isLoading && (
+                                            <div className="flex items-center space-x-2 text-gray-400 text-sm ml-2">
+                                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                            </div>
+                                        )}
+                                        <div ref={messagesEndRef} />
+                                    </div>
+                                )}
 
-                                {/* Quick Actions - Fixed Buttons */}
-                                <div className="px-4 py-2 bg-transparent overflow-x-auto flex gap-2 no-scrollbar border-t border-gray-50">
-                                    {[
-                                        { label: 'Create Ticket', payload: '/create_ticket' },
-                                        { label: 'List Tickets', payload: '/list_tickets' },
-                                        { label: 'Check Status', payload: '/check_status' },
-                                        { label: 'Help', payload: '/help' }
-                                    ].map((action, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => handleButtonClick(action.payload)}
-                                            className="flex-shrink-0 px-3 py-1.5 bg-transparent border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-gray-700 text-[11px] rounded-full transition-colors whitespace-nowrap"
-                                            style={{
-                                                fontSize: '12px'
-                                            }}
-                                        >
-                                            {action.label}
-                                        </button>
-                                    ))}
-                                </div>
+                                {/* Quick Actions - single row, no scroll */}
+                                {!isWelcomeState && !sessionEnded && (
+                                    <div className="px-3 py-1.5 flex gap-1.5 border-t border-gray-100">
+                                        {[
+                                            { label: 'Create Ticket', payload: '/create_ticket' },
+                                            { label: 'List Tickets', payload: '/list_tickets' },
+                                            { label: 'Check Status', payload: '/check_status' },
+                                            { label: 'Help', payload: '/help' }
+                                        ].map((action, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleButtonClick(action.payload)}
+                                                className="flex-1 py-1 bg-transparent border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-gray-700 rounded-full transition-colors text-center"
+                                                style={{ fontSize: '11px' }}
+                                            >
+                                                {action.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
 
-                                {/* Input Area */}
-                                <form onSubmit={handleSendMessage} className="p-4 bg-white flex items-center gap-2">
-                                    <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 focus-within:ring-2 transition-all shadow-sm border border-gray-200" style={{ '--tw-ring-color': `${primaryColor}80` }}>
-                                        <input
-                                            type="file"
-                                            ref={fileInputRef}
-                                            className="hidden"
-                                            onChange={handleFileSelect}
-                                        />
+                                {/* Input Area or New Conversation */}
+                                {sessionEnded ? (
+                                    <div
+                                        className="p-4 flex justify-center"
+                                        style={{ backgroundColor: bgColor }}
+                                    >
                                         <button
-                                            type="button"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="text-gray-400 hover:text-gray-600 transition-colors mr-2"
-                                            style={{ '--hover-color': primaryColor }}
-                                            onMouseEnter={(e) => e.target.style.color = primaryColor}
-                                            onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
-                                            title="Attach File"
+                                            onClick={handleNewConversation}
+                                            className="flex items-center gap-2 px-6 py-3 text-white rounded-full font-semibold text-sm transition-all shadow-md hover:shadow-lg"
+                                            style={{ backgroundColor: primaryColor }}
+                                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                                         >
-                                            <Paperclip size={20} />
-                                        </button>
-                                        <input
-                                            type="text"
-                                            value={inputText}
-                                            onChange={(e) => setInputText(e.target.value)}
-                                            placeholder="Message Project IQ..."
-                                            className="flex-1 bg-transparent text-gray-800 focus:outline-none font-light py-1"
-                                            style={{ fontSize: `${inputFontSize}px` }}
-                                        />
-                                        <button
-                                            type="submit"
-                                            disabled={!inputText.trim() || isLoading}
-                                            className="text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2"
-                                            onMouseEnter={(e) => !e.target.disabled && (e.target.style.color = primaryColor)}
-                                            onMouseLeave={(e) => !e.target.disabled && (e.target.style.color = '#9ca3af')}
-                                        >
-                                            <Send size={20} />
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                                            New Conversation
                                         </button>
                                     </div>
-                                </form>
+                                ) : (
+                                    <form
+                                        onSubmit={handleSendMessage}
+                                        className="p-4 flex items-center gap-2"
+                                        style={{ backgroundColor: isWelcomeState ? '#EEF2FA' : bgColor }}
+                                    >
+                                        <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 focus-within:ring-2 transition-all shadow-sm border border-gray-200" style={{ '--tw-ring-color': `${primaryColor}80` }}>
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                className="hidden"
+                                                onChange={handleFileSelect}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="text-gray-400 hover:text-gray-600 transition-colors mr-2"
+                                                onMouseEnter={(e) => e.target.style.color = primaryColor}
+                                                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
+                                                title="Attach File"
+                                            >
+                                                <Paperclip size={20} />
+                                            </button>
+                                            <input
+                                                type="text"
+                                                value={inputText}
+                                                onChange={(e) => setInputText(e.target.value)}
+                                                placeholder="Message Project IQ..."
+                                                className="flex-1 bg-transparent text-gray-800 focus:outline-none font-light py-1"
+                                                style={{ fontSize: `${inputFontSize}px` }}
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={!inputText.trim() || isLoading}
+                                                className="text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2"
+                                                onMouseEnter={(e) => !e.target.disabled && (e.target.style.color = primaryColor)}
+                                                onMouseLeave={(e) => !e.target.disabled && (e.target.style.color = '#9ca3af')}
+                                            >
+                                                <Send size={20} />
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
                                 {/* Privacy Consent Popup - Dismissible - Absolute Positioned */}
                                 <AnimatePresence>
                                     {showPrivacyPopup && (

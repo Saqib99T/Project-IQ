@@ -272,7 +272,7 @@ slots:
 
 responses:
   utter_greet:
-    - text: "👋 **Hello! Welcome to IT Support Bot!**
+    - text: "👋 **Hello! Welcome to Project IQ Bot!**
 
 I'm here to help you with your IT needs. Here's what I can do for you:
 

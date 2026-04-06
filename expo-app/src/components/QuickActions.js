@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { THEME } from '../config';
 
 const ACTIONS = [
@@ -10,11 +10,7 @@ const ACTIONS = [
 
 const QuickActions = ({ onAction }) => (
     <View style={styles.container}>
-        <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
             {ACTIONS.map((action, idx) => (
                 <TouchableOpacity
                     key={idx}
@@ -32,26 +28,26 @@ const QuickActions = ({ onAction }) => (
 const styles = StyleSheet.create({
     container: {
         backgroundColor: THEME.background,
-        borderTopWidth: 1,
-        borderTopColor: THEME.border,
-        paddingVertical: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
     },
-    scrollContent: {
-        paddingHorizontal: 16,
+    row: {
+        flexDirection: 'row',
         gap: 8,
+        paddingHorizontal: 4,
     },
     chip: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
         backgroundColor: THEME.secondary,
-        borderRadius: 20,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: THEME.primary + '20', // Very light primary border
+        borderColor: THEME.primary + '30',
     },
     chipText: {
-        fontSize: 13,
+        fontSize: 12,
         color: THEME.primary,
-        fontWeight: '600',
+        fontWeight: '500',
     },
 });
 

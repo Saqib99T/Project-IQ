@@ -268,7 +268,10 @@ def get_all_config() -> Dict[str, str]:
     # Widget settings
     result['WIDGET_TITLE'] = config.get('WIDGET', 'WIDGET_TITLE', fallback='')
     result['WIDGET_SUBTITLE'] = config.get('WIDGET', 'WIDGET_SUBTITLE', fallback='')
-    
+
+    # Session settings
+    result['SESSION_TIMEOUT_MINUTES'] = config.get('SESSION', 'SESSION_TIMEOUT_MINUTES', fallback='10')
+
     return result
 
 
@@ -281,10 +284,10 @@ def set_all_config(settings: Dict[str, str]):
     config = load_config()
     
     # Ensure sections exist
-    for section in ['GLPI', 'DATABASE', 'RASA', 'WIDGET']:
+    for section in ['GLPI', 'DATABASE', 'RASA', 'WIDGET', 'SESSION']:
         if not config.has_section(section):
             config.add_section(section)
-    
+
     # Map flat keys to sections
     key_map = {
         'GLPI_API_URL': ('GLPI', 'GLPI_API_URL'),
@@ -298,8 +301,9 @@ def set_all_config(settings: Dict[str, str]):
         'RASA_API_URL': ('RASA', 'RASA_API_URL'),
         'WIDGET_TITLE': ('WIDGET', 'WIDGET_TITLE'),
         'WIDGET_SUBTITLE': ('WIDGET', 'WIDGET_SUBTITLE'),
+        'SESSION_TIMEOUT_MINUTES': ('SESSION', 'SESSION_TIMEOUT_MINUTES'),
     }
-    
+
     for key, value in settings.items():
         if key in key_map:
             section, option = key_map[key]

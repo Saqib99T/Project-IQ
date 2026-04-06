@@ -235,6 +235,7 @@ DEFAULT_CONFIG_KEYS = [
     'WIDGET_SUBTITLE',
     'FIRECRAWL_API_KEY',
     'FIRECRAWL_API_URL',
+    'SESSION_TIMEOUT_MINUTES',
 ]
 
 
@@ -2223,6 +2224,103 @@ def inspector_domain_info():
         return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+# ============================================================================
+# USER HISTORY APIs - Chat widget conversation history
+# ============================================================================
+
+@app.route('/api/user/conversations', methods=['GET'])
+def user_get_conversations():
+    """Get conversation history list for a specific user (for chat widget history panel)."""
+    conn = None
+    try:
+        user_name = request.args.get('user_name', '').strip()
+        app_id_filter = request.args.get('app_id', '').strip()
+
+        if not user_name:
+            return jsonify({"success": False, "error": "user_name is required"}), 400
+
+        conn = _get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        query = '''
+            SELECT
+                c.sender_id,
+                c.started_at,
+                c.last_activity,
+                (
+                    SELECT m.text FROM messages m
+                    WHERE m.conversation_id = c.id AND m.sender = 'user'
+                    ORDER BY m.timestamp ASC LIMIT 1
+                ) as preview
+            FROM conversations c
+            WHERE (c.user_name = %s OR c.user_id = %s)
+        '''
+        params = [user_name, user_name]
+
+        if app_id_filter:
+            query += ' AND c.app_id = %s'
+            params.append(app_id_filter)
+
+        query += ' ORDER BY c.started_at DESC LIMIT 50'
+        cursor.execute(query, tuple(params))
+
+        conversations = []
+        for row in cursor.fetchall():
+            if not row['preview']:
+                continue
+            conversations.append({
+                'sender_id': row['sender_id'],
+                'started_at': row['started_at'].isoformat() if row['started_at'] else None,
+                'last_activity': row['last_activity'].isoformat() if row['last_activity'] else None,
+                'preview': (row['preview'] or '')[:100]
+            })
+
+        return jsonify({'success': True, 'data': conversations})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if conn:
+            _release_connection(conn)
+
+
+@app.route('/api/user/conversation/<sender_id>/messages', methods=['GET'])
+def user_get_conversation_messages(sender_id):
+    """Get all messages for a conversation (read-only history view in chat widget)."""
+    conn = None
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        cursor.execute('SELECT id FROM conversations WHERE sender_id = %s', (sender_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'success': True, 'data': []})
+
+        cursor.execute('''
+            SELECT sender, text, timestamp
+            FROM messages
+            WHERE conversation_id = %s
+            ORDER BY timestamp ASC
+        ''', (row['id'],))
+
+        messages = [
+            {
+                'id': f'hist-{i}',
+                'sender': m['sender'],
+                'text': m['text'] or '',
+                'timestamp': m['timestamp'].isoformat() if m['timestamp'] else None
+            }
+            for i, m in enumerate(cursor.fetchall())
+        ]
+
+        return jsonify({'success': True, 'data': messages})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if conn:
+            _release_connection(conn)
 
 
 # ============================================================================

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, User, ThumbsUp, ThumbsDown, Sparkles } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Sparkles, RotateCcw, Copy } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ChartRenderer from './ChartRenderer';
 import TicketForm from './TicketForm';
@@ -35,7 +35,7 @@ const extractYouTubeInfo = (url) => {
 };
 
 
-const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, botIcon = '🤖', botIconColor = null, userIcon = '👤', userIconColor = '#e5e7eb', buttonFontSize = '13' }) => {
+const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, botIcon = '🤖', botIconColor = null, userIcon = '👤', userIconColor = '#e5e7eb', buttonFontSize = '13', readonly = false }) => {
     const isBot = message.sender === 'bot';
 
     // Compute theme colors - default to black if not provided
@@ -68,6 +68,25 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
         }
     };
 
+    // Warning/system messages render as a centered banner
+    if (message.type === 'warning' || message.type === 'system') {
+        const isSystem = message.type === 'system';
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex w-full justify-center mb-4"
+            >
+                <div className={`flex items-start gap-2 px-4 py-3 rounded-2xl text-sm max-w-[90%] ${isSystem ? 'bg-gray-100 text-gray-500' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                    <span className="text-lg leading-none mt-0.5">{isSystem ? '💬' : '⏰'}</span>
+                    <div className="prose prose-sm max-w-none prose-p:my-0">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
+                    </div>
+                </div>
+            </motion.div>
+        );
+    }
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -77,11 +96,11 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
             <div className={`flex ${message.ticket_form ? 'w-full max-w-full' : 'max-w-[90%]'} ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
                 {/* Avatar - Using SVG or emoji icons */}
                 <div
-                    className={`flex-shrink-0 h-8 w-8 flex items-center justify-center text-xl ${isBot ? 'mr-3 mt-1' : 'ml-2 rounded-full'}`}
-                    style={isBot ? { backgroundColor: botBgColor, borderRadius: '50%', color: '#ffffff' } : { backgroundColor: userIconColor }}
+                    className={`flex-shrink-0 h-8 w-8 flex items-center justify-center ${isBot ? 'mr-3 mt-1' : 'ml-2 rounded-full text-base'}`}
+                    style={isBot ? { backgroundColor: '#e8f0fe', borderRadius: '50%', color: '#1a73e8' } : { backgroundColor: userIconColor }}
                 >
                     {isBot ? (
-                        <Bot size={18} strokeWidth={2} />
+                        <Sparkles size={15} strokeWidth={2} />
                     ) : (
                         userIcon
                     )}
@@ -108,7 +127,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                             thead: ({ node, ...props }) => <thead className="bg-gray-50" {...props} />,
                                             th: ({ node, ...props }) => <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b" {...props} />,
                                             td: ({ node, ...props }) => <td className="px-3 py-2 whitespace-normal text-sm text-gray-700 border-b border-r last:border-r-0 border-gray-100 bg-white" {...props} />,
-                                            a: ({ node, ...props }) => <a style={{ color: primaryColor }} className="hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                                            a: ({ node, ...props }) => <a style={{ color: readonly ? 'inherit' : primaryColor, pointerEvents: readonly ? 'none' : 'auto', textDecoration: readonly ? 'none' : undefined }} className={readonly ? '' : 'hover:underline'} target={readonly ? undefined : '_blank'} rel="noopener noreferrer" {...props} />,
                                             ul: ({ node, ...props }) => <ul className="list-disc pl-5" {...props} />,
                                             ol: ({ node, ...props }) => <ol className="list-decimal pl-5" {...props} />,
                                         }}
@@ -156,6 +175,9 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                 {/* Render Ticket Form if present */}
                                 {message.ticket_form && (
                                     <div className="not-prose">
+                                        {readonly ? (
+                                            <div className="mt-2 px-3 py-2 bg-gray-100 rounded-lg text-xs text-gray-400 italic">Ticket form (archived)</div>
+                                        ) : (
                                         <TicketForm
                                             primaryColor={primaryColor}
                                             onSubmit={(data) => {
@@ -168,6 +190,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                                 onButtonClick && onButtonClick('/stop');
                                             }}
                                         />
+                                        )}
                                     </div>
                                 )}
 
@@ -177,11 +200,22 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                         {message.buttons.map((button, index) => (
                                             <button
                                                 key={index}
-                                                onClick={() => onButtonClick && onButtonClick(button.payload)}
-                                                className="px-3 py-2 text-white rounded-lg transition-colors shadow-sm"
-                                                style={{ backgroundColor: primaryColor, fontSize: `${buttonFontSize}px` }}
-                                                onMouseEnter={(e) => e.target.style.backgroundColor = hoverColor}
-                                                onMouseLeave={(e) => e.target.style.backgroundColor = primaryColor}
+                                                onClick={() => !readonly && onButtonClick && onButtonClick(button.payload)}
+                                                className="px-3 py-2 rounded-full transition-colors bg-transparent"
+                                                style={{
+                                                    fontSize: `${buttonFontSize}px`,
+                                                    color: primaryColor,
+                                                    border: `1.5px solid ${primaryColor}`,
+                                                    opacity: readonly ? 0.4 : 1,
+                                                    pointerEvents: readonly ? 'none' : 'auto',
+                                                    cursor: readonly ? 'default' : 'pointer',
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (!readonly) e.currentTarget.style.backgroundColor = `${primaryColor}15`;
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (!readonly) e.currentTarget.style.backgroundColor = 'transparent';
+                                                }}
                                             >
                                                 {button.title}
                                             </button>
@@ -194,34 +228,29 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                         )}
                     </div>
 
-                    {/* Thumbs Up/Down Feedback - Only for bot messages */}
-                    {isBot && message.id !== 'init' && (
-                        <div className="flex items-center gap-1 mt-1 ml-1">
+                    {/* Feedback row — Gemini style: thumbs up, down, refresh, copy */}
+                    {isBot && message.id !== 'init' && !readonly && (
+                        <div className="flex items-center gap-0.5 mt-1.5 ml-1">
                             <button
                                 onClick={() => handleFeedback('up')}
-                                className={`p-1.5 rounded-full transition-all duration-200 ${feedback === 'up'
-                                    ? 'bg-green-100 text-green-600 scale-110'
-                                    : 'text-gray-400 hover:text-green-500 hover:bg-green-50'
-                                    }`}
-                                title="Helpful"
+                                className={`p-1.5 rounded-full transition-colors ${feedback === 'up' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                                title="Good response"
                             >
-                                <ThumbsUp size={14} fill={feedback === 'up' ? 'currentColor' : 'none'} />
+                                <ThumbsUp size={15} fill={feedback === 'up' ? 'currentColor' : 'none'} />
                             </button>
                             <button
                                 onClick={() => handleFeedback('down')}
-                                className={`p-1.5 rounded-full transition-all duration-200 ${feedback === 'down'
-                                    ? 'bg-red-100 text-red-600 scale-110'
-                                    : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                                    }`}
-                                title="Not helpful"
+                                className={`p-1.5 rounded-full transition-colors ${feedback === 'down' ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                                title="Bad response"
                             >
-                                <ThumbsDown size={14} fill={feedback === 'down' ? 'currentColor' : 'none'} />
+                                <ThumbsDown size={15} fill={feedback === 'down' ? 'currentColor' : 'none'} />
                             </button>
-                            {feedback && (
-                                <span className="text-xs text-gray-400 ml-1 animate-pulse">
-                                    Thanks for feedback!
-                                </span>
-                            )}
+                            <button className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Regenerate">
+                                <RotateCcw size={15} />
+                            </button>
+                            <button className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Copy">
+                                <Copy size={15} />
+                            </button>
                         </div>
                     )}
                 </div>
