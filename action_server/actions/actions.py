@@ -159,7 +159,7 @@ class ActionGlpiLogin(Action):
                 # Log conversation start for analytics with user info
                 sender_id = tracker.sender_id
                 app_id = tracker.get_slot("app_id") or "General"
-                user_id = tracker.get_slot("glpi_user_name") or tracker.get_slot("glpi_user_id")
+                user_id = result.get("user_name") or result.get("user_id")
                 analytics_store.log_conversation_start(sender_id, app_id, user_id=user_id)
                 
                 # Send welcome text with buttons

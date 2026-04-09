@@ -20,32 +20,35 @@ if project_root not in sys.path:
 logger = logging.getLogger(__name__)
 
 
-def _get_firecrawl_client():
-    """Get configured Firecrawl client."""
-    try:
-        from firecrawl import Firecrawl
-    except ImportError:
-        raise ImportError(
-            "firecrawl-py is not installed. Run: pip install firecrawl-py"
-        )
-
+def _get_firecrawl_config():
+    """Get Firecrawl API URL and key from config."""
     from common.config_manager import load_config
-
     config = load_config()
-    api_key = config.get('FIRECRAWL', 'FIRECRAWL_API_KEY', fallback='')
-    api_url = config.get('FIRECRAWL', 'FIRECRAWL_API_URL', fallback='')
+    api_key = config.get('FIRECRAWL', 'FIRECRAWL_API_KEY', fallback='fc-selfhosted')
+    api_url = config.get('FIRECRAWL', 'FIRECRAWL_API_URL', fallback='http://localhost:3002')
+    return api_url.rstrip('/'), api_key
 
-    if not api_key:
-        raise ValueError(
-            "FIRECRAWL_API_KEY not configured. "
-            "Set it in app.config under [FIRECRAWL] or via admin settings."
-        )
 
-    kwargs = {"api_key": api_key}
-    if api_url:
-        kwargs["api_url"] = api_url
+def _firecrawl_post(endpoint: str, payload: dict) -> dict:
+    """POST to Firecrawl REST API. Returns parsed JSON."""
+    import requests
+    api_url, api_key = _get_firecrawl_config()
+    url = f"{api_url}{endpoint}"
+    headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'}
+    resp = requests.post(url, json=payload, headers=headers, timeout=60)
+    resp.raise_for_status()
+    return resp.json()
 
-    return Firecrawl(**kwargs)
+
+def _firecrawl_get(endpoint: str) -> dict:
+    """GET from Firecrawl REST API. Returns parsed JSON."""
+    import requests
+    api_url, api_key = _get_firecrawl_config()
+    url = f"{api_url}{endpoint}"
+    headers = {'Authorization': f'Bearer {api_key}'}
+    resp = requests.get(url, headers=headers, timeout=60)
+    resp.raise_for_status()
+    return resp.json()
 
 
 def _generate_article_id(url: str, chunk_index: int = 0) -> str:
@@ -164,28 +167,24 @@ def scrape_url(url: str, category: str = None) -> Dict:
         Article dict ready for add_kb_article(), or None on failure
     """
     logger.info(f"Scraping URL: {url}")
-    
-    client = _get_firecrawl_client()
-    
+
     try:
-        result = client.scrape(url, formats=["markdown"], block_ads=True)
+        data = _firecrawl_post('/v1/scrape', {"url": url, "formats": ["markdown"], "blockAds": True})
     except Exception as e:
-        # Retry once in mobile mode
         try:
-            result = client.scrape(url, formats=["markdown"], mobile=True)
+            data = _firecrawl_post('/v1/scrape', {"url": url, "formats": ["markdown"], "mobile": True})
         except Exception as e2:
             logger.error(f"Firecrawl scrape failed for {url}: {e2}")
             raise RuntimeError(f"Failed to scrape {url}: {e2}")
 
-    if not result:
+    # REST API returns {"success": true, "data": {...}}
+    doc = data.get('data') or data
+    if not doc:
         raise RuntimeError(f"Scrape returned no data for {url}")
 
-    # v2 returns a Document object directly; v1 may return a dict with 'data' key
-    article = _process_to_article(result, url, category)
-
+    article = _process_to_article(doc, url, category)
     if not article:
         raise RuntimeError(f"Could not extract meaningful content from {url}")
-
     return article
 
 
@@ -202,27 +201,32 @@ def crawl_site(url: str, limit: int = 50, category: str = None) -> List[Dict]:
         List of article dicts
     """
     logger.info(f"Crawling site: {url} (limit={limit})")
-    
-    client = _get_firecrawl_client()
-    
+
+    import time, requests as _req
     try:
-        from firecrawl.v2.types import ScrapeOptions as _ScrapeOptions
-        _scrape_opts = _ScrapeOptions(formats=["markdown"], block_ads=True)
-        result = client.crawl(url=url, limit=limit, scrape_options=_scrape_opts)
+        # Start crawl job
+        job = _firecrawl_post('/v1/crawl', {
+            "url": url,
+            "limit": limit,
+            "scrapeOptions": {"formats": ["markdown"], "blockAds": True}
+        })
+        job_id = job.get('id') or job.get('jobId')
+        if not job_id:
+            raise RuntimeError(f"No job ID returned from crawl: {job}")
+
+        # Poll until complete (max 5 min)
+        for _ in range(60):
+            time.sleep(5)
+            status = _firecrawl_get(f'/v1/crawl/{job_id}')
+            if status.get('status') == 'completed':
+                break
+            if status.get('status') == 'failed':
+                raise RuntimeError(f"Crawl job failed: {status.get('error')}")
+
+        docs = status.get('data', [])
     except Exception as e:
         logger.error(f"Firecrawl crawl failed for {url}: {e}")
         raise RuntimeError(f"Failed to crawl {url}: {e}")
-
-    if not result:
-        raise RuntimeError(f"Crawl returned no data for {url}")
-
-    # v2 returns a CrawlJob object with .data (list of Documents); v1 returns a dict
-    if isinstance(result, dict):
-        docs = result.get('data', [])
-    else:
-        docs = getattr(result, 'data', []) or []
-    if not isinstance(docs, list):
-        docs = [docs]
 
     articles = []
     for i, doc in enumerate(docs):

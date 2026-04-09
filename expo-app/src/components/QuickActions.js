@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { THEME } from '../config';
 
 const ACTIONS = [
@@ -10,7 +10,7 @@ const ACTIONS = [
 
 const QuickActions = ({ onAction }) => (
     <View style={styles.container}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+        <View style={styles.row}>
             {ACTIONS.map((action, idx) => (
                 <TouchableOpacity
                     key={idx}
@@ -21,7 +21,7 @@ const QuickActions = ({ onAction }) => (
                     <Text style={styles.chipText}>{action.label}</Text>
                 </TouchableOpacity>
             ))}
-        </ScrollView>
+        </View>
     </View>
 );
 
@@ -33,6 +33,7 @@ const styles = StyleSheet.create({
     },
     row: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 8,
         paddingHorizontal: 4,
     },

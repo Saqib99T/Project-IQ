@@ -2,16 +2,17 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View, Text, TextInput, FlatList, TouchableOpacity,
     KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Alert,
-    Modal, TouchableWithoutFeedback, ScrollView
+    Modal, TouchableWithoutFeedback, ScrollView, Keyboard
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { storage } from '../utils/storage';
-import { getWebhookUrl, getAppId, getApiUrl, THEME, APP_TITLE } from '../config';
+import { getWebhookUrl, getAppId, getApiUrl, getAdminBaseUrl, THEME, APP_TITLE } from '../config';
 import MessageBubble from '../components/MessageBubble';
 import QuickActions from '../components/QuickActions';
 import LoginModal from '../components/LoginModal';
 import { TicketFilterModal, TicketIdModal, TicketFormModal } from '../components/TicketModals';
+import SessionFeedbackModal from '../components/SessionFeedbackModal';
 import * as DocumentPicker from 'expo-document-picker';
 
 // Fallback UUID generator for React Native to avoid crypto requirement
@@ -59,6 +60,8 @@ const ChatScreen = ({ navigation }) => {
     const [showTicketId, setShowTicketId] = useState(false);
     const [showTicketForm, setShowTicketForm] = useState(false);
     const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
+    const [showFeedback, setShowFeedback] = useState(false);
+    const [feedbackLoading, setFeedbackLoading] = useState(false);
 
     // History panel
     const [historyView, setHistoryView] = useState('chat'); // 'chat' | 'history' | 'session'
@@ -119,9 +122,7 @@ const ChatScreen = ({ navigation }) => {
     useEffect(() => {
         (async () => {
             try {
-                const { getApiUrl } = await import('../config');
-                const rasaBase = await getApiUrl(); // e.g. http://198.233.100.77:5005
-                const adminBase = rasaBase.replace(/:\d+$/, ':8181');
+                const adminBase = await getAdminBaseUrl();
                 const res = await fetch(`${adminBase}/admin/config/SESSION_TIMEOUT_MINUTES`);
                 const data = await res.json();
                 const val = parseInt(data.value || data.SESSION_TIMEOUT_MINUTES || '10', 10);
@@ -149,6 +150,7 @@ const ChatScreen = ({ navigation }) => {
             if (idleMs >= timeoutMs) {
                 clearInterval(inactivityIntervalRef.current);
                 setSessionEnded(true);
+                setShowFeedback(true);
                 setMessages(prev => [...prev, {
                     id: uuidv4(),
                     sender: 'bot',
@@ -401,6 +403,7 @@ const ChatScreen = ({ navigation }) => {
     const handleEndSession = () => {
         clearInterval(inactivityIntervalRef.current);
         setSessionEnded(true);
+        setShowFeedback(true);
         setMessages(prev => [...prev, {
             id: uuidv4(),
             sender: 'bot',
@@ -472,8 +475,7 @@ const ChatScreen = ({ navigation }) => {
         if (!authUser) return;
         setHistoryLoading(true);
         try {
-            const rasaBase = await getApiUrl();
-            const adminBase = rasaBase.replace(/:\d+$/, ':8181');
+            const adminBase = await getAdminBaseUrl();
             const res = await fetch(`${adminBase}/api/user/conversations?user_name=${encodeURIComponent(authUser)}&app_id=${encodeURIComponent(appIdRef.current)}`);
             const resp = await res.json();
             if (resp.success) setHistoryList(resp.data);
@@ -485,8 +487,7 @@ const ChatScreen = ({ navigation }) => {
     const fetchSessionMessages = async (session) => {
         setSessionLoading(true);
         try {
-            const rasaBase = await getApiUrl();
-            const adminBase = rasaBase.replace(/:\d+$/, ':8181');
+            const adminBase = await getAdminBaseUrl();
             const res = await fetch(`${adminBase}/api/user/conversation/${encodeURIComponent(session.sender_id)}/messages`);
             const resp = await res.json();
             if (resp.success) {
@@ -516,6 +517,37 @@ const ChatScreen = ({ navigation }) => {
             if (responses.length > 0) setMessages(prev => [...prev, ...responses]);
         } catch (e) { console.error('File attach error:', e); }
         finally { setIsLoading(false); }
+    };
+
+    // Session feedback
+    const handleSessionFeedback = async (feedbackData) => {
+        setFeedbackLoading(true);
+        try {
+            const adminBase = await getAdminBaseUrl();
+            const response = await fetch(`${adminBase}/api/user/session/feedback`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sender_id: senderId,
+                    user_id: authUser,
+                    app_id: appIdRef.current,
+                    rating: feedbackData.rating,
+                    comments: feedbackData.comments
+                })
+            });
+            const result = await response.json();
+            if (result.success) {
+                setShowFeedback(false);
+                Alert.alert('Thank You', 'Your feedback has been saved.');
+            } else {
+                Alert.alert('Error', 'Failed to save feedback. Please try again.');
+            }
+        } catch (e) {
+            console.error('Feedback error:', e);
+            Alert.alert('Error', 'Failed to save feedback.');
+        } finally {
+            setFeedbackLoading(false);
+        }
     };
 
     // Group history sessions by date label
@@ -576,8 +608,8 @@ const ChatScreen = ({ navigation }) => {
 
             <KeyboardAvoidingView
                 style={styles.flex}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
             >
                 {/* Welcome State */}
                 {isWelcomeState ? (
@@ -713,6 +745,12 @@ const ChatScreen = ({ navigation }) => {
                 onClose={() => setShowTicketForm(false)}
                 onSubmit={handleTicketFormSubmit}
             />
+            <SessionFeedbackModal
+                visible={showFeedback}
+                onClose={() => setShowFeedback(false)}
+                onSubmit={handleSessionFeedback}
+                isLoading={feedbackLoading}
+            />
 
             {/* User Menu Dropdown */}
             <Modal visible={showUserMenu} transparent animationType="fade" onRequestClose={() => setShowUserMenu(false)}>
@@ -778,14 +816,24 @@ const ChatScreen = ({ navigation }) => {
                                                     onPress={() => fetchSessionMessages(session)}
                                                     activeOpacity={0.7}
                                                 >
-                                                    <Text style={styles.historyCardTime}>
-                                                        {new Date(session.started_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                                                        {' · '}
-                                                        {new Date(session.started_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                    </Text>
-                                                    <Text style={styles.historyCardPreview} numberOfLines={2}>
-                                                        "{session.preview}"
-                                                    </Text>
+                                                    <View style={styles.historyCardHeader}>
+                                                        <View>
+                                                            <Text style={styles.historyCardTime}>
+                                                                {new Date(session.started_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                                                {' · '}
+                                                                {new Date(session.started_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                            </Text>
+                                                            <Text style={styles.historyCardPreview} numberOfLines={2}>
+                                                                "{session.preview}"
+                                                            </Text>
+                                                        </View>
+                                                        {session.rating && (
+                                                            <View style={styles.ratingBadge}>
+                                                                <Ionicons name="star" size={14} color="#fbbf24" />
+                                                                <Text style={styles.ratingText}>{session.rating}</Text>
+                                                            </View>
+                                                        )}
+                                                    </View>
                                                 </TouchableOpacity>
                                             ))}
                                         </View>
@@ -917,6 +965,8 @@ const styles = StyleSheet.create({
     },
     welcomeChips: {
         gap: 12,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
     },
     welcomeChip: {
         paddingHorizontal: 22,
@@ -968,7 +1018,6 @@ const styles = StyleSheet.create({
     },
     sendBtn: { padding: 10, borderRadius: 20, marginLeft: 2 },
     sendBtnDisabled: { opacity: 0.3 },
-    },
 
     // New conversation button
     newConvContainer: {
@@ -1092,8 +1141,28 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#e5e7eb',
     },
+    historyCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
     historyCardTime: { fontSize: 12, color: '#9ca3af', marginBottom: 4 },
-    historyCardPreview: { fontSize: 14, color: THEME.text, lineHeight: 20 },
+    historyCardPreview: { fontSize: 14, color: THEME.text, lineHeight: 20, flex: 1 },
+    ratingBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: '#fef3c7',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        marginLeft: 8,
+    },
+    ratingText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#92400e',
+    },
     readonlyFooter: {
         flexDirection: 'row',
         alignItems: 'center',

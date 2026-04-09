@@ -49,3 +49,6 @@ kb_qa_max_results = 3
 [FIRECRAWL]
 firecrawl_api_key = fc-selfhosted
 firecrawl_api_url = http://localhost:3002
+
+[SESSION]
+

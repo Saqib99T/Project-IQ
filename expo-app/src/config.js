@@ -1,6 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const DEFAULT_API_URL = 'http://198.233.100.77:5005';
+// Auto-detect environment: localhost for web browser, production URL for mobile/other
+const getDefaultApiUrl = () => {
+    if (typeof window !== 'undefined' && window.location) {
+        // Running in browser
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return 'http://localhost:5005';
+        }
+    }
+    // Default to production for mobile and other environments
+    return 'http://198.233.100.77:5005';
+};
+
+const DEFAULT_API_URL = getDefaultApiUrl();
 const WEBHOOK_PATH = '/webhooks/rest/webhook';
 const DEFAULT_APP_ID = 'IT';
 const APP_TITLE = 'Project IQ Bot';
@@ -48,6 +60,61 @@ export const setAppId = async (id) => {
 export const getWebhookUrl = async () => {
     const base = await getApiUrl();
     return `${base}${WEBHOOK_PATH}`;
+};
+
+// Auto-detect admin API base URL (for history, feedback, etc.)
+export const getAdminBaseUrl = async () => {
+    try {
+        // Check cached value first
+        const cached = await AsyncStorage.getItem('admin_api_base');
+        if (cached) return cached;
+    } catch (e) {
+        console.error('Error reading admin_api_base cache:', e);
+    }
+
+    // Auto-detect the admin base
+    const adminBase = await detectAdminBase();
+
+    // Cache it for future use
+    try {
+        await AsyncStorage.setItem('admin_api_base', adminBase);
+    } catch (e) {
+        console.error('Error caching admin_api_base:', e);
+    }
+
+    return adminBase;
+};
+
+const detectAdminBase = async () => {
+    // Web browser detection
+    if (typeof window !== 'undefined' && window.location) {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return 'http://localhost:8181';
+        }
+    }
+
+    // Mobile: try localhost first with timeout
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        const response = await fetch('http://localhost:8181/admin/config/SESSION_TIMEOUT_MINUTES', {
+            method: 'GET',
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+            console.log('Detected local admin API at localhost:8181');
+            return 'http://localhost:8181';
+        }
+    } catch (e) {
+        // localhost not available, fall back to production
+    }
+
+    console.log('Defaulting to production admin API');
+    return 'http://198.233.100.77:8181';
 };
 
 export { WEBHOOK_PATH, APP_TITLE };

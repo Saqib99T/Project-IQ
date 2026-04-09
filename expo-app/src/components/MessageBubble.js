@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, Clipboard, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Clipboard } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
@@ -117,9 +117,9 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
                         </View>
                     )}
 
-                    {/* Action buttons — horizontal scroll, hidden in readonly */}
+                    {/* Action buttons — wrapping layout, hidden in readonly */}
                     {!readonly && message.buttons && message.buttons.length > 0 && (
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.buttonsContainer} contentContainerStyle={styles.buttonsContent}>
+                        <View style={styles.buttonsContainer}>
                             {message.buttons.map((btn, idx) => (
                                 <TouchableOpacity
                                     key={idx}
@@ -130,7 +130,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
                                     <Text style={styles.actionButtonText}>{btn.title}</Text>
                                 </TouchableOpacity>
                             ))}
-                        </ScrollView>
+                        </View>
                     )}
 
                     {/* Ticket form — archived indicator in readonly */}
@@ -206,8 +206,7 @@ const styles = StyleSheet.create({
     archivedNote: { fontSize: 11, color: '#9ca3af', marginTop: 6, fontStyle: 'italic' },
 
     // Buttons
-    buttonsContainer: { marginTop: 8 },
-    buttonsContent: { flexDirection: 'row', gap: 6, paddingBottom: 2 },
+    buttonsContainer: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     actionButton: {
         paddingHorizontal: 12, paddingVertical: 6,
         borderRadius: 16, borderWidth: 1,

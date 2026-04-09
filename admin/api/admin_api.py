@@ -943,7 +943,7 @@ def get_system_metrics():
 
                     for proc in matched_processes:
                         try:
-                            cpu = proc.cpu_percent()  # Non-blocking, returns usage since last call
+                            cpu = proc.cpu_percent(interval=0.5)  # Blocking — accurate reading
                             mem = proc.memory_percent()
                             total_cpu += cpu
                             total_mem += mem
@@ -974,7 +974,7 @@ def get_system_metrics():
         try:
             current_proc = psutil.Process(current_pid)
             services['admin'] = {
-                'cpu': round(current_proc.cpu_percent(), 1),  # Non-blocking, returns usage since last call
+                'cpu': round(current_proc.cpu_percent(interval=0.5), 1),
                 'memory': round(current_proc.memory_percent(), 1),
                 'pid': current_pid
             }
@@ -987,46 +987,115 @@ def get_system_metrics():
             conn = _get_connection()
             cursor = conn.cursor()
 
-            # Get average response time from bot messages (time between user message and bot response)
+            # Response time: avg ms between each user msg and the NEAREST following bot msg
+            # Try last 7 days first, fall back to all-time if no data
             cursor.execute('''
-                SELECT AVG(
-                    EXTRACT(EPOCH FROM (
-                        bot.timestamp - user_msg.timestamp
-                    ))
-                ) * 1000 as avg_ms
-                FROM messages bot
-                JOIN messages user_msg ON bot.conversation_id = user_msg.conversation_id
-                    AND bot.timestamp > user_msg.timestamp
-                WHERE bot.sender = 'bot'
-                    AND user_msg.sender = 'user'
-                    AND bot.timestamp > NOW() - INTERVAL '1 hour'
-                LIMIT 1000
+                WITH bot_responses AS (
+                    SELECT
+                        bot.id,
+                        bot.conversation_id,
+                        bot.timestamp AS bot_ts,
+                        (
+                            SELECT MAX(u.timestamp)
+                            FROM messages u
+                            WHERE u.conversation_id = bot.conversation_id
+                              AND u.sender = 'user'
+                              AND u.timestamp < bot.timestamp
+                        ) AS prev_user_ts
+                    FROM messages bot
+                    WHERE bot.sender = 'bot'
+                      AND bot.timestamp > NOW() - INTERVAL '7 days'
+                )
+                SELECT AVG(EXTRACT(EPOCH FROM (bot_ts - prev_user_ts)) * 1000)
+                FROM bot_responses
+                WHERE prev_user_ts IS NOT NULL
             ''')
             result = cursor.fetchone()
             avg_response_time = round(result[0]) if result and result[0] else 0
 
-            # Get throughput (messages per minute in last hour)
-            cursor.execute('''
-                SELECT COUNT(*)
-                FROM messages
-                WHERE timestamp > NOW() - INTERVAL '1 hour'
-            ''')
-            hourly_messages = cursor.fetchone()[0] or 0
-            throughput = round(hourly_messages / 60.0, 2)
+            # If still 0 (no data in last 7 days), try all-time
+            if avg_response_time == 0:
+                cursor.execute('''
+                    WITH bot_responses AS (
+                        SELECT
+                            bot.timestamp AS bot_ts,
+                            (
+                                SELECT MAX(u.timestamp)
+                                FROM messages u
+                                WHERE u.conversation_id = bot.conversation_id
+                                  AND u.sender = 'user'
+                                  AND u.timestamp < bot.timestamp
+                            ) AS prev_user_ts
+                        FROM messages bot
+                        WHERE bot.sender = 'bot'
+                    )
+                    SELECT AVG(EXTRACT(EPOCH FROM (bot_ts - prev_user_ts)) * 1000)
+                    FROM bot_responses
+                    WHERE prev_user_ts IS NOT NULL
+                ''')
+                result = cursor.fetchone()
+                avg_response_time = round(result[0]) if result and result[0] else 0
 
-            # Get error rate from failed actions or error messages
+            # Throughput: messages per minute averaged over last 24 hours
+            # Falls back to all-time average if no recent data
+            cursor.execute('''
+                SELECT COUNT(*) FROM messages
+                WHERE timestamp > NOW() - INTERVAL '24 hours'
+            ''')
+            daily_messages = cursor.fetchone()[0] or 0
+            throughput = round(daily_messages / 1440.0, 2)  # per minute over 24h
+
+            if throughput == 0:
+                # All-time fallback: total messages / total elapsed minutes
+                cursor.execute('''
+                    SELECT COUNT(*),
+                           EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60.0
+                    FROM messages
+                ''')
+                row = cursor.fetchone()
+                if row and row[0] and row[1] and row[1] > 0:
+                    throughput = round(row[0] / row[1], 2)
+
+            # Error rate: % of bot messages that are fallbacks/errors in last 7 days
+            # Falls back to all-time if no recent data
             cursor.execute('''
                 SELECT
-                    COUNT(*) FILTER (WHERE text ILIKE '%error%' OR text ILIKE '%failed%') as errors,
-                    COUNT(*) as total
+                    COUNT(*) FILTER (WHERE
+                        text ILIKE '%error%' OR
+                        text ILIKE '%failed%' OR
+                        text ILIKE '%sorry%' OR
+                        text ILIKE '%not sure%' OR
+                        text ILIKE '%don''t understand%' OR
+                        text ILIKE '%couldn''t%' OR
+                        text ILIKE '%unable%' OR
+                        text ILIKE '%cannot%' OR
+                        text ILIKE '%not understand%'
+                    ) AS errors,
+                    COUNT(*) AS total
                 FROM messages
-                WHERE timestamp > NOW() - INTERVAL '24 hours'
-                    AND sender = 'bot'
+                WHERE sender = 'bot'
+                  AND timestamp > NOW() - INTERVAL '7 days'
             ''')
             result = cursor.fetchone()
-            errors = result[0] if result and result[0] else 0
-            total = result[1] if result and result[1] else 1
-            error_rate = round((errors / total) * 100, 2) if total > 0 else 0
+            if result and result[1] and result[1] > 0:
+                error_rate = round((result[0] / result[1]) * 100, 2)
+            else:
+                # All-time fallback
+                cursor.execute('''
+                    SELECT
+                        COUNT(*) FILTER (WHERE
+                            text ILIKE '%error%' OR text ILIKE '%failed%' OR
+                            text ILIKE '%sorry%' OR text ILIKE '%not sure%' OR
+                            text ILIKE '%don''t understand%' OR text ILIKE '%couldn''t%' OR
+                            text ILIKE '%unable%' OR text ILIKE '%cannot%' OR
+                            text ILIKE '%not understand%'
+                        ) AS errors,
+                        COUNT(*) AS total
+                    FROM messages
+                    WHERE sender = 'bot'
+                ''')
+                result = cursor.fetchone()
+                error_rate = round((result[0] / result[1]) * 100, 2) if result and result[1] else 0
 
             cursor.close()
         except Exception as e:
@@ -2244,16 +2313,41 @@ def user_get_conversations():
         conn = _get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
+        print(f"[HISTORY DEBUG] Looking for conversations - user_name: {user_name}, app_id: {app_id_filter}")
+
+        # First, let's see ALL conversations for this app to debug
+        if app_id_filter:
+            cursor.execute('SELECT sender_id, user_name, user_id, app_id FROM conversations WHERE app_id = %s LIMIT 20', (app_id_filter,))
+        else:
+            cursor.execute('SELECT sender_id, user_name, user_id, app_id FROM conversations LIMIT 20')
+
+        all_convs = cursor.fetchall()
+        print(f"[HISTORY DEBUG] ALL conversations in DB (app={app_id_filter}): {len(all_convs)} total")
+        for c in all_convs:
+            print(f"[HISTORY DEBUG]   - sender_id={c.get('sender_id')}, user_name={c.get('user_name')}, user_id={c.get('user_id')}, app_id={c.get('app_id')}")
+
         query = '''
             SELECT
                 c.sender_id,
                 c.started_at,
                 c.last_activity,
+                c.user_name,
+                c.user_id,
+                c.app_id,
+                (
+                    SELECT COUNT(*) FROM messages m
+                    WHERE m.conversation_id = c.id
+                ) as msg_count,
                 (
                     SELECT m.text FROM messages m
                     WHERE m.conversation_id = c.id AND m.sender = 'user'
                     ORDER BY m.timestamp ASC LIMIT 1
-                ) as preview
+                ) as preview,
+                (
+                    SELECT f.rating FROM feedback f
+                    WHERE f.conversation_id = c.id
+                    ORDER BY f.timestamp DESC LIMIT 1
+                ) as rating
             FROM conversations c
             WHERE (c.user_name = %s OR c.user_id = %s)
         '''
@@ -2264,21 +2358,33 @@ def user_get_conversations():
             params.append(app_id_filter)
 
         query += ' ORDER BY c.started_at DESC LIMIT 50'
+        print(f"[HISTORY DEBUG] Query params: {params}")
         cursor.execute(query, tuple(params))
 
+        all_rows = cursor.fetchall()
+        print(f"[HISTORY DEBUG] Found {len(all_rows)} matching conversations")
+        for row in all_rows:
+            print(f"[HISTORY DEBUG] Conv: sender_id={row['sender_id']}, user_name={row.get('user_name')}, user_id={row.get('user_id')}, app_id={row.get('app_id')}, msg_count={row.get('msg_count')}, has_preview={bool(row['preview'])}")
+
         conversations = []
-        for row in cursor.fetchall():
+        for row in all_rows:
             if not row['preview']:
+                print(f"[HISTORY DEBUG] Skipping conv {row['sender_id']} - no user message preview (msg_count={row.get('msg_count')})")
                 continue
             conversations.append({
                 'sender_id': row['sender_id'],
                 'started_at': row['started_at'].isoformat() if row['started_at'] else None,
                 'last_activity': row['last_activity'].isoformat() if row['last_activity'] else None,
-                'preview': (row['preview'] or '')[:100]
+                'preview': (row['preview'] or '')[:100],
+                'rating': row.get('rating')
             })
 
+        print(f"[HISTORY DEBUG] Returning {len(conversations)} conversations to client")
         return jsonify({'success': True, 'data': conversations})
     except Exception as e:
+        print(f"[HISTORY DEBUG] Error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
         if conn:
@@ -2321,6 +2427,46 @@ def user_get_conversation_messages(sender_id):
     finally:
         if conn:
             _release_connection(conn)
+
+
+@app.route('/api/user/session/feedback', methods=['POST'])
+def save_session_feedback():
+    """Save session feedback with rating and comments."""
+    try:
+        from common.conversation_db import log_feedback
+
+        data = request.get_json()
+        sender_id = data.get('sender_id', '').strip()
+        rating = data.get('rating')
+        comments = data.get('comments', '').strip()
+        app_id = data.get('app_id', 'General')
+        user_id = data.get('user_id')
+
+        if not sender_id:
+            return jsonify({'success': False, 'error': 'sender_id is required'}), 400
+
+        if rating and (not isinstance(rating, int) or rating < 1 or rating > 5):
+            return jsonify({'success': False, 'error': 'rating must be between 1 and 5'}), 400
+
+        # Determine feedback type based on rating
+        feedback_type = 'positive' if rating and rating >= 4 else 'negative' if rating else 'neutral'
+
+        # Save feedback
+        log_feedback(
+            sender_id=sender_id,
+            feedback_type=feedback_type,
+            app_id=app_id,
+            user_id=user_id,
+            rating=rating,
+            comments=comments
+        )
+
+        return jsonify({'success': True, 'message': 'Feedback saved successfully'})
+    except Exception as e:
+        print(f"Error saving feedback: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ============================================================================

@@ -2,8 +2,8 @@
   "expo": {
     "name": "Project IQ",
     "slug": "project-iq-mobile",
-    "version": "1.0.4",
-    "orientation": "portrait",
+    "version": "1.0.5",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -14,14 +14,17 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.projectiq.mobile",
+      "buildNumber": "5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.projectiq.mobile",
+      "versionCode": 5,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "resize",
+      "screenOrientation": "default",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",

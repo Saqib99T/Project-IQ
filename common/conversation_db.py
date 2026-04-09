@@ -91,6 +91,8 @@ def _init_database():
                 id SERIAL PRIMARY KEY,
                 conversation_id INTEGER NOT NULL,
                 type TEXT NOT NULL,
+                rating INTEGER,
+                comments TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id)
             )
@@ -167,6 +169,13 @@ def _init_database():
                 cursor.execute(stmt)
             except Exception:
                 pass  # Column might already exist
+
+        # Add rating and comments columns to feedback table
+        try:
+            cursor.execute('ALTER TABLE feedback ADD COLUMN IF NOT EXISTS rating INTEGER')
+            cursor.execute('ALTER TABLE feedback ADD COLUMN IF NOT EXISTS comments TEXT')
+        except Exception:
+            pass
         
         # Add index on app_id for filtering
         try:
@@ -302,33 +311,33 @@ def log_intent(sender_id: str, intent: str, confidence: float = None):
     pass
 
 
-def log_feedback(sender_id: str, feedback_type: str, app_id: str = "General", user_id: str = None, ticket_id: str = None):
-    """Log user feedback (positive/negative) to PostgreSQL."""
+def log_feedback(sender_id: str, feedback_type: str, app_id: str = "General", user_id: str = None, ticket_id: str = None, rating: int = None, comments: str = None):
+    """Log user feedback (positive/negative) with optional rating and comments to PostgreSQL."""
     conn = _get_connection()
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         # Normalize feedback type
         if feedback_type in ('up', 'positive'):
             feedback_type = 'positive'
         elif feedback_type in ('down', 'negative'):
             feedback_type = 'negative'
-        
+
         # Get or create conversation (with user_id)
         conv_id = log_conversation_start(sender_id, app_id, user_id=user_id)
-        
-        # Insert feedback with app_id, user_id, and ticket_id
+
+        # Insert feedback with app_id, user_id, ticket_id, rating, and comments
         cursor.execute(
-            'INSERT INTO feedback (conversation_id, type, app_id, user_id, ticket_id, timestamp) VALUES (%s, %s, %s, %s, %s, %s)',
-            (conv_id, feedback_type, app_id, user_id, ticket_id, datetime.now())
+            'INSERT INTO feedback (conversation_id, type, app_id, user_id, ticket_id, rating, comments, timestamp) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
+            (conv_id, feedback_type, app_id, user_id, ticket_id, rating, comments, datetime.now())
         )
-        
+
         # Mark as resolved if positive
         if feedback_type == 'positive':
             cursor.execute('UPDATE conversations SET resolved = 1 WHERE id = %s', (conv_id,))
-        
+
         conn.commit()
-        print(f"Feedback saved to PostgreSQL: {feedback_type} for sender {sender_id}")
+        print(f"Feedback saved to PostgreSQL: {feedback_type} (rating: {rating}) for sender {sender_id}")
     except Exception as e:
         print(f"Error saving feedback to PostgreSQL: {e}")
         conn.rollback()
