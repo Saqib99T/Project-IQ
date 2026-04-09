@@ -2788,3 +2788,95 @@ nlu:
     - add screenshot to [GLPI-789](ticket_id)
     - please attach a file
     - send file
+
+# ── HANDOFF INTENTS ──────────────────────────────────────────────────────────
+
+- intent: request_human_agent
+  examples: |
+    - talk to a human
+    - talk to a person
+    - speak to an agent
+    - connect me to an agent
+    - I want to talk to a real person
+    - human please
+    - get me a human
+    - real person
+    - speak to someone
+    - I need human support
+    - connect me to support
+    - transfer me to an agent
+    - I want human help
+    - can I speak to a person
+    - live agent
+    - can I talk to someone
+    - let me talk to a human
+    - I want to speak with a person
+    - agent please
+    - human agent
+    - I need to speak to a person
+    - escalate to human
+    - please connect me to a human
+    - I'd like to speak with an agent
+    - can you connect me to support staff
+    - I prefer to speak with a human
+    - is there a person I can talk to
+
+- intent: confirm_handoff
+  examples: |
+    - yes connect me
+    - yes please connect me to an agent
+    - yes I want to wait
+    - wait in queue
+    - yes transfer me
+    - go ahead and connect me
+    - yes I'll wait
+    - I want to wait for an agent
+    - connect me now
+    - yes please
+    - sure connect me
+
+- intent: cancel_handoff
+  examples: |
+    - no keep the bot
+    - cancel the transfer
+    - no I'll stay with the bot
+    - never mind
+    - cancel handoff
+    - I changed my mind
+    - no thanks keep AI
+    - stay with bot
+    - no don't transfer
+    - I'll manage with the bot
+
+- intent: confirm_gdpr_consent
+  examples: |
+    - yes I agree
+    - I consent
+    - yes I agree to share
+    - I allow it
+    - agreed
+    - yes share my history
+    - I accept
+    - I give my consent
+    - yes that's fine
+
+- intent: deny_gdpr_consent
+  examples: |
+    - no I don't agree
+    - I do not consent
+    - no don't share
+    - I decline
+    - no I don't want to share my history
+    - I refuse
+    - no keep my data private
+    - I don't agree
+
+- intent: accept_ticket_fallback
+  examples: |
+    - create a ticket instead
+    - I'll create a ticket
+    - open a ticket
+    - just create a ticket
+    - ticket please
+    - let me create a support ticket
+    - I'll submit a ticket

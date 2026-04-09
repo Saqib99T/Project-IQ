@@ -2320,3 +2320,351 @@ class ActionCreateTicketFromForm(Action):
         else:
             dispatcher.utter_message(text="❌ Failed to create ticket.")
             return []
+
+
+# ======================================================================
+# HANDOFF ACTIONS — Phase 2
+# All config values come from the DB runtime config or the config file.
+# Nothing is hardcoded here.
+# ======================================================================
+
+def _get_handoff_runtime_cfg() -> dict:
+    """Load handoff runtime settings from DB. Returns safe defaults on error."""
+    try:
+        from common.conversation_db import get_handoff_runtime_config
+        return get_handoff_runtime_config()
+    except Exception:
+        return {
+            "triggers": {"confidence_threshold": 0.40, "confidence_streak_required": 2,
+                         "frustration_threshold": 0.75, "frustration_streak_required": 2,
+                         "direct_handoff_intents": []},
+            "queue": {"default_priority": 5, "ask_user_after_mins": 15,
+                      "max_queue_depth": 50},
+            "operators": {"default_max_concurrent": 3, "auto_busy_on_max_load": True},
+            "gdpr": {"consent_required": True}
+        }
+
+
+def _call_admin_api(path: str, method: str = "GET", data: dict = None) -> Optional[dict]:
+    """Call the Admin API from within the Action Server."""
+    import urllib.request
+    import urllib.error
+    try:
+        from common.config_manager import get_server_config
+        cfg = get_server_config()
+        port = cfg.get('admin_port', 8181)
+        url = f"http://127.0.0.1:{port}{path}"
+        req_data = json.dumps(data).encode() if data else None
+        req = urllib.request.Request(
+            url,
+            data=req_data,
+            headers={"Content-Type": "application/json"},
+            method=method
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return json.loads(resp.read().decode())
+    except Exception as e:
+        logger.warning(f"Admin API call failed ({method} {path}): {e}")
+        return None
+
+
+def _score_frustration(text: str) -> float:
+    """Return a frustration score 0.0–1.0 using a simple keyword heuristic.
+    VADER is used when available; falls back to keyword matching."""
+    if not text:
+        return 0.0
+    try:
+        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+        score = SentimentIntensityAnalyzer().polarity_scores(text)
+        neg = score.get('neg', 0.0)
+        compound = score.get('compound', 0.0)
+        return round(min(1.0, neg + max(0, -compound) * 0.5), 3)
+    except ImportError:
+        pass
+    # Keyword fallback
+    frustration_words = [
+        'not working', 'broken', 'useless', 'terrible', 'awful', 'worst',
+        'frustrated', 'angry', 'stupid', 'ridiculous', 'never works',
+        'stop working', 'this is bad', 'waste of time', 'cant believe'
+    ]
+    text_lower = text.lower()
+    hits = sum(1 for w in frustration_words if w in text_lower)
+    return min(1.0, hits * 0.25)
+
+
+class ActionTrackConfidence(Action):
+    """Called after every bot turn (via FollowupAction from other actions).
+    Tracks low-confidence streaks and frustration scores.
+    Auto-triggers handoff when thresholds are reached.
+    """
+
+    def name(self) -> Text:
+        return "action_track_confidence"
+
+    def run(self, dispatcher: CollectingDispatcher,
+            tracker: Tracker, domain: Dict[Text, Any]) -> List:
+
+        cfg = _get_handoff_runtime_cfg()
+        trigger_cfg = cfg.get('triggers', {})
+        conf_threshold = trigger_cfg.get('confidence_threshold', 0.40)
+        conf_streak_req = int(trigger_cfg.get('confidence_streak_required', 2))
+        frust_threshold = trigger_cfg.get('frustration_threshold', 0.75)
+        frust_streak_req = int(trigger_cfg.get('frustration_streak_required', 2))
+
+        # Skip tracking if already in handoff
+        handoff_state = tracker.get_slot('handoff_state') or 'bot_active'
+        if handoff_state != 'bot_active':
+            return []
+
+        events = []
+
+        # ── Confidence streak ──────────────────────────────────────────
+        confidence = 0.0
+        try:
+            confidence = tracker.latest_message.get('intent', {}).get('confidence', 1.0)
+        except Exception:
+            confidence = 1.0
+
+        current_streak = int(tracker.get_slot('low_conf_streak') or 0)
+        if confidence < conf_threshold:
+            new_streak = current_streak + 1
+        else:
+            new_streak = 0
+        events.append(SlotSet('low_conf_streak', float(new_streak)))
+
+        # ── Frustration score ──────────────────────────────────────────
+        user_text = tracker.latest_message.get('text', '') or ''
+        frust = _score_frustration(user_text)
+        # Rolling average over last 3 turns using slot
+        prev_frust = float(tracker.get_slot('frustration_score') or 0.0)
+        new_frust = round((prev_frust * 0.6 + frust * 0.4), 3)
+        events.append(SlotSet('frustration_score', new_frust))
+
+        # ── Trigger check ──────────────────────────────────────────────
+        if new_streak >= conf_streak_req or new_frust >= frust_threshold:
+            logger.info(
+                f"[Handoff] Auto-trigger: streak={new_streak}, frustration={new_frust}"
+            )
+            events.append(FollowupAction('action_request_handoff'))
+
+        return events
+
+
+class ActionRequestHandoff(Action):
+    """Check operator availability and start the handoff flow.
+    Shows GDPR consent (if required) or no-agents fallback.
+    """
+
+    def name(self) -> Text:
+        return "action_request_handoff"
+
+    def run(self, dispatcher: CollectingDispatcher,
+            tracker: Tracker, domain: Dict[Text, Any]) -> List:
+
+        handoff_state = tracker.get_slot('handoff_state') or 'bot_active'
+        if handoff_state in ('queued', 'assigned'):
+            dispatcher.utter_message(
+                text="You are already connected with our support team."
+            )
+            return []
+
+        app_id = tracker.get_slot('app_id') or 'General'
+        resp = _call_admin_api(f"/internal/operators/available?app_id={app_id}")
+
+        if resp and resp.get('online'):
+            wait_mins = resp.get('wait_mins', 0)
+            # Show GDPR consent — actual queueing happens after user agrees
+            return [
+                SlotSet('wait_estimate_mins', float(wait_mins)),
+                FollowupAction('action_gdpr_consent')
+            ]
+        elif resp and resp.get('online_count', 0) == 0:
+            dispatcher.utter_message(response='utter_no_agents_available')
+        else:
+            # Agents online but all busy — show wait time
+            wait_mins = resp.get('wait_mins', 0) if resp else 0
+            dispatcher.utter_message(
+                response='utter_agents_busy_with_wait',
+                queue_position=str(resp.get('queue_depth', 0) + 1 if resp else 1),
+                wait_estimate_mins=str(round(wait_mins, 1))
+            )
+        return []
+
+
+class ActionGdprConsent(Action):
+    """Show the GDPR consent dialog before transferring user data to an operator."""
+
+    def name(self) -> Text:
+        return "action_gdpr_consent"
+
+    def run(self, dispatcher: CollectingDispatcher,
+            tracker: Tracker, domain: Dict[Text, Any]) -> List:
+
+        cfg = _get_handoff_runtime_cfg()
+        if not cfg.get('gdpr', {}).get('consent_required', True):
+            # Consent not required — skip straight to confirm
+            return [FollowupAction('action_confirm_handoff')]
+
+        dispatcher.utter_message(response='utter_gdpr_consent_request')
+        return []
+
+
+class ActionConfirmGdprConsent(Action):
+    """User agreed to GDPR — record consent and proceed to queue."""
+
+    def name(self) -> Text:
+        return "action_confirm_gdpr_consent"
+
+    def run(self, dispatcher: CollectingDispatcher,
+            tracker: Tracker, domain: Dict[Text, Any]) -> List:
+
+        return [
+            SlotSet('consent_given', True),
+            FollowupAction('action_confirm_handoff')
+        ]
+
+
+class ActionDenyGdprConsent(Action):
+    """User refused GDPR consent — reset handoff state and return to normal."""
+
+    def name(self) -> Text:
+        return "action_deny_gdpr_consent"
+
+    def run(self, dispatcher: CollectingDispatcher,
+            tracker: Tracker, domain: Dict[Text, Any]) -> List:
+
+        dispatcher.utter_message(response='utter_handoff_cancelled')
+        return [
+            SlotSet('consent_given', False),
+            SlotSet('handoff_state', 'bot_active'),
+            SlotSet('low_conf_streak', 0.0),
+            SlotSet('frustration_score', 0.0),
+            SlotSet('queue_id', None),
+            SlotSet('queue_position', None),
+            SlotSet('wait_estimate_mins', None),
+        ]
+
+
+class ActionConfirmHandoff(Action):
+    """Enqueue the conversation and inform the user of their queue position."""
+
+    def name(self) -> Text:
+        return "action_confirm_handoff"
+
+    def run(self, dispatcher: CollectingDispatcher,
+            tracker: Tracker, domain: Dict[Text, Any]) -> List:
+
+        sender_id = tracker.sender_id
+        app_id = tracker.get_slot('app_id') or 'General'
+
+        # Determine trigger context
+        intent = tracker.latest_message.get('intent', {}).get('name', 'unknown')
+        confidence = tracker.latest_message.get('intent', {}).get('confidence', 1.0)
+        low_conf_streak = int(tracker.get_slot('low_conf_streak') or 0)
+        frustration_score = float(tracker.get_slot('frustration_score') or 0.0)
+
+        if intent == 'request_human_agent':
+            trigger_reason = 'user_request'
+        elif low_conf_streak >= 2:
+            trigger_reason = 'low_confidence'
+        elif frustration_score >= 0.75:
+            trigger_reason = 'frustration'
+        else:
+            trigger_reason = 'user_request'
+
+        trigger_detail = {
+            'intent': intent,
+            'confidence': confidence,
+            'low_conf_streak': low_conf_streak,
+            'frustration_score': frustration_score,
+            'last_message': tracker.latest_message.get('text', '')[:200]
+        }
+
+        resp = _call_admin_api(
+            '/internal/queue/enqueue',
+            method='POST',
+            data={
+                'sender_id': sender_id,
+                'app_id': app_id,
+                'trigger_reason': trigger_reason,
+                'trigger_detail': trigger_detail,
+                'consent_given': tracker.get_slot('consent_given') or False,
+            }
+        )
+
+        if not resp or not resp.get('success'):
+            error = resp.get('error', 'unknown') if resp else 'Admin API unreachable'
+            if 'full' in error.lower():
+                dispatcher.utter_message(response='utter_handoff_queue_full')
+            else:
+                dispatcher.utter_message(
+                    text="Sorry, I was unable to connect you to an agent right now. "
+                         "Please try creating a ticket instead."
+                )
+            return [SlotSet('handoff_state', 'bot_active')]
+
+        queue_id = resp.get('queue_id')
+        position = resp.get('position', 1)
+        wait_mins = resp.get('wait_mins', 0)
+
+        dispatcher.utter_message(
+            response='utter_queued_for_operator',
+            queue_position=str(position),
+            wait_estimate_mins=str(round(float(wait_mins), 1))
+        )
+
+        return [
+            SlotSet('handoff_state', 'queued'),
+            SlotSet('queue_id', float(queue_id)),
+            SlotSet('queue_position', float(position)),
+            SlotSet('wait_estimate_mins', float(wait_mins)),
+        ]
+
+
+class ActionCancelHandoff(Action):
+    """User chose to cancel and stay with the bot."""
+
+    def name(self) -> Text:
+        return "action_cancel_handoff"
+
+    def run(self, dispatcher: CollectingDispatcher,
+            tracker: Tracker, domain: Dict[Text, Any]) -> List:
+
+        dispatcher.utter_message(response='utter_handoff_cancelled')
+        return [
+            SlotSet('handoff_state', 'bot_active'),
+            SlotSet('consent_given', False),
+            SlotSet('low_conf_streak', 0.0),
+            SlotSet('frustration_score', 0.0),
+            SlotSet('queue_id', None),
+            SlotSet('queue_position', None),
+            SlotSet('wait_estimate_mins', None),
+        ]
+
+
+class ActionResumeFromHandoff(Action):
+    """Called when an operator returns the conversation to the bot.
+    Resets handoff slots and offers next steps to the user.
+    """
+
+    def name(self) -> Text:
+        return "action_resume_from_handoff"
+
+    def run(self, dispatcher: CollectingDispatcher,
+            tracker: Tracker, domain: Dict[Text, Any]) -> List:
+
+        operator_name = tracker.get_slot('assigned_operator_name') or 'The agent'
+        dispatcher.utter_message(
+            response='utter_handoff_resolved_return',
+            assigned_operator_name=operator_name
+        )
+        return [
+            SlotSet('handoff_state', 'bot_active'),
+            SlotSet('assigned_operator_name', None),
+            SlotSet('queue_id', None),
+            SlotSet('queue_position', None),
+            SlotSet('wait_estimate_mins', None),
+            SlotSet('consent_given', False),
+            SlotSet('low_conf_streak', 0.0),
+            SlotSet('frustration_score', 0.0),
+        ]

@@ -248,3 +248,35 @@ rules:
       - action: action_init_glpi_session
       - action: action_list_attachments
       - action: utter_ask_anything_else
+
+  # ── HANDOFF RULES ──────────────────────────────────────────────────────────
+
+  - rule: User explicitly requests a human agent
+    steps:
+      - intent: request_human_agent
+      - action: action_request_handoff
+
+  - rule: User consents to GDPR — proceed with handoff
+    steps:
+      - intent: confirm_gdpr_consent
+      - action: action_confirm_gdpr_consent
+
+  - rule: User denies GDPR consent — cancel handoff
+    steps:
+      - intent: deny_gdpr_consent
+      - action: action_deny_gdpr_consent
+
+  - rule: User confirms queue — enqueue them
+    steps:
+      - intent: confirm_handoff
+      - action: action_confirm_handoff
+
+  - rule: User cancels handoff
+    steps:
+      - intent: cancel_handoff
+      - action: action_cancel_handoff
+
+  - rule: User accepts ticket as fallback when no agents available
+    steps:
+      - intent: accept_ticket_fallback
+      - action: action_search_kb_before_ticket

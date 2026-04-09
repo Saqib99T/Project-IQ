@@ -36,6 +36,13 @@ intents:
   - rating_4
   - rating_5
   - show_ticket_graph
+  # ── Handoff intents ──────────────────────────────────────────────────
+  - request_human_agent
+  - confirm_handoff
+  - cancel_handoff
+  - confirm_gdpr_consent
+  - deny_gdpr_consent
+  - accept_ticket_fallback
 
 entities:
   - ticket_id
@@ -270,6 +277,57 @@ slots:
     influence_conversation: false
     mappings: []
 
+  # ── Handoff slots ────────────────────────────────────────────────────
+  handoff_state:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  queue_id:
+    type: float
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  queue_position:
+    type: float
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  wait_estimate_mins:
+    type: float
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  assigned_operator_name:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  low_conf_streak:
+    type: float
+    initial_value: 0
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  frustration_score:
+    type: float
+    initial_value: 0.0
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  consent_given:
+    type: bool
+    influence_conversation: false
+    mappings:
+      - type: custom
+
 responses:
   utter_greet:
     - text: "👋 **Hello! Welcome to Project IQ Bot!**
@@ -431,8 +489,73 @@ How can I assist you today?"
   utter_ask_improvement:
     - text: "I'm sorry to hear that. What could we do better? Your feedback helps us improve."
 
+  # ── Handoff responses ────────────────────────────────────────────────
+  utter_gdpr_consent_request:
+    - text: "Before I connect you, please note: a human support agent will join this conversation and will be able to view your chat history in order to assist you. Do you agree to share your conversation?"
+      buttons:
+        - title: "Yes, I agree"
+          payload: "/confirm_gdpr_consent"
+        - title: "No, keep the AI"
+          payload: "/deny_gdpr_consent"
+
+  utter_checking_availability:
+    - text: "Let me check agent availability for you..."
+
+  utter_queued_for_operator:
+    - text: "You are in the queue (position {queue_position}). Estimated wait: ~{wait_estimate_mins} minutes. I will notify you as soon as an agent joins."
+
+  utter_no_agents_available:
+    - text: "No agents are available right now. What would you prefer?"
+      buttons:
+        - title: "Create a support ticket"
+          payload: "/accept_ticket_fallback"
+        - title: "Wait in queue anyway"
+          payload: "/confirm_handoff"
+        - title: "Search knowledge base"
+          payload: "/ask_knowledge"
+
+  utter_agents_busy_with_wait:
+    - text: "All agents are currently busy. Estimated wait: ~{wait_estimate_mins} minutes. You are #{queue_position} in the queue."
+      buttons:
+        - title: "Wait in queue"
+          payload: "/confirm_handoff"
+        - title: "Create a ticket instead"
+          payload: "/accept_ticket_fallback"
+
+  utter_agent_joined:
+    - text: "{assigned_operator_name} has joined and reviewed your case. Go ahead!"
+
+  utter_handoff_resolved_return:
+    - text: "{assigned_operator_name} has closed the session. Is there anything else I can help you with?"
+
+  utter_handoff_cancelled:
+    - text: "No problem, I'll keep trying to help you. What would you like to do?"
+      buttons:
+        - title: "Create a ticket"
+          payload: "/create_ticket"
+        - title: "Search knowledge base"
+          payload: "/ask_knowledge"
+        - title: "Help"
+          payload: "/help"
+
+  utter_handoff_queue_full:
+    - text: "The support queue is currently full. Please try creating a ticket and an agent will follow up."
+      buttons:
+        - title: "Create a ticket"
+          payload: "/accept_ticket_fallback"
+
 
 actions:
+  # ── Handoff actions ──────────────────────────────────────────────────
+  - action_track_confidence
+  - action_request_handoff
+  - action_gdpr_consent
+  - action_confirm_gdpr_consent
+  - action_deny_gdpr_consent
+  - action_confirm_handoff
+  - action_cancel_handoff
+  - action_resume_from_handoff
+  # ── Existing actions ─────────────────────────────────────────────────
   - action_glpi_login
   - action_init_glpi_session
   - action_create_glpi_ticket

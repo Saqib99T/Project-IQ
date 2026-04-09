@@ -360,6 +360,16 @@ def _init_database():
             except Exception:
                 pass  # Column already exists — safe to ignore
 
+        # Phase 3 additions — new columns on handoff_queue
+        handoff_queue_p3_columns = [
+            "ALTER TABLE handoff_queue ADD COLUMN IF NOT EXISTS timeout_asked_at TIMESTAMP",
+        ]
+        for stmt in handoff_queue_p3_columns:
+            try:
+                cursor.execute(stmt)
+            except Exception:
+                pass  # Safe to ignore
+
         # 9. Indexes for handoff tables
         handoff_indexes = [
             "CREATE INDEX IF NOT EXISTS idx_hq_conversation  ON handoff_queue(conversation_id)",

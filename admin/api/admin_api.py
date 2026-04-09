@@ -7,6 +7,7 @@ Extensible for any plugin modules like Firecrawl, Airbyte...
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
 import json
 import sys
 import os
@@ -37,6 +38,63 @@ ACTION_URL = _rasa_cfg['action_url']
 
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
 CORS(app)
+
+# ── Socket.IO initialisation ─────────────────────────────────────────────────
+# Deferred until config is available; re-initialised in _init_socketio().
+# socketio is a module-level singleton used everywhere.
+_socketio_instance: Optional['SocketIO'] = None
+
+def _get_socketio() -> 'SocketIO':
+    """Return the SocketIO singleton, initialising lazily if needed."""
+    global _socketio_instance
+    if _socketio_instance is None:
+        _init_socketio()
+    return _socketio_instance  # type: ignore[return-value]
+
+def _init_socketio():
+    """Initialise SocketIO using config values (called at first use or startup)."""
+    global _socketio_instance
+    try:
+        from common.config_manager import get_handoff_config
+        _hcfg = get_handoff_config()
+        _cors_origins = _hcfg.get('socketio_cors_allowed_origins', '*')
+        _async_mode   = _hcfg.get('socketio_async_mode', 'eventlet')
+        _ping_timeout  = int(_hcfg.get('socketio_ping_timeout', 60))
+        _ping_interval = int(_hcfg.get('socketio_ping_interval', 25))
+    except Exception:
+        _cors_origins = '*'
+        _async_mode   = 'eventlet'
+        _ping_timeout  = 60
+        _ping_interval = 25
+
+    _socketio_instance = SocketIO(
+        app,
+        cors_allowed_origins=_cors_origins,
+        async_mode=_async_mode,
+        ping_timeout=_ping_timeout,
+        ping_interval=_ping_interval,
+        logger=False,
+        engineio_logger=False,
+    )
+
+# Initialise eagerly so background threads can use it before first request
+_init_socketio()
+
+# ── Room naming helpers ──────────────────────────────────────────────────────
+# user:{sender_id}          — user's browser tab
+# operator:{operator_id}    — operator dashboard tab
+# admin_live                — admin live-monitor overview
+# admin_watch:{conv_id}     — admin deep-watching a single conversation
+# queue_overview            — lightweight overview pushed to all operator tabs
+
+def _room_user(sender_id: str) -> str:
+    return f"user:{sender_id}"
+
+def _room_operator(op_id) -> str:
+    return f"operator:{op_id}"
+
+def _room_admin_watch(conv_id) -> str:
+    return f"admin_watch:{conv_id}"
 
 
 # Simple KB cache for admin panel
@@ -2789,6 +2847,11 @@ def chat_webhook_proxy():
     """
     Proxy endpoint for chat messages that automatically logs all bot responses.
     This captures ALL bot messages (from actions AND templates) and logs them to the database.
+
+    HANDOFF PASSIVE MODE GATE:
+    When a conversation is in 'queued' or 'assigned' state, the message is logged
+    but NOT forwarded to Rasa. In 'assigned' state it is relayed to the operator.
+    This keeps the bot completely silent during human handoff.
     """
     try:
         import requests
@@ -2804,15 +2867,98 @@ def chat_webhook_proxy():
         user_id = metadata.get('user_id', None)
         ticket_id = metadata.get('ticket_id', None)
 
+        # Store client technical metadata on first message (used in Context Package)
+        client_meta = {
+            k: metadata.get(k, '')
+            for k in ('browser', 'os', 'device_type', 'page_url', 'device_id')
+            if metadata.get(k)
+        }
+
+        # ── HANDOFF PASSIVE MODE GATE ─────────────────────────────────────────
+        # Check handoff_state BEFORE logging or forwarding.
+        # Use a safe fallback — if DB is unavailable, default to bot_active.
+        handoff_state = 'bot_active'
+        try:
+            conn = _get_connection()
+            try:
+                from psycopg2.extras import RealDictCursor as _RDC
+                _cur = conn.cursor(cursor_factory=_RDC)
+                _cur.execute(
+                    "SELECT id, handoff_state, assigned_operator_id "
+                    "FROM conversations WHERE sender_id = %s",
+                    (sender_id,)
+                )
+                _row = _cur.fetchone()
+                if _row:
+                    handoff_state = _row.get('handoff_state') or 'bot_active'
+                    # Store client metadata if not already stored
+                    if client_meta:
+                        _cur.execute(
+                            "UPDATE conversations SET client_metadata = %s "
+                            "WHERE id = %s AND client_metadata IS NULL",
+                            (json.dumps(client_meta), _row['id'])
+                        )
+                        conn.commit()
+            finally:
+                _release_connection(conn)
+        except Exception as _gate_err:
+            print(f"[Handoff gate] DB check failed (safe default bot_active): {_gate_err}")
+            handoff_state = 'bot_active'
+
+        if handoff_state == 'queued':
+            # Log the message but do NOT forward to Rasa. Return holding message.
+            log_conversation_start(sender_id, app_id, user_id=user_id)
+            log_message(sender_id, 'user', message_text, intent=None,
+                        app_id=app_id, user_id=user_id, ticket_id=ticket_id)
+            return jsonify([{
+                "text": "⏳ You are in the queue. An agent will be with you shortly."
+            }]), 200
+
+        if handoff_state == 'assigned':
+            # Log and relay to operator in real-time via Socket.IO.
+            log_conversation_start(sender_id, app_id, user_id=user_id)
+            log_message(sender_id, 'user', message_text, intent=None,
+                        app_id=app_id, user_id=user_id, ticket_id=ticket_id)
+            # Look up the assigned operator and emit to their room.
+            try:
+                _proxy_conn = _get_connection()
+                try:
+                    from psycopg2.extras import RealDictCursor as _PRDC
+                    _proxy_cur = _proxy_conn.cursor(cursor_factory=_PRDC)
+                    _proxy_cur.execute(
+                        "SELECT id, assigned_operator_id FROM conversations WHERE sender_id = %s",
+                        (sender_id,)
+                    )
+                    _proxy_row = _proxy_cur.fetchone()
+                finally:
+                    _release_connection(_proxy_conn)
+                if _proxy_row and _proxy_row.get('assigned_operator_id'):
+                    _emit_to_operator(_proxy_row['assigned_operator_id'], 'user_message', {
+                        'conversation_id': _proxy_row['id'],
+                        'sender_id':       sender_id,
+                        'text':            message_text,
+                        'timestamp':       _sio_dt.now().isoformat(),
+                    })
+                    # Also push to any admin watching this conversation
+                    _sio.emit('live_message', {
+                        'conversation_id': _proxy_row['id'],
+                        'sender':          'user',
+                        'text':            message_text,
+                        'timestamp':       _sio_dt.now().isoformat(),
+                    }, room=_room_admin_watch(_proxy_row['id']))
+            except Exception as _relay_err:
+                print(f"[SIO relay] assigned relay error (non-fatal): {_relay_err}")
+            return jsonify([]), 200
+        # ── END PASSIVE MODE GATE ─────────────────────────────────────────────
+
         # Log the user message
-        conv_id = log_conversation_start(sender_id, app_id, user_id=user_id)
-        log_message(sender_id, 'user', message_text, intent=None, app_id=app_id, user_id=user_id, ticket_id=ticket_id)
+        log_conversation_start(sender_id, app_id, user_id=user_id)
+        log_message(sender_id, 'user', message_text, intent=None,
+                    app_id=app_id, user_id=user_id, ticket_id=ticket_id)
 
-        # Forward to Rasa
-        rasa_url = RASA_URL
-
+        # Forward to Rasa (normal bot_active flow)
         rasa_response = requests.post(
-            f"{rasa_url}/webhooks/rest/webhook",
+            f"{RASA_URL}/webhooks/rest/webhook",
             json=data,
             timeout=30
         )
@@ -2823,7 +2969,8 @@ def chat_webhook_proxy():
         for response in bot_responses:
             response_text = response.get('text', '')
             if response_text:
-                log_message(sender_id, 'bot', response_text, intent=None, app_id=app_id, user_id=user_id, ticket_id=ticket_id)
+                log_message(sender_id, 'bot', response_text, intent=None,
+                            app_id=app_id, user_id=user_id, ticket_id=ticket_id)
 
         return jsonify(bot_responses), rasa_response.status_code
 
@@ -3346,11 +3493,38 @@ def internal_queue_enqueue():
         if entry is None:
             return jsonify({'error': 'Queue is full or enqueue failed'}), 503
 
+        # ── Phase 3: notify operators of new queue item ───────────────────
+        try:
+            cfg = get_handoff_runtime_config_for_api()
+            avg_handle = float(cfg.get('queue', {}).get('avg_handle_time_mins', 8))
+            pos = int(entry.get('queue_position', 1))
+            wait_mins = round(pos * avg_handle)
+            _sio.emit('new_queue_item', {
+                'queue_id':           entry['id'],
+                'queue_position':     pos,
+                'wait_estimate_mins': wait_mins,
+                'app_id':             app_id,
+                'target_team':        target_team,
+                'required_skill':     required_skill,
+                'trigger_reason':     trigger_reason,
+                'queued_at':          entry.get('queued_at', ''),
+            }, room='queue_overview')
+            _emit_queue_overview()
+            # Confirm to the user they're in queue
+            _emit_to_user(sender_id, 'handoff_queued', {
+                'conversation_id':    conversation_id,
+                'queue_position':     pos,
+                'wait_estimate_mins': wait_mins,
+            })
+        except Exception as _nqe:
+            print(f"[SIO enqueue] notify error (non-fatal): {_nqe}")
+        # ── end Phase 3 ───────────────────────────────────────────────────
+
         return jsonify({
             'success': True,
             'queue_id': entry['id'],
             'position': entry.get('queue_position', 1),
-            'wait_secs': 0,   # Will be pushed via Socket.IO in Phase 3
+            'wait_secs': 0,
             'wait_mins': 0
         })
     except Exception as e:
@@ -3877,7 +4051,42 @@ def operator_claim(**kwargs):
             if cfg['operators']['auto_busy_on_max_load'] and new_load >= op['max_concurrent']:
                 update_operator(op_id, status='busy')
 
-            return jsonify({'success': True, 'queue_item': dict(row)})
+            # ── Phase 3: real-time notifications ──────────────────────────
+            _row_dict = dict(row)
+            # Tell the user they've been picked up
+            try:
+                from psycopg2.extras import RealDictCursor as _CRC
+                _claim_conn = _get_connection()
+                try:
+                    _claim_cur = _claim_conn.cursor(cursor_factory=_CRC)
+                    _claim_cur.execute(
+                        "SELECT sender_id FROM conversations WHERE id = %s",
+                        (row['conversation_id'],)
+                    )
+                    _claim_cr = _claim_cur.fetchone()
+                finally:
+                    _release_connection(_claim_conn)
+                if _claim_cr:
+                    _emit_to_user(_claim_cr['sender_id'], 'handoff_assigned', {
+                        'conversation_id':    row['conversation_id'],
+                        'operator_name':      op.get('display_name', 'an agent'),
+                        'message': (
+                            f"✅ {op.get('display_name', 'An agent')} has joined the conversation. "
+                            "You can now chat with them directly."
+                        ),
+                    })
+            except Exception as _ce:
+                print(f"[SIO claim] notify user error (non-fatal): {_ce}")
+            # Tell all operators the item was removed from the queue
+            _sio.emit('queue_item_updated', {
+                'queue_id':   row['id'],
+                'status':     'assigned',
+                'operator_id': op_id,
+            }, room='queue_overview')
+            _emit_queue_overview()
+            # ── end Phase 3 ───────────────────────────────────────────────
+
+            return jsonify({'success': True, 'queue_item': _row_dict})
         finally:
             _release_connection(conn)
     except Exception as e:
@@ -3940,6 +4149,43 @@ def operator_resolve(**kwargs):
                     and new_load < op['max_concurrent']):
                 update_operator(op_id, status='available')
 
+            # ── Phase 3: real-time notifications ──────────────────────────
+            try:
+                _res_conn = _get_connection()
+                try:
+                    from psycopg2.extras import RealDictCursor as _RRC
+                    _res_cur = _res_conn.cursor(cursor_factory=_RRC)
+                    _res_cur.execute(
+                        "SELECT sender_id FROM conversations WHERE id = %s",
+                        (conv_id,)
+                    )
+                    _res_cr = _res_cur.fetchone()
+                finally:
+                    _release_connection(_res_conn)
+                if _res_cr:
+                    op_name = op.get('display_name', 'The agent') if op else 'The agent'
+                    if return_to_bot:
+                        _emit_to_user(_res_cr['sender_id'], 'handoff_resolved', {
+                            'conversation_id': conv_id,
+                            'message': (
+                                f"✅ {op_name} has closed the session. "
+                                "I'm back to assist you. Is there anything else I can help with?"
+                            ),
+                            'return_to_bot': True,
+                        })
+                    else:
+                        _emit_to_user(_res_cr['sender_id'], 'handoff_resolved', {
+                            'conversation_id': conv_id,
+                            'message': "The session has been closed. Thank you.",
+                            'return_to_bot': False,
+                        })
+            except Exception as _re:
+                print(f"[SIO resolve] notify user error (non-fatal): {_re}")
+            _sio.emit('queue_item_removed', {'queue_id': queue_id, 'status': 'resolved'},
+                      room='queue_overview')
+            _emit_queue_overview()
+            # ── end Phase 3 ───────────────────────────────────────────────
+
             return jsonify({'success': True, 'return_to_bot': return_to_bot})
         finally:
             _release_connection(conn)
@@ -3989,6 +4235,31 @@ def operator_release(**kwargs):
             conn.commit()
             from common.conversation_db import _recalculate_queue_positions
             _recalculate_queue_positions(row['app_id'])
+
+            # ── Phase 3: real-time notifications ──────────────────────────
+            try:
+                _rel_conn2 = _get_connection()
+                try:
+                    from psycopg2.extras import RealDictCursor as _RLRC
+                    _rel_cur2 = _rel_conn2.cursor(cursor_factory=_RLRC)
+                    _rel_cur2.execute(
+                        "SELECT sender_id FROM conversations WHERE id = %s",
+                        (row['conversation_id'],)
+                    )
+                    _rel_cr2 = _rel_cur2.fetchone()
+                finally:
+                    _release_connection(_rel_conn2)
+                if _rel_cr2:
+                    _emit_to_user(_rel_cr2['sender_id'], 'handoff_queued', {
+                        'conversation_id': row['conversation_id'],
+                        'message': "⏳ The agent returned your chat to the queue. You'll be connected to the next available agent.",
+                    })
+            except Exception as _rle:
+                print(f"[SIO release] notify user error (non-fatal): {_rle}")
+            _sio.emit('queue_item_updated', {'queue_id': queue_id, 'status': 'waiting'},
+                      room='queue_overview')
+            _emit_queue_overview()
+            # ── end Phase 3 ───────────────────────────────────────────────
         finally:
             _release_connection(conn)
         return jsonify({'success': True})
@@ -4115,9 +4386,32 @@ def operator_send_message(**kwargs):
                 "UPDATE conversations SET last_activity = %s WHERE id = %s",
                 (_dt.now(), conversation_id)
             )
+            # Fetch sender_id for Socket.IO relay
+            cursor.execute(
+                "SELECT sender_id FROM conversations WHERE id = %s",
+                (conversation_id,)
+            )
+            _om_cr = cursor.fetchone()
             conn.commit()
         finally:
             _release_connection(conn)
+
+        # ── Phase 3: relay operator message to user in real-time ──────────
+        if _om_cr:
+            _emit_to_user(_om_cr['sender_id'], 'operator_message', {
+                'conversation_id': conversation_id,
+                'message_id':      msg_id,
+                'text':            text,
+                'timestamp':       _dt.now().isoformat(),
+            })
+            _sio.emit('live_message', {
+                'conversation_id': conversation_id,
+                'sender':          'operator',
+                'operator_id':     op_id,
+                'text':            text,
+                'timestamp':       _dt.now().isoformat(),
+            }, room=_room_admin_watch(conversation_id))
+        # ── end Phase 3 ───────────────────────────────────────────────────
 
         return jsonify({'success': True, 'message_id': msg_id})
     except Exception as e:
@@ -4180,6 +4474,27 @@ def admin_force_handoff():
         )
         if not entry:
             return jsonify({'error': 'Queue is full or enqueue failed'}), 503
+
+        # ── Phase 3: notify operator dashboards of admin-forced queue item ─
+        try:
+            _sio.emit('new_queue_item', {
+                'queue_id':       entry['id'],
+                'queue_position': entry.get('queue_position', 1),
+                'app_id':         app_id,
+                'trigger_reason': 'admin_forced',
+                'queued_at':      entry.get('queued_at', ''),
+            }, room='queue_overview')
+            _emit_queue_overview()
+            _sio.emit('conversation_state_change', {
+                'sender_id': sender_id,
+                'from_state': 'bot_active',
+                'to_state':   'queued',
+                'triggered_by': 'admin',
+            }, room='admin_live')
+        except Exception as _afe:
+            print(f"[SIO admin_force] notify error (non-fatal): {_afe}")
+        # ── end Phase 3 ───────────────────────────────────────────────────
+
         return jsonify({'success': True, 'queue_id': entry['id'],
                         'position': entry.get('queue_position', 1)})
     except Exception as e:
@@ -4236,6 +4551,403 @@ def admin_monitor_queue():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# HANDOFF — PHASE 3: REAL-TIME SOCKET.IO LAYER
+# All rooms, event handlers, background threads.
+# Nothing here references Rasa — all state is in Postgres.
+# ============================================================================
+
+import time as _time
+from datetime import datetime as _sio_dt
+
+_sio = _get_socketio()  # shorthand reference after init
+
+# ── Connection / join handlers ───────────────────────────────────────────────
+
+@_sio.on('connect')
+def _sio_connect():
+    """Client connected — rooms joined via explicit join_* events below."""
+    pass
+
+
+@_sio.on('disconnect')
+def _sio_disconnect():
+    pass
+
+
+@_sio.on('join_user')
+def _sio_join_user(data):
+    """
+    Chat widget calls this to subscribe to handoff events for a given sender.
+    payload: { sender_id: str }
+    """
+    sender_id = (data or {}).get('sender_id', '')
+    if sender_id:
+        join_room(_room_user(sender_id))
+
+
+@_sio.on('leave_user')
+def _sio_leave_user(data):
+    sender_id = (data or {}).get('sender_id', '')
+    if sender_id:
+        leave_room(_room_user(sender_id))
+
+
+@_sio.on('join_operator')
+def _sio_join_operator(data):
+    """
+    Operator dashboard calls this after JWT login.
+    payload: { operator_id: int|str, token: str }
+    Validates the JWT before admitting to the operator room.
+    """
+    try:
+        token   = (data or {}).get('token', '')
+        payload = _jwt_decode(token, _get_handoff_cfg_value('operator_jwt_secret'))
+        op_id   = payload.get('operator_id')
+        if not op_id:
+            return
+        join_room(_room_operator(op_id))
+        join_room('queue_overview')
+        # Update last_seen
+        from common.conversation_db import update_operator_last_seen
+        update_operator_last_seen(int(op_id))
+        emit('joined_operator', {'operator_id': op_id, 'room': _room_operator(op_id)})
+    except Exception:
+        pass
+
+
+@_sio.on('leave_operator')
+def _sio_leave_operator(data):
+    op_id = (data or {}).get('operator_id')
+    if op_id:
+        leave_room(_room_operator(op_id))
+        leave_room('queue_overview')
+
+
+@_sio.on('join_admin_live')
+def _sio_join_admin_live(data):
+    """Admin overview room — no auth for now (admin API is behind separate auth)."""
+    join_room('admin_live')
+    join_room('queue_overview')
+
+
+@_sio.on('join_admin_watch')
+def _sio_join_admin_watch(data):
+    """Admin deep-watching a specific conversation."""
+    conv_id = (data or {}).get('conversation_id')
+    if conv_id:
+        join_room(_room_admin_watch(conv_id))
+
+
+@_sio.on('leave_admin_watch')
+def _sio_leave_admin_watch(data):
+    conv_id = (data or {}).get('conversation_id')
+    if conv_id:
+        leave_room(_room_admin_watch(conv_id))
+
+
+# ── Typing indicators ────────────────────────────────────────────────────────
+
+@_sio.on('user_typing')
+def _sio_user_typing(data):
+    """
+    Chat widget emits this when user starts/stops typing.
+    payload: { sender_id: str, conversation_id: int, typing: bool }
+    Forwarded to the operator room for that conversation.
+    """
+    try:
+        conv_id = (data or {}).get('conversation_id')
+        if not conv_id:
+            return
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor as _RDC2
+            cur = conn.cursor(cursor_factory=_RDC2)
+            cur.execute(
+                "SELECT assigned_operator_id FROM conversations WHERE id = %s",
+                (conv_id,)
+            )
+            row = cur.fetchone()
+        finally:
+            _release_connection(conn)
+        if row and row.get('assigned_operator_id'):
+            _sio.emit('user_typing', {
+                'conversation_id': conv_id,
+                'typing': data.get('typing', False),
+            }, room=_room_operator(row['assigned_operator_id']))
+    except Exception:
+        pass
+
+
+@_sio.on('operator_typing')
+def _sio_operator_typing(data):
+    """
+    Operator dashboard emits this when typing in reply box.
+    payload: { sender_id: str, conversation_id: int, typing: bool }
+    Forwarded to the user room.
+    """
+    sender_id = (data or {}).get('sender_id')
+    if sender_id:
+        _sio.emit('operator_typing', {
+            'conversation_id': data.get('conversation_id'),
+            'typing': data.get('typing', False),
+        }, room=_room_user(sender_id))
+
+
+# ── Public helper — emit to user room ────────────────────────────────────────
+
+def _emit_to_user(sender_id: str, event: str, payload: dict):
+    """Thread-safe emit to a user's Socket.IO room."""
+    try:
+        _sio.emit(event, payload, room=_room_user(sender_id))
+    except Exception as _e:
+        print(f"[SIO] emit_to_user error ({event}): {_e}")
+
+
+def _emit_to_operator(op_id, event: str, payload: dict):
+    """Thread-safe emit to an operator's Socket.IO room."""
+    try:
+        _sio.emit(event, payload, room=_room_operator(op_id))
+    except Exception as _e:
+        print(f"[SIO] emit_to_operator error ({event}): {_e}")
+
+
+def _emit_queue_overview():
+    """Push a lightweight queue summary to all operator tabs."""
+    try:
+        from common.conversation_db import get_queue, get_operators, get_operator_current_load
+        waiting  = get_queue(status='waiting')
+        assigned = get_queue(status='assigned')
+        _sio.emit('queue_overview_update', {
+            'waiting_count':  len(waiting),
+            'assigned_count': len(assigned),
+        }, room='queue_overview')
+    except Exception as _e:
+        print(f"[SIO] queue_overview emit error: {_e}")
+
+
+def _get_handoff_cfg_value(key: str, default=None):
+    """Safely read a single handoff config key."""
+    try:
+        from common.config_manager import get_handoff_config
+        return get_handoff_config().get(key, default)
+    except Exception:
+        return default
+
+
+# ── Background: queue timeout ────────────────────────────────────────────────
+# After ask_user_after_mins of waiting, send user a Remain/Leave message.
+
+def _queue_timeout_worker():
+    """
+    Polls DB for queue items whose wait exceeds ask_user_after_mins.
+    Sends a Socket.IO message to the user with Remain/Leave options.
+    Runs every 30 s.
+    """
+    import traceback
+    _time.sleep(10)  # brief startup grace
+    while True:
+        try:
+            from common.conversation_db import get_handoff_runtime_config
+            cfg        = get_handoff_runtime_config()
+            ask_after  = int(cfg.get('queue', {}).get('ask_user_after_mins', 10))
+            timeout_total = int(cfg.get('queue', {}).get('timeout_total_mins', 30))
+
+            conn = _get_connection()
+            try:
+                from psycopg2.extras import RealDictCursor as _QTRC
+                cur = conn.cursor(cursor_factory=_QTRC)
+                # Items waiting longer than ask_after mins that haven't been asked yet
+                cur.execute("""
+                    SELECT hq.id, hq.conversation_id, c.sender_id,
+                           EXTRACT(EPOCH FROM (NOW() - hq.queued_at)) / 60 AS wait_mins
+                    FROM handoff_queue hq
+                    JOIN conversations c ON c.id = hq.conversation_id
+                    WHERE hq.status = 'waiting'
+                      AND hq.queued_at IS NOT NULL
+                      AND (hq.timeout_asked_at IS NULL)
+                      AND EXTRACT(EPOCH FROM (NOW() - hq.queued_at)) / 60 >= %s
+                """, (ask_after,))
+                rows = cur.fetchall() or []
+                for row in rows:
+                    # Mark as asked so we don't repeat
+                    cur.execute(
+                        "UPDATE handoff_queue SET timeout_asked_at = NOW() WHERE id = %s",
+                        (row['id'],)
+                    )
+                    conn.commit()
+                    _emit_to_user(row['sender_id'], 'handoff_timeout_choice', {
+                        'conversation_id': row['conversation_id'],
+                        'wait_mins':       round(row['wait_mins'], 1),
+                        'message':         (
+                            f"⏳ You've been waiting for {round(row['wait_mins'], 0):.0f} minutes. "
+                            "Would you like to keep waiting or leave your email so an agent can follow up?"
+                        ),
+                        'options': [
+                            {'label': '🕐 Remain in Queue', 'value': 'remain'},
+                            {'label': '📧 Leave my email', 'value': 'leave_email'},
+                        ],
+                    })
+
+                # Also emit total timeout (abandon queue, back to bot)
+                cur.execute("""
+                    SELECT hq.id, hq.conversation_id, c.sender_id
+                    FROM handoff_queue hq
+                    JOIN conversations c ON c.id = hq.conversation_id
+                    WHERE hq.status = 'waiting'
+                      AND hq.queued_at IS NOT NULL
+                      AND EXTRACT(EPOCH FROM (NOW() - hq.queued_at)) / 60 >= %s
+                """, (timeout_total,))
+                expired = cur.fetchall() or []
+                for row in expired:
+                    cur.execute(
+                        "UPDATE handoff_queue SET status = 'abandoned' WHERE id = %s",
+                        (row['id'],)
+                    )
+                    cur.execute(
+                        "UPDATE conversations SET handoff_state = 'bot_active', assigned_operator_id = NULL "
+                        "WHERE id = %s",
+                        (row['conversation_id'],)
+                    )
+                    cur.execute(
+                        "INSERT INTO handoff_state_log "
+                        "(conversation_id, from_state, to_state, triggered_by, note) "
+                        "VALUES (%s, 'queued', 'bot_active', 'system', 'queue timeout')",
+                        (row['conversation_id'],)
+                    )
+                    conn.commit()
+                    _emit_to_user(row['sender_id'], 'handoff_abandoned', {
+                        'conversation_id': row['conversation_id'],
+                        'message': (
+                            "⚠️ The queue wait exceeded our limit. "
+                            "I'm returning you to the bot. You can create a ticket and an agent will follow up."
+                        ),
+                    })
+                    _emit_queue_overview()
+            finally:
+                _release_connection(conn)
+        except Exception:
+            traceback.print_exc()
+        _time.sleep(30)
+
+
+# ── Background: wait-time refresh ────────────────────────────────────────────
+# Every 60 s push updated wait estimate to all queued users.
+
+def _wait_refresh_worker():
+    """Push wait_update to each queued user every 60 s."""
+    import traceback
+    _time.sleep(15)
+    while True:
+        try:
+            conn = _get_connection()
+            try:
+                from psycopg2.extras import RealDictCursor as _WRRC
+                cur = conn.cursor(cursor_factory=_WRRC)
+                cur.execute("""
+                    SELECT hq.id, hq.queue_position, c.sender_id,
+                           ROUND(EXTRACT(EPOCH FROM (NOW() - hq.queued_at)) / 60) AS wait_mins
+                    FROM handoff_queue hq
+                    JOIN conversations c ON c.id = hq.conversation_id
+                    WHERE hq.status = 'waiting'
+                """)
+                rows = cur.fetchall() or []
+            finally:
+                _release_connection(conn)
+
+            from common.conversation_db import get_handoff_runtime_config
+            cfg = get_handoff_runtime_config()
+            avg_handle = float(cfg.get('queue', {}).get('avg_handle_time_mins', 8))
+
+            for row in rows:
+                pos = int(row['queue_position'] or 1)
+                est = round(pos * avg_handle)
+                _emit_to_user(row['sender_id'], 'wait_update', {
+                    'queue_position':   pos,
+                    'wait_estimate_mins': est,
+                    'actual_wait_mins': int(row['wait_mins'] or 0),
+                })
+        except Exception:
+            traceback.print_exc()
+        _time.sleep(60)
+
+
+# ── Background: priority boost ───────────────────────────────────────────────
+# Every 5 min increment priority of long-waiting items (max 9).
+
+def _priority_boost_worker():
+    """Boost priority of items waiting > 5 min, capped at 9."""
+    import traceback
+    _time.sleep(20)
+    while True:
+        try:
+            conn = _get_connection()
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    UPDATE handoff_queue
+                    SET priority = LEAST(priority + 1, 9)
+                    WHERE status = 'waiting'
+                      AND queued_at IS NOT NULL
+                      AND EXTRACT(EPOCH FROM (NOW() - queued_at)) / 60 >= 5
+                      AND priority < 9
+                """)
+                conn.commit()
+            finally:
+                _release_connection(conn)
+        except Exception:
+            traceback.print_exc()
+        _time.sleep(300)  # every 5 min
+
+
+# ── Background: operator heartbeat watchdog ──────────────────────────────────
+# Marks operators offline if they haven't sent a heartbeat recently.
+
+def _heartbeat_watchdog():
+    """Set operators offline if last_seen > heartbeat_timeout_secs ago."""
+    import traceback
+    _time.sleep(30)
+    while True:
+        try:
+            timeout_secs = int(_get_handoff_cfg_value('operator_heartbeat_timeout_secs', 90))
+            conn = _get_connection()
+            try:
+                from psycopg2.extras import RealDictCursor as _HWRC
+                cur = conn.cursor(cursor_factory=_HWRC)
+                cur.execute("""
+                    UPDATE operators
+                    SET status = 'offline'
+                    WHERE status IN ('available', 'busy', 'away')
+                      AND last_seen IS NOT NULL
+                      AND EXTRACT(EPOCH FROM (NOW() - last_seen)) > %s
+                    RETURNING id, display_name
+                """, (timeout_secs,))
+                gone_offline = cur.fetchall() or []
+                if gone_offline:
+                    conn.commit()
+                    for op in gone_offline:
+                        print(f"[Heartbeat watchdog] Operator {op['display_name']} set offline (missed heartbeat)")
+                        _sio.emit('capacity_update', {
+                            'operator_id': op['id'],
+                            'status': 'offline',
+                        }, room='queue_overview')
+            finally:
+                _release_connection(conn)
+        except Exception:
+            traceback.print_exc()
+        _time.sleep(30)
+
+
+# ── Start all background threads ─────────────────────────────────────────────
+
+import threading as _threading
+
+_threading.Thread(target=_queue_timeout_worker,  daemon=True, name='sio-queue-timeout').start()
+_threading.Thread(target=_wait_refresh_worker,   daemon=True, name='sio-wait-refresh').start()
+_threading.Thread(target=_priority_boost_worker, daemon=True, name='sio-priority-boost').start()
+_threading.Thread(target=_heartbeat_watchdog,    daemon=True, name='sio-heartbeat-watchdog').start()
+
+
 if __name__ == '__main__':
     import os as _os
     _port = int(_os.environ.get('ADMIN_PORT', 8181))
@@ -4245,4 +4957,5 @@ if __name__ == '__main__':
     print(f"  Admin Dashboard:        http://<YOUR_IP>:{_port}/admin.html")
     print(f"  Chat Widget (IT):       http://<YOUR_IP>:{_port}/it.html")
     print(f"  Chat Widget (ACC):      http://<YOUR_IP>:{_port}/acc.html")
-    app.run(host='0.0.0.0', port=_port)
+    # Use socketio.run instead of app.run so eventlet serves WebSocket upgrades
+    _sio.run(app, host='0.0.0.0', port=_port, allow_unsafe_werkzeug=True)
