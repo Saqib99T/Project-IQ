@@ -49,3 +49,31 @@ kb_qa_max_results = 3
 [FIRECRAWL]
 firecrawl_api_key = YOUR_FIRECRAWL_API_KEY
 firecrawl_api_url = http://localhost:3002
+
+[HANDOFF]
+# JWT secret for operator dashboard authentication — MUST be changed before go-live
+operator_jwt_secret = YOUR_STRONG_PROD_JWT_SECRET_HERE
+operator_jwt_expiry_hours = 24
+
+# Socket.IO transport settings
+socketio_async_mode = eventlet
+socketio_ping_timeout = 60
+socketio_ping_interval = 25
+socketio_cors_allowed_origins = https://YOUR_PROD_DOMAIN
+
+# Operator session — seconds before a missed-heartbeat operator goes offline
+operator_heartbeat_timeout_secs = 90
+
+# SMTP for transcript emails
+smtp_host = YOUR_SMTP_HOST
+smtp_port = 587
+smtp_user = YOUR_SMTP_USER
+smtp_password = YOUR_SMTP_PASSWORD
+smtp_from = support@yourcompany.com
+smtp_use_tls = true
+
+# LLM-based AI summary (disabled by default — rule-based summary used instead)
+llm_summary_enabled = false
+llm_summary_model = claude-haiku-4-5-20251001
+llm_api_key = YOUR_LLM_API_KEY_IF_ENABLED
+

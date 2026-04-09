@@ -338,6 +338,54 @@ def get_server_config() -> Dict[str, Any]:
     }
 
 
+def get_handoff_config() -> Dict[str, Any]:
+    """Get handoff infrastructure configuration (JWT, Socket.IO, SMTP, LLM).
+
+    These are infrastructure-level settings that require a server restart to change.
+    Runtime behaviour settings (thresholds, timeouts, queue rules) live in the DB
+    and are retrieved via get_handoff_runtime_config() in conversation_db.py.
+    """
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'operator_jwt_secret':            _get_secret('OPERATOR_JWT_SECRET', 'dev-secret-change-me'),
+            'operator_jwt_expiry_hours':       int(_get_secret('OPERATOR_JWT_EXPIRY_HOURS', '24')),
+            'socketio_async_mode':             _get_secret('SOCKETIO_ASYNC_MODE', 'eventlet'),
+            'socketio_ping_timeout':           int(_get_secret('SOCKETIO_PING_TIMEOUT', '60')),
+            'socketio_ping_interval':          int(_get_secret('SOCKETIO_PING_INTERVAL', '25')),
+            'socketio_cors_allowed_origins':   _get_secret('SOCKETIO_CORS_ALLOWED_ORIGINS', '*'),
+            'operator_heartbeat_timeout_secs': int(_get_secret('OPERATOR_HEARTBEAT_TIMEOUT_SECS', '90')),
+            'smtp_host':                       _get_secret('SMTP_HOST', ''),
+            'smtp_port':                       int(_get_secret('SMTP_PORT', '587')),
+            'smtp_user':                       _get_secret('SMTP_USER', ''),
+            'smtp_password':                   _get_secret('SMTP_PASSWORD', ''),
+            'smtp_from':                       _get_secret('SMTP_FROM', ''),
+            'smtp_use_tls':                    _get_secret('SMTP_USE_TLS', 'true').lower() == 'true',
+            'llm_summary_enabled':             _get_secret('LLM_SUMMARY_ENABLED', 'false').lower() == 'true',
+            'llm_summary_model':               _get_secret('LLM_SUMMARY_MODEL', 'claude-haiku-4-5-20251001'),
+            'llm_api_key':                     _get_secret('LLM_API_KEY', ''),
+        }
+
+    config = load_config()
+    return {
+        'operator_jwt_secret':            config.get('HANDOFF', 'operator_jwt_secret', fallback='dev-secret-change-me'),
+        'operator_jwt_expiry_hours':       config.getint('HANDOFF', 'operator_jwt_expiry_hours', fallback=24),
+        'socketio_async_mode':             config.get('HANDOFF', 'socketio_async_mode', fallback='eventlet'),
+        'socketio_ping_timeout':           config.getint('HANDOFF', 'socketio_ping_timeout', fallback=60),
+        'socketio_ping_interval':          config.getint('HANDOFF', 'socketio_ping_interval', fallback=25),
+        'socketio_cors_allowed_origins':   config.get('HANDOFF', 'socketio_cors_allowed_origins', fallback='*'),
+        'operator_heartbeat_timeout_secs': config.getint('HANDOFF', 'operator_heartbeat_timeout_secs', fallback=90),
+        'smtp_host':                       config.get('HANDOFF', 'smtp_host', fallback=''),
+        'smtp_port':                       config.getint('HANDOFF', 'smtp_port', fallback=587),
+        'smtp_user':                       config.get('HANDOFF', 'smtp_user', fallback=''),
+        'smtp_password':                   config.get('HANDOFF', 'smtp_password', fallback=''),
+        'smtp_from':                       config.get('HANDOFF', 'smtp_from', fallback=''),
+        'smtp_use_tls':                    config.getboolean('HANDOFF', 'smtp_use_tls', fallback=True),
+        'llm_summary_enabled':             config.getboolean('HANDOFF', 'llm_summary_enabled', fallback=False),
+        'llm_summary_model':               config.get('HANDOFF', 'llm_summary_model', fallback='claude-haiku-4-5-20251001'),
+        'llm_api_key':                     config.get('HANDOFF', 'llm_api_key', fallback=''),
+    }
+
+
 def is_using_infisical() -> bool:
     """Check if Infisical is being used for secrets."""
     return _init_infisical()

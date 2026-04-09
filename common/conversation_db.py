@@ -223,7 +223,162 @@ def _init_database():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
+
+        # ── HANDOFF PHASE 1 MIGRATIONS ─────────────────────────────────────────
+        # All statements use IF NOT EXISTS / ADD COLUMN IF NOT EXISTS so they are
+        # safe to run on an existing database without risk of data loss.
+
+        # 1. Operators table — human support agents
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS operators (
+                id               SERIAL PRIMARY KEY,
+                username         VARCHAR(100) UNIQUE NOT NULL,
+                display_name     VARCHAR(200) NOT NULL,
+                password_hash    VARCHAR(255) NOT NULL,
+                email            VARCHAR(255),
+                team             VARCHAR(100),
+                app_ids          TEXT[]        NOT NULL DEFAULT '{}',
+                shift_schedule   JSONB,
+                status           VARCHAR(20)   NOT NULL DEFAULT 'offline',
+                max_concurrent   INT           NOT NULL DEFAULT 3,
+                is_active        BOOLEAN       NOT NULL DEFAULT TRUE,
+                created_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_seen        TIMESTAMP
+            )
+        ''')
+
+        # 2. Handoff queue
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS handoff_queue (
+                id                SERIAL PRIMARY KEY,
+                conversation_id   INT          NOT NULL REFERENCES conversations(id),
+                sender_id         VARCHAR(255) NOT NULL,
+                app_id            VARCHAR(50),
+                priority          INT          NOT NULL DEFAULT 5,
+                trigger_reason    VARCHAR(50),
+                trigger_detail    JSONB,
+                target_team       VARCHAR(100),
+                required_skill    VARCHAR(100),
+                status            VARCHAR(30)  NOT NULL DEFAULT 'waiting',
+                queue_position    INT,
+                operator_id       INT          REFERENCES operators(id),
+                context_package   JSONB,
+                queued_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                assigned_at       TIMESTAMP,
+                resolved_at       TIMESTAMP,
+                abandoned_at      TIMESTAMP,
+                wait_time_secs    INT,
+                handle_time_secs  INT,
+                return_to_bot     BOOLEAN      NOT NULL DEFAULT TRUE,
+                closing_note      TEXT,
+                agent_rating      SMALLINT     CHECK (agent_rating BETWEEN 1 AND 5),
+                agent_rating_note TEXT
+            )
+        ''')
+
+        # 3. Operator messages (messages sent by human operators to users)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS operator_messages (
+                id               SERIAL PRIMARY KEY,
+                conversation_id  INT       NOT NULL REFERENCES conversations(id),
+                queue_id         INT       REFERENCES handoff_queue(id),
+                operator_id      INT       NOT NULL REFERENCES operators(id),
+                message_text     TEXT      NOT NULL,
+                sent_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                delivered_at     TIMESTAMP,
+                read_at          TIMESTAMP
+            )
+        ''')
+
+        # 4. GDPR consent audit log
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS handoff_consent_log (
+                id               SERIAL PRIMARY KEY,
+                sender_id        VARCHAR(255) NOT NULL,
+                conversation_id  INT          REFERENCES conversations(id),
+                consented        BOOLEAN      NOT NULL,
+                consented_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ip_hash          VARCHAR(64),
+                consent_version  VARCHAR(10)  NOT NULL DEFAULT '1.0'
+            )
+        ''')
+
+        # 5. Routing rules — managed via admin UI
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS handoff_routing_rules (
+                id              SERIAL PRIMARY KEY,
+                rule_name       VARCHAR(200) NOT NULL,
+                match_type      VARCHAR(30)  NOT NULL,
+                match_value     VARCHAR(255) NOT NULL,
+                target_team     VARCHAR(100),
+                required_skill  VARCHAR(100),
+                priority_boost  INT          NOT NULL DEFAULT 0,
+                is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
+                sort_order      INT          NOT NULL DEFAULT 99,
+                created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # 6. Handoff state transition audit log
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS handoff_state_log (
+                id               SERIAL PRIMARY KEY,
+                conversation_id  INT          REFERENCES conversations(id),
+                from_state       VARCHAR(30),
+                to_state         VARCHAR(30),
+                triggered_by     VARCHAR(50),
+                triggered_by_id  VARCHAR(100),
+                note             TEXT,
+                changed_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # 7. Admin watch log — audit trail of admin monitoring sessions
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS admin_watch_log (
+                id               SERIAL PRIMARY KEY,
+                admin_username   VARCHAR(100),
+                conversation_id  INT          REFERENCES conversations(id),
+                started_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ended_at         TIMESTAMP
+            )
+        ''')
+
+        # 8. New columns on conversations (all safe — default values provided)
+        handoff_conversation_columns = [
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS handoff_state        VARCHAR(30)  NOT NULL DEFAULT 'bot_active'",
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS assigned_operator_id INT          REFERENCES operators(id)",
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS handoff_count        INT          NOT NULL DEFAULT 0",
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS low_conf_streak      INT          NOT NULL DEFAULT 0",
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS frustration_score    FLOAT        NOT NULL DEFAULT 0.0",
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS consent_given        BOOLEAN      NOT NULL DEFAULT FALSE",
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS client_metadata      JSONB",
+        ]
+        for stmt in handoff_conversation_columns:
+            try:
+                cursor.execute(stmt)
+            except Exception:
+                pass  # Column already exists — safe to ignore
+
+        # 9. Indexes for handoff tables
+        handoff_indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_hq_conversation  ON handoff_queue(conversation_id)",
+            "CREATE INDEX IF NOT EXISTS idx_hq_status        ON handoff_queue(status)",
+            "CREATE INDEX IF NOT EXISTS idx_hq_operator      ON handoff_queue(operator_id)",
+            "CREATE INDEX IF NOT EXISTS idx_hq_app_status    ON handoff_queue(app_id, status)",
+            "CREATE INDEX IF NOT EXISTS idx_hq_queued_at     ON handoff_queue(queued_at DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_om_conversation  ON operator_messages(conversation_id)",
+            "CREATE INDEX IF NOT EXISTS idx_om_operator      ON operator_messages(operator_id)",
+            "CREATE INDEX IF NOT EXISTS idx_hsl_conversation ON handoff_state_log(conversation_id)",
+            "CREATE INDEX IF NOT EXISTS idx_conv_handoff     ON conversations(handoff_state)",
+            "CREATE INDEX IF NOT EXISTS idx_operators_status ON operators(status)",
+        ]
+        for stmt in handoff_indexes:
+            try:
+                cursor.execute(stmt)
+            except Exception:
+                pass  # Index already exists — safe to ignore
+
         conn.commit()
     finally:
         _release_connection(conn)
@@ -967,5 +1122,533 @@ def get_all_kb_articles() -> List[Dict]:
                 
             articles.append(article)
         return articles
+    finally:
+        _release_connection(conn)
+
+
+# =====================================================================
+# HANDOFF — RUNTIME CONFIG
+# =====================================================================
+
+_HANDOFF_RUNTIME_DEFAULTS = {
+    "triggers": {
+        "confidence_threshold": 0.40,
+        "confidence_streak_required": 2,
+        "frustration_threshold": 0.75,
+        "frustration_streak_required": 2,
+        "direct_handoff_intents": []
+    },
+    "queue": {
+        "priority_boost_interval_mins": 5,
+        "ask_user_after_mins": 15,
+        "hard_timeout_mins": 30,
+        "timeout_action": "ask_user",
+        "max_queue_depth": 50,
+        "default_priority": 5
+    },
+    "operators": {
+        "default_max_concurrent": 3,
+        "auto_busy_on_max_load": True
+    },
+    "availability": {
+        "no_agents_action": "offer_ticket",
+        "after_hours_action": "create_ticket",
+        "working_hours": {
+            "timezone": "UTC",
+            "monday":    "00:00-23:59",
+            "tuesday":   "00:00-23:59",
+            "wednesday": "00:00-23:59",
+            "thursday":  "00:00-23:59",
+            "friday":    "00:00-23:59",
+            "saturday":  "00:00-23:59",
+            "sunday":    "00:00-23:59"
+        }
+    },
+    "gdpr": {
+        "consent_required": True,
+        "admin_can_skip_consent": True,
+        "mask_passwords": True,
+        "mask_card_numbers": True,
+        "mask_ibans": True,
+        "mask_emails": False,
+        "consent_version": "1.0"
+    },
+    "glpi": {
+        "auto_create_ticket_on_handoff": False
+    },
+    "transcript": {
+        "allow_user_download": True,
+        "allow_user_email": True,
+        "retention_days": 365
+    },
+    "ai_summary": {
+        "mode": "rule_based",
+        "max_turns_in_summary": 20
+    }
+}
+
+
+def get_handoff_runtime_config() -> Dict:
+    """Get runtime handoff settings from the DB config table.
+
+    On first call (no row yet) the defaults are seeded into the DB and returned.
+    All callers receive a fully-populated dict — no key can ever be missing.
+    """
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT value FROM config WHERE key = 'handoff_settings'")
+        row = cursor.fetchone()
+        if row and row['value']:
+            stored = json.loads(row['value'])
+            # Deep-merge stored over defaults so new keys added in future releases
+            # are always present even on older installations.
+            merged = _deep_merge(_HANDOFF_RUNTIME_DEFAULTS, stored)
+            return merged
+        # First boot — seed the defaults
+        cursor.execute(
+            "INSERT INTO config (key, value, updated_at) VALUES ('handoff_settings', %s, %s) "
+            "ON CONFLICT (key) DO NOTHING",
+            (json.dumps(_HANDOFF_RUNTIME_DEFAULTS), datetime.now())
+        )
+        conn.commit()
+        return dict(_HANDOFF_RUNTIME_DEFAULTS)
+    finally:
+        _release_connection(conn)
+
+
+def set_handoff_runtime_config(settings: Dict) -> bool:
+    """Save runtime handoff settings back to the DB config table."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO config (key, value, updated_at) VALUES ('handoff_settings', %s, %s) "
+            "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at",
+            (json.dumps(settings), datetime.now())
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving handoff runtime config: {e}")
+        conn.rollback()
+        return False
+    finally:
+        _release_connection(conn)
+
+
+def _deep_merge(base: Dict, override: Dict) -> Dict:
+    """Recursively merge override into base. Base keys missing from override are kept."""
+    result = dict(base)
+    for key, val in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(val, dict):
+            result[key] = _deep_merge(result[key], val)
+        else:
+            result[key] = val
+    return result
+
+
+# =====================================================================
+# HANDOFF — OPERATOR CRUD
+# =====================================================================
+
+def get_operators(include_inactive: bool = False) -> List[Dict]:
+    """Return all operators (active only by default)."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        if include_inactive:
+            cursor.execute(
+                "SELECT id, username, display_name, email, team, app_ids, "
+                "shift_schedule, status, max_concurrent, is_active, created_at, last_seen "
+                "FROM operators ORDER BY display_name"
+            )
+        else:
+            cursor.execute(
+                "SELECT id, username, display_name, email, team, app_ids, "
+                "shift_schedule, status, max_concurrent, is_active, created_at, last_seen "
+                "FROM operators WHERE is_active = TRUE ORDER BY display_name"
+            )
+        rows = cursor.fetchall()
+        result = []
+        for row in rows:
+            op = dict(row)
+            if op.get('created_at'):
+                op['created_at'] = op['created_at'].isoformat()
+            if op.get('last_seen'):
+                op['last_seen'] = op['last_seen'].isoformat()
+            result.append(op)
+        return result
+    finally:
+        _release_connection(conn)
+
+
+def get_operator(operator_id: int) -> Optional[Dict]:
+    """Return a single operator by ID (no password_hash)."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT id, username, display_name, email, team, app_ids, "
+            "shift_schedule, status, max_concurrent, is_active, created_at, last_seen "
+            "FROM operators WHERE id = %s",
+            (operator_id,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        op = dict(row)
+        if op.get('created_at'):
+            op['created_at'] = op['created_at'].isoformat()
+        if op.get('last_seen'):
+            op['last_seen'] = op['last_seen'].isoformat()
+        return op
+    finally:
+        _release_connection(conn)
+
+
+def get_operator_by_username(username: str) -> Optional[Dict]:
+    """Return operator including password_hash (used for login only)."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT id, username, display_name, email, team, app_ids, "
+            "shift_schedule, status, max_concurrent, is_active, password_hash "
+            "FROM operators WHERE username = %s AND is_active = TRUE",
+            (username,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    finally:
+        _release_connection(conn)
+
+
+def create_operator(username: str, display_name: str, password_hash: str,
+                    email: str = None, team: str = None, app_ids: List[str] = None,
+                    max_concurrent: int = None, shift_schedule: Dict = None) -> int:
+    """Create a new operator. Returns new operator ID."""
+    conn = _get_connection()
+    try:
+        cfg = get_handoff_runtime_config()
+        default_max = cfg['operators']['default_max_concurrent']
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "INSERT INTO operators "
+            "(username, display_name, password_hash, email, team, app_ids, max_concurrent, shift_schedule) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (
+                username, display_name, password_hash, email, team,
+                app_ids or [],
+                max_concurrent if max_concurrent is not None else default_max,
+                json.dumps(shift_schedule) if shift_schedule else None
+            )
+        )
+        new_id = cursor.fetchone()['id']
+        conn.commit()
+        return new_id
+    finally:
+        _release_connection(conn)
+
+
+def update_operator(operator_id: int, **kwargs) -> bool:
+    """Update operator fields. Accepted kwargs: display_name, email, team,
+    app_ids, max_concurrent, shift_schedule, status, is_active, password_hash."""
+    allowed = {'display_name', 'email', 'team', 'app_ids', 'max_concurrent',
+               'shift_schedule', 'status', 'is_active', 'password_hash'}
+    updates = {k: v for k, v in kwargs.items() if k in allowed}
+    if not updates:
+        return False
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        set_parts = []
+        params = []
+        for col, val in updates.items():
+            set_parts.append(f"{col} = %s")
+            if col == 'shift_schedule' and isinstance(val, dict):
+                params.append(json.dumps(val))
+            else:
+                params.append(val)
+        params.append(operator_id)
+        cursor.execute(
+            f"UPDATE operators SET {', '.join(set_parts)} WHERE id = %s",
+            params
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        _release_connection(conn)
+
+
+def update_operator_last_seen(operator_id: int, status: str = None) -> bool:
+    """Touch last_seen timestamp; optionally update status."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        if status:
+            cursor.execute(
+                "UPDATE operators SET last_seen = %s, status = %s WHERE id = %s",
+                (datetime.now(), status, operator_id)
+            )
+        else:
+            cursor.execute(
+                "UPDATE operators SET last_seen = %s WHERE id = %s",
+                (datetime.now(), operator_id)
+            )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        _release_connection(conn)
+
+
+def get_operator_current_load(operator_id: int) -> int:
+    """Return number of conversations currently assigned to operator."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM handoff_queue "
+            "WHERE operator_id = %s AND status = 'assigned'",
+            (operator_id,)
+        )
+        return cursor.fetchone()[0]
+    finally:
+        _release_connection(conn)
+
+
+# =====================================================================
+# HANDOFF — QUEUE CRUD
+# =====================================================================
+
+def get_available_operators(app_id: str = None) -> List[Dict]:
+    """Return operators currently online and with free capacity.
+
+    Applies shift-schedule check via Python (simpler than SQL JSONB parsing).
+    """
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = (
+            "SELECT o.id, o.display_name, o.team, o.app_ids, o.max_concurrent, "
+            "o.shift_schedule, o.status, o.last_seen, "
+            "(SELECT COUNT(*) FROM handoff_queue hq "
+            " WHERE hq.operator_id = o.id AND hq.status = 'assigned') AS current_load "
+            "FROM operators o "
+            "WHERE o.is_active = TRUE "
+            "AND o.status IN ('available', 'busy') "
+            "AND o.last_seen > NOW() - INTERVAL '90 seconds'"
+        )
+        params = []
+        if app_id:
+            query += " AND %s = ANY(o.app_ids)"
+            params.append(app_id)
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        eligible = []
+        for row in rows:
+            op = dict(row)
+            # Skip if at capacity
+            if op['current_load'] >= op['max_concurrent']:
+                continue
+            # Skip if outside shift schedule
+            if op.get('shift_schedule') and not _is_within_shift(op['shift_schedule']):
+                continue
+            eligible.append(op)
+        return eligible
+    finally:
+        _release_connection(conn)
+
+
+def _is_within_shift(shift_schedule) -> bool:
+    """Return True if current UTC time falls within the operator's configured shift."""
+    import pytz
+    from datetime import time as dtime
+    try:
+        if isinstance(shift_schedule, str):
+            shift_schedule = json.loads(shift_schedule)
+        tz_name = shift_schedule.get('timezone', 'UTC')
+        tz = pytz.timezone(tz_name)
+        now_local = datetime.now(tz)
+        day_name = now_local.strftime('%A').lower()  # e.g. 'monday'
+        hours_str = shift_schedule.get(day_name, '00:00-23:59')
+        if hours_str.upper() == 'OFF':
+            return False
+        start_str, end_str = hours_str.split('-')
+        start_h, start_m = map(int, start_str.split(':'))
+        end_h, end_m = map(int, end_str.split(':'))
+        current_time = now_local.time().replace(second=0, microsecond=0)
+        return dtime(start_h, start_m) <= current_time <= dtime(end_h, end_m)
+    except Exception:
+        return True  # If schedule parse fails, assume available (safe default)
+
+
+def enqueue_handoff(conversation_id: int, sender_id: str, app_id: str,
+                    trigger_reason: str, trigger_detail: Dict = None,
+                    priority: int = None, context_package: Dict = None,
+                    target_team: str = None, required_skill: str = None) -> Optional[Dict]:
+    """Create a new handoff queue entry. Returns the created row dict or None on error."""
+    conn = _get_connection()
+    try:
+        cfg = get_handoff_runtime_config()
+        if priority is None:
+            priority = cfg['queue']['default_priority']
+
+        # Check max queue depth
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT COUNT(*) AS depth FROM handoff_queue WHERE app_id = %s AND status = 'waiting'",
+            (app_id,)
+        )
+        current_depth = cursor.fetchone()['depth']
+        if current_depth >= cfg['queue']['max_queue_depth']:
+            return None  # Queue full
+
+        cursor.execute(
+            "INSERT INTO handoff_queue "
+            "(conversation_id, sender_id, app_id, priority, trigger_reason, trigger_detail, "
+            "target_team, required_skill, context_package) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
+            (
+                conversation_id, sender_id, app_id, priority, trigger_reason,
+                json.dumps(trigger_detail) if trigger_detail else None,
+                target_team, required_skill,
+                json.dumps(context_package) if context_package else None
+            )
+        )
+        row = dict(cursor.fetchone())
+
+        # Update conversation handoff_state
+        cursor.execute(
+            "UPDATE conversations SET handoff_state = 'queued', handoff_count = handoff_count + 1 "
+            "WHERE id = %s",
+            (conversation_id,)
+        )
+
+        # Log state transition
+        cursor.execute(
+            "INSERT INTO handoff_state_log (conversation_id, from_state, to_state, triggered_by, note) "
+            "VALUES (%s, 'bot_active', 'queued', %s, %s)",
+            (conversation_id, trigger_reason, json.dumps(trigger_detail) if trigger_detail else None)
+        )
+
+        conn.commit()
+
+        # Recalculate queue positions
+        _recalculate_queue_positions(app_id)
+
+        # Re-fetch with updated position
+        cursor.execute("SELECT * FROM handoff_queue WHERE id = %s", (row['id'],))
+        updated = cursor.fetchone()
+        return dict(updated) if updated else row
+    except Exception as e:
+        print(f"Error enqueuing handoff: {e}")
+        conn.rollback()
+        return None
+    finally:
+        _release_connection(conn)
+
+
+def _recalculate_queue_positions(app_id: str):
+    """Recalculate queue_position for all waiting items in an app's queue."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id FROM handoff_queue "
+            "WHERE app_id = %s AND status = 'waiting' "
+            "ORDER BY priority DESC, queued_at ASC",
+            (app_id,)
+        )
+        rows = cursor.fetchall()
+        for pos, row in enumerate(rows, start=1):
+            cursor.execute(
+                "UPDATE handoff_queue SET queue_position = %s WHERE id = %s",
+                (pos, row[0])
+            )
+        conn.commit()
+    finally:
+        _release_connection(conn)
+
+
+def get_queue(app_id: str = None, team: str = None, status: str = 'waiting') -> List[Dict]:
+    """Return queue items, optionally filtered by app_id, team, or status."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = (
+            "SELECT hq.*, c.user_name, c.user_id, c.low_conf_streak, c.frustration_score "
+            "FROM handoff_queue hq "
+            "JOIN conversations c ON c.id = hq.conversation_id "
+            "WHERE 1=1"
+        )
+        params = []
+        if status:
+            query += " AND hq.status = %s"
+            params.append(status)
+        if app_id:
+            query += " AND hq.app_id = %s"
+            params.append(app_id)
+        if team:
+            query += " AND (hq.target_team = %s OR hq.target_team IS NULL)"
+            params.append(team)
+        query += " ORDER BY hq.priority DESC, hq.queued_at ASC"
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            for ts_col in ('queued_at', 'assigned_at', 'resolved_at', 'abandoned_at'):
+                if item.get(ts_col):
+                    item[ts_col] = item[ts_col].isoformat()
+            result.append(item)
+        return result
+    finally:
+        _release_connection(conn)
+
+
+def log_handoff_consent(sender_id: str, conversation_id: int,
+                        consented: bool, ip_hash: str = None) -> int:
+    """Write a GDPR consent record. Returns the new row ID."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "INSERT INTO handoff_consent_log (sender_id, conversation_id, consented, ip_hash) "
+            "VALUES (%s, %s, %s, %s) RETURNING id",
+            (sender_id, conversation_id, consented, ip_hash)
+        )
+        new_id = cursor.fetchone()['id']
+        if consented:
+            cursor.execute(
+                "UPDATE conversations SET consent_given = TRUE WHERE id = %s",
+                (conversation_id,)
+            )
+        conn.commit()
+        return new_id
+    finally:
+        _release_connection(conn)
+
+
+def get_operator_stats(operator_id: int) -> Dict:
+    """Return performance statistics for one operator."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT "
+            "  COUNT(*) AS total_handled, "
+            "  ROUND(AVG(handle_time_secs)) AS avg_handle_time_secs, "
+            "  ROUND(AVG(wait_time_secs)) AS avg_wait_time_secs, "
+            "  ROUND(AVG(agent_rating), 2) AS avg_context_rating, "
+            "  COUNT(*) FILTER (WHERE return_to_bot = TRUE)  AS returned_to_bot, "
+            "  COUNT(*) FILTER (WHERE return_to_bot = FALSE) AS closed_by_operator "
+            "FROM handoff_queue "
+            "WHERE operator_id = %s AND status = 'resolved'",
+            (operator_id,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else {}
     finally:
         _release_connection(conn)

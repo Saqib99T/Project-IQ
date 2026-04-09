@@ -11,6 +11,7 @@ import json
 import sys
 import os
 import asyncio
+from typing import Optional
 
 
 # Add parent directory to path for imports
@@ -2933,6 +2934,1306 @@ def studio_stats():
         return jsonify({"success": True, "data": stats})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ======================================================================
+# HANDOFF — PHASE 1 ENDPOINTS
+# Operator auth, internal queue helpers, admin operator CRUD,
+# and handoff config management.
+# All JWT/config values come from get_handoff_config() — nothing hardcoded.
+# ======================================================================
+
+import hashlib
+import hmac
+import base64
+import re as _re
+from functools import wraps
+
+# ── JWT helpers (no external dependency — pure stdlib) ─────────────────
+
+def _jwt_encode(payload: dict, secret: str) -> str:
+    """Minimal HS256 JWT encoder (stdlib only, no PyJWT required)."""
+    import time
+    header = base64.urlsafe_b64encode(
+        json.dumps({"alg": "HS256", "typ": "JWT"}).encode()
+    ).rstrip(b'=').decode()
+    payload.setdefault('iat', int(time.time()))
+    body = base64.urlsafe_b64encode(
+        json.dumps(payload).encode()
+    ).rstrip(b'=').decode()
+    sig_input = f"{header}.{body}".encode()
+    sig = base64.urlsafe_b64encode(
+        hmac.new(secret.encode(), sig_input, hashlib.sha256).digest()
+    ).rstrip(b'=').decode()
+    return f"{header}.{body}.{sig}"
+
+
+def _jwt_decode(token: str, secret: str) -> Optional[dict]:
+    """Decode and verify a HS256 JWT. Returns payload dict or None if invalid."""
+    import time
+    try:
+        parts = token.split('.')
+        if len(parts) != 3:
+            return None
+        header_b, body_b, sig_b = parts
+        sig_input = f"{header_b}.{body_b}".encode()
+        expected_sig = base64.urlsafe_b64encode(
+            hmac.new(secret.encode(), sig_input, hashlib.sha256).digest()
+        ).rstrip(b'=').decode()
+        if not hmac.compare_digest(sig_b, expected_sig):
+            return None
+        # Pad body for base64 decoding
+        padding = 4 - len(body_b) % 4
+        payload = json.loads(base64.urlsafe_b64decode(body_b + '=' * padding))
+        # Check expiry
+        if 'exp' in payload and payload['exp'] < int(time.time()):
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def _get_operator_jwt_secret() -> str:
+    from common.config_manager import get_handoff_config
+    return get_handoff_config()['operator_jwt_secret']
+
+
+def _get_operator_jwt_expiry_hours() -> int:
+    from common.config_manager import get_handoff_config
+    return get_handoff_config()['operator_jwt_expiry_hours']
+
+
+def _require_operator_token(f):
+    """Decorator: validates operator JWT, injects operator_id into kwargs."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.headers.get('Authorization', '')
+        if not auth.startswith('Bearer '):
+            return jsonify({'error': 'Missing or invalid Authorization header'}), 401
+        token = auth[7:]
+        payload = _jwt_decode(token, _get_operator_jwt_secret())
+        if not payload or payload.get('type') != 'operator':
+            return jsonify({'error': 'Invalid or expired token'}), 401
+        kwargs['_operator_id'] = payload['sub']
+        kwargs['_operator_username'] = payload.get('username', '')
+        return f(*args, **kwargs)
+    return decorated
+
+
+def _require_admin_token(f):
+    """Decorator: validates admin session (reuses existing admin auth pattern)."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # Reuse the same admin auth mechanism used elsewhere in this file
+        # Check for admin JWT in Authorization header or session cookie
+        auth = request.headers.get('Authorization', '')
+        if auth.startswith('Bearer '):
+            token = auth[7:]
+            payload = _jwt_decode(token, _get_operator_jwt_secret())
+            if payload and payload.get('type') == 'admin':
+                kwargs['_admin_username'] = payload.get('username', 'admin')
+                return f(*args, **kwargs)
+        # Fallback: allow if running in local/dev profile (no strict admin auth yet)
+        from common.config_manager import get_profile
+        if get_profile() == 'local':
+            kwargs['_admin_username'] = 'dev_admin'
+            return f(*args, **kwargs)
+        return jsonify({'error': 'Admin authentication required'}), 401
+    return decorated
+
+
+# ── Password hashing (stdlib only) ────────────────────────────────────
+
+def _hash_password(plain: str) -> str:
+    """SHA-256 + salt password hash. Use bcrypt in a future security hardening pass."""
+    salt = os.urandom(16).hex()
+    h = hashlib.sha256(f"{salt}{plain}".encode()).hexdigest()
+    return f"{salt}:{h}"
+
+
+def _verify_password(plain: str, stored: str) -> bool:
+    try:
+        salt, h = stored.split(':', 1)
+        return hmac.compare_digest(
+            hashlib.sha256(f"{salt}{plain}".encode()).hexdigest(), h
+        )
+    except Exception:
+        return False
+
+
+# ── Operator auth endpoints ────────────────────────────────────────────
+
+@app.route('/operator/login', methods=['POST'])
+def operator_login():
+    """Authenticate an operator and return a JWT token."""
+    import time
+    try:
+        data = request.get_json(silent=True) or {}
+        username = (data.get('username') or '').strip().lower()
+        password = data.get('password') or ''
+        if not username or not password:
+            return jsonify({'error': 'username and password required'}), 400
+
+        from common.conversation_db import get_operator_by_username, update_operator_last_seen
+        op = get_operator_by_username(username)
+        if not op or not _verify_password(password, op['password_hash']):
+            return jsonify({'error': 'Invalid credentials'}), 401
+
+        expiry_hours = _get_operator_jwt_expiry_hours()
+        exp = int(time.time()) + expiry_hours * 3600
+        payload = {
+            'sub': op['id'],
+            'username': op['username'],
+            'type': 'operator',
+            'exp': exp
+        }
+        token = _jwt_encode(payload, _get_operator_jwt_secret())
+        update_operator_last_seen(op['id'], status='available')
+        return jsonify({
+            'token': token,
+            'operator_id': op['id'],
+            'display_name': op['display_name'],
+            'team': op.get('team'),
+            'app_ids': op.get('app_ids', []),
+            'max_concurrent': op.get('max_concurrent', 3)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/operator/logout', methods=['POST'])
+@_require_operator_token
+def operator_logout(**kwargs):
+    """Mark operator as offline."""
+    try:
+        from common.conversation_db import update_operator_last_seen
+        update_operator_last_seen(kwargs['_operator_id'], status='offline')
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/operator/heartbeat', methods=['POST'])
+@_require_operator_token
+def operator_heartbeat(**kwargs):
+    """Keep operator session alive and return current load."""
+    try:
+        from common.conversation_db import (
+            update_operator_last_seen, get_operator_current_load, get_operator
+        )
+        op_id = kwargs['_operator_id']
+        op = get_operator(op_id)
+        if not op:
+            return jsonify({'error': 'Operator not found'}), 404
+
+        current_load = get_operator_current_load(op_id)
+        # Auto-manage busy status based on load
+        cfg = get_handoff_runtime_config_for_api()
+        if cfg['operators']['auto_busy_on_max_load']:
+            if current_load >= op['max_concurrent'] and op['status'] == 'available':
+                update_operator_last_seen(op_id, status='busy')
+                op['status'] = 'busy'
+            elif current_load < op['max_concurrent'] and op['status'] == 'busy':
+                update_operator_last_seen(op_id, status='available')
+                op['status'] = 'available'
+            else:
+                update_operator_last_seen(op_id)
+        else:
+            update_operator_last_seen(op_id)
+
+        return jsonify({
+            'status': op['status'],
+            'current_load': current_load,
+            'max_concurrent': op['max_concurrent']
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/operator/me', methods=['GET'])
+@_require_operator_token
+def operator_me(**kwargs):
+    """Return operator profile and active queue assignments."""
+    try:
+        from common.conversation_db import (
+            get_operator, get_operator_current_load, get_queue
+        )
+        op_id = kwargs['_operator_id']
+        op = get_operator(op_id)
+        if not op:
+            return jsonify({'error': 'Operator not found'}), 404
+        active = get_queue(status='assigned')
+        my_active = [q for q in active if q.get('operator_id') == op_id]
+        return jsonify({
+            'operator': op,
+            'current_load': get_operator_current_load(op_id),
+            'active_conversations': my_active
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/operator/status', methods=['PUT'])
+@_require_operator_token
+def operator_set_status(**kwargs):
+    """Let operator toggle available / away (not busy — that's system-managed)."""
+    try:
+        from common.conversation_db import update_operator, get_operator_current_load, get_operator
+        data = request.get_json(silent=True) or {}
+        new_status = data.get('status', '')
+        if new_status not in ('available', 'away'):
+            return jsonify({'error': "status must be 'available' or 'away'"}), 400
+        op_id = kwargs['_operator_id']
+        # Don't allow setting available if at capacity
+        if new_status == 'available':
+            op = get_operator(op_id)
+            load = get_operator_current_load(op_id)
+            cfg = get_handoff_runtime_config_for_api()
+            if cfg['operators']['auto_busy_on_max_load'] and op and load >= op['max_concurrent']:
+                new_status = 'busy'
+        update_operator(op_id, status=new_status)
+        from common.conversation_db import update_operator_last_seen
+        update_operator_last_seen(op_id)
+        return jsonify({'success': True, 'status': new_status})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Internal queue endpoints (called by Rasa action server) ───────────
+
+def get_handoff_runtime_config_for_api():
+    """Thin wrapper so endpoints don't need a DB connection arg."""
+    from common.conversation_db import get_handoff_runtime_config
+    return get_handoff_runtime_config()
+
+
+@app.route('/internal/operators/available', methods=['GET'])
+def internal_operators_available():
+    """Check operator availability for a given app_id.
+    Called by Rasa action server before offering handoff to user.
+    """
+    try:
+        from common.conversation_db import get_available_operators, get_queue
+        app_id = request.args.get('app_id')
+        eligible = get_available_operators(app_id)
+        waiting = get_queue(app_id=app_id, status='waiting')
+        assigned = get_queue(app_id=app_id, status='assigned')
+
+        free_slots = sum(
+            max(0, op['max_concurrent'] - op['current_load']) for op in eligible
+        )
+        online_count = len(eligible)
+        queue_depth = len(waiting)
+
+        # Estimate wait time
+        cfg = get_handoff_runtime_config_for_api()
+        if free_slots > 0 and online_count > 0:
+            # Simple estimate: queue items ahead / available operators × avg handle
+            avg_handle = _get_avg_handle_time(app_id) or 300  # default 5min
+            wait_secs = int((queue_depth * avg_handle) / max(free_slots, 1))
+        elif online_count > 0:
+            avg_handle = _get_avg_handle_time(app_id) or 300
+            wait_secs = int((max(queue_depth, 1) * avg_handle) / max(online_count, 1))
+        else:
+            wait_secs = 0
+
+        return jsonify({
+            'online': online_count > 0,
+            'free_slots': free_slots,
+            'online_count': online_count,
+            'queue_depth': queue_depth,
+            'wait_secs': wait_secs,
+            'wait_mins': round(wait_secs / 60, 1)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def _get_avg_handle_time(app_id: str = None) -> Optional[int]:
+    """7-day rolling average of handle_time_secs for an app."""
+    try:
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            if app_id:
+                cursor.execute(
+                    "SELECT AVG(handle_time_secs) AS avg_handle "
+                    "FROM handoff_queue "
+                    "WHERE app_id = %s AND status = 'resolved' "
+                    "AND resolved_at > NOW() - INTERVAL '7 days'",
+                    (app_id,)
+                )
+            else:
+                cursor.execute(
+                    "SELECT AVG(handle_time_secs) AS avg_handle "
+                    "FROM handoff_queue "
+                    "WHERE status = 'resolved' "
+                    "AND resolved_at > NOW() - INTERVAL '7 days'"
+                )
+            row = cursor.fetchone()
+            val = row['avg_handle'] if row and row['avg_handle'] else None
+            return int(val) if val else None
+        finally:
+            _release_connection(conn)
+    except Exception:
+        return None
+
+
+@app.route('/internal/queue/enqueue', methods=['POST'])
+def internal_queue_enqueue():
+    """Create a queue entry. Called by Rasa action server on confirmed handoff."""
+    try:
+        from common.conversation_db import (
+            enqueue_handoff, log_handoff_consent, get_queue
+        )
+        data = request.get_json(silent=True) or {}
+        sender_id     = data.get('sender_id')
+        app_id        = data.get('app_id', 'General')
+        trigger_reason = data.get('trigger_reason', 'user_request')
+        trigger_detail = data.get('trigger_detail')
+        priority       = data.get('priority')
+        consent_given  = data.get('consent_given', False)
+        ip_hash        = data.get('ip_hash')
+
+        if not sender_id:
+            return jsonify({'error': 'sender_id required'}), 400
+
+        # Get conversation id
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT id FROM conversations WHERE sender_id = %s", (sender_id,)
+            )
+            row = cursor.fetchone()
+        finally:
+            _release_connection(conn)
+
+        if not row:
+            return jsonify({'error': 'Conversation not found'}), 404
+        conversation_id = row['id']
+
+        # Log GDPR consent
+        if consent_given:
+            log_handoff_consent(sender_id, conversation_id, True, ip_hash)
+
+        # Apply routing rules
+        target_team, required_skill, priority_boost = _apply_routing_rules(
+            app_id, trigger_detail or {}
+        )
+        if priority is None:
+            cfg = get_handoff_runtime_config_for_api()
+            priority = cfg['queue']['default_priority']
+        priority = min(9, priority + priority_boost)
+
+        # Build basic context package (rule-based summary for Phase 1)
+        context_package = _build_context_package(sender_id, conversation_id, trigger_reason, trigger_detail)
+
+        entry = enqueue_handoff(
+            conversation_id=conversation_id,
+            sender_id=sender_id,
+            app_id=app_id,
+            trigger_reason=trigger_reason,
+            trigger_detail=trigger_detail,
+            priority=priority,
+            context_package=context_package,
+            target_team=target_team,
+            required_skill=required_skill
+        )
+
+        if entry is None:
+            return jsonify({'error': 'Queue is full or enqueue failed'}), 503
+
+        return jsonify({
+            'success': True,
+            'queue_id': entry['id'],
+            'position': entry.get('queue_position', 1),
+            'wait_secs': 0,   # Will be pushed via Socket.IO in Phase 3
+            'wait_mins': 0
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def _apply_routing_rules(app_id: str, trigger_detail: dict) -> tuple:
+    """Evaluate routing rules table and return (target_team, required_skill, priority_boost)."""
+    try:
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT * FROM handoff_routing_rules "
+                "WHERE is_active = TRUE ORDER BY sort_order ASC"
+            )
+            rules = cursor.fetchall()
+        finally:
+            _release_connection(conn)
+
+        intent   = trigger_detail.get('intent', '')
+        keywords = trigger_detail.get('last_message', '').lower()
+
+        for rule in rules:
+            match_type  = rule['match_type']
+            match_value = rule['match_value'].lower()
+            matched = False
+
+            if match_type == 'intent' and intent.lower() == match_value:
+                matched = True
+            elif match_type == 'keyword' and match_value in keywords:
+                matched = True
+            elif match_type == 'app_id' and app_id.lower() == match_value:
+                matched = True
+
+            if matched:
+                return (
+                    rule.get('target_team'),
+                    rule.get('required_skill'),
+                    rule.get('priority_boost', 0)
+                )
+    except Exception:
+        pass
+    return (None, None, 0)
+
+
+def _build_context_package(sender_id: str, conversation_id: int,
+                            trigger_reason: str, trigger_detail: dict) -> dict:
+    """Build a rule-based context package. No LLM calls in Phase 1."""
+    from datetime import datetime as _dt
+    try:
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT user_name, user_id, app_id, ticket_id, started_at, "
+                "low_conf_streak, frustration_score, client_metadata "
+                "FROM conversations WHERE id = %s",
+                (conversation_id,)
+            )
+            conv = cursor.fetchone()
+            if not conv:
+                return {}
+
+            # Last 20 messages for transcript and summary
+            cursor.execute(
+                "SELECT sender, text, intent, timestamp FROM messages "
+                "WHERE conversation_id = %s ORDER BY timestamp ASC",
+                (conversation_id,)
+            )
+            messages = cursor.fetchall()
+        finally:
+            _release_connection(conn)
+
+        # Mask sensitive data in transcript
+        masked_transcript = []
+        for msg in messages:
+            masked_text, _ = _mask_sensitive(msg['text'] or '')
+            masked_transcript.append({
+                'sender': msg['sender'],
+                'text': masked_text,
+                'intent': msg.get('intent'),
+                'timestamp': msg['timestamp'].isoformat() if msg['timestamp'] else None
+            })
+
+        # Rule-based summary
+        intents = [m['intent'] for m in messages if m.get('intent')]
+        last_user_msg = next(
+            (m['text'] for m in reversed(messages) if m['sender'] == 'user'), ''
+        )
+        summary = (
+            f"User {conv.get('user_name') or conv.get('user_id') or sender_id} "
+            f"was in a {conv.get('app_id', 'General')} support conversation. "
+        )
+        if conv.get('ticket_id'):
+            summary += f"Related ticket: #{conv['ticket_id']}. "
+        if intents:
+            summary += f"Main topics: {', '.join(dict.fromkeys(intents)[-5:])}. "
+        summary += f"Handoff triggered by: {trigger_reason}. "
+        summary += f"Last user message: \"{last_user_msg[:200]}\""
+
+        client_meta = conv.get('client_metadata') or {}
+
+        return {
+            'package_version': '1.0',
+            'generated_at': _dt.utcnow().isoformat() + 'Z',
+            'consent_given': True,
+            'user_profile': {
+                'display_name': conv.get('user_name'),
+                'glpi_user_id': conv.get('user_id'),
+                'app_id': conv.get('app_id'),
+            },
+            'session': {
+                'sender_id': sender_id,
+                'conversation_id': conversation_id,
+                'started_at': conv['started_at'].isoformat() if conv.get('started_at') else None,
+                'message_count': len(messages),
+                'related_ticket_id': conv.get('ticket_id'),
+            },
+            'trigger': {
+                'reason': trigger_reason,
+                'detail': trigger_detail,
+                'low_conf_streak': conv.get('low_conf_streak', 0),
+                'frustration_score': conv.get('frustration_score', 0.0),
+            },
+            'ai_summary': summary,
+            'transcript': masked_transcript[-20:],
+            'technical_data': {
+                'browser': client_meta.get('browser', ''),
+                'os': client_meta.get('os', ''),
+                'device_type': client_meta.get('device_type', ''),
+                'page_url': client_meta.get('page_url', ''),
+                'ip_address': '[MASKED]',
+            }
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+def _mask_sensitive(text: str) -> tuple:
+    """Mask passwords, card numbers, and IBANs. Returns (masked_text, list_of_masked_types)."""
+    cfg = get_handoff_runtime_config_for_api().get('gdpr', {})
+    masked_types = []
+    patterns = []
+    if cfg.get('mask_passwords', True):
+        patterns.append(('password', r'(?i)(password|pwd|passwort)\s*[:=]\s*\S+'))
+    if cfg.get('mask_card_numbers', True):
+        patterns.append(('card_number', r'\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b'))
+    if cfg.get('mask_ibans', True):
+        patterns.append(('iban', r'\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b'))
+    if cfg.get('mask_emails', False):
+        patterns.append(('email', r'\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,}\b'))
+    for mask_type, pattern in patterns:
+        if _re.search(pattern, text):
+            text = _re.sub(pattern, f'[{mask_type.upper()}_REDACTED]', text)
+            masked_types.append(mask_type)
+    return text, masked_types
+
+
+# ── Admin operator CRUD endpoints ─────────────────────────────────────
+
+@app.route('/admin/operators', methods=['GET'])
+def admin_list_operators():
+    """List all operators."""
+    try:
+        from common.conversation_db import get_operators, get_operator_current_load
+        include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
+        ops = get_operators(include_inactive=include_inactive)
+        # Attach live load to each operator
+        for op in ops:
+            op['current_load'] = get_operator_current_load(op['id'])
+        return jsonify({'success': True, 'operators': ops, 'count': len(ops)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/operators', methods=['POST'])
+def admin_create_operator():
+    """Create a new operator account."""
+    try:
+        from common.conversation_db import create_operator
+        data = request.get_json(silent=True) or {}
+        username     = (data.get('username') or '').strip().lower()
+        display_name = (data.get('display_name') or '').strip()
+        password     = data.get('password') or ''
+        if not username or not display_name or not password:
+            return jsonify({'error': 'username, display_name, and password are required'}), 400
+        if len(password) < 8:
+            return jsonify({'error': 'Password must be at least 8 characters'}), 400
+
+        new_id = create_operator(
+            username=username,
+            display_name=display_name,
+            password_hash=_hash_password(password),
+            email=data.get('email'),
+            team=data.get('team'),
+            app_ids=data.get('app_ids', []),
+            max_concurrent=data.get('max_concurrent'),
+            shift_schedule=data.get('shift_schedule')
+        )
+        return jsonify({'success': True, 'operator_id': new_id}), 201
+    except Exception as e:
+        if 'unique' in str(e).lower():
+            return jsonify({'error': 'Username already exists'}), 409
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/operators/<int:operator_id>', methods=['GET'])
+def admin_get_operator(operator_id):
+    """Get a single operator by ID."""
+    try:
+        from common.conversation_db import get_operator, get_operator_current_load, get_operator_stats
+        op = get_operator(operator_id)
+        if not op:
+            return jsonify({'error': 'Operator not found'}), 404
+        op['current_load'] = get_operator_current_load(operator_id)
+        op['stats'] = get_operator_stats(operator_id)
+        return jsonify({'success': True, 'operator': op})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/operators/<int:operator_id>', methods=['PUT'])
+def admin_update_operator(operator_id):
+    """Update operator fields. Password change requires 'new_password' key."""
+    try:
+        from common.conversation_db import update_operator, get_operator
+        if not get_operator(operator_id):
+            return jsonify({'error': 'Operator not found'}), 404
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        for field in ('display_name', 'email', 'team', 'app_ids',
+                      'max_concurrent', 'shift_schedule', 'is_active'):
+            if field in data:
+                updates[field] = data[field]
+        if 'new_password' in data:
+            if len(data['new_password']) < 8:
+                return jsonify({'error': 'Password must be at least 8 characters'}), 400
+            updates['password_hash'] = _hash_password(data['new_password'])
+        if not updates:
+            return jsonify({'error': 'No valid fields to update'}), 400
+        update_operator(operator_id, **updates)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/operators/<int:operator_id>', methods=['DELETE'])
+def admin_deactivate_operator(operator_id):
+    """Soft-deactivate an operator (is_active = False)."""
+    try:
+        from common.conversation_db import update_operator, get_operator
+        if not get_operator(operator_id):
+            return jsonify({'error': 'Operator not found'}), 404
+        update_operator(operator_id, is_active=False, status='offline')
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/operators/<int:operator_id>/stats', methods=['GET'])
+def admin_operator_stats(operator_id):
+    """Return performance statistics for one operator."""
+    try:
+        from common.conversation_db import get_operator_stats, get_operator
+        if not get_operator(operator_id):
+            return jsonify({'error': 'Operator not found'}), 404
+        stats = get_operator_stats(operator_id)
+        return jsonify({'success': True, 'stats': stats})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Handoff config endpoints ───────────────────────────────────────────
+
+@app.route('/admin/handoff/config', methods=['GET'])
+def admin_get_handoff_config():
+    """Return the current runtime handoff configuration."""
+    try:
+        cfg = get_handoff_runtime_config_for_api()
+        return jsonify({'success': True, 'config': cfg})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/handoff/config', methods=['PUT'])
+def admin_update_handoff_config():
+    """Update runtime handoff configuration. Deep-merges the submitted object
+    over the existing config so partial updates are safe."""
+    try:
+        from common.conversation_db import (
+            get_handoff_runtime_config, set_handoff_runtime_config, _deep_merge
+        )
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({'error': 'JSON body required'}), 400
+        current = get_handoff_runtime_config()
+        merged = _deep_merge(current, data)
+        set_handoff_runtime_config(merged)
+        return jsonify({'success': True, 'config': merged})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Routing rules endpoints ────────────────────────────────────────────
+
+@app.route('/admin/handoff/routing', methods=['GET'])
+def admin_list_routing_rules():
+    """Return all handoff routing rules ordered by sort_order."""
+    try:
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT * FROM handoff_routing_rules ORDER BY sort_order ASC, created_at ASC"
+            )
+            rules = [dict(r) for r in cursor.fetchall()]
+            for r in rules:
+                if r.get('created_at'):
+                    r['created_at'] = r['created_at'].isoformat()
+        finally:
+            _release_connection(conn)
+        return jsonify({'success': True, 'rules': rules, 'count': len(rules)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/handoff/routing', methods=['POST'])
+def admin_create_routing_rule():
+    """Create a new routing rule."""
+    try:
+        data = request.get_json(silent=True) or {}
+        rule_name   = (data.get('rule_name') or '').strip()
+        match_type  = data.get('match_type', '')
+        match_value = (data.get('match_value') or '').strip()
+        if not rule_name or not match_type or not match_value:
+            return jsonify({'error': 'rule_name, match_type, and match_value are required'}), 400
+        if match_type not in ('intent', 'keyword', 'app_id', 'entity'):
+            return jsonify({'error': "match_type must be intent, keyword, app_id, or entity"}), 400
+
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "INSERT INTO handoff_routing_rules "
+                "(rule_name, match_type, match_value, target_team, required_skill, "
+                "priority_boost, sort_order) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                (
+                    rule_name, match_type, match_value,
+                    data.get('target_team'), data.get('required_skill'),
+                    data.get('priority_boost', 0), data.get('sort_order', 99)
+                )
+            )
+            new_id = cursor.fetchone()['id']
+            conn.commit()
+        finally:
+            _release_connection(conn)
+        return jsonify({'success': True, 'rule_id': new_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/handoff/routing/<int:rule_id>', methods=['PUT'])
+def admin_update_routing_rule(rule_id):
+    """Update a routing rule."""
+    try:
+        data = request.get_json(silent=True) or {}
+        allowed = ('rule_name', 'match_type', 'match_value', 'target_team',
+                   'required_skill', 'priority_boost', 'sort_order', 'is_active')
+        updates = {k: data[k] for k in allowed if k in data}
+        if not updates:
+            return jsonify({'error': 'No valid fields to update'}), 400
+        conn = _get_connection()
+        try:
+            cursor = conn.cursor()
+            set_parts = ', '.join(f"{k} = %s" for k in updates)
+            params = list(updates.values()) + [rule_id]
+            cursor.execute(
+                f"UPDATE handoff_routing_rules SET {set_parts} WHERE id = %s", params
+            )
+            conn.commit()
+            if cursor.rowcount == 0:
+                return jsonify({'error': 'Rule not found'}), 404
+        finally:
+            _release_connection(conn)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/handoff/routing/<int:rule_id>', methods=['DELETE'])
+def admin_delete_routing_rule(rule_id):
+    """Delete a routing rule."""
+    try:
+        conn = _get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM handoff_routing_rules WHERE id = %s", (rule_id,)
+            )
+            conn.commit()
+            if cursor.rowcount == 0:
+                return jsonify({'error': 'Rule not found'}), 404
+        finally:
+            _release_connection(conn)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/handoff/routing/test', methods=['POST'])
+def admin_test_routing():
+    """Simulate routing for a given message and app_id without creating a queue entry."""
+    try:
+        data = request.get_json(silent=True) or {}
+        app_id  = data.get('app_id', 'General')
+        message = data.get('message', '')
+        intent  = data.get('intent', '')
+        trigger_detail = {'last_message': message, 'intent': intent}
+        target_team, required_skill, priority_boost = _apply_routing_rules(app_id, trigger_detail)
+        return jsonify({
+            'success': True,
+            'result': {
+                'target_team': target_team or '(default pool)',
+                'required_skill': required_skill,
+                'priority_boost': priority_boost,
+                'final_priority': min(9, 5 + priority_boost)
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Operator queue management endpoints (Phase 1 REST — Phase 3 adds Socket.IO) ──
+
+@app.route('/operator/queue', methods=['GET'])
+@_require_operator_token
+def operator_get_queue(**kwargs):
+    """Return waiting queue items visible to this operator."""
+    try:
+        from common.conversation_db import get_operator, get_queue
+        op = get_operator(kwargs['_operator_id'])
+        if not op:
+            return jsonify({'error': 'Operator not found'}), 404
+        items = []
+        for app_id in (op.get('app_ids') or []):
+            items += get_queue(app_id=app_id, team=op.get('team'), status='waiting')
+        # Deduplicate by queue id
+        seen = set()
+        unique = []
+        for item in items:
+            if item['id'] not in seen:
+                seen.add(item['id'])
+                unique.append(item)
+        unique.sort(key=lambda x: (-x.get('priority', 5), x.get('queued_at', '')))
+        return jsonify({'success': True, 'queue': unique, 'count': len(unique)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/operator/queue/claim', methods=['POST'])
+@_require_operator_token
+def operator_claim(**kwargs):
+    """Claim a waiting queue item."""
+    try:
+        from common.conversation_db import (
+            get_operator, get_operator_current_load, update_operator
+        )
+        from datetime import datetime as _dt
+        data    = request.get_json(silent=True) or {}
+        queue_id = data.get('queue_id')
+        if not queue_id:
+            return jsonify({'error': 'queue_id required'}), 400
+
+        op_id = kwargs['_operator_id']
+        op    = get_operator(op_id)
+        if not op:
+            return jsonify({'error': 'Operator not found'}), 404
+
+        load = get_operator_current_load(op_id)
+        if load >= op['max_concurrent']:
+            return jsonify({'error': 'You are at maximum concurrent chat capacity'}), 409
+
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            # Atomic claim — only succeeds if item is still waiting
+            cursor.execute(
+                "UPDATE handoff_queue "
+                "SET status = 'assigned', operator_id = %s, assigned_at = %s, "
+                "wait_time_secs = EXTRACT(EPOCH FROM (NOW() - queued_at))::INT "
+                "WHERE id = %s AND status = 'waiting' "
+                "RETURNING *",
+                (op_id, _dt.now(), queue_id)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'error': 'Queue item not found or already claimed'}), 409
+
+            # Update conversation state
+            cursor.execute(
+                "UPDATE conversations SET handoff_state = 'assigned', assigned_operator_id = %s "
+                "WHERE id = %s",
+                (op_id, row['conversation_id'])
+            )
+            # Log state transition
+            cursor.execute(
+                "INSERT INTO handoff_state_log "
+                "(conversation_id, from_state, to_state, triggered_by, triggered_by_id) "
+                "VALUES (%s, 'queued', 'assigned', 'operator', %s)",
+                (row['conversation_id'], str(op_id))
+            )
+            conn.commit()
+
+            # Auto-set busy if now at capacity
+            cfg = get_handoff_runtime_config_for_api()
+            new_load = load + 1
+            if cfg['operators']['auto_busy_on_max_load'] and new_load >= op['max_concurrent']:
+                update_operator(op_id, status='busy')
+
+            return jsonify({'success': True, 'queue_item': dict(row)})
+        finally:
+            _release_connection(conn)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/operator/queue/resolve', methods=['POST'])
+@_require_operator_token
+def operator_resolve(**kwargs):
+    """Resolve a conversation — optionally return to bot."""
+    try:
+        from common.conversation_db import update_operator, get_operator_current_load, get_operator
+        from datetime import datetime as _dt
+        data         = request.get_json(silent=True) or {}
+        queue_id     = data.get('queue_id')
+        return_to_bot = data.get('return_to_bot', True)
+        closing_note  = data.get('closing_note', '')
+        if not queue_id:
+            return jsonify({'error': 'queue_id required'}), 400
+
+        op_id = kwargs['_operator_id']
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "UPDATE handoff_queue "
+                "SET status = 'resolved', resolved_at = %s, return_to_bot = %s, "
+                "closing_note = %s, "
+                "handle_time_secs = EXTRACT(EPOCH FROM (NOW() - assigned_at))::INT "
+                "WHERE id = %s AND operator_id = %s AND status = 'assigned' "
+                "RETURNING conversation_id",
+                (_dt.now(), return_to_bot, closing_note, queue_id, op_id)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'error': 'Queue item not found or not assigned to you'}), 409
+
+            conv_id = row['conversation_id']
+            new_state = 'bot_active' if return_to_bot else 'closed'
+            cursor.execute(
+                "UPDATE conversations SET handoff_state = %s, assigned_operator_id = NULL "
+                "WHERE id = %s",
+                (new_state, conv_id)
+            )
+            cursor.execute(
+                "INSERT INTO handoff_state_log "
+                "(conversation_id, from_state, to_state, triggered_by, triggered_by_id, note) "
+                "VALUES (%s, 'assigned', %s, 'operator', %s, %s)",
+                (conv_id, new_state, str(op_id), closing_note)
+            )
+            conn.commit()
+
+            # Auto-restore available if load drops below max
+            cfg = get_handoff_runtime_config_for_api()
+            op = get_operator(op_id)
+            new_load = get_operator_current_load(op_id)
+            if (cfg['operators']['auto_busy_on_max_load']
+                    and op and op['status'] == 'busy'
+                    and new_load < op['max_concurrent']):
+                update_operator(op_id, status='available')
+
+            return jsonify({'success': True, 'return_to_bot': return_to_bot})
+        finally:
+            _release_connection(conn)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/operator/queue/release', methods=['POST'])
+@_require_operator_token
+def operator_release(**kwargs):
+    """Release an assigned conversation back to the queue."""
+    try:
+        from datetime import datetime as _dt
+        data     = request.get_json(silent=True) or {}
+        queue_id = data.get('queue_id')
+        reason   = data.get('reason', 'released')
+        note     = data.get('note', '')
+        if not queue_id:
+            return jsonify({'error': 'queue_id required'}), 400
+
+        op_id = kwargs['_operator_id']
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "UPDATE handoff_queue "
+                "SET status = 'waiting', operator_id = NULL, assigned_at = NULL "
+                "WHERE id = %s AND operator_id = %s AND status = 'assigned' "
+                "RETURNING conversation_id, app_id",
+                (queue_id, op_id)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'error': 'Queue item not found or not assigned to you'}), 409
+            cursor.execute(
+                "UPDATE conversations SET handoff_state = 'queued', assigned_operator_id = NULL "
+                "WHERE id = %s",
+                (row['conversation_id'],)
+            )
+            cursor.execute(
+                "INSERT INTO handoff_state_log "
+                "(conversation_id, from_state, to_state, triggered_by, triggered_by_id, note) "
+                "VALUES (%s, 'assigned', 'queued', 'operator', %s, %s)",
+                (row['conversation_id'], str(op_id), note)
+            )
+            conn.commit()
+            from common.conversation_db import _recalculate_queue_positions
+            _recalculate_queue_positions(row['app_id'])
+        finally:
+            _release_connection(conn)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/operator/queue/rate-context', methods=['POST'])
+@_require_operator_token
+def operator_rate_context(**kwargs):
+    """Operator rates the quality of the AI context package."""
+    try:
+        data     = request.get_json(silent=True) or {}
+        queue_id = data.get('queue_id')
+        rating   = data.get('rating')
+        note     = data.get('note', '')
+        if not queue_id or rating is None:
+            return jsonify({'error': 'queue_id and rating required'}), 400
+        if not (1 <= int(rating) <= 5):
+            return jsonify({'error': 'rating must be between 1 and 5'}), 400
+        conn = _get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE handoff_queue SET agent_rating = %s, agent_rating_note = %s "
+                "WHERE id = %s AND operator_id = %s",
+                (int(rating), note, queue_id, kwargs['_operator_id'])
+            )
+            conn.commit()
+            if cursor.rowcount == 0:
+                return jsonify({'error': 'Queue item not found or not yours'}), 404
+        finally:
+            _release_connection(conn)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/operator/conversation/<int:conversation_id>', methods=['GET'])
+@_require_operator_token
+def operator_get_conversation(conversation_id, **kwargs):
+    """Return interleaved message history (bot + operator messages) for a conversation."""
+    try:
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            # Bot + user messages
+            cursor.execute(
+                "SELECT sender, text, intent, timestamp FROM messages "
+                "WHERE conversation_id = %s ORDER BY timestamp ASC",
+                (conversation_id,)
+            )
+            bot_msgs = [
+                {**dict(m), 'source': 'chat',
+                 'timestamp': m['timestamp'].isoformat() if m['timestamp'] else None}
+                for m in cursor.fetchall()
+            ]
+            # Operator messages
+            cursor.execute(
+                "SELECT om.message_text AS text, om.sent_at AS timestamp, "
+                "o.display_name AS operator_name "
+                "FROM operator_messages om "
+                "JOIN operators o ON o.id = om.operator_id "
+                "WHERE om.conversation_id = %s ORDER BY om.sent_at ASC",
+                (conversation_id,)
+            )
+            op_msgs = [
+                {'sender': 'operator', 'text': m['text'],
+                 'operator_name': m['operator_name'], 'source': 'operator',
+                 'timestamp': m['timestamp'].isoformat() if m['timestamp'] else None}
+                for m in cursor.fetchall()
+            ]
+        finally:
+            _release_connection(conn)
+
+        all_msgs = sorted(bot_msgs + op_msgs, key=lambda x: x.get('timestamp') or '')
+        return jsonify({'success': True, 'messages': all_msgs, 'count': len(all_msgs)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/operator/message', methods=['POST'])
+@_require_operator_token
+def operator_send_message(**kwargs):
+    """Send a message from operator to user (stored; Socket.IO relay added in Phase 3)."""
+    try:
+        from datetime import datetime as _dt
+        data            = request.get_json(silent=True) or {}
+        conversation_id = data.get('conversation_id')
+        text            = (data.get('text') or '').strip()
+        if not conversation_id or not text:
+            return jsonify({'error': 'conversation_id and text required'}), 400
+
+        op_id = kwargs['_operator_id']
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            # Verify this operator owns the assigned conversation
+            cursor.execute(
+                "SELECT id FROM handoff_queue "
+                "WHERE conversation_id = %s AND operator_id = %s AND status = 'assigned'",
+                (conversation_id, op_id)
+            )
+            q = cursor.fetchone()
+            if not q:
+                return jsonify({'error': 'Not assigned to this conversation'}), 403
+
+            cursor.execute(
+                "INSERT INTO operator_messages "
+                "(conversation_id, queue_id, operator_id, message_text) "
+                "VALUES (%s, %s, %s, %s) RETURNING id",
+                (conversation_id, q['id'], op_id, text)
+            )
+            msg_id = cursor.fetchone()['id']
+            # Also log to messages table for unified history
+            cursor.execute(
+                "INSERT INTO messages (conversation_id, sender, text, timestamp) "
+                "VALUES (%s, 'operator', %s, %s)",
+                (conversation_id, text, _dt.now())
+            )
+            cursor.execute(
+                "UPDATE conversations SET last_activity = %s WHERE id = %s",
+                (_dt.now(), conversation_id)
+            )
+            conn.commit()
+        finally:
+            _release_connection(conn)
+
+        return jsonify({'success': True, 'message_id': msg_id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Admin force-handoff and queue overview ────────────────────────────
+
+@app.route('/admin/handoff/force', methods=['POST'])
+def admin_force_handoff():
+    """Admin manually pushes a bot conversation into the handoff queue."""
+    try:
+        from common.conversation_db import enqueue_handoff, log_handoff_consent
+        data        = request.get_json(silent=True) or {}
+        sender_id   = data.get('sender_id')
+        priority    = data.get('priority', 7)
+        reason_note = data.get('reason', 'Admin escalation')
+        skip_consent = data.get('skip_consent', False)
+        app_id      = data.get('app_id', 'General')
+
+        if not sender_id:
+            return jsonify({'error': 'sender_id required'}), 400
+
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT id, handoff_state FROM conversations WHERE sender_id = %s",
+                (sender_id,)
+            )
+            row = cursor.fetchone()
+        finally:
+            _release_connection(conn)
+
+        if not row:
+            return jsonify({'error': 'Conversation not found'}), 404
+        if row['handoff_state'] in ('queued', 'assigned'):
+            return jsonify({'error': 'Conversation is already in handoff'}), 409
+
+        conversation_id = row['id']
+        if skip_consent:
+            log_handoff_consent(sender_id, conversation_id, True, None)
+
+        context_package = _build_context_package(
+            sender_id, conversation_id, 'admin_forced',
+            {'reason': reason_note, 'admin': data.get('admin_username', 'admin')}
+        )
+        target_team, required_skill, _ = _apply_routing_rules(app_id, {})
+        entry = enqueue_handoff(
+            conversation_id=conversation_id,
+            sender_id=sender_id,
+            app_id=app_id,
+            trigger_reason='admin_forced',
+            trigger_detail={'reason': reason_note},
+            priority=min(9, priority),
+            context_package=context_package,
+            target_team=data.get('target_team') or target_team,
+            required_skill=data.get('required_skill') or required_skill
+        )
+        if not entry:
+            return jsonify({'error': 'Queue is full or enqueue failed'}), 503
+        return jsonify({'success': True, 'queue_id': entry['id'],
+                        'position': entry.get('queue_position', 1)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/monitor/queue', methods=['GET'])
+def admin_monitor_queue():
+    """Queue overview: waiting items + online operators with current load."""
+    try:
+        from common.conversation_db import (
+            get_queue, get_operators, get_operator_current_load, get_available_operators
+        )
+        app_id = request.args.get('app_id')
+        waiting  = get_queue(app_id=app_id, status='waiting')
+        assigned = get_queue(app_id=app_id, status='assigned')
+        ops      = get_operators()
+        op_list  = []
+        for op in ops:
+            load = get_operator_current_load(op['id'])
+            op_list.append({
+                'id':             op['id'],
+                'display_name':   op['display_name'],
+                'team':           op.get('team'),
+                'status':         op.get('status', 'offline'),
+                'current_load':   load,
+                'max_concurrent': op.get('max_concurrent', 3),
+                'last_seen':      op.get('last_seen')
+            })
+
+        avg_wait = None
+        if waiting:
+            from datetime import datetime as _dt
+            waits = []
+            for item in waiting:
+                if item.get('queued_at'):
+                    try:
+                        qt = _dt.fromisoformat(item['queued_at'])
+                        waits.append((_dt.now() - qt).total_seconds())
+                    except Exception:
+                        pass
+            avg_wait = round(sum(waits) / len(waits) / 60, 1) if waits else 0
+
+        return jsonify({
+            'success': True,
+            'waiting_count': len(waiting),
+            'assigned_count': len(assigned),
+            'avg_wait_mins': avg_wait,
+            'waiting': waiting,
+            'assigned': assigned,
+            'operators': op_list
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
