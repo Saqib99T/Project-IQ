@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { io } from 'socket.io-client';
 import { storage } from '../utils/storage';
 import { getWebhookUrl, getAppId, getApiUrl, getAdminBaseUrl, THEME, APP_TITLE } from '../config';
 import MessageBubble from '../components/MessageBubble';
@@ -38,6 +39,13 @@ const ChatScreen = ({ navigation }) => {
     const [isGuest, setIsGuest] = useState(true);
     const [authUser, setAuthUser] = useState('');
     const [senderId, setSenderId] = useState('');
+    const [handoffState, setHandoffState] = useState('bot_active');
+    const [operatorName, setOperatorName] = useState('');
+    const [queuePosition, setQueuePosition] = useState(null);
+    const [waitMins, setWaitMins] = useState(null);
+    const [operatorTyping, setOperatorTyping] = useState(false);
+    const socketRef = useRef(null);
+    const opTypingTimer = useRef(null);
     const [ready, setReady] = useState(false);
     const [appId, setAppIdState] = useState('IT');
     const appIdRef = useRef('IT');
@@ -208,6 +216,119 @@ const ChatScreen = ({ navigation }) => {
         }
     }, [messages, ready]);
 
+    // ── Socket.IO — handoff real-time events ───────────────────────────────
+    useEffect(() => {
+        if (!senderId) return;
+        let cancelled = false;
+
+        (async () => {
+            const adminBase = await getAdminBaseUrl();
+            if (cancelled) return;
+
+            const socket = io(adminBase, { transports: ['websocket', 'polling'] });
+            socketRef.current = socket;
+
+            socket.on('connect', () => {
+                socket.emit('join_user', { sender_id: senderId });
+                // Restore handoff state after reconnect
+                fetch(`${adminBase}/handoff/status/${encodeURIComponent(senderId)}`)
+                    .then(r => r.json())
+                    .then(d => {
+                        const state = d.handoff_state || 'bot_active';
+                        if (state === 'queued') {
+                            setHandoffState('queued');
+                            setQueuePosition(d.queue_position || 1);
+                            setWaitMins(d.wait_mins || null);
+                        } else if (state === 'assigned') {
+                            setHandoffState('assigned');
+                            setOperatorName(d.operator_name || 'an agent');
+                        }
+                    })
+                    .catch(() => {});
+            });
+
+            socket.on('handoff_queued', (d) => {
+                setHandoffState('queued');
+                setQueuePosition(d.queue_position || 1);
+                setWaitMins(d.wait_estimate_mins || null);
+            });
+
+            socket.on('wait_update', (d) => {
+                setQueuePosition(d.queue_position);
+                setWaitMins(d.wait_estimate_mins);
+            });
+
+            socket.on('handoff_assigned', (d) => {
+                setHandoffState('assigned');
+                setOperatorName(d.operator_name || 'an agent');
+                setQueuePosition(null);
+                setWaitMins(null);
+                setMessages(prev => [...prev, {
+                    id: uuidv4(),
+                    sender: 'bot',
+                    text: d.message || `✅ **${d.operator_name || 'An agent'}** has joined the conversation.`,
+                    type: 'system',
+                }]);
+            });
+
+            socket.on('operator_message', (d) => {
+                if (d.sender_id && d.sender_id !== senderId) return;
+                setMessages(prev => [...prev, {
+                    id: uuidv4(),
+                    sender: 'operator',
+                    text: d.text,
+                    operator_name: d.operator_name || operatorName,
+                    timestamp: d.timestamp,
+                }]);
+                setOperatorTyping(false);
+                clearTimeout(opTypingTimer.current);
+            });
+
+            socket.on('operator_typing', (d) => {
+                setOperatorTyping(d.typing);
+                if (d.typing) {
+                    clearTimeout(opTypingTimer.current);
+                    opTypingTimer.current = setTimeout(() => setOperatorTyping(false), 5000);
+                } else {
+                    clearTimeout(opTypingTimer.current);
+                }
+            });
+
+            socket.on('handoff_resolved', (d) => {
+                setHandoffState('bot_active');
+                setOperatorName('');
+                setOperatorTyping(false);
+                setMessages(prev => [...prev, {
+                    id: uuidv4(),
+                    sender: 'bot',
+                    text: d.message || '✅ The agent session has ended. I\'m back to assist you.',
+                    type: 'system',
+                }]);
+            });
+
+            socket.on('handoff_abandoned', (d) => {
+                setHandoffState('bot_active');
+                setQueuePosition(null);
+                setWaitMins(null);
+                setMessages(prev => [...prev, {
+                    id: uuidv4(),
+                    sender: 'bot',
+                    text: d.message || '⚠️ The queue wait exceeded our limit. I\'m back to assist you.',
+                    type: 'system',
+                }]);
+            });
+        })();
+
+        return () => {
+            cancelled = true;
+            clearTimeout(opTypingTimer.current);
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+                socketRef.current = null;
+            }
+        };
+    }, [senderId]);
+
     // Auto-scroll
     const scrollToEnd = useCallback(() => {
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -219,10 +340,12 @@ const ChatScreen = ({ navigation }) => {
     const sendToRasa = async (message) => {
         const currentAppId = await getAppId();
         const webhookUrl = await getWebhookUrl();
+        const meta = { app_id: currentAppId };
+        if (authUser) meta.user_name = authUser;
         const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sender: senderId, message, metadata: { app_id: currentAppId } }),
+            body: JSON.stringify({ sender: senderId, message, metadata: meta }),
         });
         return response.json();
     };
@@ -266,14 +389,26 @@ const ChatScreen = ({ navigation }) => {
     const handleSend = async () => {
         const text = inputText.trim();
         if (!text) return;
+
+        // Block while queued — user should wait
+        if (handoffState === 'queued') return;
+
         lastActivityRef.current = Date.now();
         warningShownRef.current = false;
 
-        const error = validateInput(text);
-        if (error) {
-            setMessages(prev => [...prev, { id: uuidv4(), sender: 'bot', text: `⚠️ ${error}` }]);
-            setInputText('');
-            return;
+        // Skip guardrails during live human handoff
+        if (!handoffState || handoffState !== 'assigned') {
+            const error = validateInput(text);
+            if (error) {
+                setMessages(prev => [...prev, { id: uuidv4(), sender: 'bot', text: `⚠️ ${error}` }]);
+                setInputText('');
+                return;
+            }
+        }
+
+        // Emit user typing stop
+        if (socketRef.current && handoffState === 'assigned') {
+            socketRef.current.emit('user_typing', { sender_id: senderId, typing: false });
         }
 
         const userMsg = { id: uuidv4(), sender: senderId, text };
@@ -287,7 +422,8 @@ const ChatScreen = ({ navigation }) => {
             if (responses.length > 0) {
                 setMessages(prev => [...prev, ...responses]);
                 if (responses.some(m => m.ticket_form)) setShowTicketForm(true);
-            } else {
+            } else if (handoffState !== 'assigned' && handoffState !== 'queued') {
+                // Fallback only when bot is active — not during human handoff
                 setMessages(prev => [...prev, {
                     id: uuidv4(), sender: 'bot',
                     text: "I'm not sure I understand. Here are some things I can help with:",
@@ -374,6 +510,19 @@ const ChatScreen = ({ navigation }) => {
                 setShowLogin(false);
                 await storage.setItem(appIdRef.current, 'isAuthenticated', 'true');
                 await storage.setItem(appIdRef.current, 'authUser', username);
+                // End any active handoff under the OLD senderId before switching
+                try {
+                    const adminBase = await getAdminBaseUrl();
+                    await fetch(`${adminBase}/handoff/end`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sender_id: senderId }),
+                    });
+                } catch (_) {}
+                const userScopedId = `user-${appIdRef.current}-${username}`;
+                await storage.setItem(appIdRef.current, 'senderId', userScopedId);
+                setSenderId(userScopedId);
+                setHandoffState('bot_active');
                 const dismissed = await storage.getItem(appIdRef.current, 'privacyDismissed');
                 if (!dismissed) setShowPrivacyConsent(true);
                 const welcomeData = data.find(m => m.text);
@@ -390,17 +539,40 @@ const ChatScreen = ({ navigation }) => {
 
     // Logout
     const handleLogout = async () => {
+        // End any active handoff before switching identity
+        try {
+            const adminBase = await getAdminBaseUrl();
+            await fetch(`${adminBase}/handoff/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender_id: senderId }),
+            });
+        } catch (_) {}
         setIsAuthenticated(false);
         setIsGuest(true);
         setAuthUser('');
+        setHandoffState('bot_active');
         await storage.removeItem(appIdRef.current, 'isAuthenticated');
         await storage.removeItem(appIdRef.current, 'authUser');
         await storage.clearMessages(appIdRef.current);
+        const freshId = uuidv4();
+        await storage.setItem(appIdRef.current, 'senderId', freshId);
+        setSenderId(freshId);
         setMessages([{ id: 'init', sender: 'bot', text: "You've been logged out. Continuing as guest.\n\n📚 You can still search the Knowledge Base!\n🔑 Login anytime for full ticket features." }]);
     };
 
     // End session
-    const handleEndSession = () => {
+    const handleEndSession = async () => {
+        // End any active handoff
+        try {
+            const adminBase = await getAdminBaseUrl();
+            await fetch(`${adminBase}/handoff/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender_id: senderId }),
+            });
+        } catch (_) {}
+        setHandoffState('bot_active');
         clearInterval(inactivityIntervalRef.current);
         setSessionEnded(true);
         setShowFeedback(true);
@@ -413,6 +585,16 @@ const ChatScreen = ({ navigation }) => {
 
     // New conversation
     const handleNewConversation = async () => {
+        // End any active handoff under current senderId
+        try {
+            const adminBase = await getAdminBaseUrl();
+            await fetch(`${adminBase}/handoff/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender_id: senderId }),
+            });
+        } catch (_) {}
+        setHandoffState('bot_active');
         lastActivityRef.current = Date.now();
         warningShownRef.current = false;
         await storage.clearMessages(appIdRef.current);
@@ -633,6 +815,21 @@ const ChatScreen = ({ navigation }) => {
                     </View>
                 ) : (
                     /* Messages */
+                    <View style={{flex: 1}}>
+                        {handoffState === 'queued' && (
+                            <View style={styles.handoffBar}>
+                                <Text style={styles.handoffBarText}>
+                                    ⏳ Waiting for an agent{queuePosition != null ? ` — position ${queuePosition}` : ''}{waitMins != null ? ` · ~${waitMins} min` : ''}
+                                </Text>
+                            </View>
+                        )}
+                        {handoffState === 'assigned' && (
+                            <View style={[styles.handoffBar, {backgroundColor: '#f0fdf4', borderBottomColor: '#bbf7d0'}]}>
+                                <Text style={[styles.handoffBarText, {color: '#166534'}]}>
+                                    💬 Connected to {operatorName || 'an agent'}
+                                </Text>
+                            </View>
+                        )}
                     <FlatList
                         ref={flatListRef}
                         data={messages}
@@ -648,14 +845,24 @@ const ChatScreen = ({ navigation }) => {
                         contentContainerStyle={styles.messagesList}
                         onContentSizeChange={scrollToEnd}
                         showsVerticalScrollIndicator={false}
-                        ListFooterComponent={isLoading ? (
-                            <View style={styles.typingRow}>
-                                <View style={styles.typingDot} />
-                                <View style={styles.typingDot} />
-                                <View style={styles.typingDot} />
-                            </View>
-                        ) : null}
+                        ListFooterComponent={
+                            operatorTyping && handoffState === 'assigned' ? (
+                                <View style={styles.typingRow}>
+                                    <Text style={{fontSize: 12, color: '#6b7280', marginRight: 6}}>{operatorName || 'Agent'} is typing</Text>
+                                    <View style={styles.typingDot} />
+                                    <View style={styles.typingDot} />
+                                    <View style={styles.typingDot} />
+                                </View>
+                            ) : isLoading ? (
+                                <View style={styles.typingRow}>
+                                    <View style={styles.typingDot} />
+                                    <View style={styles.typingDot} />
+                                    <View style={styles.typingDot} />
+                                </View>
+                            ) : null
+                        }
                     />
+                    </View>
                 )}
 
                 {/* Quick Actions bar — matches web */}
@@ -691,10 +898,16 @@ const ChatScreen = ({ navigation }) => {
                                 <TextInput
                                     style={styles.textInput}
                                     value={inputText}
-                                    onChangeText={setInputText}
-                                    placeholder={`Ask ${TITLE}...`}
+                                    onChangeText={(t) => {
+                                        setInputText(t);
+                                        if (socketRef.current && handoffState === 'assigned') {
+                                            socketRef.current.emit('user_typing', { sender_id: senderId, typing: !!t.trim() });
+                                        }
+                                    }}
+                                    placeholder={handoffState === 'assigned' ? 'Reply to agent…' : `Ask ${TITLE}...`}
                                     placeholderTextColor="#9ca3af"
                                     multiline={false}
+                                    editable={handoffState !== 'queued'}
                                     returnKeyType="send"
                                     onSubmitEditing={handleSend}
                                 />
@@ -914,6 +1127,20 @@ const styles = StyleSheet.create({
     flex: { flex: 1 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: THEME.background },
     loadingText: { marginTop: 12, color: '#6b7280', fontSize: 14 },
+
+    // Handoff status bar
+    handoffBar: {
+        backgroundColor: '#fffbeb',
+        borderBottomWidth: 1,
+        borderBottomColor: '#fde68a',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    handoffBarText: {
+        fontSize: 13,
+        color: '#92400e',
+        fontWeight: '500',
+    },
 
     // Header — Gemini style
     header: {

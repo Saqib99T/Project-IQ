@@ -2468,7 +2468,12 @@ class ActionRequestHandoff(Action):
             )
             return []
 
-        app_id = tracker.get_slot('app_id') or 'General'
+        # Prefer metadata app_id (set per-message by widget) over the slot
+        metadata = tracker.latest_message.get('metadata') or {}
+        app_id = (metadata.get('app_id') or tracker.get_slot('app_id') or '').strip()
+        # 'General' is the default fallback — don't filter by it (show all operators)
+        if app_id.lower() == 'general':
+            app_id = ''
         resp = _call_admin_api(f"/internal/operators/available?app_id={app_id}")
 
         if resp and resp.get('online'):
@@ -2555,7 +2560,10 @@ class ActionConfirmHandoff(Action):
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
 
         sender_id = tracker.sender_id
-        app_id = tracker.get_slot('app_id') or 'General'
+        metadata = tracker.latest_message.get('metadata') or {}
+        app_id = (metadata.get('app_id') or tracker.get_slot('app_id') or 'IT').strip()
+        if app_id.lower() == 'general':
+            app_id = 'IT'
 
         # Determine trigger context
         intent = tracker.latest_message.get('intent', {}).get('name', 'unknown')

@@ -17,6 +17,7 @@ const getYouTubeEmbedUrl = (video) => {
 const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFeedback }) => {
     const [feedbackGiven, setFeedbackGiven] = useState(initialFeedback || null);
     const isBot = message.sender === 'bot';
+    const isOperator = message.sender === 'operator';
 
     const handleFeedback = (type) => {
         if (readonly) return;
@@ -68,16 +69,25 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
     const chartMax = chartData ? Math.max(...(chartData.data || [1]), 1) : 1;
 
     return (
-        <View style={[styles.row, isBot ? styles.botRow : styles.userRow]}>
+        <View style={[styles.row, (isBot || isOperator) ? styles.botRow : styles.userRow]}>
             {/* Bot avatar */}
             {isBot && (
                 <View style={styles.botAvatar}>
                     <Ionicons name="sparkles" size={15} color="#1a73e8" />
                 </View>
             )}
+            {/* Operator avatar */}
+            {isOperator && (
+                <View style={styles.operatorAvatar}>
+                    <Ionicons name="person" size={15} color="#fff" />
+                </View>
+            )}
 
-            <View style={[styles.content, isBot ? styles.botContent : styles.userContent]}>
-                <View style={[styles.bubble, isBot ? styles.botBubble : styles.userBubble]}>
+            <View style={[styles.content, (isBot || isOperator) ? styles.botContent : styles.userContent]}>
+                {isOperator && message.operator_name && (
+                    <Text style={styles.operatorName}>{message.operator_name}</Text>
+                )}
+                <View style={[styles.bubble, isBot ? styles.botBubble : isOperator ? styles.operatorBubble : styles.userBubble]}>
 
                     {/* Message text */}
                     {message.text ? (
@@ -177,6 +187,16 @@ const styles = StyleSheet.create({
         justifyContent: 'center', alignItems: 'center',
         marginRight: 8, marginTop: 2, flexShrink: 0,
     },
+    operatorAvatar: {
+        width: 24, height: 24, borderRadius: 12,
+        backgroundColor: '#16a34a',
+        justifyContent: 'center', alignItems: 'center',
+        marginRight: 8, marginTop: 2, flexShrink: 0,
+    },
+    operatorName: {
+        fontSize: 11, color: '#16a34a', fontWeight: '600',
+        marginBottom: 2, marginLeft: 2,
+    },
 
     content: { flexShrink: 1 },
     botContent: { flex: 1 },
@@ -184,6 +204,7 @@ const styles = StyleSheet.create({
 
     bubble: { borderRadius: 18 },
     botBubble: { backgroundColor: 'transparent', paddingRight: 8 },
+    operatorBubble: { backgroundColor: '#f0fdf4', paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#bbf7d0' },
     userBubble: { backgroundColor: THEME.userBubble, paddingHorizontal: 14, paddingVertical: 10 },
 
     // Video

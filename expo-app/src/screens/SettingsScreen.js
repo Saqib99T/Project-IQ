@@ -27,15 +27,16 @@ const SettingsScreen = ({ navigation }) => {
         setStatusMsg('Testing connection...');
         setSaved(false);
 
-        try {
-            const testUrl = `${url.replace(/\/+$/, '')}${WEBHOOK_PATH}`;
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);
+        const base = url.replace(/\/+$/, '');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
 
-            const response = await fetch(testUrl, {
+        try {
+            // POST to Rasa webhook — same call the chat screen makes
+            const response = await fetch(`${base}${WEBHOOK_PATH}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sender: 'test', message: '/greet' }),
+                body: JSON.stringify({ sender: 'connection_test', message: '/greet' }),
                 signal: controller.signal,
             });
             clearTimeout(timeout);
@@ -48,6 +49,7 @@ const SettingsScreen = ({ navigation }) => {
                 setStatusMsg(`Server returned ${response.status}`);
             }
         } catch (err) {
+            clearTimeout(timeout);
             setStatus('error');
             setStatusMsg(err.name === 'AbortError'
                 ? 'Connection timed out. Is the server running?'
@@ -123,13 +125,16 @@ const SettingsScreen = ({ navigation }) => {
 
                     <Text style={styles.label}>Server URL</Text>
                     <TextInput
-                        style={[styles.urlInput, styles.urlInputDisabled]}
+                        style={styles.urlInput}
                         value={url}
-                        editable={false}
-                        placeholder="http://198.233.100.77:5005"
+                        onChangeText={setUrl}
+                        placeholder="http://198.233.100.77:8181"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="url"
                     />
                     <Text style={styles.hint}>
-                        Server URL is pre-configured and cannot be changed.
+                        Base URL of the admin API server (port 8181). Changes take effect after saving.
                     </Text>
 
                     {/* Status */}

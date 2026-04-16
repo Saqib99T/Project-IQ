@@ -355,6 +355,31 @@ class GlpiService:
             logger.error(f"GLPI get_all_knowbase_items failed: {e}")
             return all_items
 
+    async def get_user_groups(self, session_token: str, user_id: int) -> List[Dict[str, Any]]:
+        """
+        Return the list of groups a GLPI user belongs to.
+        Uses the Group_User endpoint: GET /Group_User?searchText[users_id]=<user_id>
+        Each item has: id, groups_id, group_name (if expanded), users_id.
+        Falls back to an empty list on any error so callers can decide.
+        """
+        url = f"{self.api_uri}/Group_User"
+        headers = self._get_execution_headers(session_token)
+        params = {
+            "searchText[users_id]": str(user_id),
+            "expand_dropdowns": "true",
+            "range": "0-999",
+        }
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, params=params, timeout=10) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data if isinstance(data, list) else []
+                    return []
+        except Exception as e:
+            logger.warning(f"GLPI get_user_groups failed for user {user_id}: {e}")
+            return []
+
     async def search_knowbase_items(self, session_token: str, query: str) -> List[Dict[str, Any]]:
         """Search knowledge base items using GLPI search API."""
         url = f"{self.api_uri}/search/KnowbaseItem"

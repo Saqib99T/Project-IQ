@@ -52,7 +52,10 @@ class GlpiChatWidget extends HTMLElement {
         if (themeIdAttr && !themeIdAttr.startsWith('#') && !isNaN(themeIdAttr)) {
             if (!this.themeData || this.themeData.id !== parseInt(themeIdAttr)) {
                 try {
-                    const res = await fetch(`${ADMIN_API_URL}/admin/themes/${themeIdAttr}`);
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 3000);
+                    const res = await fetch(`${ADMIN_API_URL}/admin/themes/${themeIdAttr}`, { signal: controller.signal });
+                    clearTimeout(timeout);
                     const data = await res.json();
                     if (data.success && data.theme) {
                         // Handle settings as either JSON string or object

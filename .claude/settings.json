@@ -6,7 +6,13 @@
       "Bash(find d:/99T/Rasa/Project-IQ/expo-app/node_modules/react-native-fit-image/dist -name *.js)",
       "Bash(python3 -c \":*)",
       "Bash(echo \"exit:$?\")",
-      "Bash(EAS_NO_VCS=1 npx eas build --platform android --profile preview --non-interactive)"
+      "Bash(EAS_NO_VCS=1 npx eas build --platform android --profile preview --non-interactive)",
+      "Bash(npm install:*)",
+      "Bash(node -e ':*)",
+      "Read(//d/99T/Rasa/**)",
+      "Bash(npm ls:*)",
+      "Bash(npm run:*)",
+      "Bash(venv/Scripts/python -c ':*)"
     ]
   }
 }

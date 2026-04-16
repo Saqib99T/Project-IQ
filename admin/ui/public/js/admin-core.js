@@ -22,6 +22,9 @@ async function loadComponent(sectionId) {
 
 // Section Navigation
 async function showSection(section) {
+    // Stop live monitor polling when leaving it
+    if (section !== 'live-monitor' && window.lmDestroy) lmDestroy();
+
     // Hide all sections
     document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
 
@@ -72,6 +75,15 @@ async function showSection(section) {
     }
     else if (section === 'firecrawl' && window.loadFirecrawl) {
         loadFirecrawl();
+    }
+    else if (section === 'live-monitor' && window.lmInit) {
+        lmInit();
+    }
+    else if (section === 'routing-rules' && window.rrInit) {
+        rrInit();
+    }
+    else if (section === 'handoff-analytics' && window.haInit) {
+        haInit();
     }
 }
 

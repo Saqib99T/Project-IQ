@@ -141,14 +141,8 @@ def _init_database():
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_conv_started_at ON conversations(started_at DESC)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_actions_timestamp ON actions(timestamp DESC)')
         
-        # [Performance] Optimization Indexes
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_conv_ticket ON conversations(ticket_id)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_conv_user ON conversations(user_id)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_actions_conv_name ON actions(conversation_id, action_name)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_feedback_conv ON feedback(conversation_id)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_msg_ticket ON messages(ticket_id)')
-
         # Add app_id, user_id, ticket_id columns to existing tables (for migrations)
+        # MUST run before the optimization indexes below which depend on these columns
         alter_statements = [
             "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS user_id TEXT",
             "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS user_name TEXT",
@@ -176,7 +170,14 @@ def _init_database():
             cursor.execute('ALTER TABLE feedback ADD COLUMN IF NOT EXISTS comments TEXT')
         except Exception:
             pass
-        
+
+        # [Performance] Optimization Indexes — must come after ADD COLUMN migrations above
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_conv_ticket ON conversations(ticket_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_conv_user ON conversations(user_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_actions_conv_name ON actions(conversation_id, action_name)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_feedback_conv ON feedback(conversation_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_msg_ticket ON messages(ticket_id)')
+
         # Add index on app_id for filtering
         try:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_conv_app ON conversations(app_id)')
@@ -353,6 +354,7 @@ def _init_database():
             "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS frustration_score    FLOAT        NOT NULL DEFAULT 0.0",
             "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS consent_given        BOOLEAN      NOT NULL DEFAULT FALSE",
             "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS client_metadata      JSONB",
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS ended_at             TIMESTAMP",
         ]
         for stmt in handoff_conversation_columns:
             try:
@@ -401,35 +403,36 @@ except Exception as e:
     print(f"Warning: Could not initialize database: {e}")
 
 
-def log_conversation_start(sender_id: str, app_id: str = "General", user_id: str = None) -> int:
+def log_conversation_start(sender_id: str, app_id: str = "General", user_id: str = None, user_name: str = None) -> int:
     """Log start of a new conversation. Returns conversation ID."""
     conn = _get_connection()
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Check if conversation exists
-        cursor.execute('SELECT id FROM conversations WHERE sender_id = %s', (sender_id,))
+        # Check if conversation exists and is not ended
+        cursor.execute('SELECT id, ended_at FROM conversations WHERE sender_id = %s', (sender_id,))
         row = cursor.fetchone()
-        
-        if row:
-            # Update last activity and user_id if provided
+        if row and not row.get('ended_at'):
+            # Update last activity and user_id/user_name if provided
+            updates = ['last_activity = %s']
+            params = [datetime.now()]
             if user_id:
-                cursor.execute(
-                    'UPDATE conversations SET last_activity = %s, user_id = %s WHERE sender_id = %s',
-                    (datetime.now(), user_id, sender_id)
-                )
-            else:
-                cursor.execute(
-                    'UPDATE conversations SET last_activity = %s WHERE sender_id = %s',
-                    (datetime.now(), sender_id)
-                )
+                updates.append('user_id = %s')
+                params.append(user_id)
+            if user_name:
+                updates.append('user_name = %s')
+                params.append(user_name)
+            params.append(sender_id)
+            cursor.execute(
+                f'UPDATE conversations SET {", ".join(updates)} WHERE sender_id = %s',
+                params
+            )
             conn.commit()
             return row['id']
-        
-        # Create new conversation with user_id
+        # Otherwise, create new conversation
         cursor.execute(
-            'INSERT INTO conversations (sender_id, app_id, user_id, started_at, last_activity) VALUES (%s, %s, %s, %s, %s) RETURNING id',
-            (sender_id, app_id, user_id, datetime.now(), datetime.now())
+            'INSERT INTO conversations (sender_id, app_id, user_id, user_name, started_at, last_activity) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id',
+            (sender_id, app_id, user_id, user_name, datetime.now(), datetime.now())
         )
         new_id = cursor.fetchone()['id']
         conn.commit()
@@ -1276,7 +1279,7 @@ def get_operators(include_inactive: bool = False) -> List[Dict]:
         else:
             cursor.execute(
                 "SELECT id, username, display_name, email, team, app_ids, "
-                "shift_schedule, status, max_concurrent, is_active, created_at, last_seen "
+                "shift_schedule, status, max_concurrent, is_active, password_hash "
                 "FROM operators WHERE is_active = TRUE ORDER BY display_name"
             )
         rows = cursor.fetchall()
@@ -1300,7 +1303,7 @@ def get_operator(operator_id: int) -> Optional[Dict]:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute(
             "SELECT id, username, display_name, email, team, app_ids, "
-            "shift_schedule, status, max_concurrent, is_active, created_at, last_seen "
+            "shift_schedule, status, max_concurrent, is_active, password_hash "
             "FROM operators WHERE id = %s",
             (operator_id,)
         )
@@ -1505,8 +1508,20 @@ def enqueue_handoff(conversation_id: int, sender_id: str, app_id: str,
         if priority is None:
             priority = cfg['queue']['default_priority']
 
-        # Check max queue depth
         cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        # ── Duplicate prevention: return existing row if sender already active ──
+        cursor.execute(
+            "SELECT * FROM handoff_queue "
+            "WHERE sender_id = %s AND status IN ('waiting', 'assigned') "
+            "ORDER BY queued_at DESC LIMIT 1",
+            (sender_id,)
+        )
+        existing = cursor.fetchone()
+        if existing:
+            return dict(existing)  # idempotent — caller gets back the live row
+
+        # Check max queue depth
         cursor.execute(
             "SELECT COUNT(*) AS depth FROM handoff_queue WHERE app_id = %s AND status = 'waiting'",
             (app_id,)
@@ -1637,6 +1652,23 @@ def log_handoff_consent(sender_id: str, conversation_id: int,
             )
         conn.commit()
         return new_id
+    finally:
+        _release_connection(conn)
+
+
+def end_conversation(conversation_id: int):
+    """Mark a conversation as ended (set ended_at timestamp)."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'UPDATE conversations SET ended_at = %s WHERE id = %s',
+            (datetime.now(), conversation_id)
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"Error ending conversation {conversation_id}: {e}")
+        conn.rollback()
     finally:
         _release_connection(conn)
 

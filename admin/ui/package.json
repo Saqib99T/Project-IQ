@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:widget": "vite build --config vite.widget.config.js",
+    "build:widget": "vite build --config vite.widget.config.js --mode production",
     "serve:widget": "npx -y http-server dist-widget -p 80 --cors -c-1",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -21,6 +21,7 @@
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^3.4.17",
     "uuid": "^13.0.0"
@@ -34,6 +35,6 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "vite": "^7.2.4"
+    "vite": "^7.3.2"
   }
 }

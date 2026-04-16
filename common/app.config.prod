@@ -53,6 +53,11 @@ firecrawl_api_url = http://localhost:3002
 [HANDOFF]
 # JWT secret for operator dashboard authentication — MUST be changed before go-live
 operator_jwt_secret = YOUR_STRONG_PROD_JWT_SECRET_HERE
+
+# GLPI group enforcement for operator login
+# Requires operators to be members of the named GLPI group before they can log in
+glpi_group_enforcement = true
+glpi_support_group_name = Support
 operator_jwt_expiry_hours = 24
 
 # Socket.IO transport settings

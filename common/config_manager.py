@@ -363,6 +363,8 @@ def get_handoff_config() -> Dict[str, Any]:
             'llm_summary_enabled':             _get_secret('LLM_SUMMARY_ENABLED', 'false').lower() == 'true',
             'llm_summary_model':               _get_secret('LLM_SUMMARY_MODEL', 'claude-haiku-4-5-20251001'),
             'llm_api_key':                     _get_secret('LLM_API_KEY', ''),
+            'glpi_group_enforcement':          _get_secret('GLPI_GROUP_ENFORCEMENT', 'false').lower() == 'true',
+            'glpi_support_group_name':         _get_secret('GLPI_SUPPORT_GROUP_NAME', 'Support'),
         }
 
     config = load_config()
@@ -383,6 +385,8 @@ def get_handoff_config() -> Dict[str, Any]:
         'llm_summary_enabled':             config.getboolean('HANDOFF', 'llm_summary_enabled', fallback=False),
         'llm_summary_model':               config.get('HANDOFF', 'llm_summary_model', fallback='claude-haiku-4-5-20251001'),
         'llm_api_key':                     config.get('HANDOFF', 'llm_api_key', fallback=''),
+        'glpi_group_enforcement':          config.getboolean('HANDOFF', 'glpi_group_enforcement', fallback=False),
+        'glpi_support_group_name':         config.get('HANDOFF', 'glpi_support_group_name', fallback='Support'),
     }
 
 

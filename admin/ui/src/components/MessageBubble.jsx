@@ -36,7 +36,8 @@ const extractYouTubeInfo = (url) => {
 
 
 const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, botIcon = '🤖', botIconColor = null, userIcon = '👤', userIconColor = '#e5e7eb', buttonFontSize = '13', readonly = false }) => {
-    const isBot = message.sender === 'bot';
+    const isBot      = message.sender === 'bot';
+    const isOperator = message.sender === 'operator';
 
     // Compute theme colors - default to black if not provided
     const primaryColor = themeColor || '#000000';
@@ -91,15 +92,21 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`flex w-full mb-4 ${isBot ? 'justify-start' : 'justify-end'}`}
+            className={`flex w-full mb-4 ${(isBot || isOperator) ? 'justify-start' : 'justify-end'}`}
         >
-            <div className={`flex ${message.ticket_form ? 'w-full max-w-full' : 'max-w-[90%]'} ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
-                {/* Avatar - Using SVG or emoji icons */}
+            <div className={`flex ${message.ticket_form ? 'w-full max-w-full' : 'max-w-[90%]'} ${(isBot || isOperator) ? 'flex-row' : 'flex-row-reverse'}`}>
+                {/* Avatar */}
                 <div
-                    className={`flex-shrink-0 h-8 w-8 flex items-center justify-center ${isBot ? 'mr-3 mt-1' : 'ml-2 rounded-full text-base'}`}
-                    style={isBot ? { backgroundColor: '#e8f0fe', borderRadius: '50%', color: '#1a73e8' } : { backgroundColor: userIconColor }}
+                    className={`flex-shrink-0 h-8 w-8 flex items-center justify-center ${(isBot || isOperator) ? 'mr-3 mt-1' : 'ml-2 rounded-full text-base'}`}
+                    style={isOperator
+                        ? { backgroundColor: '#dcfce7', borderRadius: '50%', color: '#16a34a' }
+                        : isBot
+                            ? { backgroundColor: '#e8f0fe', borderRadius: '50%', color: '#1a73e8' }
+                            : { backgroundColor: userIconColor }}
                 >
-                    {isBot ? (
+                    {isOperator ? (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    ) : isBot ? (
                         <Sparkles size={15} strokeWidth={2} />
                     ) : (
                         userIcon
@@ -108,15 +115,22 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
 
                 {/* Bubble + Feedback container */}
                 <div className="flex flex-col">
+                    {isOperator && (
+                        <span className="text-xs text-green-600 font-medium mb-1 ml-1">Support Agent</span>
+                    )}
                     {/* Bubble */}
                     <div
-                        className={`p-3 text-sm ${isBot
+                        className={`p-3 text-sm ${(isBot || isOperator)
                             ? 'text-gray-800'
                             : 'rounded-3xl rounded-tr-none text-gray-800 px-5 bg-gray-100'
                             }`}
-                        style={!isBot ? { backgroundColor: '#f0f4f9' } : {}}
+                        style={isOperator
+                            ? { backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0 12px 12px 12px' }
+                            : (!isBot ? { backgroundColor: '#f0f4f9' } : {})}
                     >
-                        {isBot ? (
+                        {isOperator ? (
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{message.text}</p>
+                        ) : isBot ? (
                             <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-table:my-2">
                                 {/* Text content */}
                                 {message.text && (
