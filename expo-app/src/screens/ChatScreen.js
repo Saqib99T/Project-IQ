@@ -70,6 +70,9 @@ const ChatScreen = ({ navigation }) => {
     const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
     const [feedbackLoading, setFeedbackLoading] = useState(false);
+    const [pendingFeedbackQueueId, setPendingFeedbackQueueId] = useState(null);
+    // timeout choice: { message, options: [{label,value}] }
+    const [timeoutChoice, setTimeoutChoice] = useState(null);
 
     // History panel
     const [historyView, setHistoryView] = useState('chat'); // 'chat' | 'history' | 'session'
@@ -298,24 +301,36 @@ const ChatScreen = ({ navigation }) => {
                 setHandoffState('bot_active');
                 setOperatorName('');
                 setOperatorTyping(false);
+                setTimeoutChoice(null);
                 setMessages(prev => [...prev, {
                     id: uuidv4(),
                     sender: 'bot',
                     text: d.message || '✅ The agent session has ended. I\'m back to assist you.',
                     type: 'system',
                 }]);
+                // Show feedback form after operator resolves
+                if (d.request_feedback) {
+                    setPendingFeedbackQueueId(d.queue_id || null);
+                    setShowFeedback(true);
+                }
             });
 
             socket.on('handoff_abandoned', (d) => {
                 setHandoffState('bot_active');
                 setQueuePosition(null);
                 setWaitMins(null);
+                setTimeoutChoice(null);
                 setMessages(prev => [...prev, {
                     id: uuidv4(),
                     sender: 'bot',
                     text: d.message || '⚠️ The queue wait exceeded our limit. I\'m back to assist you.',
                     type: 'system',
                 }]);
+            });
+
+            // Queue timeout — ask user Remain or Leave
+            socket.on('handoff_timeout_choice', (d) => {
+                setTimeoutChoice({ message: d.message, options: d.options || [] });
             });
         })();
 
@@ -519,7 +534,9 @@ const ChatScreen = ({ navigation }) => {
                         body: JSON.stringify({ sender_id: senderId }),
                     });
                 } catch (_) {}
-                const userScopedId = `user-${appIdRef.current}-${username}`;
+                // Add base36 timestamp suffix so each login creates a new conversation row
+                const sessionId = Date.now().toString(36);
+                const userScopedId = `user-${appIdRef.current}-${username}-${sessionId}`;
                 await storage.setItem(appIdRef.current, 'senderId', userScopedId);
                 setSenderId(userScopedId);
                 setHandoffState('bot_active');
@@ -540,6 +557,9 @@ const ChatScreen = ({ navigation }) => {
     // Logout
     const handleLogout = async () => {
         // End any active handoff before switching identity
+        if (socketRef.current && (handoffState === 'assigned' || handoffState === 'queued')) {
+            socketRef.current.emit('user_end_session', { sender_id: senderId });
+        }
         try {
             const adminBase = await getAdminBaseUrl();
             await fetch(`${adminBase}/handoff/end`, {
@@ -564,6 +584,9 @@ const ChatScreen = ({ navigation }) => {
     // End session
     const handleEndSession = async () => {
         // End any active handoff
+        if (socketRef.current && (handoffState === 'assigned' || handoffState === 'queued')) {
+            socketRef.current.emit('user_end_session', { sender_id: senderId });
+        }
         try {
             const adminBase = await getAdminBaseUrl();
             await fetch(`${adminBase}/handoff/end`, {
@@ -586,6 +609,9 @@ const ChatScreen = ({ navigation }) => {
     // New conversation
     const handleNewConversation = async () => {
         // End any active handoff under current senderId
+        if (socketRef.current && (handoffState === 'assigned' || handoffState === 'queued')) {
+            socketRef.current.emit('user_end_session', { sender_id: senderId });
+        }
         try {
             const adminBase = await getAdminBaseUrl();
             await fetch(`${adminBase}/handoff/end`, {
@@ -711,16 +737,17 @@ const ChatScreen = ({ navigation }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     sender_id: senderId,
-                    user_id: authUser,
-                    app_id: appIdRef.current,
-                    rating: feedbackData.rating,
-                    comments: feedbackData.comments
+                    user_id:   authUser,
+                    app_id:    appIdRef.current,
+                    rating:    feedbackData.rating,
+                    comments:  feedbackData.comments,
+                    queue_id:  pendingFeedbackQueueId || undefined,
                 })
             });
             const result = await response.json();
             if (result.success) {
                 setShowFeedback(false);
-                Alert.alert('Thank You', 'Your feedback has been saved.');
+                setPendingFeedbackQueueId(null);
             } else {
                 Alert.alert('Error', 'Failed to save feedback. Please try again.');
             }
@@ -848,10 +875,13 @@ const ChatScreen = ({ navigation }) => {
                         ListFooterComponent={
                             operatorTyping && handoffState === 'assigned' ? (
                                 <View style={styles.typingRow}>
-                                    <Text style={{fontSize: 12, color: '#6b7280', marginRight: 6}}>{operatorName || 'Agent'} is typing</Text>
-                                    <View style={styles.typingDot} />
-                                    <View style={styles.typingDot} />
-                                    <View style={styles.typingDot} />
+                                    <View style={{width:24,height:24,borderRadius:12,backgroundColor:'#16a34a',alignItems:'center',justifyContent:'center',marginRight:6}}>
+                                        <Text style={{fontSize:10,color:'#fff',fontWeight:'700'}}>{(operatorName||'A')[0].toUpperCase()}</Text>
+                                    </View>
+                                    <Text style={{fontSize:12,color:'#16a34a',marginRight:6,fontWeight:'500'}}>{operatorName || 'Agent'} is typing</Text>
+                                    <View style={[styles.typingDot,{backgroundColor:'#16a34a'}]} />
+                                    <View style={[styles.typingDot,{backgroundColor:'#16a34a'}]} />
+                                    <View style={[styles.typingDot,{backgroundColor:'#16a34a'}]} />
                                 </View>
                             ) : isLoading ? (
                                 <View style={styles.typingRow}>
@@ -865,8 +895,8 @@ const ChatScreen = ({ navigation }) => {
                     </View>
                 )}
 
-                {/* Quick Actions bar — matches web */}
-                {!isWelcomeState && !sessionEnded && (
+                {/* Quick Actions bar — only shown when bot is active (not during handoff) */}
+                {!isWelcomeState && !sessionEnded && handoffState === 'bot_active' && (
                     <QuickActions onAction={handleButtonClick} />
                 )}
 
@@ -934,6 +964,38 @@ const ChatScreen = ({ navigation }) => {
                     )}
                 </SafeAreaView>
             </KeyboardAvoidingView>
+
+            {/* Queue timeout choice — Remain or Leave */}
+            <Modal visible={!!timeoutChoice} transparent animationType="fade" onRequestClose={() => setTimeoutChoice(null)}>
+                <View style={styles.menuOverlay}>
+                    <View style={[styles.menuDropdown, {maxWidth: 320, padding: 20}]}>
+                        <Text style={{fontSize:14,color:'#374151',marginBottom:16,lineHeight:20}}>
+                            {timeoutChoice?.message || 'Your wait time has been extended. Would you like to remain in the queue?'}
+                        </Text>
+                        <View style={{flexDirection:'row',gap:10}}>
+                            {(timeoutChoice?.options || []).map((opt, i) => (
+                                <TouchableOpacity
+                                    key={i}
+                                    style={{flex:1,paddingVertical:10,borderRadius:8,alignItems:'center',
+                                        backgroundColor: i === 0 ? '#f59e0b' : 'transparent',
+                                        borderWidth: i === 0 ? 0 : 1, borderColor:'#d1d5db'}}
+                                    onPress={() => {
+                                        setTimeoutChoice(null);
+                                        if (opt.value !== 'remain') {
+                                            handleButtonClick('/cancel_handoff');
+                                        }
+                                    }}
+                                >
+                                    <Text style={{fontSize:13,fontWeight:'600',
+                                        color: i === 0 ? '#fff' : '#374151'}}>
+                                        {opt.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
             {/* Modals */}
             <LoginModal
