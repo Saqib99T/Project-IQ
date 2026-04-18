@@ -85,6 +85,9 @@ async function showSection(section) {
     else if (section === 'handoff-analytics' && window.haInit) {
         haInit();
     }
+    else if (section === 'system-status' && window.initSystemStatus) {
+        initSystemStatus();
+    }
 }
 
 // Toast Notification

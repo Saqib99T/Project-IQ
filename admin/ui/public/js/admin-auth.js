@@ -140,6 +140,10 @@ const AdminAuth = {
         if (userDisplay && user) {
             userDisplay.textContent = user.firstname || user.name || 'Admin';
         }
+        const userDisplayTop = document.getElementById('user-display-top');
+        if (userDisplayTop && user) {
+            userDisplayTop.textContent = user.firstname || user.name || 'Admin';
+        }
     },
 
     /**

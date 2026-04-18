@@ -37621,6 +37621,11 @@ I'm here to help you with:
     const [operatorName, setOperatorName] = reactExports.useState("");
     const [operatorTyping, setOperatorTyping] = reactExports.useState(false);
     const [timeoutChoice, setTimeoutChoice] = reactExports.useState(null);
+    const [pendingFeedback, setPendingFeedback] = reactExports.useState(null);
+    const [feedbackHover, setFeedbackHover] = reactExports.useState(0);
+    const [feedbackRating, setFeedbackRating] = reactExports.useState(0);
+    const [feedbackComment, setFeedbackComment] = reactExports.useState("");
+    const [feedbackDone, setFeedbackDone] = reactExports.useState(false);
     const socketRef = reactExports.useRef(null);
     const opTypingTimer = reactExports.useRef(null);
     const userTypingTimer = reactExports.useRef(null);
@@ -37757,6 +37762,16 @@ I'm here to help you with:
           text: d.message || "✅ The agent session has ended. I'm back to assist you.",
           type: "system"
         }]);
+        if (d.request_feedback) {
+          setFeedbackRating(0);
+          setFeedbackHover(0);
+          setFeedbackComment("");
+          setFeedbackDone(false);
+          setPendingFeedback({
+            queueId: d.queue_id || null,
+            conversationId: d.conversation_id || null
+          });
+        }
       });
       socket.on("handoff_abandoned", (d) => {
         setHandoffState("bot_active");
@@ -37883,8 +37898,10 @@ I'm here to help you with:
             body: JSON.stringify({ sender_id: senderId })
           }).catch(() => {
           });
-          const userScopedId = `user-${appId}-${loginUsername}`;
+          const sessionId = Date.now().toString(36);
+          const userScopedId = `user-${appId}-${loginUsername}-${sessionId}`;
           setCookie(getStorageKey(appId, "senderId"), userScopedId);
+          setCookie(getStorageKey(appId, "chatUsername"), loginUsername);
           setSenderId(userScopedId);
           setHandoffState("bot_active");
           setOperatorName("");
@@ -38091,6 +38108,26 @@ I'm here to help you with:
       } catch (error) {
         console.error("Error sending feedback:", error);
       }
+    };
+    const submitSessionFeedback = async () => {
+      if (!feedbackRating) return;
+      setFeedbackDone(true);
+      try {
+        await fetch(`${ADMIN_API_URL$1}/api/user/session/feedback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sender_id: senderId,
+            rating: feedbackRating,
+            comments: feedbackComment.trim() || void 0,
+            app_id: appId,
+            user_id: authUser || void 0,
+            queue_id: pendingFeedback?.queueId || void 0
+          })
+        });
+      } catch (_) {
+      }
+      setTimeout(() => setPendingFeedback(null), 2500);
     };
     const handleTicketFilterSubmit = (statusId) => {
       setShowTicketFilterPopup(false);
@@ -38527,6 +38564,65 @@ Priority: ${data.priority}`;
                     i
                   )) })
                 ]
+              }
+            ) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: pendingFeedback && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              motion.div,
+              {
+                initial: { opacity: 0, y: 20 },
+                animate: { opacity: 1, y: 0 },
+                exit: { opacity: 0, y: 20 },
+                className: "absolute bottom-20 left-3 right-3 z-50 bg-white border border-blue-200 rounded-xl shadow-xl p-4",
+                children: !feedbackDone ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-semibold text-gray-800 mb-0.5", children: "How was your experience?" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-gray-400 mb-3", children: "Rate your session with the agent" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center gap-1.5 mb-3", children: [1, 2, 3, 4, 5].map((star) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      onClick: () => setFeedbackRating(star),
+                      onMouseEnter: () => setFeedbackHover(star),
+                      onMouseLeave: () => setFeedbackHover(0),
+                      className: `text-3xl transition-transform hover:scale-110 leading-none ${(feedbackHover || feedbackRating) >= star ? "text-amber-400" : "text-gray-200"}`,
+                      children: "★"
+                    },
+                    star
+                  )) }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "textarea",
+                    {
+                      rows: 3,
+                      placeholder: "Add a comment (optional)…",
+                      value: feedbackComment,
+                      onChange: (e) => setFeedbackComment(e.target.value),
+                      className: "w-full text-xs border border-gray-200 rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-300 text-gray-700 placeholder-gray-300 mb-3"
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        onClick: submitSessionFeedback,
+                        disabled: !feedbackRating,
+                        className: `flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${feedbackRating ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-100 text-gray-300 cursor-not-allowed"}`,
+                        children: "Submit"
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        onClick: () => setPendingFeedback(null),
+                        className: "px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:bg-gray-50",
+                        children: "Skip"
+                      }
+                    )
+                  ] })
+                ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-center py-2", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-3xl mb-1 text-amber-400", children: [
+                    "★".repeat(feedbackRating),
+                    "☆".repeat(5 - feedbackRating)
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-semibold text-green-700", children: "Thank you for your feedback!" })
+                ] })
               }
             ) }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: showTicketFilterPopup && /* @__PURE__ */ jsxRuntimeExports.jsx(

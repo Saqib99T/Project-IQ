@@ -87,32 +87,43 @@ def get_analytics_context(tracker: Tracker) -> Dict[str, str]:
     }
 
 
-def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -> bool:
-    """Check if user is logged in. If not, prompt them to login with a button.
+async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -> bool:
+    """Check if user is logged in. If slot is stale, verify the GLPI token directly.
 
     Returns:
-        True if user is logged in, False otherwise
+        True if user is authenticated (slot set, or token verified live with GLPI)
+        False if not — also sends the login-required message in that case.
     """
     is_authenticated = tracker.get_slot("is_authenticated")
-    session_token = tracker.get_slot("session_token")
-    glpi_user_id = tracker.get_slot("glpi_user_id")
-    glpi_user_name = tracker.get_slot("glpi_user_name")
+    session_token    = tracker.get_slot("session_token")
 
-    logger.info(f"LOGIN CHECK - is_authenticated: {is_authenticated}, session_token: {bool(session_token)}, glpi_user_id: {glpi_user_id}, glpi_user_name: {glpi_user_name}")
+    logger.info(f"LOGIN CHECK - is_authenticated: {is_authenticated}, has_token: {bool(session_token)}")
 
-    if not is_authenticated:
-        logger.info("LOGIN CHECK FAILED - user not authenticated")
-        dispatcher.utter_message(
-            text="🔐 **Login Required**\n\nTo perform ticket operations, please login with your Project IQ credentials.",
-            buttons=[
-                {"title": "🔑 Login Now", "payload": "/login"},
-                {"title": "📚 Search KB Instead", "payload": "/ask_knowledge"}
-            ]
-        )
-        return False
+    # Fast path: slot says authenticated
+    if is_authenticated:
+        logger.info("LOGIN CHECK PASSED (slot)")
+        return True
 
-    logger.info("LOGIN CHECK PASSED")
-    return True
+    # Slow path: slot is False/None but we have a token — verify it live with GLPI.
+    # This recovers from Rasa tracker resets while the widget still shows the user as logged in.
+    if session_token:
+        logger.info("LOGIN CHECK - slot not set, verifying token with GLPI…")
+        service = get_glpi_service()
+        user_info = await service._get_current_user(session_token)
+        if user_info and user_info.get("id"):
+            logger.info(f"LOGIN CHECK PASSED (token verified, user={user_info.get('name')})")
+            return True
+        logger.info("LOGIN CHECK - token invalid/expired")
+
+    logger.info("LOGIN CHECK FAILED")
+    dispatcher.utter_message(
+        text="🔐 **Login Required**\n\nTo perform ticket operations, please login with your Project IQ credentials.",
+        buttons=[
+            {"title": "🔑 Login Now", "payload": "/login"},
+            {"title": "📚 Search KB Instead", "payload": "/ask_knowledge"}
+        ]
+    )
+    return False
 
 
 # Legacy global reference (for backward compatibility)
@@ -316,7 +327,7 @@ class ActionCreateGlpiTicket(Action):
     ) -> List[Dict[Text, Any]]:
 
         # Check if user is logged in
-        if not check_user_login(tracker, dispatcher):
+        if not await check_user_login(tracker, dispatcher):
             return [SlotSet("ticket_id", None)]
 
         # 1. Check for the required session token
@@ -408,7 +419,7 @@ class ActionCheckGlpiStatus(Action):
         logger.info("DEBUG: Entering action_check_glpi_status")
 
         # Check if user is logged in
-        if not check_user_login(tracker, dispatcher):
+        if not await check_user_login(tracker, dispatcher):
             return [SlotSet("ticket_id", None)]
 
         # 1. Check for the required session token
@@ -518,7 +529,7 @@ class ActionUpdateGlpiTicket(Action):
     ) -> List[Dict[Text, Any]]:
 
         # Check if user is logged in
-        if not check_user_login(tracker, dispatcher):
+        if not await check_user_login(tracker, dispatcher):
             return []
 
         session_token = tracker.get_slot("session_token")
@@ -697,7 +708,7 @@ class ActionViewTicketComments(Action):
     ) -> List[Dict[Text, Any]]:
 
         # Check if user is logged in
-        if not check_user_login(tracker, dispatcher):
+        if not await check_user_login(tracker, dispatcher):
             return []
 
         session_token = tracker.get_slot("session_token")
@@ -748,7 +759,7 @@ class ActionListOpenTickets(Action):
     ) -> List[Dict[Text, Any]]:
 
         # Check if user is logged in
-        if not check_user_login(tracker, dispatcher):
+        if not await check_user_login(tracker, dispatcher):
             return []
 
         session_token = tracker.get_slot("session_token")
@@ -898,7 +909,7 @@ class ActionUploadFile(Action):
     ) -> List[Dict[Text, Any]]:
 
         # Check if user is logged in
-        if not check_user_login(tracker, dispatcher):
+        if not await check_user_login(tracker, dispatcher):
             return []
 
         session_token = tracker.get_slot("session_token")
@@ -954,7 +965,7 @@ class ActionListAttachments(Action):
         logger.info("DEBUG: ActionListAttachments started")
 
         # Check if user is logged in
-        if not check_user_login(tracker, dispatcher):
+        if not await check_user_login(tracker, dispatcher):
             return []
 
         session_token = tracker.get_slot("session_token")

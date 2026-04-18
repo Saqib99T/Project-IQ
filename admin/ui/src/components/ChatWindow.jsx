@@ -155,6 +155,12 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const [operatorTyping,  setOperatorTyping]  = useState(false);
     // timeout choice: { message, options: [{label,value}] }
     const [timeoutChoice,   setTimeoutChoice]   = useState(null);
+    // feedback request shown after operator resolves: { queueId, conversationId } or null
+    const [pendingFeedback,  setPendingFeedback]  = useState(null);
+    const [feedbackHover,    setFeedbackHover]    = useState(0);   // star hovered (preview)
+    const [feedbackRating,   setFeedbackRating]   = useState(0);   // star selected
+    const [feedbackComment,  setFeedbackComment]  = useState('');  // comment text
+    const [feedbackDone,     setFeedbackDone]     = useState(false);
     const socketRef       = useRef(null);
     const opTypingTimer   = useRef(null);
     const userTypingTimer = useRef(null);
@@ -329,6 +335,17 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 text: d.message || '✅ The agent session has ended. I\'m back to assist you.',
                 type: 'system',
             }]);
+            // Show feedback form if requested
+            if (d.request_feedback) {
+                setFeedbackRating(0);
+                setFeedbackHover(0);
+                setFeedbackComment('');
+                setFeedbackDone(false);
+                setPendingFeedback({
+                    queueId:        d.queue_id || null,
+                    conversationId: d.conversation_id || null,
+                });
+            }
         });
 
         // Abandoned — queue timeout expired
@@ -488,10 +505,13 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                     body: JSON.stringify({ sender_id: senderId }),
                 }).catch(() => {});
 
-                // Adopt a user-scoped senderId so different users on the same
-                // browser always get separate conversations / handoff sessions.
-                const userScopedId = `user-${appId}-${loginUsername}`;
+                // Each login gets a unique session ID so a fresh conversation
+                // row is created in the DB. History is looked up by username.
+                const sessionId = Date.now().toString(36);
+                const userScopedId = `user-${appId}-${loginUsername}-${sessionId}`;
                 setCookie(getStorageKey(appId, 'senderId'), userScopedId);
+                // Also store plain username for history lookup
+                setCookie(getStorageKey(appId, 'chatUsername'), loginUsername);
                 setSenderId(userScopedId);
                 setHandoffState('bot_active');
                 setOperatorName('');
@@ -725,6 +745,27 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         } catch (error) {
             console.error('Error sending feedback:', error);
         }
+    };
+
+    // Submit session feedback after operator resolves
+    const submitSessionFeedback = async () => {
+        if (!feedbackRating) return;
+        setFeedbackDone(true);
+        try {
+            await fetch(`${ADMIN_API_URL}/api/user/session/feedback`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sender_id: senderId,
+                    rating:    feedbackRating,
+                    comments:  feedbackComment.trim() || undefined,
+                    app_id:    appId,
+                    user_id:   authUser || undefined,
+                    queue_id:  pendingFeedback?.queueId || undefined,
+                }),
+            });
+        } catch (_) { /* non-fatal */ }
+        setTimeout(() => setPendingFeedback(null), 2500);
     };
 
     const handleTicketFilterSubmit = (statusId) => {
@@ -1216,6 +1257,73 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                             </button>
                                         ))}
                                     </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* ── Session feedback overlay (shown after operator resolves) ─── */}
+                        <AnimatePresence>
+                            {pendingFeedback && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 20 }}
+                                    className="absolute bottom-20 left-3 right-3 z-50 bg-white border border-blue-200 rounded-xl shadow-xl p-4"
+                                >
+                                    {!feedbackDone ? (
+                                        <>
+                                            <p className="text-sm font-semibold text-gray-800 mb-0.5">How was your experience?</p>
+                                            <p className="text-xs text-gray-400 mb-3">Rate your session with the agent</p>
+
+                                            {/* Stars */}
+                                            <div className="flex justify-center gap-1.5 mb-3">
+                                                {[1,2,3,4,5].map(star => (
+                                                    <button
+                                                        key={star}
+                                                        onClick={() => setFeedbackRating(star)}
+                                                        onMouseEnter={() => setFeedbackHover(star)}
+                                                        onMouseLeave={() => setFeedbackHover(0)}
+                                                        className={`text-3xl transition-transform hover:scale-110 leading-none ${
+                                                            (feedbackHover || feedbackRating) >= star
+                                                                ? 'text-amber-400'
+                                                                : 'text-gray-200'
+                                                        }`}
+                                                    >★</button>
+                                                ))}
+                                            </div>
+
+                                            {/* Comment box — always visible */}
+                                            <textarea
+                                                rows={3}
+                                                placeholder="Add a comment (optional)…"
+                                                value={feedbackComment}
+                                                onChange={e => setFeedbackComment(e.target.value)}
+                                                className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-300 text-gray-700 placeholder-gray-300 mb-3"
+                                            />
+
+                                            {/* Actions */}
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={submitSessionFeedback}
+                                                    disabled={!feedbackRating}
+                                                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                                                        feedbackRating
+                                                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                            : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                                    }`}
+                                                >Submit</button>
+                                                <button
+                                                    onClick={() => setPendingFeedback(null)}
+                                                    className="px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:bg-gray-50"
+                                                >Skip</button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-center py-2">
+                                            <div className="text-3xl mb-1 text-amber-400">{'★'.repeat(feedbackRating)}{'☆'.repeat(5 - feedbackRating)}</div>
+                                            <p className="text-sm font-semibold text-green-700">Thank you for your feedback!</p>
+                                        </div>
+                                    )}
                                 </motion.div>
                             )}
                         </AnimatePresence>

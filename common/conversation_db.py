@@ -1449,12 +1449,14 @@ def get_available_operators(app_id: str = None) -> List[Dict]:
             " WHERE hq.operator_id = o.id AND hq.status = 'assigned') AS current_load "
             "FROM operators o "
             "WHERE o.is_active = TRUE "
-            "AND o.status IN ('available', 'busy') "
-            "AND o.last_seen > NOW() - INTERVAL '90 seconds'"
+            "AND o.last_seen > NOW() - INTERVAL '120 seconds' "
+            "AND o.status NOT IN ('offline', 'away')"
         )
         params = []
         if app_id:
-            query += " AND %s = ANY(o.app_ids)"
+            # Empty app_ids array means the operator handles ALL apps (no restriction).
+            # Only filter if the operator has explicitly listed specific apps.
+            query += " AND (o.app_ids = '{}' OR %s = ANY(o.app_ids))"
             params.append(app_id)
         cursor.execute(query, params)
         rows = cursor.fetchall()
@@ -1603,7 +1605,7 @@ def get_queue(app_id: str = None, team: str = None, status: str = 'waiting') -> 
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         query = (
-            "SELECT hq.*, c.user_name, c.user_id, c.low_conf_streak, c.frustration_score "
+            "SELECT hq.*, c.sender_id, c.user_name, c.user_id, c.low_conf_streak, c.frustration_score "
             "FROM handoff_queue hq "
             "JOIN conversations c ON c.id = hq.conversation_id "
             "WHERE 1=1"

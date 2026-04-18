@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project-IQ Status</title>
+<style>
+  :root {
+    --bg:      #0f1117;
+    --surface: #1a1d27;
+    --border:  #2a2d3a;
+    --green:   #22c55e;
+    --red:     #ef4444;
+    --yellow:  #f59e0b;
+    --cyan:    #22d3ee;
+    --text:    #e2e8f0;
+    --dim:     #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo { font-family: monospace; font-size: 11px; color: var(--cyan); line-height: 1.3; white-space: pre; }
+  .header-right { text-align: right; }
+  .header-right .ts { color: var(--dim); font-size: 13px; }
+  .refresh-btn {
+    margin-top: 6px;
+    background: var(--border);
+    border: 1px solid #3a3d4a;
+    color: var(--text);
+    padding: 5px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background .15s;
+  }
+  .refresh-btn:hover { background: #2a2d3a; }
+  .countdown { color: var(--dim); font-size: 12px; margin-top: 4px; }
+
+  main { padding: 24px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 1300px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .card.full { grid-column: 1 / -1; }
+  .card-header {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-body { padding: 14px 18px; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid #1e2130;
+  }
+  .row:last-child { border-bottom: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.ok  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.bad { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+  .row-name { font-weight: 600; min-width: 110px; }
+  .row-detail { color: var(--dim); font-size: 13px; }
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .badge.ok  { background: #14532d; color: var(--green); }
+  .badge.bad { background: #450a0a; color: var(--red); }
+
+  /* Resources */
+  .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .res-item label { color: var(--dim); font-size: 12px; display: block; margin-bottom: 4px; }
+  .res-val { font-size: 22px; font-weight: 700; }
+  .bar-wrap { background: #1e2130; border-radius: 4px; height: 6px; margin-top: 6px; overflow: hidden; }
+  .bar { height: 100%; border-radius: 4px; transition: width .4s; }
+  .bar.ok     { background: var(--green); }
+  .bar.warn   { background: var(--yellow); }
+  .bar.danger { background: var(--red); }
+  .disk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .disk-table th { color: var(--dim); font-weight: 500; text-align: left; padding: 4px 8px; }
+  .disk-table td { padding: 5px 8px; border-top: 1px solid #1e2130; }
+
+  /* Errors */
+  .err-block { margin-bottom: 10px; }
+  .err-label { color: var(--yellow); font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+  .err-line { color: var(--dim); font-size: 12px; font-family: monospace; padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .no-err { color: var(--green); font-size: 13px; }
+
+  /* Model */
+  .model-name { font-family: monospace; font-size: 13px; color: var(--cyan); }
+
+  /* Spinner */
+  .loading { text-align: center; padding: 40px; color: var(--dim); }
+  .spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--cyan); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">  ██████╗ ██████╗   ██████╗      ██╗███████╗ ██████╗
+  ██╔══██╗██╔══██╗ ██╔═══██╗     ██║██╔════╝██╔═══██╗
+  ██████╔╝██████╔╝ ██║   ██║     ██║█████╗  ██║   ██║
+  ██╔═══╝ ██╔══██╗ ██║   ██║██   ██║██╔══╝  ██║▄▄ ██║
+  ██║     ██║  ██║ ╚██████╔╝╚█████╔╝███████╗╚██████╔╝
+  ╚═╝     ╚═╝  ╚═╝  ╚═════╝  ╚════╝ ╚══════╝ ╚══▀▀═╝</div>
+  <div class="header-right">
+    <div class="ts" id="ts">—</div>
+    <button class="refresh-btn" onclick="load()">↻ Refresh</button>
+    <div class="countdown" id="cd"></div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="loading" style="grid-column:1/-1"><span class="spin"></span>Loading…</div>
+</main>
+
+<script>
+let timer, cd;
+
+function bar_class(pct) {
+  if (pct > 90) return 'danger';
+  if (pct > 75) return 'warn';
+  return 'ok';
+}
+
+function dot(ok) { return `<span class="dot ${ok?'ok':'bad'}"></span>`; }
+function badge(ok, label) { return `<span class="badge ${ok?'ok':'bad'}">${label}</span>`; }
+
+function row(ok, name, detail, extra='') {
+  return `<div class="row">${dot(ok)}<span class="row-name">${name}</span><span class="row-detail">${detail}</span>${extra}</div>`;
+}
+
+function render(d) {
+  document.getElementById('ts').textContent = 'Last update: ' + d.timestamp;
+
+  const cards = [];
+
+  // Services
+  cards.push(`
+    <div class="card">
+      <div class="card-header">⚙ Systemd Services</div>
+      <div class="card-body">
+        ${d.services.map(s => row(s.ok, s.name,
+          s.ok ? `mem: ${s.mem} · up: ${s.uptime}` : s.state,
+          badge(s.ok, s.ok ? 'active' : s.state)
+        )).join('')}
+      </div>
+    </div>`);
+
+  // Ports
+  cards.push(`
+    <div class="card">
+      <div class="card-header">🔌 Open Ports</div>
+      <div class="card-body">
+        ${d.ports.map(p => row(p.ok, ':'+p.port, p.label,
+          badge(p.ok, p.ok ? 'listening' : 'closed')
+        )).join('')}
+      </div>
+    </div>`);
+
+  // Docker
+  cards.push(`
+    <div class="card">
+      <div class="card-header">🐳 Docker Containers</div>
+      <div class="card-body">
+        ${d.containers.length
+          ? d.containers.map(c => row(c.ok, c.name, c.status)).join('')
+          : '<div class="row-detail" style="padding:8px 0">No matching containers</div>'
+        }
+      </div>
+    </div>`);
+
+  // App Health
+  cards.push(`
+    <div class="card">
+      <div class="card-header">🩺 App Health</div>
+      <div class="card-body">
+        ${d.health.map(h => row(h.ok, h.name, h.detail)).join('')}
+      </div>
+    </div>`);
+
+  // Resources
+  const r = d.resources;
+  cards.push(`
+    <div class="card full">
+      <div class="card-header">📊 System Resources</div>
+      <div class="card-body">
+        <div class="res-grid">
+          <div class="res-item">
+            <label>CPU Usage</label>
+            <div class="res-val">${r.cpu_used != null ? r.cpu_used+'%' : 'n/a'}</div>
+            <div class="bar-wrap"><div class="bar ${bar_class(r.cpu_used||0)}" style="width:${r.cpu_used||0}%"></div></div>
+          </div>
+          <div class="res-item">
+            <label>Memory — ${r.mem_used} / ${r.mem_total}</label>
+            <div class="res-val">${r.mem_pct}%</div>
+            <div class="bar-wrap"><div class="bar ${bar_class(r.mem_pct)}" style="width:${r.mem_pct}%"></div></div>
+          </div>
+          <div class="res-item">
+            <label>Swap — ${r.swap_used} / ${r.swap_total}</label>
+          </div>
+          <div class="res-item">
+            <label>Load Average (${r.cpus} CPUs)</label>
+            <div class="res-val" style="font-size:16px">${r.load}</div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <table class="disk-table">
+            <tr><th>Filesystem</th><th>Size</th><th>Used</th><th>Avail</th><th>Use%</th><th>Mount</th></tr>
+            ${r.disk.slice(1).map(dl => {
+              const p = dl.raw.split(/\s+/);
+              return `<tr>
+                <td>${p[0]||''}</td><td>${p[1]||''}</td><td>${p[2]||''}</td>
+                <td>${p[3]||''}</td>
+                <td><span style="color:var(--${dl.pct>90?'red':dl.pct>75?'yellow':'green'})">${p[4]||''}</span></td>
+                <td>${p[5]||''}</td>
+              </tr>`;
+            }).join('')}
+          </table>
+        </div>
+      </div>
+    </div>`);
+
+  // Errors
+  const hasErrors = d.errors.some(e => e.errors.length > 0);
+  cards.push(`
+    <div class="card">
+      <div class="card-header">⚠ Recent Errors</div>
+      <div class="card-body">
+        ${d.errors.map(e => e.errors.length
+          ? `<div class="err-block"><div class="err-label">${e.service}</div>${e.errors.map(l=>`<div class="err-line">${l}</div>`).join('')}</div>`
+          : `<div class="row">${dot(true)}<span class="row-detail">${e.service}: no recent errors</span></div>`
+        ).join('')}
+      </div>
+    </div>`);
+
+  // Model
+  const m = d.model;
+  cards.push(`
+    <div class="card">
+      <div class="card-header">🤖 Rasa Model</div>
+      <div class="card-body">
+        ${m.found
+          ? `${row(true, 'Latest', '')}
+             <div style="padding:6px 0 0 18px">
+               <div class="model-name">${m.name}</div>
+               <div class="row-detail" style="margin-top:4px">Size: ${m.size} · Trained: ${m.trained}</div>
+               <div class="row-detail">Total on disk: ${m.count}</div>
+             </div>`
+          : row(false, 'No model', 'Retrain needed')
+        }
+      </div>
+    </div>`);
+
+  document.getElementById('main').innerHTML = cards.join('');
+}
+
+function startCountdown() {
+  let s = 30;
+  clearInterval(cd);
+  cd = setInterval(() => {
+    s--;
+    document.getElementById('cd').textContent = `Auto-refresh in ${s}s`;
+    if (s <= 0) { clearInterval(cd); load(); }
+  }, 1000);
+}
+
+async function load() {
+  clearInterval(cd);
+  clearInterval(timer);
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    render(data);
+    startCountdown();
+  } catch(e) {
+    document.getElementById('main').innerHTML =
+      `<div class="loading" style="grid-column:1/-1;color:var(--red)">⚠ Could not reach /api/status — is app.py running?</div>`;
+  }
+}
+
+load();
+</script>
+</body>
+</html>

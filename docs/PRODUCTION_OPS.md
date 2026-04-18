@@ -16,7 +16,7 @@
 | PostgreSQL 14 | system | `/etc/postgresql/14/` | 5432 |
 | GLPI 11 | Docker | container `glpi`, compose at `/home/user/docker-compose-glpi.yml` | 8083 |
 | GLPI Database | Docker | container `glpi-db` (MySQL 8.0) | — internal only |
-| Firecrawl | Docker | compose at `/home/user/docker-compose-firecrawl.yml` | 3002 |
+| Firecrawl | Docker | compose at `/home/user/firecrawl-selfhost/docker-compose.yaml` | 3002 |
 | Python venv | — | `/home/user/project-iq/venv/` | — |
 
 ---
@@ -25,9 +25,12 @@
 
 | URL | What it is |
 |-----|-----------|
-| `http://198.233.100.77:8181/it.html` | Chat widget demo page |
-| `http://198.233.100.77:8181/admin.html` | Admin panel |
-| `http://198.233.100.77:8181/operator.html` | Operator live-chat console |
+| `http://198.233.100.77:8181/` | Chat widget (bot) |
+| `http://198.233.100.77:8181/admin` | Admin panel |
+| `http://198.233.100.77:8181/operator` | Operator live-chat console |
+| `http://198.233.100.77:8181/it.html` | Chat widget (legacy alias) |
+| `http://198.233.100.77:8181/admin.html` | Admin panel (legacy alias) |
+| `http://198.233.100.77:8181/operator.html` | Operator console (legacy alias) |
 | `http://198.233.100.77:8083/` | GLPI web interface (login) |
 | `http://198.233.100.77:8083/apirest.php` | GLPI REST API |
 | `http://198.233.100.77:5005/webhooks/rest/webhook` | Rasa chat endpoint (internal) |
@@ -195,18 +198,28 @@ docker exec glpi cat /var/www/html/glpi/config/config_db.php
 
 ## 4. Docker — Firecrawl
 
+> **Note:** Do NOT use `/home/user/docker-compose-firecrawl.yml` — it pulls from GHCR which is denied.
+> The working setup builds from source at `/home/user/firecrawl-selfhost/`.
+
 ```bash
 # Start / stop
-cd /home/user
-docker-compose -f docker-compose-firecrawl.yml up -d
-docker-compose -f docker-compose-firecrawl.yml down
+cd /home/user/firecrawl-selfhost
+docker-compose up -d
+docker-compose down
+
+# If api container fails on first start (RabbitMQ not yet healthy), run:
+docker-compose up -d api
 
 # Logs
-docker-compose -f docker-compose-firecrawl.yml logs --tail 50 -f
+docker-compose logs --tail 50 -f api
+docker-compose logs --tail 50 -f
+
+# Status
+docker ps --filter name=firecrawl
 
 # Test
-curl http://localhost:3002/v1/scrape -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com"}'
+curl http://localhost:3002/
+# Expected: {"message":"Firecrawl API","documentation_url":"..."}
 ```
 
 ---
@@ -300,7 +313,12 @@ npm run build:widget
 # Rebuild admin panel UI
 npm run build
 
-# No service restart needed — static files served directly from dist-widget/
+# Static file locations:
+#   Admin panel (admin.html, js/*, components/*) → served from admin/ui/public/
+#   Chat widget (glpi-chat-widget.js, it.html, etc.) → served from admin/ui/dist-widget/
+#
+# To deploy static-only changes (HTML/JS), just copy to the right folder — no restart needed.
+# To deploy admin_api.py changes → sudo systemctl restart project-iq-admin
 ```
 
 ---

@@ -6,6 +6,7 @@ Extensible for any plugin modules like Firecrawl, Airbyte...
 """
 
 import eventlet
+import eventlet.tpool
 eventlet.monkey_patch()
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -235,13 +236,40 @@ def add_header(response):
 
 
 # Serve static files - Flask handles /static/* automatically via static_folder
+
+# ── Clean URLs (canonical) ────────────────────────────────────────────────────
 @app.route('/')
 def serve_index():
-    return send_from_directory(STATIC_DIR, 'admin.html')
+    return send_from_directory(WIDGET_DIR, 'it.html')
 
-@app.route('/admin.html')
+@app.route('/admin')
 def serve_admin():
     return send_from_directory(STATIC_DIR, 'admin.html')
+
+@app.route('/operator')
+def serve_operator():
+    resp = send_from_directory(STATIC_DIR, 'operator.html')
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
+
+# ── Legacy .html aliases (kept for backwards compatibility) ───────────────────
+@app.route('/admin.html')
+def serve_admin_html():
+    return send_from_directory(STATIC_DIR, 'admin.html')
+
+@app.route('/operator.html')
+def serve_operator_html():
+    resp = send_from_directory(STATIC_DIR, 'operator.html')
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
+
+@app.route('/it.html')
+def serve_it_widget():
+    return send_from_directory(WIDGET_DIR, 'it.html')
 
 @app.route('/inspector.html')
 def serve_inspector():
@@ -254,18 +282,6 @@ def serve_analytics():
 @app.route('/glpi-chat-widget.js')
 def serve_widget_js():
     return send_from_directory(WIDGET_DIR, 'glpi-chat-widget.js')
-
-@app.route('/operator.html')
-def serve_operator_dashboard():
-    resp = send_from_directory(STATIC_DIR, 'operator.html')
-    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    resp.headers['Pragma'] = 'no-cache'
-    resp.headers['Expires'] = '0'
-    return resp
-
-@app.route('/it.html')
-def serve_it_widget():
-    return send_from_directory(WIDGET_DIR, 'it.html')
 
 @app.route('/acc.html')
 def serve_acc_widget():
@@ -474,6 +490,345 @@ def get_default():
 # =====================
 # ANALYTICS ENDPOINTS
 # =====================
+
+@app.route('/api/status', methods=['GET'])
+def system_status():
+    """System status dashboard — Python-native checks, safe under eventlet."""
+    import socket, re, os, glob, urllib.request, urllib.error
+    from datetime import datetime
+
+    def _tpool(fn, *args, **kwargs):
+        """Run a blocking call in a real thread (safe under eventlet monkey-patch)."""
+        try:
+            return eventlet.tpool.execute(fn, *args, **kwargs)
+        except Exception:
+            return None
+
+    def _shell(cmd, timeout=5):
+        """Run a shell command in a real thread to avoid eventlet blocking."""
+        import subprocess
+        def _run():
+            try:
+                r = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, timeout=timeout)
+                return r.stdout.decode('utf-8', errors='replace').strip()
+            except Exception:
+                return ''
+        return _tpool(_run) or ''
+
+    # ── Ports — read /proc/net/tcp[6] directly (no subprocess, no socket) ──
+    _listening_ports = set()
+    try:
+        for path in ('/proc/net/tcp', '/proc/net/tcp6'):
+            try:
+                with open(path) as f:
+                    for line in f.readlines()[1:]:
+                        parts = line.split()
+                        if len(parts) >= 4 and parts[3] == '0A':  # 0A = LISTEN
+                            local_addr = parts[1]
+                            port_hex = local_addr.split(':')[1]
+                            _listening_ports.add(int(port_hex, 16))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    def port_listening(port):
+        return port in _listening_ports
+
+    # ── Services (systemctl) ──────────────────────────────────────────────
+    # Service check: read systemd private state files (works in any user context)
+    def _svc_info(svc):
+        """Check service state by reading /run/systemd and /proc directly."""
+        # Try reading the MainPID from systemd's runtime state
+        pid = None
+        state = 'unknown'
+        mem_str = 'n/a'
+        uptime = 'n/a'
+        try:
+            # /run/systemd/units/ has per-unit state
+            unit_state_path = f'/run/systemd/units/{svc}.service'
+            if os.path.exists(unit_state_path):
+                with open(unit_state_path) as f:
+                    for line in f:
+                        if line.startswith('MAINPID='):
+                            pid = int(line.strip().split('=')[1])
+                        if line.startswith('ACTIVE='):
+                            state = line.strip().split('=')[1]
+        except Exception:
+            pass
+
+        # Fallback: search /proc for the process name
+        if state == 'unknown' or pid is None:
+            try:
+                keyword_map = {
+                    'project-iq-rasa':    'rasa run',
+                    'project-iq-actions': 'rasa run actions',
+                    'project-iq-admin':   'admin.api.admin_api',
+                }
+                keyword = keyword_map.get(svc, svc)
+                for entry in os.listdir('/proc'):
+                    if not entry.isdigit():
+                        continue
+                    try:
+                        with open(f'/proc/{entry}/cmdline', 'rb') as f:
+                            cmd = f.read().replace(b'\x00', b' ').decode('utf-8', errors='replace')
+                        if keyword in cmd:
+                            pid = int(entry)
+                            state = 'active'
+                            break
+                    except Exception:
+                        pass
+                if state == 'unknown':
+                    state = 'inactive'
+            except Exception:
+                pass
+
+        # Memory from /proc/<pid>/status
+        if pid:
+            try:
+                with open(f'/proc/{pid}/status') as f:
+                    for line in f:
+                        if line.startswith('VmRSS:'):
+                            kb = int(line.split()[1])
+                            mem_str = f'{kb//1024}M' if kb < 1024*1024 else f'{kb//1024//1024}G'
+                            break
+            except Exception:
+                pass
+            # Start time from /proc/<pid>/stat
+            try:
+                with open('/proc/stat') as f:
+                    for line in f:
+                        if line.startswith('btime'):
+                            boot_time = int(line.split()[1])
+                            break
+                with open(f'/proc/{pid}/stat') as f:
+                    fields = f.read().split()
+                    import time as _time
+                    starttime_ticks = int(fields[21])
+                    hz = os.sysconf('SC_CLK_TCK')
+                    start_epoch = boot_time + starttime_ticks / hz
+                    elapsed = int(_time.time() - start_epoch)
+                    if elapsed < 60:   uptime = f'{elapsed}s'
+                    elif elapsed < 3600: uptime = f'{elapsed//60}m {elapsed%60}s'
+                    else: uptime = f'{elapsed//3600}h {(elapsed%3600)//60}m'
+            except Exception:
+                pass
+
+        return state, mem_str, uptime
+
+    services = []
+    for svc in ['project-iq-rasa', 'project-iq-actions', 'project-iq-admin']:
+        state, mem_str, uptime = _svc_info(svc)
+        services.append({'name':   svc.replace('project-iq-', ''),
+                         'state':  state,
+                         'mem':    mem_str,
+                         'uptime': uptime,
+                         'ok':     state == 'active'})
+
+    # ── Docker containers ─────────────────────────────────────────────────
+    raw = _shell('docker ps -a --format "{{.Names}}\t{{.Status}}" 2>/dev/null | grep -E "glpi|firecrawl"')
+    containers = []
+    for line in raw.splitlines():
+        if '\t' in line:
+            name, status = line.split('\t', 1)
+            containers.append({'name': name, 'status': status,
+                                'ok': status.lower().startswith('up')})
+
+    # ── Ports ─────────────────────────────────────────────────────────────
+    port_labels = {5005: 'Rasa Core', 5055: 'Rasa Actions', 8181: 'Admin API',
+                   5432: 'PostgreSQL', 8083: 'GLPI', 3002: 'Firecrawl'}
+    ports = [{'port': p, 'label': port_labels[p], 'ok': port_listening(p)}
+             for p in port_labels]
+
+    # ── App health — raw TCP socket HTTP (safe under eventlet tpool) ────────
+    import socket as _sock
+    def _http_raw(host, port, path='/', timeout=4):
+        """Minimal HTTP GET via raw socket in a real thread."""
+        def _req():
+            try:
+                s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+                s.settimeout(timeout)
+                s.connect((host, port))
+                req = f'GET {path} HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n'
+                s.sendall(req.encode())
+                data = b''
+                while True:
+                    chunk = s.recv(4096)
+                    if not chunk:
+                        break
+                    data += chunk
+                    if len(data) > 32768:
+                        break
+                s.close()
+                text = data.decode('utf-8', errors='replace')
+                status_match = re.match(r'HTTP/\S+ (\d+)', text)
+                code = int(status_match.group(1)) if status_match else None
+                return code, text
+            except Exception:
+                return None, ''
+        return _tpool(_req) or (None, '')
+
+    health = []
+
+    # Rasa
+    rasa_code, rasa_body = _http_raw('127.0.0.1', 5005, '/version')
+    m = re.search(r'"version":"([^"]+)"', rasa_body)
+    health.append({'name': 'Rasa', 'ok': bool(m),
+                   'detail': f'v{m.group(1)}' if m else 'no response'})
+
+    # Admin API (self — check port directly, skip HTTP to avoid self-loop)
+    admin_up = 8181 in _listening_ports
+    health.append({'name': 'Admin API', 'ok': admin_up,
+                   'detail': 'listening' if admin_up else 'not listening'})
+
+    # GLPI
+    glpi_code, glpi_body = _http_raw('127.0.0.1', 8083, '/')
+    glpi_ok = bool(re.search(r'Authentication|GLPI', glpi_body, re.I))
+    m2 = re.search(r'<title>([^<]+)</title>', glpi_body, re.I)
+    health.append({'name': 'GLPI', 'ok': glpi_ok,
+                   'detail': m2.group(1).strip() if m2 else ('up' if glpi_ok else 'no response')})
+
+    # PostgreSQL (use existing DB connection)
+    pg_ok, pg_detail = False, 'cannot connect'
+    try:
+        from common.conversation_db import _get_connection, _release_connection
+        conn = _get_connection()
+        cur = conn.cursor()
+        cur.execute('SELECT COUNT(*) FROM conversations')
+        conv_count = cur.fetchone()[0]
+        cur.execute('SELECT COUNT(*) FROM operators')
+        ops_count = cur.fetchone()[0]
+        cur.close()
+        _release_connection(conn)
+        pg_ok, pg_detail = True, f'{conv_count} conversations, {ops_count} operators'
+    except Exception as e:
+        pg_detail = str(e)[:80]
+    health.append({'name': 'PostgreSQL', 'ok': pg_ok, 'detail': pg_detail})
+
+    # ── System resources (read /proc directly) ────────────────────────────
+    resources = {'cpu_used': None, 'mem_used': 'n/a', 'mem_total': 'n/a',
+                 'mem_pct': 0, 'swap_used': 'n/a', 'swap_total': 'n/a',
+                 'disk': [], 'load': 'n/a', 'cpus': 'n/a'}
+    try:
+        # Load average
+        with open('/proc/loadavg') as f:
+            la = f.read().split()
+            resources['load'] = f'{la[0]} {la[1]} {la[2]}'
+
+        # CPU count
+        resources['cpus'] = str(os.cpu_count() or 'n/a')
+
+        # CPU usage — two /proc/stat samples 0.3s apart (inside tpool real thread)
+        def _cpu_pct():
+            import time as _time
+            def _read_stat():
+                with open('/proc/stat') as f:
+                    l = f.readline().split()
+                vals = list(map(int, l[1:8]))   # user nice sys idle iowait irq softirq
+                idle  = vals[3] + vals[4]        # idle + iowait
+                total = sum(vals)
+                return idle, total
+            try:
+                i1, t1 = _read_stat()
+                _time.sleep(0.3)
+                i2, t2 = _read_stat()
+                dt = t2 - t1
+                di = i2 - i1
+                return round((1 - di / dt) * 100) if dt else 0
+            except Exception:
+                return 0
+        resources['cpu_used'] = _tpool(_cpu_pct) or 0
+
+        # Memory from /proc/meminfo
+        meminfo = {}
+        with open('/proc/meminfo') as f:
+            for line in f:
+                k, v = line.split(':', 1)
+                meminfo[k.strip()] = int(v.strip().split()[0])  # kB
+        mem_total_kb  = meminfo.get('MemTotal', 0)
+        mem_avail_kb  = meminfo.get('MemAvailable', 0)
+        mem_used_kb   = mem_total_kb - mem_avail_kb
+        swap_total_kb = meminfo.get('SwapTotal', 0)
+        swap_free_kb  = meminfo.get('SwapFree', 0)
+        swap_used_kb  = swap_total_kb - swap_free_kb
+
+        def _fmt(kb):
+            if kb >= 1024**2: return f'{kb/1024**2:.1f}G'
+            if kb >= 1024:    return f'{kb/1024:.0f}M'
+            return f'{kb}K'
+
+        resources['mem_total'] = _fmt(mem_total_kb)
+        resources['mem_used']  = _fmt(mem_used_kb)
+        resources['mem_pct']   = round(mem_used_kb / mem_total_kb * 100) if mem_total_kb else 0
+        resources['swap_total'] = _fmt(swap_total_kb)
+        resources['swap_used']  = _fmt(swap_used_kb)
+
+        # Disk usage via os.statvfs for / and /home
+        disk_lines = []
+        seen = set()
+        for path in ['/', '/home']:
+            try:
+                st = os.statvfs(path)
+                total = st.f_blocks * st.f_frsize
+                free  = st.f_bfree  * st.f_frsize
+                used  = total - free
+                pct   = round(used / total * 100) if total else 0
+                key   = (st.f_fsid if hasattr(st, 'f_fsid') else path)
+                if key not in seen:
+                    seen.add(key)
+                    def _fmt_b(b):
+                        if b >= 1024**3: return f'{b/1024**3:.1f}G'
+                        if b >= 1024**2: return f'{b/1024**2:.0f}M'
+                        return f'{b//1024}K'
+                    raw_str = f'disk  {_fmt_b(total)}  {_fmt_b(used)}  {_fmt_b(free)}  {pct}%  {path}'
+                    disk_lines.append({'raw': raw_str, 'pct': pct})
+            except Exception:
+                pass
+        # prepend header row for the JS table renderer
+        resources['disk'] = [{'raw': 'Filesystem  Size  Used  Avail  Use%  Mount', 'pct': 0}] + disk_lines
+
+    except Exception:
+        pass
+
+    # ── Recent errors (journalctl) ────────────────────────────────────────
+    errors = []
+    for svc in ['project-iq-rasa', 'project-iq-actions', 'project-iq-admin']:
+        label = svc.replace('project-iq-', '')
+        raw_e = _shell(f'journalctl -u {svc} -p err -n 5 --no-pager --output=short 2>/dev/null | grep -v "^--" | tail -5')
+        errors.append({'service': label,
+                       'errors': [l for l in raw_e.splitlines() if l.strip()]})
+
+    # ── Rasa model ────────────────────────────────────────────────────────
+    model_dir = '/home/user/project-iq/core/models'
+    model_files = sorted(glob.glob(f'{model_dir}/*.tar.gz'), key=os.path.getmtime, reverse=True)
+    if model_files:
+        f = model_files[0]
+        try:    size_bytes = os.path.getsize(f)
+        except: size_bytes = 0
+        def _fmt_size(b):
+            if b >= 1024**3: return f'{b/1024**3:.1f}G'
+            if b >= 1024**2: return f'{b/1024**2:.0f}M'
+            return f'{b//1024}K'
+        try:    mtime = datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M:%S')
+        except: mtime = 'unknown'
+        model = {'found': True, 'name': os.path.basename(f),
+                 'size': _fmt_size(size_bytes), 'trained': mtime,
+                 'count': str(len(model_files))}
+    else:
+        model = {'found': False}
+
+    return jsonify({
+        'timestamp':  datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'services':   services,
+        'containers': containers,
+        'ports':      ports,
+        'health':     health,
+        'resources':  resources,
+        'errors':     errors,
+        'model':      model,
+    })
+
 
 @app.route('/admin/analytics/apps', methods=['GET'])
 def list_apps():
@@ -2501,16 +2856,21 @@ def user_get_conversation_messages(sender_id):
 
 @app.route('/api/user/session/feedback', methods=['POST'])
 def save_session_feedback():
-    """Save session feedback with rating and comments."""
+    """Save session feedback with rating and comments.
+
+    Accepts optional queue_id to also stamp handoff_queue.agent_rating so
+    the operator sees the user's rating in the session history.
+    """
     try:
         from common.conversation_db import log_feedback
 
         data = request.get_json()
         sender_id = data.get('sender_id', '').strip()
-        rating = data.get('rating')
-        comments = data.get('comments', '').strip()
-        app_id = data.get('app_id', 'General')
-        user_id = data.get('user_id')
+        rating    = data.get('rating')
+        comments  = data.get('comments', '').strip()
+        app_id    = data.get('app_id', 'General')
+        user_id   = data.get('user_id')
+        queue_id  = data.get('queue_id')
 
         if not sender_id:
             return jsonify({'success': False, 'error': 'sender_id is required'}), 400
@@ -2521,7 +2881,7 @@ def save_session_feedback():
         # Determine feedback type based on rating
         feedback_type = 'positive' if rating and rating >= 4 else 'negative' if rating else 'neutral'
 
-        # Save feedback
+        # Save to feedback log
         log_feedback(
             sender_id=sender_id,
             feedback_type=feedback_type,
@@ -2530,6 +2890,22 @@ def save_session_feedback():
             rating=rating,
             comments=comments
         )
+
+        # Also stamp handoff_queue.agent_rating so operator sees it in history
+        if queue_id and rating:
+            try:
+                conn = _get_connection()
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "UPDATE handoff_queue SET agent_rating = %s WHERE id = %s",
+                        (int(rating), int(queue_id))
+                    )
+                    conn.commit()
+                finally:
+                    _release_connection(conn)
+            except Exception as _re:
+                print(f"[feedback] could not update handoff_queue rating (non-fatal): {_re}")
 
         return jsonify({'success': True, 'message': 'Feedback saved successfully'})
     except Exception as e:
@@ -2971,9 +3347,11 @@ def handoff_end():
             was_assigned = row['status'] == 'assigned'
 
             if was_assigned:
+                # User left mid-chat — mark abandoned, NOT resolved.
+                # 'resolved' is set ONLY when operator clicks "Resolve".
                 cur.execute(
                     "UPDATE handoff_queue "
-                    "SET status = 'resolved', resolved_at = %s, closing_note = 'User ended session', "
+                    "SET status = 'abandoned', abandoned_at = %s, closing_note = 'User ended session', "
                     "handle_time_secs = EXTRACT(EPOCH FROM (NOW() - assigned_at))::INT "
                     "WHERE id = %s",
                     (_dt.now(), queue_id)
@@ -3013,7 +3391,7 @@ def handoff_end():
 
         _sio.emit('queue_item_removed', {
             'queue_id': queue_id,
-            'status': 'resolved' if was_assigned else 'abandoned'
+            'status': 'abandoned'
         }, room='queue_overview')
         _emit_queue_overview()
 
@@ -3353,7 +3731,7 @@ def _get_operator_jwt_secret() -> str:
 
 def _get_operator_jwt_expiry_hours() -> int:
     from common.config_manager import get_handoff_config
-    return get_handoff_runtime_config_for_api()['operators']['auto_busy_on_max_load']
+    return int(get_handoff_config().get('operator_jwt_expiry_hours', 24))
 
 
 def _require_operator_token(f):
@@ -3523,7 +3901,7 @@ def operator_login():
             'exp': exp,
         }
         token = _jwt_encode(payload, _get_operator_jwt_secret())
-        update_operator_last_seen(op['id'], status='available')
+        # DB status is managed exclusively by the heartbeat — no update here
         print(f"[OPERATOR AUTH] Login success for '{username}' (id={op['id']})")
         return jsonify({
             'token':          token,
@@ -3543,13 +3921,78 @@ def get_handoff_config_for_login():
     return get_handoff_config()
 
 
+@app.route('/operator/token/refresh', methods=['POST'])
+def operator_token_refresh():
+    """Issue a fresh JWT for an operator whose token has expired.
+
+    Accepts the expired token (signature still valid), verifies it ignoring
+    the exp claim, and returns a new token with a new expiry window.
+    Grace period: token must have expired within the last 24 hours.
+    """
+    import time
+    try:
+        auth = request.headers.get('Authorization', '')
+        if not auth.startswith('Bearer '):
+            return jsonify({'error': 'Missing token'}), 401
+        token = auth[7:]
+        secret = _get_operator_jwt_secret()
+
+        # Decode without expiry check to read the payload
+        parts = token.split('.')
+        if len(parts) != 3:
+            return jsonify({'error': 'Malformed token'}), 401
+        header_b, body_b, sig_b = parts
+        sig_input = f"{header_b}.{body_b}".encode()
+        expected_sig = base64.urlsafe_b64encode(
+            hmac.new(secret.encode(), sig_input, hashlib.sha256).digest()
+        ).rstrip(b'=').decode()
+        if not hmac.compare_digest(sig_b, expected_sig):
+            return jsonify({'error': 'Invalid token signature'}), 401
+
+        import json as _json
+        padding = 4 - len(body_b) % 4
+        payload = _json.loads(base64.urlsafe_b64decode(body_b + '=' * padding))
+
+        if payload.get('type') != 'operator':
+            return jsonify({'error': 'Not an operator token'}), 401
+
+        # Grace period: only refresh if expired within last 24 h
+        exp = payload.get('exp', 0)
+        now = int(time.time())
+        if exp > now:
+            pass  # not expired yet — still valid, refresh fine
+        elif now - exp > 86400:
+            return jsonify({'error': 'Token too old to refresh — please log in again'}), 401
+
+        # Issue new token
+        expiry_hours = _get_operator_jwt_expiry_hours()
+        new_payload = {
+            'sub':      payload['sub'],
+            'username': payload.get('username', ''),
+            'type':     'operator',
+            'exp':      now + expiry_hours * 3600,
+        }
+        new_token = _jwt_encode(new_payload, secret)
+        return jsonify({'token': new_token})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/operator/logout', methods=['POST'])
 @_require_operator_token
 def operator_logout(**kwargs):
     """Mark operator as offline."""
     try:
-        from common.conversation_db import update_operator_last_seen
-        update_operator_last_seen(kwargs['_operator_id'], status='offline')
+        conn = _get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE operators SET status = 'offline', last_seen = NOW() WHERE id = %s",
+                (kwargs['_operator_id'],)
+            )
+            conn.commit()
+        finally:
+            _release_connection(conn)
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3558,7 +4001,18 @@ def operator_logout(**kwargs):
 @app.route('/operator/heartbeat', methods=['POST'])
 @_require_operator_token
 def operator_heartbeat(**kwargs):
-    """Keep operator session alive and return current load."""
+    """Single source of truth for operator online state.
+
+    Every 25 s the console calls this. We update last_seen and derive the
+    correct status here — nowhere else touches these two columns while
+    the operator is active.
+
+    Status rules (in priority order):
+      1. If status is 'away'  → keep 'away'  (manually set by operator)
+      2. If load >= max       → 'busy'
+      3. Otherwise            → 'available'
+    Logout sets 'offline' explicitly; watchdog sets 'offline' on timeout.
+    """
     try:
         from common.conversation_db import (
             update_operator_last_seen, get_operator_current_load, get_operator
@@ -3569,22 +4023,35 @@ def operator_heartbeat(**kwargs):
             return jsonify({'error': 'Operator not found'}), 404
 
         current_load = get_operator_current_load(op_id)
-        # Auto-manage busy status based on load
         cfg = get_handoff_runtime_config_for_api()
-        if cfg['operators']['auto_busy_on_max_load']:
-            if current_load >= op['max_concurrent'] and op['status'] == 'available':
-                update_operator_last_seen(op_id, status='busy')
-                op['status'] = 'busy'
-            elif current_load < op['max_concurrent'] and op['status'] == 'busy':
-                update_operator_last_seen(op_id, status='available')
-                op['status'] = 'available'
-            else:
-                update_operator_last_seen(op_id)
+
+        if op['status'] == 'away':
+            new_status = 'away'
+        elif cfg['operators']['auto_busy_on_max_load'] and current_load >= op['max_concurrent']:
+            new_status = 'busy'
         else:
-            update_operator_last_seen(op_id)
+            new_status = 'available'
+
+        # Only write to DB when something actually changed or last_seen is getting stale.
+        # "Stale" threshold = half the watchdog timeout so we always write before the
+        # watchdog would mark the operator offline.
+        from datetime import datetime as _dt
+        last_seen = op.get('last_seen')
+        status_changed = (new_status != op['status'])
+        secs_since = (
+            (_dt.now() - last_seen).total_seconds()
+            if last_seen and not getattr(last_seen, 'tzinfo', None)
+            else (_dt.now(last_seen.tzinfo) - last_seen).total_seconds()
+            if last_seen else 999
+        )
+        watchdog_secs = int(_get_handoff_cfg_value('operator_heartbeat_timeout_secs', 90))
+        needs_refresh = secs_since >= watchdog_secs / 2  # write at least every ~45 s
+
+        if status_changed or needs_refresh:
+            update_operator_last_seen(op_id, status=new_status)
 
         return jsonify({
-            'status': op['status'],
+            'status': new_status,
             'current_load': current_load,
             'max_concurrent': op['max_concurrent']
         })
@@ -3615,7 +4082,7 @@ def operator_me(**kwargs):
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/operator/status', methods=['PUT'])
+@app.route('/operator/status', methods=['POST', 'PUT'])
 @_require_operator_token
 def operator_set_status(**kwargs):
     """Let operator toggle available / away (not busy — that's system-managed)."""
@@ -3649,15 +4116,58 @@ def get_handoff_runtime_config_for_api():
     return get_handoff_runtime_config()
 
 
+@app.route('/internal/operators/reset-status', methods=['GET'])
+def internal_reset_operator_status():
+    """Dev/debug: force all active operators to status=available with last_seen=NOW."""
+    try:
+        conn = _get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE operators SET status = 'available', last_seen = NOW() "
+                "WHERE is_active = TRUE"
+            )
+            updated = cursor.rowcount
+            conn.commit()
+        finally:
+            _release_connection(conn)
+        return jsonify({'success': True, 'updated': updated})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/internal/operators/available', methods=['GET'])
 def internal_operators_available():
     """Check operator availability for a given app_id.
     Called by Rasa action server before offering handoff to user.
+    Add ?debug=1 to see why operators are being filtered out.
     """
     try:
         from common.conversation_db import get_available_operators, get_queue
         app_id = request.args.get('app_id')
+        debug  = request.args.get('debug') == '1'
         eligible = get_available_operators(app_id)
+
+        if debug:
+            from psycopg2.extras import RealDictCursor as _RDC
+            _dc = _get_connection()
+            try:
+                _cur = _dc.cursor(cursor_factory=_RDC)
+                _cur.execute(
+                    "SELECT id, username, display_name, status, is_active, app_ids, "
+                    "last_seen, NOW() as db_now, "
+                    "EXTRACT(EPOCH FROM (NOW() - last_seen))::INT as secs_since_seen "
+                    "FROM operators"
+                )
+                all_ops = [dict(r) for r in _cur.fetchall()]
+                for o in all_ops:
+                    if o.get('last_seen'): o['last_seen'] = o['last_seen'].isoformat()
+                    if o.get('db_now'):    o['db_now']    = o['db_now'].isoformat()
+            finally:
+                _release_connection(_dc)
+            return jsonify({'eligible': eligible, 'all_operators': all_ops,
+                            'filter_app_id': app_id})
+
         waiting = get_queue(app_id=app_id, status='waiting')
         assigned = get_queue(app_id=app_id, status='assigned')
 
@@ -4385,6 +4895,7 @@ def operator_claim(**kwargs):
                 finally:
                     _release_connection(_claim_conn)
                 if _claim_cr:
+                    _row_dict['sender_id'] = _claim_cr['sender_id']
                     _emit_to_user(_claim_cr['sender_id'], 'handoff_assigned', {
                         'conversation_id':    row['conversation_id'],
                         'operator_name':      op.get('display_name', 'an agent'),
@@ -4485,17 +4996,21 @@ def operator_resolve(**kwargs):
                     if return_to_bot:
                         _emit_to_user(_res_cr['sender_id'], 'handoff_resolved', {
                             'conversation_id': conv_id,
+                            'queue_id': queue_id,
                             'message': (
                                 f"✅ {op_name} has closed the session. "
                                 "I'm back to assist you. Is there anything else I can help with?"
                             ),
                             'return_to_bot': True,
+                            'request_feedback': True,
                         })
                     else:
                         _emit_to_user(_res_cr['sender_id'], 'handoff_resolved', {
                             'conversation_id': conv_id,
+                            'queue_id': queue_id,
                             'message': "The session has been closed. Thank you.",
                             'return_to_bot': False,
+                            'request_feedback': True,
                         })
             except Exception as _re:
                 print(f"[SIO resolve] notify user error (non-fatal): {_re}")
@@ -4619,31 +5134,72 @@ def operator_rate_context(**kwargs):
 @app.route('/operator/conversation/<int:conversation_id>', methods=['GET'])
 @_require_operator_token
 def operator_get_conversation(conversation_id, **kwargs):
-    """Return interleaved message history (bot + operator messages) for a conversation."""
+    """Return interleaved message history scoped to a session window.
+
+    Optional query params:
+      from_time — ISO timestamp, only return messages at or after this time
+      to_time   — ISO timestamp, only return messages before or at this time
+    """
     try:
+        from datetime import datetime as _dt
+        from_time = request.args.get('from_time')
+        to_time   = request.args.get('to_time')
+
+        def _ts(s):
+            if not s:
+                return None
+            try:
+                return _dt.fromisoformat(s.replace('Z', '+00:00'))
+            except Exception:
+                return None
+
+        ft = _ts(from_time)
+        tt = _ts(to_time)
+
         conn = _get_connection()
         try:
             from psycopg2.extras import RealDictCursor
             cursor = conn.cursor(cursor_factory=RealDictCursor)
-            # Bot + user messages (exclude operator — fetched from operator_messages)
+
+            # Build time filter clauses
+            extra = ""
+            params_base = [conversation_id]
+            if ft:
+                extra += " AND timestamp >= %s"
+                params_base.append(ft)
+            if tt:
+                extra += " AND timestamp <= %s"
+                params_base.append(tt)
+
             cursor.execute(
-                "SELECT sender, text, intent, timestamp FROM messages "
-                "WHERE conversation_id = %s AND sender != 'operator' ORDER BY timestamp ASC",
-                (conversation_id,)
+                f"SELECT sender, text, intent, timestamp FROM messages "
+                f"WHERE conversation_id = %s AND sender != 'operator'{extra} "
+                f"ORDER BY timestamp ASC",
+                params_base
             )
             bot_msgs = [
                 {**dict(m), 'source': 'chat',
                  'timestamp': m['timestamp'].isoformat() if m['timestamp'] else None}
                 for m in cursor.fetchall()
             ]
+
             # Operator messages
+            op_params = [conversation_id]
+            op_extra = ""
+            if ft:
+                op_extra += " AND om.sent_at >= %s"
+                op_params.append(ft)
+            if tt:
+                op_extra += " AND om.sent_at <= %s"
+                op_params.append(tt)
+
             cursor.execute(
-                "SELECT om.message_text AS text, om.sent_at AS timestamp, "
-                "o.display_name AS operator_name "
-                "FROM operator_messages om "
-                "JOIN operators o ON o.id = om.operator_id "
-                "WHERE om.conversation_id = %s ORDER BY om.sent_at ASC",
-                (conversation_id,)
+                f"SELECT om.message_text AS text, om.sent_at AS timestamp, "
+                f"o.display_name AS operator_name "
+                f"FROM operator_messages om "
+                f"JOIN operators o ON o.id = om.operator_id "
+                f"WHERE om.conversation_id = %s{op_extra} ORDER BY om.sent_at ASC",
+                op_params
             )
             op_msgs = [
                 {'sender': 'operator', 'text': m['text'],
@@ -4811,31 +5367,72 @@ def operator_ai_draft(**kwargs):
 @app.route('/operator/user-history/<sender_id>', methods=['GET'])
 @_require_operator_token
 def operator_user_history(sender_id, **kwargs):
-    """Return the last N closed/resolved conversations for a given sender_id."""
+    """Return the last N handoff sessions for a user — all sessions, all conversations.
+
+    sender_id may be a full scoped id like user-IT-saqib-abc123.
+    We extract the username (third segment) and match ALL sender_ids for
+    that user so sessions created under different session suffixes are included.
+    Fallback: exact sender_id match if the id doesn't follow the user- pattern.
+    """
     try:
-        limit = min(int(request.args.get('limit', 5)), 20)
+        limit = min(int(request.args.get('limit', 11)), 25)
+
+        # Extract username from sender_id pattern: user-{appId}-{username}-{sessionId}
+        # The session suffix (if any) is a base36 timestamp appended at login:
+        # >= 6 chars of pure lowercase alphanumerics [0-9a-z].
+        # Usernames are typically short like "saqib" or "support-it1", which never
+        # end in a 6+ char all-lowercase-alphanumeric token — so we can detect
+        # and strip the suffix reliably.
+        import re as _re
+        parts = sender_id.split('-')
+        if len(parts) >= 3 and parts[0] == 'user':
+            app_id_part = parts[1]
+            remaining   = parts[2:]          # everything after appId
+            # Strip session suffix: last segment that is >=6 all-lowercase-alphanumeric chars
+            if (len(remaining) > 1
+                    and _re.match(r'^[0-9a-z]{6,12}$', remaining[-1])):
+                username_parts = remaining[:-1]  # drop session suffix
+            else:
+                username_parts = remaining       # old format, no suffix
+            username_part  = '-'.join(username_parts)
+            sender_pattern = f"user-{app_id_part}-{username_part}%"
+            use_pattern    = True
+        else:
+            sender_pattern = sender_id
+            use_pattern    = False
+
         conn = _get_connection()
         try:
             from psycopg2.extras import RealDictCursor
             cursor = conn.cursor(cursor_factory=RealDictCursor)
+            where_clause = "c.sender_id LIKE %s" if use_pattern else "c.sender_id = %s"
             cursor.execute(
-                """
-                SELECT c.id, c.started_at, c.last_activity, c.app_id,
-                       hq.status AS handoff_status, hq.closed_at,
-                       hq.trigger_reason, hq.closing_note,
+                f"""
+                SELECT hq.id        AS queue_id,
+                       hq.conversation_id,
+                       hq.status    AS handoff_status,
+                       hq.queued_at,
+                       hq.resolved_at,
+                       hq.abandoned_at,
+                       hq.trigger_reason,
+                       hq.closing_note,
+                       c.app_id,
+                       c.sender_id,
                        (SELECT text FROM messages
                         WHERE conversation_id = c.id AND sender = 'user'
+                              AND timestamp >= hq.queued_at
                         ORDER BY timestamp ASC LIMIT 1) AS first_user_msg,
                        (SELECT intent FROM messages
-                        WHERE conversation_id = c.id AND sender = 'user' AND intent IS NOT NULL
+                        WHERE conversation_id = c.id AND sender = 'user'
+                              AND intent IS NOT NULL AND timestamp >= hq.queued_at
                         ORDER BY timestamp DESC LIMIT 1) AS last_intent
-                FROM conversations c
-                LEFT JOIN handoff_queue hq ON hq.conversation_id = c.id
-                WHERE c.sender_id = %s
-                ORDER BY c.last_activity DESC NULLS LAST
+                FROM handoff_queue hq
+                JOIN conversations c ON c.id = hq.conversation_id
+                WHERE {where_clause}
+                ORDER BY hq.queued_at DESC NULLS LAST
                 LIMIT %s
                 """,
-                (sender_id, limit)
+                (sender_pattern, limit)
             )
             rows = cursor.fetchall()
         finally:
@@ -4844,12 +5441,13 @@ def operator_user_history(sender_id, **kwargs):
         history = []
         for r in rows:
             history.append({
-                'conversation_id': r['id'],
-                'started_at':      r['started_at'].isoformat() if r['started_at'] else None,
-                'last_activity':   r['last_activity'].isoformat() if r['last_activity'] else None,
+                'queue_id':        r['queue_id'],
+                'conversation_id': r['conversation_id'],
                 'app_id':          r['app_id'] or 'General',
                 'handoff_status':  r['handoff_status'],
-                'closed_at':       r['closed_at'].isoformat() if r['closed_at'] else None,
+                'queued_at':       r['queued_at'].isoformat() if r['queued_at'] else None,
+                'resolved_at':     r['resolved_at'].isoformat() if r['resolved_at'] else None,
+                'abandoned_at':    r['abandoned_at'].isoformat() if r['abandoned_at'] else None,
                 'trigger_reason':  r['trigger_reason'],
                 'closing_note':    r['closing_note'],
                 'first_user_msg':  (r['first_user_msg'] or '')[:120],
@@ -5207,9 +5805,10 @@ def _sio_user_end_session(data):
             was_assigned = row['status'] == 'assigned'
 
             if was_assigned:
+                # User disconnected mid-chat — abandoned, NOT resolved.
                 cur.execute(
                     "UPDATE handoff_queue "
-                    "SET status = 'resolved', resolved_at = %s, closing_note = 'User ended session', "
+                    "SET status = 'abandoned', abandoned_at = %s, closing_note = 'User ended session', "
                     "handle_time_secs = EXTRACT(EPOCH FROM (NOW() - assigned_at))::INT "
                     "WHERE id = %s",
                     (_dt.now(), queue_id)
@@ -5248,7 +5847,7 @@ def _sio_user_end_session(data):
             }, room=_room_operator(op_id))
 
         # Refresh queue overview for all operators
-        _sio.emit('queue_item_removed', {'queue_id': queue_id, 'status': 'resolved' if was_assigned else 'abandoned'},
+        _sio.emit('queue_item_removed', {'queue_id': queue_id, 'status': 'abandoned'},
                   room='queue_overview')
         _emit_queue_overview()
 
@@ -5289,9 +5888,7 @@ def _sio_join_operator(data):
             return
         join_room(_room_operator(op_id))
         join_room('queue_overview')
-        # Update last_seen
-        from common.conversation_db import update_operator_last_seen
-        update_operator_last_seen(int(op_id))
+        # Room membership only — DB status is managed exclusively by the heartbeat
         emit('joined_operator', {'operator_id': op_id, 'room': _room_operator(op_id)})
     except Exception:
         pass
@@ -5687,8 +6284,9 @@ if __name__ == '__main__':
     print(f"Starting Unified Server on port {_port}...")
     print(f"Admin files from: {STATIC_DIR}")
     print(f"Widget files from: {WIDGET_DIR}")
-    print(f"  Admin Dashboard:        http://<YOUR_IP>:{_port}/admin.html")
-    print(f"  Chat Widget (IT):       http://<YOUR_IP>:{_port}/it.html")
+    print(f"  Admin Dashboard:        http://<YOUR_IP>:{_port}/admin")
+    print(f"  Chat Widget (IT):       http://<YOUR_IP>:{_port}/")
+    print(f"  Operator Console:       http://<YOUR_IP>:{_port}/operator")
     print(f"  Chat Widget (ACC):      http://<YOUR_IP>:{_port}/acc.html")
     # Use socketio.run instead of app.run so eventlet serves WebSocket upgrades
     _sio.run(app, host='0.0.0.0', port=_port, allow_unsafe_werkzeug=True)
