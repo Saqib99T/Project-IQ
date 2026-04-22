@@ -176,6 +176,11 @@ slots:
     influence_conversation: false
     mappings: []
 
+  svc_session_token:
+    type: text
+    influence_conversation: false
+    mappings: []
+
   glpi_username:
     type: text
     influence_conversation: false
@@ -353,7 +358,7 @@ How can I assist you today?"
   utter_goodbye:
     - text: "Goodbye! Let me know if you need anything else."
   utter_ask_ticket_id:
-    - text: "Please provide the **ID of the ticket** you want to check (e.g., GLPI-1234 or just 1234)."
+    - text: "Please provide the **ID of the ticket** you want to check (e.g., Ticket-1234 or just 1234)."
   utter_ticket_status_info:
     - text: "The status for ticket **{ticket_id}** is **{ticket_status}**."
   utter_ticket_id_not_found:
@@ -432,7 +437,7 @@ How can I assist you today?"
           payload: "/stop"
     
   utter_ticket_creation_failed:
-    - text: "Sorry, I ran into an error and could not create your ticket in GLPI."
+    - text: "Sorry, I ran into an error and could not create your ticket."
   utter_ask_retry:
     - text: "Would you like to try again?"
   utter_error_occurred:
@@ -464,8 +469,8 @@ How can I assist you today?"
           payload: '/help'
     
   utter_out_of_scope:
-    - text: "I'm a GLPI support bot and can help you with tickets. I can't help with that request."
-    - text: "I'm here to help with GLPI tickets only. Try asking about creating or viewing tickets!"
+    - text: "I'm an IT support assistant and can help you with tickets. I can't help with that request."
+    - text: "I'm here to help with IT tickets only. Try asking about creating or viewing tickets!"
     
   utter_cleared:
     - text: "Session cleared. I've forgotten everything by resetting slots. How can I help you now?"

@@ -12,7 +12,9 @@
       "Read(//d/99T/Rasa/**)",
       "Bash(npm ls:*)",
       "Bash(npm run:*)",
-      "Bash(venv/Scripts/python -c ':*)"
+      "Bash(venv/Scripts/python -c ':*)",
+      "Bash(npx eas *)",
+      "WebFetch(domain:job-logs.eascdn.net)"
     ]
   }
 }

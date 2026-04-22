@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Project IQ — Platform Overview</title>
+<style>
+  :root {
+    --blue:    #1d4ed8;
+    --blue-lt: #dbeafe;
+    --dark:    #0f172a;
+    --mid:     #334155;
+    --muted:   #64748b;
+    --border:  #e2e8f0;
+    --bg:      #f8fafc;
+    --white:   #ffffff;
+    --green:   #059669;
+    --purple:  #7c3aed;
+    --orange:  #d97706;
+    --teal:    #0891b2;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--dark);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #1d4ed8 100%);
+    color: white;
+    padding: 72px 60px 56px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    right: -80px; top: -80px;
+    width: 420px; height: 420px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    color: #93c5fd;
+  }
+  .hero h1 {
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+  }
+  .hero h1 span { color: #60a5fa; }
+  .hero-sub {
+    font-size: 18px;
+    color: #93c5fd;
+    font-weight: 400;
+    margin-bottom: 32px;
+    max-width: 560px;
+  }
+  .hero-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .hero-pill {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 6px;
+    padding: 5px 14px;
+    font-size: 13px;
+    color: #e0f2fe;
+  }
+
+  /* ── LAYOUT ── */
+  .page { max-width: 1100px; margin: 0 auto; padding: 0 40px; }
+
+  /* ── SECTION ── */
+  .section { padding: 56px 0 40px; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 6px;
+  }
+  .section-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 6px;
+  }
+  .section-desc {
+    color: var(--muted);
+    max-width: 640px;
+    margin-bottom: 36px;
+    font-size: 15px;
+  }
+  hr.divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0;
+  }
+
+  /* ── STAT BAR ── */
+  .stat-bar {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    gap: 0;
+    max-width: 100%;
+  }
+  .stat-item {
+    flex: 1;
+    text-align: center;
+    padding: 0 20px;
+    border-right: 1px solid var(--border);
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-num {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--blue);
+    line-height: 1.1;
+  }
+  .stat-lbl {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  /* ── ARCH DIAGRAM ── */
+  .arch-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .arch-col {
+    background: var(--white);
+    padding: 20px 16px;
+    text-align: center;
+  }
+  .arch-col-head {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border);
+  }
+  .arch-item {
+    font-size: 12px;
+    color: var(--mid);
+    padding: 6px 8px;
+    background: var(--bg);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  /* ── FEATURE CARDS ── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .feature-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    transition: box-shadow 0.2s;
+  }
+  .feature-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+  .feature-icon {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    margin-bottom: 14px;
+  }
+  .feature-card h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 8px;
+  }
+  .feature-card p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+  .feature-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 12px;
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--blue);
+    background: var(--blue-lt);
+  }
+
+  /* ── INTEGRATION GRID ── */
+  .integration-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .int-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 16px;
+    text-align: center;
+  }
+  .int-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+  .int-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 4px;
+  }
+  .int-role {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── TECH STACK TABLE ── */
+  .stack-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .stack-group {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .stack-group-head {
+    padding: 14px 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: white;
+  }
+  .stack-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .stack-row:last-child { border-bottom: none; }
+  .stack-name { font-weight: 600; color: var(--dark); }
+  .stack-ver {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--bg);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+  }
+
+  /* ── HANDOFF FLOW ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .flow-step {
+    flex: 1;
+    padding: 18px 14px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+    position: relative;
+  }
+  .flow-step:last-child { border-right: none; }
+  .flow-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+  }
+  .flow-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 3px;
+  }
+  .flow-sub {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── CHANNEL CARDS ── */
+  .channel-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .channel-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .channel-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .channel-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .channel-title { font-size: 15px; font-weight: 700; }
+  .channel-sub { font-size: 11px; color: var(--muted); }
+  .channel-list { list-style: none; }
+  .channel-list li {
+    font-size: 13px;
+    color: var(--mid);
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .channel-list li:last-child { border-bottom: none; }
+  .channel-list li::before { content: '→'; color: var(--blue); font-weight: 700; }
+
+  /* ── SECURITY ── */
+  .security-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .sec-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .sec-card h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .sec-card p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--dark);
+    color: #64748b;
+    text-align: center;
+    padding: 28px;
+    font-size: 12px;
+    margin-top: 60px;
+  }
+  .footer strong { color: #94a3b8; }
+
+  /* colour helpers */
+  .bg-blue   { background: #1d4ed8; }
+  .bg-green  { background: #059669; }
+  .bg-purple { background: #7c3aed; }
+  .bg-orange { background: #d97706; }
+  .bg-teal   { background: #0891b2; }
+  .bg-rose   { background: #e11d48; }
+  .c-blue   { color: #1d4ed8; }
+  .c-green  { color: #059669; }
+  .c-purple { color: #7c3aed; }
+  .c-orange { color: #d97706; }
+  .c-teal   { color: #0891b2; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ HERO ══════════════════ -->
+<div class="hero">
+  <div class="page">
+    <div class="hero-badge">Platform Overview</div>
+    <h1>Project <span>IQ</span></h1>
+    <p class="hero-sub">Enterprise AI-Powered IT Service Management Platform — Conversational Intelligence meets ITSM</p>
+    <div class="hero-pills">
+      <span class="hero-pill">Conversational AI</span>
+      <span class="hero-pill">ITSM Integration</span>
+      <span class="hero-pill">Human Handoff</span>
+      <span class="hero-pill">Semantic Knowledge Base</span>
+      <span class="hero-pill">Real-Time Analytics</span>
+      <span class="hero-pill">Multi-Channel</span>
+      <span class="hero-pill">Enterprise Connectors</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ STAT BAR ══════════════════ -->
+<div class="stat-bar page" style="max-width:100%; border-bottom:1px solid #e2e8f0;">
+  <div class="stat-item"><div class="stat-num">36+</div><div class="stat-lbl">Conversation Intents</div></div>
+  <div class="stat-item"><div class="stat-num">600+</div><div class="stat-lbl">Data Connectors (Airbyte)</div></div>
+  <div class="stat-item"><div class="stat-num">3</div><div class="stat-lbl">Client Channels</div></div>
+  <div class="stat-item"><div class="stat-num">5</div><div class="stat-lbl">Service Tiers</div></div>
+  <div class="stat-item"><div class="stat-num">Real-Time</div><div class="stat-lbl">Operator Handoff</div></div>
+  <div class="stat-item"><div class="stat-num">ML</div><div class="stat-lbl">Semantic Search</div></div>
+</div>
+
+<div class="page">
+
+  <!-- ══════════════════ ARCHITECTURE ══════════════════ -->
+  <div class="section">
+    <div class="section-label">System Design</div>
+    <div class="section-title">Five-Tier Architecture</div>
+    <p class="section-desc">Project IQ follows a clean separation of concerns across presentation, API, logic, integration, and data tiers — built for horizontal scalability and maintainability.</p>
+
+    <div class="arch-grid">
+      <div class="arch-col">
+        <div class="arch-col-head">Presentation</div>
+        <div class="arch-item">Web Chat Widget</div>
+        <div class="arch-item">Admin Dashboard</div>
+        <div class="arch-item">Operator Console</div>
+        <div class="arch-item">Mobile App (iOS/Android)</div>
+        <div class="arch-item">Analytics UI</div>
+      </div>
+      <div class="arch-col">
+        <div class="arch-col-head">API Gateway</div>
+        <div class="arch-item">Admin API :8181</div>
+        <div class="arch-item">ML Platform REST :5005</div>
+        <div class="arch-item">Socket.IO WS</div>
+        <div class="arch-item">Webhook Proxy</div>
+        <div class="arch-item">CORS / Auth</div>
+      </div>
+      <div class="arch-col">
+        <div class="arch-col-head">Logic</div>
+        <div class="arch-item">ML Platform Engine</div>
+        <div class="arch-item">Custom Action Server</div>
+        <div class="arch-item">Handoff Orchestrator</div>
+        <div class="arch-item">Queue Manager</div>
+        <div class="arch-item">KB Search Engine</div>
+      </div>
+      <div class="arch-col">
+        <div class="arch-col-head">Integration</div>
+        <div class="arch-item">ITSM REST API</div>
+        <div class="arch-item">Firecrawl Ingestion</div>
+        <div class="arch-item">Airbyte Connectors</div>
+        <div class="arch-item">Infisical Vault</div>
+        <div class="arch-item">SMTP Gateway</div>
+      </div>
+      <div class="arch-col">
+        <div class="arch-col-head">Data</div>
+        <div class="arch-item">PostgreSQL</div>
+        <div class="arch-item">Vector Embeddings Cache</div>
+        <div class="arch-item">JSON Knowledge Store</div>
+        <div class="arch-item">Conversation Log</div>
+        <div class="arch-item">Analytics Store</div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider" />
+
+  <!-- ══════════════════ CORE FEATURES ══════════════════ -->
+  <div class="section">
+    <div class="section-label">Capabilities</div>
+    <div class="section-title">Core Feature Set</div>
+    <p class="section-desc">A comprehensive set of capabilities spanning conversational AI, ITSM automation, knowledge management, and live agent collaboration.</p>
+
+    <div class="feature-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon bg-blue" style="color:white">🤖</div>
+        <h3>Conversational AI Engine</h3>
+        <p>Multi-turn dialogue management powered by the ML Platform with transformer-based intent classification, named entity recognition, and policy-driven conversation flow. Handles 36+ intents with confidence scoring, frustration detection, and graceful fallback escalation.</p>
+        <div class="feature-tags">
+          <span class="tag">DIETClassifier</span>
+          <span class="tag">TEDPolicy</span>
+          <span class="tag">RulePolicy</span>
+          <span class="tag">Slot Filling</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon bg-green" style="color:white">🎫</div>
+        <h3>ITSM Ticket Automation</h3>
+        <p>Full lifecycle ticket management through natural language. Users create, update, query, and resolve tickets via conversation — no portal navigation required. Supports urgency classification (Low/Medium/High), issue categorisation (Hardware/Software/Network), and follow-up threading.</p>
+        <div class="feature-tags">
+          <span class="tag">Create</span>
+          <span class="tag">Update</span>
+          <span class="tag">Status Check</span>
+          <span class="tag">Resolve</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon bg-purple" style="color:white">🧠</div>
+        <h3>Semantic Knowledge Base</h3>
+        <p>Hybrid search combining keyword matching with dense vector similarity using Sentence Transformers (all-MiniLM-L6-v2, 384-dim). Automatically ingests ITSM knowledge base articles, supports section-level retrieval, and provides confidence-scored answers with source attribution.</p>
+        <div class="feature-tags">
+          <span class="tag">Semantic Search</span>
+          <span class="tag">Vector Embeddings</span>
+          <span class="tag">FAQ Matching</span>
+          <span class="tag">Section Search</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon bg-orange" style="color:white">👤</div>
+        <h3>Human-in-the-Loop Handoff</h3>
+        <p>Intelligent escalation from AI to live operator with full context transfer. Automatic triggers on frustration scoring (≥0.75) or repeated low-confidence responses. GDPR-compliant consent capture, real-time queue with position tracking, operator typing indicators, and session transcripts.</p>
+        <div class="feature-tags">
+          <span class="tag">Queue Management</span>
+          <span class="tag">GDPR Consent</span>
+          <span class="tag">Context Package</span>
+          <span class="tag">Socket.IO</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon bg-teal" style="color:white">📊</div>
+        <h3>Analytics & Observability</h3>
+        <p>Real-time dashboard tracking intent distribution, session volumes, satisfaction ratings, and operator performance. System health monitoring covers CPU, memory, disk, and all service processes. Aggregated conversation logs with full message history and intent classification visibility.</p>
+        <div class="feature-tags">
+          <span class="tag">Intent Analytics</span>
+          <span class="tag">CSAT Ratings</span>
+          <span class="tag">System Health</span>
+          <span class="tag">Log Aggregation</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon bg-rose" style="color:white">🔗</div>
+        <h3>Enterprise Data Ingestion</h3>
+        <p>Knowledge base population from any enterprise source via 600+ Airbyte connectors (Confluence, Notion, Jira, Zendesk, GitHub, Google Workspace) and Firecrawl web crawling. Dynamic schema-driven configuration with scheduled synchronisation pipelines keeps the knowledge base current automatically.</p>
+        <div class="feature-tags">
+          <span class="tag">Airbyte</span>
+          <span class="tag">Firecrawl</span>
+          <span class="tag">Confluence</span>
+          <span class="tag">Jira</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#0f172a;color:white">🖥️</div>
+        <h3>Admin & Operator Console</h3>
+        <p>Unified web portal for system configuration, theme customisation, live conversation monitoring, operator queue management, and ML Platform Studio (intent editor, response editor, training management). Role-separated access for administrators and operators via JWT-authenticated sessions.</p>
+        <div class="feature-tags">
+          <span class="tag">Live Monitor</span>
+          <span class="tag">Routing Rules</span>
+          <span class="tag">Studio Editor</span>
+          <span class="tag">JWT Auth</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#4f46e5;color:white">📱</div>
+        <h3>Native Mobile Application</h3>
+        <p>Cross-platform iOS and Android app delivering the full chatbot experience with real-time operator handoff, conversation history, ITSM ticket management, file attachments, and session feedback. Built with Expo SDK — single codebase for both platforms with native performance.</p>
+        <div class="feature-tags">
+          <span class="tag">iOS</span>
+          <span class="tag">Android</span>
+          <span class="tag">Expo SDK 55</span>
+          <span class="tag">Offline Storage</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#0d9488;color:white">🔐</div>
+        <h3>Authentication & Authorisation</h3>
+        <p>ITSM-integrated user authentication validates credentials directly against the ITSM user directory. Operators authenticate via a separate JWT-secured portal with ITSM group membership enforcement. Guest users retain read-only knowledge base access. Infisical vault manages all secrets and API keys.</p>
+        <div class="feature-tags">
+          <span class="tag">ITSM Auth</span>
+          <span class="tag">JWT Operators</span>
+          <span class="tag">Group Enforcement</span>
+          <span class="tag">Infisical</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <hr class="divider" />
+
+  <!-- ══════════════════ CHANNELS ══════════════════ -->
+  <div class="section">
+    <div class="section-label">Delivery</div>
+    <div class="section-title">Client Channels</div>
+    <p class="section-desc">Project IQ delivers a consistent experience across three channels — each with feature parity for AI chat, ticket management, and human handoff.</p>
+
+    <div class="channel-grid">
+      <div class="channel-card">
+        <div class="channel-head">
+          <div class="channel-icon" style="background:#dbeafe">🌐</div>
+          <div>
+            <div class="channel-title">Embedded Web Widget</div>
+            <div class="channel-sub">JavaScript IIFE — drop-in on any site</div>
+          </div>
+        </div>
+        <ul class="channel-list">
+          <li>Single &lt;script&gt; tag deployment</li>
+          <li>Dynamic theme via Admin Console</li>
+          <li>Rich message rendering (markdown, charts, video)</li>
+          <li>Real-time operator handoff</li>
+          <li>Multi-department routing (app_id)</li>
+          <li>Guest + authenticated modes</li>
+        </ul>
+      </div>
+      <div class="channel-card">
+        <div class="channel-head">
+          <div class="channel-icon" style="background:#f0fdf4">📱</div>
+          <div>
+            <div class="channel-title">Mobile App</div>
+            <div class="channel-sub">iOS & Android — Expo / React Native</div>
+          </div>
+        </div>
+        <ul class="channel-list">
+          <li>Native iOS & Android builds</li>
+          <li>Persistent conversation history</li>
+          <li>File attachment (documents)</li>
+          <li>Socket.IO real-time handoff</li>
+          <li>Biometric-ready auth flows</li>
+          <li>Offline message queueing</li>
+        </ul>
+      </div>
+      <div class="channel-card">
+        <div class="channel-head">
+          <div class="channel-icon" style="background:#faf5ff">🖥️</div>
+          <div>
+            <div class="channel-title">Admin & Operator Portal</div>
+            <div class="channel-sub">React SPA — internal staff only</div>
+          </div>
+        </div>
+        <ul class="channel-list">
+          <li>Live conversation monitor</li>
+          <li>Operator queue with context package</li>
+          <li>Analytics dashboards</li>
+          <li>KB management & ingestion</li>
+          <li>ML Platform Studio (NLU editor)</li>
+          <li>System health & log viewer</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <hr class="divider" />
+
+  <!-- ══════════════════ HANDOFF FLOW ══════════════════ -->
+  <div class="section">
+    <div class="section-label">Process</div>
+    <div class="section-title">Human Handoff Flow</div>
+    <p class="section-desc">Seamless transition from AI to live agent with full conversation context — zero data loss, zero re-explanation for the end user.</p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-label">Trigger</div>
+        <div class="flow-sub">User request, frustration threshold, or low-confidence streak</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-label">GDPR Consent</div>
+        <div class="flow-sub">Explicit opt-in — conversation history sharing disclosed</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-label">Context Package</div>
+        <div class="flow-sub">Rule-based summary of user issue, intent history, ticket links</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-label">Queue & Route</div>
+        <div class="flow-sub">Priority queue with team/skill routing, live position updates</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-label">Live Session</div>
+        <div class="flow-sub">Operator console — typing indicators, message relay via proxy</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">6</div>
+        <div class="flow-label">Resolution</div>
+        <div class="flow-sub">Operator closes session — CSAT survey, transcript email, AI resumes</div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider" />
+
+  <!-- ══════════════════ INTEGRATIONS ══════════════════ -->
+  <div class="section">
+    <div class="section-label">Ecosystem</div>
+    <div class="section-title">Key Integrations</div>
+    <p class="section-desc">Project IQ integrates with best-of-breed enterprise systems without proprietary lock-in.</p>
+
+    <div class="integration-grid">
+      <div class="int-card">
+        <div class="int-icon">🎫</div>
+        <div class="int-name">ITSM Platform</div>
+        <div class="int-role">Tickets · KB · Documents · Users · Entities</div>
+      </div>
+      <div class="int-card">
+        <div class="int-icon">🕷️</div>
+        <div class="int-name">Firecrawl</div>
+        <div class="int-role">Web crawl · HTML→Markdown · KB ingestion</div>
+      </div>
+      <div class="int-card">
+        <div class="int-icon">🔐</div>
+        <div class="int-name">Infisical</div>
+        <div class="int-role">Secrets vault · Universal Auth · Multi-env</div>
+      </div>
+      <div class="int-card">
+        <div class="int-icon">📧</div>
+        <div class="int-name">SMTP</div>
+        <div class="int-role">Session transcripts · Handoff notifications</div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider" />
+
+  <!-- ══════════════════ TECH STACK ══════════════════ -->
+  <div class="section">
+    <div class="section-label">Technology</div>
+    <div class="section-title">Technology Stack</div>
+    <p class="section-desc">Fully open-source core with enterprise-grade components — no proprietary AI vendor lock-in.</p>
+
+    <div class="stack-section">
+      <div>
+        <div class="stack-group" style="margin-bottom:16px">
+          <div class="stack-group-head bg-blue">ML Platform & Backend</div>
+          <div class="stack-row"><span class="stack-name">ML Platform (NLU Engine)</span><span class="stack-ver">3.6.20</span></div>
+          <div class="stack-row"><span class="stack-name">ML Platform SDK (Actions)</span><span class="stack-ver">3.6.2</span></div>
+          <div class="stack-row"><span class="stack-name">Flask (Admin API)</span><span class="stack-ver">3.0.0</span></div>
+          <div class="stack-row"><span class="stack-name">Flask-SocketIO</span><span class="stack-ver">5.3.6</span></div>
+          <div class="stack-row"><span class="stack-name">Eventlet (Async I/O)</span><span class="stack-ver">0.35.2</span></div>
+          <div class="stack-row"><span class="stack-name">Waitress (WSGI)</span><span class="stack-ver">2.1.2</span></div>
+        </div>
+        <div class="stack-group">
+          <div class="stack-group-head bg-purple">AI / ML</div>
+          <div class="stack-row"><span class="stack-name">Sentence Transformers</span><span class="stack-ver">2.3.1</span></div>
+          <div class="stack-row"><span class="stack-name">Model: all-MiniLM-L6-v2</span><span class="stack-ver">384-dim</span></div>
+          <div class="stack-row"><span class="stack-name">DIETClassifier (NLU)</span><span class="stack-ver">Transformer</span></div>
+          <div class="stack-row"><span class="stack-name">TEDPolicy (Dialogue)</span><span class="stack-ver">Transformer</span></div>
+          <div class="stack-row"><span class="stack-name">CountVectorsFeaturizer</span><span class="stack-ver">Char n-gram</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="stack-group" style="margin-bottom:16px">
+          <div class="stack-group-head bg-green">Frontend & Mobile</div>
+          <div class="stack-row"><span class="stack-name">React (Admin / Widget)</span><span class="stack-ver">19.2.0</span></div>
+          <div class="stack-row"><span class="stack-name">Vite (Build Tool)</span><span class="stack-ver">7.3.x</span></div>
+          <div class="stack-row"><span class="stack-name">Tailwind CSS</span><span class="stack-ver">3.4.x</span></div>
+          <div class="stack-row"><span class="stack-name">React Native</span><span class="stack-ver">0.83.2</span></div>
+          <div class="stack-row"><span class="stack-name">Expo SDK</span><span class="stack-ver">55.0.x</span></div>
+          <div class="stack-row"><span class="stack-name">Socket.IO Client</span><span class="stack-ver">4.8.3</span></div>
+        </div>
+        <div class="stack-group">
+          <div class="stack-group-head bg-teal">Data & Infrastructure</div>
+          <div class="stack-row"><span class="stack-name">PostgreSQL</span><span class="stack-ver">14+</span></div>
+          <div class="stack-row"><span class="stack-name">psycopg2 (PG Adapter)</span><span class="stack-ver">2.9.9</span></div>
+          <div class="stack-row"><span class="stack-name">Airbyte (ETL)</span><span class="stack-ver">&lt;0.15</span></div>
+          <div class="stack-row"><span class="stack-name">Firecrawl (Crawling)</span><span class="stack-ver">Self-hosted</span></div>
+          <div class="stack-row"><span class="stack-name">Infisical (Secrets)</span><span class="stack-ver">SDK 1.0+</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider" />
+
+  <!-- ══════════════════ SECURITY ══════════════════ -->
+  <div class="section">
+    <div class="section-label">Security & Compliance</div>
+    <div class="section-title">Security Controls</div>
+    <p class="section-desc">Designed with enterprise security requirements from the ground up.</p>
+
+    <div class="security-grid">
+      <div class="sec-card">
+        <h4 class="c-blue">Identity & Access</h4>
+        <p>ITSM directory authentication for end users. JWT-signed tokens for operator sessions with ITSM group membership enforcement. Guest access scoped to KB read-only.</p>
+      </div>
+      <div class="sec-card">
+        <h4 class="c-green">Secrets Management</h4>
+        <p>All credentials (ITSM tokens, DB passwords, JWT secrets, LLM keys) stored in Infisical vault. Environment-specific profiles (local / prod) with Universal Auth.</p>
+      </div>
+      <div class="sec-card">
+        <h4 class="c-purple">GDPR Compliance</h4>
+        <p>Explicit opt-in consent before any conversation data is shared with a human operator. Consent logged with timestamp and IP hash. Configurable per deployment.</p>
+      </div>
+      <div class="sec-card">
+        <h4 class="c-orange">Input Guardrails</h4>
+        <p>Client-side PII detection blocks SSN and credit card patterns. Profanity filtering and CAPS abuse prevention enforced before messages reach the AI engine.</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- ══════════════════ FOOTER ══════════════════ -->
+<div class="footer">
+  <strong>Project IQ</strong> — Enterprise AI-Powered ITSM Platform &nbsp;·&nbsp;
+  ML Platform 3.6 &nbsp;·&nbsp; ITSM Platform &nbsp;·&nbsp; Runtime: Python / Flask / React Native &nbsp;·&nbsp; Database: PostgreSQL
+</div>
+
+</body>
+</html>

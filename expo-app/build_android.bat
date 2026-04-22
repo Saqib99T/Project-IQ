@@ -9,7 +9,9 @@ echo This keeps the upload payload tight (~77MB) and prevents hook errors.
 echo.
 
 set EAS_NO_VCS=1
-npx --yes eas-cli@latest build --platform android --profile preview --non-interactive
+echo [N] npx --yes eas-cli@latest build --platform android --profile preview --non-interactive
+echo [Y] npx --yes eas build --platform android --profile production --clear-cache
+npx --yes eas build --platform android --profile production --clear-cache
 
 echo.
 pause

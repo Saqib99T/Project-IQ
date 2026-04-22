@@ -394,7 +394,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             }
             const idleMs = Date.now() - lastActivityRef.current;
             const timeoutMs = timeoutMinutes * 60 * 1000;
-            const warningMs = (timeoutMinutes - 2) * 60 * 1000;
+            const warningMs = (timeoutMinutes - 5) * 60 * 1000;
 
             if (idleMs >= timeoutMs) {
                 clearInterval(inactivityIntervalRef.current);
@@ -417,7 +417,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                     return [...prev, {
                         id: uuidv4(),
                         sender: 'bot',
-                        text: `⏰ **Still there?** You've been inactive for ${timeoutMinutes - 2} minute${timeoutMinutes - 2 !== 1 ? 's' : ''}. Your session will end automatically in **2 minutes** if there's no activity.`,
+                        text: `⏰ **Still there?** You've been inactive for ${timeoutMinutes - 5} minute${timeoutMinutes - 5 !== 1 ? 's' : ''}. Your session will end automatically in **5 minutes** if there's no activity.`,
                         type: 'warning',
                     }];
                 });
@@ -472,6 +472,9 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 // Check for JSON message with login result
                 if (msg.custom?.login_success) {
                     loginSuccess = true;
+                    if (msg.custom?.session_token) {
+                        setCookie(getStorageKey(appId, 'glpiSessionToken'), msg.custom.session_token);
+                    }
                     break;
                 }
                 if (msg.custom?.login_error) {
@@ -629,9 +632,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         sessionEndedRef.current = false;
         localStorage.removeItem(getStorageKey(appId, 'messages'));
         deleteCookie(getStorageKey(appId, 'senderId'));
-        const newId = isAuthenticated && authUser
-            ? `user-${appId}-${authUser}`  // keep user-scoped ID for authenticated users
-            : uuidv4();
+        const newId = uuidv4();
         setCookie(getStorageKey(appId, 'senderId'), newId);
         setSenderId(newId);
         setSessionEnded(false);
@@ -669,7 +670,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                     body: JSON.stringify({
                         sender: senderId,
                         message: payload,
-                        metadata: { app_id: appId, user_name: authUser || undefined }
+                        metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
                     }),
                 });
 
@@ -738,7 +739,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 body: JSON.stringify({
                     sender: senderId,
                     message: intent,
-                    metadata: { app_id: appId, user_name: authUser || undefined }
+                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
                 })
             });
             console.log(`Feedback ${feedbackType} sent for message ${messageId}`);
@@ -793,7 +794,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
 
         // Guest mode restrictions - require login for ticket operations
         const restrictedPayloads = ['/create_ticket', '/list_tickets', '/check_status', '/update_ticket', '/verify_resolution'];
-        if (isGuest && restrictedPayloads.some(p => payload.startsWith(p))) {
+        if (!isAuthenticated && restrictedPayloads.some(p => payload.startsWith(p))) {
             const actionName = payload.includes('create') ? 'create tickets' :
                 payload.includes('list') ? 'view your tickets' :
                     payload.includes('check') ? 'check ticket status' : 'manage tickets';
@@ -852,7 +853,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 body: JSON.stringify({
                     sender: senderId,
                     message: message,
-                    metadata: { app_id: appId, user_name: authUser || undefined }
+                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
                 }),
             });
 
@@ -969,7 +970,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 body: JSON.stringify({
                     sender: senderId,
                     message: userMsg.text,
-                    metadata: { app_id: appId, user_name: authUser || undefined }
+                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
                 }),
             });
 

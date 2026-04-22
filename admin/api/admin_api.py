@@ -242,6 +242,18 @@ def add_header(response):
 def serve_index():
     return send_from_directory(WIDGET_DIR, 'it.html')
 
+@app.route('/bot')
+def serve_bot():
+    return send_from_directory(WIDGET_DIR, 'it.html')
+
+@app.route('/opt')
+def serve_opt():
+    resp = send_from_directory(STATIC_DIR, 'operator.html')
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
+
 @app.route('/admin')
 def serve_admin():
     return send_from_directory(STATIC_DIR, 'admin.html')
@@ -278,6 +290,11 @@ def serve_inspector():
 @app.route('/analytics.html')
 def serve_analytics():
     return send_from_directory(STATIC_DIR, 'analytics.html')
+
+@app.route('/overview')
+def serve_overview():
+    docs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '..', 'docs')
+    return send_from_directory(os.path.abspath(docs_dir), 'ProjectIQ-Overview.html')
 
 @app.route('/glpi-chat-widget.js')
 def serve_widget_js():
@@ -636,8 +653,8 @@ def system_status():
                                 'ok': status.lower().startswith('up')})
 
     # ── Ports ─────────────────────────────────────────────────────────────
-    port_labels = {5005: 'Rasa Core', 5055: 'Rasa Actions', 8181: 'Admin API',
-                   5432: 'PostgreSQL', 8083: 'GLPI', 3002: 'Firecrawl'}
+    port_labels = {5005: 'ML Platform Core', 5055: 'ML Platform Actions', 8181: 'Admin API',
+                   5432: 'PostgreSQL', 8083: 'ITSM', 3002: 'Firecrawl'}
     ports = [{'port': p, 'label': port_labels[p], 'ok': port_listening(p)}
              for p in port_labels]
 
@@ -671,10 +688,10 @@ def system_status():
 
     health = []
 
-    # Rasa
+    # ML Platform
     rasa_code, rasa_body = _http_raw('127.0.0.1', 5005, '/version')
     m = re.search(r'"version":"([^"]+)"', rasa_body)
-    health.append({'name': 'Rasa', 'ok': bool(m),
+    health.append({'name': 'ML Platform', 'ok': bool(m),
                    'detail': f'v{m.group(1)}' if m else 'no response'})
 
     # Admin API (self — check port directly, skip HTTP to avoid self-loop)
@@ -682,11 +699,11 @@ def system_status():
     health.append({'name': 'Admin API', 'ok': admin_up,
                    'detail': 'listening' if admin_up else 'not listening'})
 
-    # GLPI
+    # ITSM
     glpi_code, glpi_body = _http_raw('127.0.0.1', 8083, '/')
     glpi_ok = bool(re.search(r'Authentication|GLPI', glpi_body, re.I))
     m2 = re.search(r'<title>([^<]+)</title>', glpi_body, re.I)
-    health.append({'name': 'GLPI', 'ok': glpi_ok,
+    health.append({'name': 'ITSM', 'ok': glpi_ok,
                    'detail': m2.group(1).strip() if m2 else ('up' if glpi_ok else 'no response')})
 
     # PostgreSQL (use existing DB connection)
@@ -2335,7 +2352,7 @@ def inspector_list_conversations():
             query += " WHERE c.app_id = %s"
             params.append(app_id_filter)
         
-        query += " ORDER BY c.last_activity DESC LIMIT %s"
+        query += " ORDER BY c.id DESC LIMIT %s"
         params.append(limit)
         
         cursor.execute(query, tuple(params))
@@ -3420,6 +3437,14 @@ def chat_webhook_proxy():
         message_text = data.get('message', '')
         metadata = data.get('metadata', {})
 
+        # Auto Assist draft calls use __draft__ prefix — proxy to Rasa but skip all DB logging
+        if sender_id.startswith('__draft__'):
+            try:
+                r = requests.post(f"{RASA_URL}/webhooks/rest/webhook", json=data, timeout=10)
+                return jsonify(r.json()), r.status_code
+            except Exception:
+                return jsonify([]), 200
+
         # Extract context from metadata
         app_id = metadata.get('app_id', 'General')
         user_id = metadata.get('user_id', None)
@@ -3828,19 +3853,19 @@ def operator_login():
             # Step 1: verify the operator's GLPI credentials are valid
             result = await glpi_service.login_with_credentials(username, password)
             if not result.get('success'):
-                return False, 'GLPI authentication failed — check your credentials'
+                return False, 'Authentication failed — check your credentials'
             op_session = result['session_token']
             user_id    = result.get('user_id')
             # Kill the operator session immediately — we only needed it to verify credentials
             await glpi_service.kill_session(op_session)
 
             if not user_id:
-                return False, 'Could not retrieve GLPI user ID'
+                return False, 'Could not retrieve user ID'
 
             # Step 2: use the admin token session to fetch groups + display name
             admin_session = await glpi_service.init_session()
             if not admin_session:
-                return False, 'GLPI admin session unavailable — cannot verify group membership'
+                return False, 'Admin session unavailable — cannot verify group membership'
             try:
                 groups = await glpi_service.get_user_groups(admin_session, user_id)
                 group_names = set()
@@ -3856,7 +3881,7 @@ def operator_login():
                 if not any(n.lower() == required_lower for n in group_names):
                     return False, (
                         f"Access denied. You must be a member of the "
-                        f"'{required_group}' group in GLPI to access the operator console."
+                        f"'{required_group}' group in ITSM to access the operator console."
                     )
                 return True, None
             finally:
@@ -3866,7 +3891,7 @@ def operator_login():
             allowed, err_msg = asyncio.run(_glpi_check())
         except Exception as glpi_err:
             print(f"[OPERATOR AUTH] GLPI check error: {glpi_err}")
-            return jsonify({'error': 'GLPI is unreachable. Cannot verify credentials.'}), 503
+            return jsonify({'error': 'ITSM is unreachable. Cannot verify credentials.'}), 503
 
         if not allowed:
             print(f"[OPERATOR AUTH] Denied '{username}': {err_msg}")
@@ -4251,20 +4276,28 @@ def internal_queue_enqueue():
         if not sender_id:
             return jsonify({'error': 'sender_id required'}), 400
 
-        # Get conversation id
+        # Get or create conversation record (mobile users hit Rasa directly so no row may exist yet)
         conn = _get_connection()
         try:
             from psycopg2.extras import RealDictCursor
+            from datetime import datetime
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
-                "SELECT id FROM conversations WHERE sender_id = %s", (sender_id,)
+                "SELECT id FROM conversations WHERE sender_id = %s ORDER BY id DESC LIMIT 1", (sender_id,)
             )
             row = cursor.fetchone()
+            if not row:
+                now = datetime.utcnow()
+                cursor.execute(
+                    "INSERT INTO conversations (sender_id, app_id, started_at, last_activity) "
+                    "VALUES (%s, %s, %s, %s) RETURNING id",
+                    (sender_id, app_id, now, now)
+                )
+                row = cursor.fetchone()
+                conn.commit()
         finally:
             _release_connection(conn)
 
-        if not row:
-            return jsonify({'error': 'Conversation not found'}), 404
         conversation_id = row['id']
 
         # Log GDPR consent

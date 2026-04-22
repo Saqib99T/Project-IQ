@@ -3,16 +3,16 @@ profile = prod
 debug = false
 
 [GLPI]
-glpi_api_url = http://YOUR_PROD_SERVER/apirest.php
-glpi_app_token = YOUR_PROD_APP_TOKEN
-glpi_user_token = YOUR_PROD_USER_TOKEN
+glpi_api_url = http://198.233.100.77:8083/apirest.php
+glpi_app_token = c2xAtAzqKzx5YXcleWDqB6rAirV5yoUIRsbxR9Dv
+glpi_user_token = BHht1jncO8wZEi6MDLtqinFU13jIPgXHu4VxpUwq
 
 [DATABASE]
-db_host = YOUR_PROD_DB_HOST
+db_host = localhost
 db_port = 5432
 db_name = Chatbot
 db_user = postgres
-db_password = YOUR_PROD_DB_PASSWORD
+db_password = 12345
 
 [RASA]
 rasa_api_url = http://localhost:5005
@@ -20,7 +20,10 @@ rasa_action_url = http://127.0.0.1:5055/webhook
 
 [SERVER]
 admin_port = 8181
-cors_origins = https://YOUR_PROD_DOMAIN
+cors_origins = *
+
+[SESSION]
+session_timeout_minutes = 15
 
 [WIDGET]
 widget_title = IT Support
@@ -47,12 +50,12 @@ kb_qa_min_score = 0.85
 kb_qa_max_results = 3
 
 [FIRECRAWL]
-firecrawl_api_key = YOUR_FIRECRAWL_API_KEY
+firecrawl_api_key = fc-selfhosted
 firecrawl_api_url = http://localhost:3002
 
 [HANDOFF]
 # JWT secret for operator dashboard authentication — MUST be changed before go-live
-operator_jwt_secret = YOUR_STRONG_PROD_JWT_SECRET_HERE
+operator_jwt_secret = piq-prod-j7Kx92mNvRqL4wZs8dYhT3cFbEuA6gP
 
 # GLPI group enforcement for operator login
 # Requires operators to be members of the named GLPI group before they can log in
@@ -64,7 +67,7 @@ operator_jwt_expiry_hours = 24
 socketio_async_mode = eventlet
 socketio_ping_timeout = 60
 socketio_ping_interval = 25
-socketio_cors_allowed_origins = https://YOUR_PROD_DOMAIN
+socketio_cors_allowed_origins = *
 
 # Operator session — seconds before a missed-heartbeat operator goes offline
 operator_heartbeat_timeout_secs = 90

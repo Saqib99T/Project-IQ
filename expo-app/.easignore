@@ -1,3 +1,4 @@
+# ── expo-app internals (relative to expo-app/ if EAS scans from here) ──
 node_modules/
 .expo/
 dist/
@@ -9,28 +10,30 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 
-# Exclude monorepo siblings (not needed for mobile build)
-../admin/
-../action_server/
-../core/
-../common/
-../scripts/
-../mobile-app/
-../data/
-../docs/
-../venv/
-../.venv/
-../Backup/
-../firecrawl-selfhost/
-../Log/
-../__pycache__/
-../rasa.db
-../*.pyc
-../requirements.txt
-../docker-compose*.yml
-../rebrand.py
-../start_*.ps1
-../run_tests.ps1
-../test_*.ps1
-../test_*.py
-../_nul
+# ── same paths relative to git root (Project-IQ/) if EAS scans from there) ──
+expo-app/node_modules/
+expo-app/.expo/
+expo-app/dist/
+
+# ── backend / monorepo siblings — never needed for mobile build ──
+admin/
+action_server/
+core/
+common/
+scripts/
+mobile-app/
+data/
+docs/
+venv/
+.venv/
+Backup/
+firecrawl-selfhost/
+Log/
+__pycache__/
+
+# ── large binary files wherever they live ──
+*.tar.gz
+*.db
+*.pkl
+*.pyc
+

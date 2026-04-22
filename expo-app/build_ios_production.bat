@@ -13,6 +13,7 @@ echo.
 set EAS_NO_VCS=1
 npx --yes eas-cli@latest build --platform ios --profile production
 
+echo eas submit --platform ios --latest --profile production
 echo.
 echo ==========================================================
 echo To submit to App Store after build completes, run:

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Modal, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { getApiUrl, setApiUrl, WEBHOOK_PATH, getAppId, setAppId, APP_ID_OPTIONS } from '../config';
 
 const SettingsScreen = ({ navigation }) => {
@@ -171,7 +172,7 @@ const SettingsScreen = ({ navigation }) => {
 
                 {/* App Info */}
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>Project IQ Mobile v1.0.0</Text>
+                    <Text style={styles.footerText}>Project IQ Mobile v{Constants.expoConfig?.version || '1.0.8'}</Text>
                     <Text style={styles.footerSub}>Powered by Rasa • React Native</Text>
                 </View>
             </ScrollView>

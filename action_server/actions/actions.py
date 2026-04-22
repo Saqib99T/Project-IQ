@@ -87,29 +87,37 @@ def get_analytics_context(tracker: Tracker) -> Dict[str, str]:
     }
 
 
-async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -> bool:
-    """Check if user is logged in. If slot is stale, verify the GLPI token directly.
+def get_effective_session_token(tracker) -> Optional[str]:
+    """Get session token from slot or, for new sessions, from message metadata."""
+    token = tracker.get_slot("session_token")
+    if not token:
+        token = tracker.latest_message.get("metadata", {}).get("session_token")
+    return token
 
-    Returns:
-        True if user is authenticated (slot set, or token verified live with GLPI)
-        False if not — also sends the login-required message in that case.
+
+async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -> bool:
+    """Check if user is logged in. Returns True if authenticated.
+
+    On a new session tracker slots are blank. The widget sends the stored
+    session_token in metadata so we can verify it live and continue without re-login.
     """
     is_authenticated = tracker.get_slot("is_authenticated")
-    session_token    = tracker.get_slot("session_token")
+    slot_token = tracker.get_slot("session_token")
+    meta_token = tracker.latest_message.get("metadata", {}).get("session_token")
+    session_token = slot_token or meta_token
 
-    logger.info(f"LOGIN CHECK - is_authenticated: {is_authenticated}, has_token: {bool(session_token)}")
+    logger.info(f"LOGIN CHECK: is_auth={is_authenticated} slot_token={'set' if slot_token else 'None'} meta_token={'set' if meta_token else 'None'}")
 
-    # Fast path: slot says authenticated
-    if is_authenticated:
+    # Fast path: slot says authenticated and we have a token
+    if is_authenticated and session_token:
         logger.info("LOGIN CHECK PASSED (slot)")
         return True
 
-    # Slow path: slot is False/None but we have a token — verify it live with GLPI.
-    # This recovers from Rasa tracker resets while the widget still shows the user as logged in.
+    # Have a token (slot or metadata) but is_authenticated not set — verify live
     if session_token:
-        logger.info("LOGIN CHECK - slot not set, verifying token with GLPI…")
         service = get_glpi_service()
         user_info = await service._get_current_user(session_token)
+        logger.info(f"LOGIN CHECK: _get_current_user returned {user_info}")
         if user_info and user_info.get("id"):
             logger.info(f"LOGIN CHECK PASSED (token verified, user={user_info.get('name')})")
             return True
@@ -306,11 +314,11 @@ class ActionInitGlpiSession(Action):
                 ctx = get_analytics_context(tracker)
                 analytics_store.log_message(sender_id, "user", user_text, intent, app_id=ctx["app_id"], user_id=ctx["user_id"], ticket_id=ctx["ticket_id"])
                 
-                return [SlotSet("session_token", session_token), SlotSet("app_id", app_id)]
+                return [SlotSet("svc_session_token", session_token), SlotSet("app_id", app_id)]
             else:
                 logger.error("GLPI InitSession failed.")
-                dispatcher.utter_message(text="❌ Authentication failed. Could not start GLPI session.")
-                return [SlotSet("session_token", None)]
+                dispatcher.utter_message(text="❌ Authentication failed. Could not start session.")
+                return [SlotSet("svc_session_token", None)]
         except Exception as e:
             logger.error(f"Error in ActionInitGlpiSession: {e}")
             dispatcher.utter_message(text=f"Error in Init Session: {e}")
@@ -329,12 +337,7 @@ class ActionCreateGlpiTicket(Action):
         # Check if user is logged in
         if not await check_user_login(tracker, dispatcher):
             return [SlotSet("ticket_id", None)]
-
-        # 1. Check for the required session token
-        session_token = tracker.get_slot("session_token")
-        if not session_token:
-            dispatcher.utter_message(text="GLPI session is not active. Please start over.")
-            return [SlotSet("ticket_id", None)]
+        session_token = get_effective_session_token(tracker)
 
         # 2. Retrieve form slots
         ticket_title = tracker.get_slot("ticket_title") 
@@ -382,8 +385,8 @@ class ActionCreateGlpiTicket(Action):
         new_ticket_id = await glpi_service.create_ticket(session_token, ticket_data, entity_id)
         
         if new_ticket_id:
-            ticket_ref = f"GLPI-{new_ticket_id}"
-            response_text = f"✅ Success! Your new ticket **{ticket_ref}** has been created in GLPI."
+            ticket_ref = f"Ticket-{new_ticket_id}"
+            response_text = f"✅ Success! Your new ticket **{ticket_ref}** has been created."
             dispatcher.utter_message(
                 text=response_text,
                 buttons=[
@@ -421,13 +424,8 @@ class ActionCheckGlpiStatus(Action):
         # Check if user is logged in
         if not await check_user_login(tracker, dispatcher):
             return [SlotSet("ticket_id", None)]
+        session_token = get_effective_session_token(tracker)
 
-        # 1. Check for the required session token
-        session_token = tracker.get_slot("session_token")
-        if not session_token:
-            dispatcher.utter_message(text="GLPI session is not active. Please start over.")
-            return [SlotSet("ticket_id", None)]
-        
         ticket_id_slot = tracker.get_slot("ticket_id")
         
         if not ticket_id_slot:
@@ -456,29 +454,24 @@ class ActionCheckGlpiStatus(Action):
 
             entity_id_map = {
                 "Root": 0,    # Root Entity (Default)
-                "IT": 1,   # IT Entity
+                "IT": 1,      # IT Entity
                 "Accounting": 2,   # Accounting Entity
             }
-            # Default to 0 (IT) if app_id is None, effectively restricting "Unknown" context to IT.
-            # Or should we be more lenient? The requirement says "tickets against app-id only".
-            expected_entity_id = entity_id_map.get(app_id, 0)
-            
-            # glpi_service.get_ticket returns raw data. entities_id is usually an integer or a dict/list if expanded.
-            # Checking type just in case.
-            ticket_entity = ticket_data.get("entities_id")
-            
-            # If ticket_entity is complex (e.g. list/dict), try to extract ID. 
-            # Standard REST API usually returns int unless expand_dropdowns is set.
-            # We assume int here based on typical usage, but let's be safe if it's 0 vs '0'
-            try:
-                ticket_entity_id = int(ticket_entity)
-            except (ValueError, TypeError):
-                ticket_entity_id = 0 # Fallback
-                
-            if ticket_entity_id != expected_entity_id:
-                logger.warning(f"Access Denied: Ticket {ticket_id_slot} (Entity {ticket_entity_id}) does not belong to App Context {app_id} (Entity {expected_entity_id})")
-                dispatcher.utter_message(text=f"❌ **Invalid ticket.** Ticket **{ticket_id_slot}** does not belong to the **{app_id or 'IT'}** department.")
-                return [SlotSet("ticket_id", None)]
+
+            # Only enforce entity check when app_id is a known context
+            if app_id in entity_id_map:
+                expected_entity_id = entity_id_map[app_id]
+                ticket_entity = ticket_data.get("entities_id")
+                try:
+                    ticket_entity_id = int(ticket_entity)
+                except (ValueError, TypeError):
+                    ticket_entity_id = -1
+
+                # Root entity (0) is parent of all — always allowed
+                if ticket_entity_id != 0 and ticket_entity_id != expected_entity_id:
+                    logger.warning(f"Access Denied: Ticket {ticket_id_slot} (Entity {ticket_entity_id}) does not belong to App Context {app_id} (Entity {expected_entity_id})")
+                    dispatcher.utter_message(text=f"❌ **Invalid ticket.** Ticket **{ticket_id_slot}** does not belong to the **{app_id}** department.")
+                    return [SlotSet("ticket_id", None)]
             # -----------------------------
             status_map = {
                 1: "New", 2: "Processing (Assigned)", 3: "Processing (Planned)", 
@@ -532,18 +525,15 @@ class ActionUpdateGlpiTicket(Action):
         if not await check_user_login(tracker, dispatcher):
             return []
 
-        session_token = tracker.get_slot("session_token")
-        if not session_token:
-            dispatcher.utter_message(text="GLPI session is not active. Please start over.")
-            return []
+        session_token = get_effective_session_token(tracker)
 
         ticket_id_slot = tracker.get_slot("ticket_id")
-        
+
         # 1. Ask for Ticket ID if missing
         if not ticket_id_slot:
              dispatcher.utter_message(response="utter_ask_ticket_id")
              return []
-        
+
         ticket_number = int(ticket_id_slot.upper().replace('GLPI-', ''))
         
         # 2. Check if we have a target_status OR update_content
@@ -618,9 +608,9 @@ class ActionVerifyGlpiResolution(Action):
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
         
-        session_token = tracker.get_slot("session_token")
+        session_token = get_effective_session_token(tracker)
         if not session_token:
-            dispatcher.utter_message(text="GLPI session is not active.")
+            dispatcher.utter_message(text="Session is not active.")
             return []
 
         ticket_id_slot = tracker.get_slot("ticket_id")
@@ -629,7 +619,7 @@ class ActionVerifyGlpiResolution(Action):
             return []
 
         ticket_number = int(ticket_id_slot.upper().replace('GLPI-', ''))
-        
+
         # Check if we assume 'affirm' means 'Close it'
         # But we need a way to track if we just showed the status.
         # Simplest approach logic:
@@ -711,18 +701,15 @@ class ActionViewTicketComments(Action):
         if not await check_user_login(tracker, dispatcher):
             return []
 
-        session_token = tracker.get_slot("session_token")
-        if not session_token:
-            dispatcher.utter_message(text="GLPI session is not active.")
-            return []
+        session_token = get_effective_session_token(tracker)
 
         ticket_id_slot = tracker.get_slot("ticket_id")
         if not ticket_id_slot:
             dispatcher.utter_message(response="utter_ask_ticket_id")
             return []
-        
+
         ticket_number = int(ticket_id_slot.upper().replace('GLPI-', ''))
-        
+
         followups = await glpi_service.get_ticket_followups(session_token, ticket_number)
         
         if not followups:
@@ -762,10 +749,7 @@ class ActionListOpenTickets(Action):
         if not await check_user_login(tracker, dispatcher):
             return []
 
-        session_token = tracker.get_slot("session_token")
-        if not session_token:
-            dispatcher.utter_message(text="GLPI session is not active.")
-            return []
+        session_token = get_effective_session_token(tracker)
 
         # Determine if user wants ALL tickets or just OPEN ones
         latest_msg = tracker.latest_message
@@ -790,9 +774,9 @@ class ActionListOpenTickets(Action):
                 msg_metadata = {}
             if isinstance(msg_metadata, dict) and msg_metadata.get("app_id"):
                 app_id = msg_metadata.get("app_id")
-        
-        session_token = tracker.get_slot("session_token")
-        
+
+        session_token = get_effective_session_token(tracker)
+
         # Check for status_id in custom payload entities
         status_id = None
         status_name = None
@@ -912,10 +896,7 @@ class ActionUploadFile(Action):
         if not await check_user_login(tracker, dispatcher):
             return []
 
-        session_token = tracker.get_slot("session_token")
-        if not session_token:
-            dispatcher.utter_message(text="GLPI session is not active cannot upload.")
-            return []
+        session_token = get_effective_session_token(tracker)
 
         file_name = tracker.get_slot("file_name")
         file_data = tracker.get_slot("file_data")
@@ -947,11 +928,11 @@ class ActionUploadFile(Action):
                 else:
                     msg += f"⚠️ Uploaded, but **failed to link** to Ticket TICKET-{clean_id}."
             else:
-                 msg += "ℹ️ File is in GLPI documents, but **not attached** to any ticket.\nTip: Open or create a ticket first to attach files automatically."
-            
+                 msg += "ℹ️ File is in documents, but **not attached** to any ticket.\nTip: Open or create a ticket first to attach files automatically."
+
             dispatcher.utter_message(text=msg)
             return [SlotSet("file_name", None), SlotSet("file_data", None)]
-        dispatcher.utter_message(text="❌ Failed to upload file to GLPI.")
+        dispatcher.utter_message(text="❌ Failed to upload file.")
         return []
 
 class ActionListAttachments(Action):
@@ -968,11 +949,7 @@ class ActionListAttachments(Action):
         if not await check_user_login(tracker, dispatcher):
             return []
 
-        session_token = tracker.get_slot("session_token")
-        if not session_token:
-            logger.info("DEBUG: No session token found")
-            dispatcher.utter_message(text="GLPI session is not active.")
-            return []
+        session_token = get_effective_session_token(tracker)
 
         ticket_id_slot = tracker.get_slot("ticket_id")
         logger.info(f"DEBUG: Ticket ID slot is {ticket_id_slot}")
@@ -1052,10 +1029,13 @@ class ActionClearSession(Action):
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
         
-        # We can also kill the GLPI session on the server if we want strict cleanup
+        # Kill both user session and service session on cleanup
         session_token = tracker.get_slot("session_token")
         if session_token:
             await glpi_service.kill_session(session_token)
+        svc_token = tracker.get_slot("svc_session_token")
+        if svc_token:
+            await glpi_service.kill_session(svc_token)
             
         dispatcher.utter_message(response="utter_cleared")
         
@@ -1393,7 +1373,7 @@ class ActionSearchKnowledgeBase(Action):
         glpi_id = section.get('glpi_id') or article.get('glpi_id')
         article_link = self._build_article_link(glpi_id)
         if glpi_id:
-            response += f"\n\n_Source: GLPI KB (Article #{glpi_id})_"
+            response += f"\n\n_Source: ITSM KB (Article #{glpi_id})_"
         else:
             response += "\n\n_Source: Local KB_"
 
@@ -1652,7 +1632,7 @@ class ActionSearchKnowledgeBase(Action):
             source = best_match.get('source', 'unknown')
             if source == 'glpi':
                 glpi_id = article.get('glpi_id', '')
-                response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
+                response += f"\n\n_Source: ITSM KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
                 
                 # Add Clickable Link to Article
                 try:
@@ -1765,7 +1745,7 @@ class ActionShowKbFullAnswer(Action):
         response += f"**A:** {answer}"
 
         if source == 'glpi':
-            response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
+            response += f"\n\n_Source: ITSM KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
             try:
                 glpi_base_url = get_glpi_base_url()
                 if glpi_id:
@@ -1801,7 +1781,7 @@ class ActionShowKbFullArticle(Action):
         response = f"### 📚 {title}\n\n{content}"
 
         if source == 'glpi':
-            response += f"\n\n_Source: GLPI KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
+            response += f"\n\n_Source: ITSM KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
             try:
                 glpi_base_url = get_glpi_base_url()
                 if glpi_id:
@@ -2154,7 +2134,7 @@ class ActionShowTicketGraph(Action):
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
         
-        session_token = tracker.get_slot("session_token")
+        session_token = get_effective_session_token(tracker)
         if not session_token:
             dispatcher.utter_message(text="❌ Please log in first to view your ticket graph.")
             return []
@@ -2262,9 +2242,9 @@ class ActionCreateTicketFromForm(Action):
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
         
-        session_token = tracker.get_slot("session_token")
+        session_token = get_effective_session_token(tracker)
         if not session_token:
-            dispatcher.utter_message(text="GLPI session is not active. Please start over.")
+            dispatcher.utter_message(text="Session is not active. Please start over.")
             return []
 
         # Parse JSON payload from message text
@@ -2489,11 +2469,16 @@ class ActionRequestHandoff(Action):
 
         if resp and resp.get('online'):
             wait_mins = resp.get('wait_mins', 0)
-            # Show GDPR consent — actual queueing happens after user agrees
-            return [
-                SlotSet('wait_estimate_mins', float(wait_mins)),
-                FollowupAction('action_gdpr_consent')
-            ]
+            # Inline GDPR consent here instead of FollowupAction — avoids TEDPolicy
+            # predicting an extra action after the followup and producing a double response.
+            cfg = _get_handoff_runtime_cfg()
+            if not cfg.get('gdpr', {}).get('consent_required', True):
+                return [
+                    SlotSet('wait_estimate_mins', float(wait_mins)),
+                    FollowupAction('action_confirm_handoff')
+                ]
+            dispatcher.utter_message(response='utter_gdpr_consent_request')
+            return [SlotSet('wait_estimate_mins', float(wait_mins))]
         elif resp and resp.get('online_count', 0) == 0:
             dispatcher.utter_message(response='utter_no_agents_available')
         else:

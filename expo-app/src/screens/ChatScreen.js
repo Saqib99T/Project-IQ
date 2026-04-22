@@ -4,7 +4,7 @@ import {
     KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Alert,
     Modal, TouchableWithoutFeedback, ScrollView, Keyboard
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { io } from 'socket.io-client';
 import { storage } from '../utils/storage';
@@ -83,8 +83,10 @@ const ChatScreen = ({ navigation }) => {
 
     // Feedback persistence
     const [feedbackMap, setFeedbackMap] = useState({});
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
     const flatListRef = useRef(null);
+    const insets = useSafeAreaInsets();
 
     // Welcome state: only the init message, no real conversation yet
     const isWelcomeState = messages.length === 1 && messages[0]?.id === 'init';
@@ -128,6 +130,18 @@ const ChatScreen = ({ navigation }) => {
             try { setFeedbackMap(JSON.parse(savedFeedback)); } catch { /* ignore */ }
         }
     };
+
+    // Track keyboard visibility to eliminate the bottom inset gap when open
+    useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+        const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+        const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     // Fetch session timeout from admin config
     useEffect(() => {
@@ -351,6 +365,9 @@ const ChatScreen = ({ navigation }) => {
 
     useEffect(() => { scrollToEnd(); }, [messages]);
 
+    // On Android, adjustResize (AndroidManifest) resizes the window when keyboard opens.
+    // FlatList onLayout fires when its height changes → scroll to show latest messages.
+
     // API helper
     const sendToRasa = async (message) => {
         const currentAppId = await getAppId();
@@ -382,6 +399,23 @@ const ChatScreen = ({ navigation }) => {
             else if (msg.custom?.ticket_form) { processed.push({ id: uuidv4(), sender: 'bot', text: '', ticket_form: msg.custom.ticket_form }); }
             else if (msg.image) { processed.push({ id: uuidv4(), sender: 'bot', text: `![image](${msg.image})` }); }
         }
+
+        // Strip spurious fallback messages appended by Rasa's RulePolicy / TEDPolicy
+        // alongside real handoff / action responses (same logic as admin proxy does for web)
+        const FALLBACK_PREFIXES = [
+            "I'm not sure I understand",
+            "\u2019m not sure I understand",
+            "I\u2019m not sure I understand",
+            "I'm sorry, I didn't",
+            "I'm sorry, I didn\u2019t",
+        ];
+        if (processed.length > 1) {
+            const filtered = processed.filter(
+                m => !FALLBACK_PREFIXES.some(p => (m.text || '').startsWith(p))
+            );
+            if (filtered.length > 0) return filtered;
+        }
+
         return processed;
     };
 
@@ -466,7 +500,7 @@ const ChatScreen = ({ navigation }) => {
         if (payload === '__SHOW_TICKET_FORM__') { setShowTicketForm(true); return; }
 
         const restricted = ['/create_ticket', '/list_tickets', '/check_status', '/update_ticket', '/verify_resolution'];
-        if (isGuest && restricted.some(p => payload.startsWith(p))) {
+        if (!isAuthenticated && restricted.some(p => payload.startsWith(p))) {
             const action = payload.includes('create') ? 'create tickets' : payload.includes('list') ? 'view your tickets' : payload.includes('check') ? 'check ticket status' : 'manage tickets';
             setMessages(prev => [...prev, {
                 id: uuidv4(), sender: 'bot',
@@ -817,8 +851,7 @@ const ChatScreen = ({ navigation }) => {
 
             <KeyboardAvoidingView
                 style={styles.flex}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
                 {/* Welcome State */}
                 {isWelcomeState ? (
@@ -871,6 +904,7 @@ const ChatScreen = ({ navigation }) => {
                         )}
                         contentContainerStyle={styles.messagesList}
                         onContentSizeChange={scrollToEnd}
+                        onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
                         showsVerticalScrollIndicator={false}
                         ListFooterComponent={
                             operatorTyping && handoffState === 'assigned' ? (
@@ -897,13 +931,12 @@ const ChatScreen = ({ navigation }) => {
 
                 {/* Quick Actions bar — only shown when bot is active (not during handoff) */}
                 {!isWelcomeState && !sessionEnded && handoffState === 'bot_active' && (
-                    <QuickActions onAction={handleButtonClick} />
+                    <QuickActions onAction={handleButtonClick} isAuthenticated={isAuthenticated && !isGuest} />
                 )}
 
                 {/* Input Bar or New Conversation */}
-                <SafeAreaView
-                    edges={['bottom']}
-                    style={[styles.inputSafeArea, isWelcomeState && { backgroundColor: welcomeBg }]}
+                <View
+                    style={[styles.inputSafeArea, { paddingBottom: isKeyboardVisible ? 0 : insets.bottom }, isWelcomeState && { backgroundColor: welcomeBg }]}
                 >
                     {sessionEnded ? (
                         /* New Conversation button shown when session is ended */
@@ -962,7 +995,7 @@ const ChatScreen = ({ navigation }) => {
                             </View>
                         </View>
                     )}
-                </SafeAreaView>
+                </View>
             </KeyboardAvoidingView>
 
             {/* Queue timeout choice — Remain or Leave */}

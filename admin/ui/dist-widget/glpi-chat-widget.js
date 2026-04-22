@@ -37808,7 +37808,7 @@ I'm here to help you with:
         }
         const idleMs = Date.now() - lastActivityRef.current;
         const timeoutMs = timeoutMinutes * 60 * 1e3;
-        const warningMs = (timeoutMinutes - 2) * 60 * 1e3;
+        const warningMs = (timeoutMinutes - 5) * 60 * 1e3;
         if (idleMs >= timeoutMs) {
           clearInterval(inactivityIntervalRef.current);
           emitUserEndSession();
@@ -37830,7 +37830,7 @@ I'm here to help you with:
             return [...prev, {
               id: v4(),
               sender: "bot",
-              text: `⏰ **Still there?** You've been inactive for ${timeoutMinutes - 2} minute${timeoutMinutes - 2 !== 1 ? "s" : ""}. Your session will end automatically in **2 minutes** if there's no activity.`,
+              text: `⏰ **Still there?** You've been inactive for ${timeoutMinutes - 5} minute${timeoutMinutes - 5 !== 1 ? "s" : ""}. Your session will end automatically in **5 minutes** if there's no activity.`,
               type: "warning"
             }];
           });
@@ -37870,6 +37870,9 @@ I'm here to help you with:
         for (const msg of data) {
           if (msg.custom?.login_success) {
             loginSuccess = true;
+            if (msg.custom?.session_token) {
+              setCookie(getStorageKey(appId, "glpiSessionToken"), msg.custom.session_token);
+            }
             break;
           }
           if (msg.custom?.login_error) {
@@ -38008,7 +38011,7 @@ I'm here to help you with:
       sessionEndedRef.current = false;
       localStorage.removeItem(getStorageKey(appId, "messages"));
       deleteCookie(getStorageKey(appId, "senderId"));
-      const newId = isAuthenticated && authUser ? `user-${appId}-${authUser}` : v4();
+      const newId = v4();
       setCookie(getStorageKey(appId, "senderId"), newId);
       setSenderId(newId);
       setSessionEnded(false);
@@ -38047,7 +38050,7 @@ I'm here to help you with:
             body: JSON.stringify({
               sender: senderId,
               message: payload,
-              metadata: { app_id: appId, user_name: authUser || void 0 }
+              metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
             })
           });
           const data = await response.json();
@@ -38101,7 +38104,7 @@ I'm here to help you with:
           body: JSON.stringify({
             sender: senderId,
             message: intent,
-            metadata: { app_id: appId, user_name: authUser || void 0 }
+            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
           })
         });
         console.log(`Feedback ${feedbackType} sent for message ${messageId}`);
@@ -38145,7 +38148,7 @@ I'm here to help you with:
         return;
       }
       const restrictedPayloads = ["/create_ticket", "/list_tickets", "/check_status", "/update_ticket", "/verify_resolution"];
-      if (isGuest && restrictedPayloads.some((p) => payload.startsWith(p))) {
+      if (!isAuthenticated && restrictedPayloads.some((p) => payload.startsWith(p))) {
         const actionName = payload.includes("create") ? "create tickets" : payload.includes("list") ? "view your tickets" : payload.includes("check") ? "check ticket status" : "manage tickets";
         setMessages((prev) => [...prev, {
           id: v4(),
@@ -38193,7 +38196,7 @@ Priority: ${data.priority}`;
           body: JSON.stringify({
             sender: senderId,
             message,
-            metadata: { app_id: appId, user_name: authUser || void 0 }
+            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
           })
         });
         const data = await response.json();
@@ -38295,7 +38298,7 @@ Priority: ${data.priority}`;
           body: JSON.stringify({
             sender: senderId,
             message: userMsg.text,
-            metadata: { app_id: appId, user_name: authUser || void 0 }
+            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
           })
         });
         const data = await response.json();

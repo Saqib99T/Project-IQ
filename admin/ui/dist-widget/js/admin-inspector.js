@@ -131,23 +131,31 @@ function filterInspectorConversations() {
 }
 
 function renderInspectorConvList() {
-    // Data is already filtered from backend
-    const filtered = inspectorConversations;
+    // Data is already filtered from backend — sort by id descending
+    const filtered = [...inspectorConversations].sort((a, b) => (b.id || 0) - (a.id || 0));
 
     const html = filtered.map(c => {
         const userName = c.user_name || c.user_id || null;
         const statusIcon = c.resolved ? '✅' : (c.ticket_id ? '🎫' : '🔵');
+        const startedAt = c.started_at ? (() => {
+            const d = new Date(c.started_at);
+            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        })() : '';
         return `
-        <div onclick="selectInspConversation('${c.sender_id}')" 
+        <div onclick="selectInspConversation('${c.sender_id}')"
              class="p-2 rounded cursor-pointer hover:bg-gray-100 border ${selectedInspConv?.sender_id === c.sender_id ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}">
             <div class="flex justify-between items-start">
                 <div>
                     ${userName ? `<div class="font-medium text-sm text-purple-700">👤 ${userName}</div>` : ''}
                     <div class="font-mono text-xs text-gray-500">${c.sender_id_short}</div>
                 </div>
-                <span class="text-xs">${statusIcon}</span>
+                <div class="flex flex-col items-end gap-0.5">
+                    <span class="text-xs font-medium text-gray-600">#${c.id || ''}</span>
+                    <span class="text-xs">${statusIcon}</span>
+                </div>
             </div>
             <div class="text-xs text-gray-500 mt-1">${c.app_id} • ${c.message_count} msgs</div>
+            ${startedAt ? `<div class="text-xs text-gray-400 mt-0.5">🕐 ${startedAt}</div>` : ''}
             ${c.ticket_id ? `<div class="text-xs text-blue-600 mt-0.5">🎫 Ticket #${c.ticket_id}</div>` : ''}
         </div>
     `}).join('');
@@ -171,7 +179,7 @@ async function selectInspConversation(senderId) {
                 <div class="p-2 rounded text-sm ${m.sender === 'user' ? 'bg-blue-50 border-l-4 border-blue-400 ml-8' : 'bg-gray-50 border-l-4 border-gray-300 mr-8'}">
                     <div class="flex justify-between text-xs mb-1">
                         <b>${m.sender === 'user' ? '👤 User' : '🤖 Bot'}</b>
-                        <span class="text-gray-400">${m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : ''}</span>
+                        <span class="text-gray-400">${m.timestamp ? (() => { const d = new Date(m.timestamp); return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); })() : ''}</span>
                     </div>
                     <div>${m.text || ''}</div>
                     ${m.intent ? `<span class="inline-block mt-1 px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">🎯 ${m.intent}</span>` : ''}
@@ -366,7 +374,7 @@ async function testNLU() {
 
     } catch (e) {
         console.error('NLU test failed:', e);
-        alert('Failed to test NLU. Make sure Rasa server is running on port 5005.');
+        alert('Failed to test NLU. Make sure ML Platform server is running on port 5005.');
     }
 }
 
@@ -416,7 +424,7 @@ async function loadSlots() {
 
     } catch (e) {
         console.error('Failed to load slots:', e);
-        alert('Failed to load slots. Make sure Rasa server is running and the conversation ID is valid.');
+        alert('Failed to load slots. Make sure ML Platform server is running and the conversation ID is valid.');
     }
 }
 
@@ -518,7 +526,7 @@ async function loadDomain() {
 
     } catch (e) {
         console.error('Failed to load domain:', e);
-        alert('Failed to load domain. Make sure Rasa server is running on port 5005.');
+        alert('Failed to load domain. Make sure ML Platform server is running on port 5005.');
     }
 }
 

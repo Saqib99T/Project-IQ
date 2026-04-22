@@ -8,7 +8,7 @@ const ACTIONS = [
     { label: '❓ Help', payload: '/help' },
 ];
 
-const QuickActions = ({ onAction }) => (
+const QuickActions = ({ onAction, isAuthenticated }) => (
     <View style={styles.container}>
         <View style={styles.row}>
             {ACTIONS.map((action, idx) => (
@@ -21,6 +21,15 @@ const QuickActions = ({ onAction }) => (
                     <Text style={styles.chipText}>{action.label}</Text>
                 </TouchableOpacity>
             ))}
+            {isAuthenticated && (
+                <TouchableOpacity
+                    style={[styles.chip, styles.humanChip]}
+                    onPress={() => onAction('/request_human_agent')}
+                    activeOpacity={0.7}
+                >
+                    <Text style={[styles.chipText, styles.humanChipText]}>👤 Talk to Human</Text>
+                </TouchableOpacity>
+            )}
         </View>
     </View>
 );
@@ -49,6 +58,13 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: THEME.primary,
         fontWeight: '500',
+    },
+    humanChip: {
+        backgroundColor: '#f0fdf4',
+        borderColor: '#16a34a40',
+    },
+    humanChipText: {
+        color: '#16a34a',
     },
 });
 

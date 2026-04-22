@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const DEFAULT_API_URL = 'http://198.233.100.77:5005';
+const DEFAULT_API_URL = 'http://198.233.100.77:8181';
 const WEBHOOK_PATH = '/webhooks/rest/webhook';
 const DEFAULT_APP_ID = 'IT';
 const APP_TITLE = 'Project IQ Bot';
@@ -25,7 +25,15 @@ export const APP_ID_OPTIONS = [
 export const getApiUrl = async () => {
     try {
         const stored = await AsyncStorage.getItem('rasa_api_url');
-        if (stored && stored.startsWith('http')) return stored;
+        if (stored && stored.startsWith('http')) {
+            // Migrate: old installs may have port 5005 (direct Rasa) saved.
+            // All traffic must go through the admin proxy on 8181 for handoff interception.
+            const migrated = stored.replace(/:5005\b/, ':8181');
+            if (migrated !== stored) {
+                await AsyncStorage.setItem('rasa_api_url', migrated);
+            }
+            return migrated;
+        }
     } catch {}
     return DEFAULT_API_URL;
 };

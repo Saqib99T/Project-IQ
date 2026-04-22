@@ -5,13 +5,32 @@ import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { THEME } from '../config';
 
-const getYouTubeEmbedUrl = (video) => {
-    if (!video) return null;
+const extractYouTubeInfo = (video) => {
+    if (!video) return { id: '', start: 0, title: '' };
     const url = typeof video === 'string' ? video : (video.url || video.youtube_id || '');
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-    const videoId = match ? match[1] : url;
-    const start = video.start_time ? `?start=${video.start_time}` : '';
-    return videoId ? `https://www.youtube.com/embed/${videoId}${start}` : null;
+    const title = typeof video === 'object' ? (video.title || '') : '';
+
+    // Extract video ID
+    const idPatterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+        /^([a-zA-Z0-9_-]{11})$/,
+    ];
+    let videoId = '';
+    for (const pattern of idPatterns) {
+        const match = url.match(pattern);
+        if (match) { videoId = match[1]; break; }
+    }
+
+    // Extract start time from URL (?t=123, &t=123, &start=123) or from object property
+    let startTime = 0;
+    const timeMatch = url.match(/[?&](?:t|start)=(\d+)/);
+    if (timeMatch) {
+        startTime = parseInt(timeMatch[1], 10);
+    } else if (typeof video === 'object' && video.start_time) {
+        startTime = parseInt(video.start_time, 10) || 0;
+    }
+
+    return { id: videoId, start: startTime, title };
 };
 
 const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFeedback }) => {
@@ -64,7 +83,8 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
         );
     }
 
-    const videoUrl = message.video ? getYouTubeEmbedUrl(message.video) : null;
+    const videoInfo = message.video ? extractYouTubeInfo(message.video) : null;
+    const videoUrl = videoInfo?.id ? `https://www.youtube.com/embed/${videoInfo.id}?rel=0${videoInfo.start > 0 ? `&start=${videoInfo.start}` : ''}` : null;
     const chartData = message.chart;
     const chartMax = chartData ? Math.max(...(chartData.data || [1]), 1) : 1;
 
@@ -101,13 +121,22 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
 
                     {/* YouTube video */}
                     {videoUrl && (
-                        <View style={styles.videoContainer}>
-                            <WebView
-                                source={{ uri: videoUrl }}
-                                style={styles.video}
-                                allowsFullscreenVideo
-                                javaScriptEnabled
-                            />
+                        <View style={{ marginTop: 8 }}>
+                            <View style={styles.videoLabelRow}>
+                                <Ionicons name="logo-youtube" size={14} color="#6b7280" />
+                                <Text style={styles.videoLabel}>
+                                    {videoInfo?.title || 'Video Tutorial'}
+                                    {videoInfo?.start > 0 ? ` (starts at ${Math.floor(videoInfo.start / 60)}:${String(videoInfo.start % 60).padStart(2, '0')})` : ''}
+                                </Text>
+                            </View>
+                            <View style={styles.videoContainer}>
+                                <WebView
+                                    source={{ uri: videoUrl }}
+                                    style={styles.video}
+                                    allowsFullscreenVideo
+                                    javaScriptEnabled
+                                />
+                            </View>
                         </View>
                     )}
 
@@ -155,19 +184,22 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
                         <TouchableOpacity onPress={() => handleFeedback('up')} style={styles.feedbackBtn}>
                             <Ionicons
                                 name={feedbackGiven === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
-                                size={16}
+                                size={15}
                                 color={feedbackGiven === 'up' ? '#1a73e8' : THEME.textSecondary}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => handleFeedback('down')} style={styles.feedbackBtn}>
                             <Ionicons
                                 name={feedbackGiven === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
-                                size={16}
+                                size={15}
                                 color={feedbackGiven === 'down' ? '#e53e3e' : THEME.textSecondary}
                             />
                         </TouchableOpacity>
+                        <TouchableOpacity style={styles.feedbackBtn}>
+                            <Ionicons name="refresh-outline" size={15} color={THEME.textSecondary} />
+                        </TouchableOpacity>
                         <TouchableOpacity style={styles.feedbackBtn} onPress={handleCopy}>
-                            <Ionicons name="copy-outline" size={16} color={THEME.textSecondary} />
+                            <Ionicons name="copy-outline" size={15} color={THEME.textSecondary} />
                         </TouchableOpacity>
                     </View>
                 )}
@@ -208,7 +240,9 @@ const styles = StyleSheet.create({
     userBubble: { backgroundColor: THEME.userBubble, paddingHorizontal: 14, paddingVertical: 10 },
 
     // Video
-    videoContainer: { marginTop: 8, borderRadius: 10, overflow: 'hidden', height: 180 },
+    videoLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 },
+    videoLabel: { fontSize: 12, color: '#6b7280', flexShrink: 1 },
+    videoContainer: { borderRadius: 10, overflow: 'hidden', height: 180 },
     video: { flex: 1 },
 
     // Chart

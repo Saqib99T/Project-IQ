@@ -2,7 +2,7 @@
   "expo": {
     "name": "Project IQ",
     "slug": "project-iq-mobile",
-    "version": "1.0.8",
+    "version": "1.0.17",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,20 +14,18 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.projectiq.mobile",
-      "buildNumber": "8",
+      "buildNumber": "17",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true,
-          "NSAllowsLocalNetworking": true
+          "NSAllowsArbitraryLoads": true
         }
       }
     },
     "android": {
       "package": "com.projectiq.mobile",
-      "versionCode": 8,
+      "versionCode": 17,
       "usesCleartextTraffic": true,
-      "softwareKeyboardLayoutMode": "resize",
       "screenOrientation": "default",
       "permissions": [
         "INTERNET",
@@ -51,15 +49,18 @@
         {
           "android": {
             "usesCleartextTraffic": true
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
           }
         }
       ]
     ],
     "extra": {
       "eas": {
-        "projectId": "0d7e2ca9-6532-4678-9fff-8979716164f3"
+        "projectId": "901a18b4-87a8-4637-92ba-99a700f98984"
       }
     },
-    "owner": "sidrees73"
+    "owner": "saqibidrees"
   }
 }

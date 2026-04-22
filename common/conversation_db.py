@@ -409,8 +409,8 @@ def log_conversation_start(sender_id: str, app_id: str = "General", user_id: str
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Check if conversation exists and is not ended
-        cursor.execute('SELECT id, ended_at FROM conversations WHERE sender_id = %s', (sender_id,))
+        # Check if conversation exists and is not ended — get the latest one
+        cursor.execute('SELECT id, ended_at FROM conversations WHERE sender_id = %s ORDER BY id DESC LIMIT 1', (sender_id,))
         row = cursor.fetchone()
         if row and not row.get('ended_at'):
             # Update last activity and user_id/user_name if provided
