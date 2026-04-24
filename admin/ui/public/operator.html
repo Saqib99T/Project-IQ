@@ -1109,7 +1109,6 @@ function saveNote(conversationId, value) {
 // INTERACTION HISTORY
 // ═══════════════════════════════════════════════════════════
 async function loadUserHistory(senderId) {
-  // currentQueueId is the numeric queue id of the active session
   const currentQueueId = _activeQueueId ? parseInt(_activeQueueId, 10) : null;
 
   if (!senderId || senderId === 'undefined') {

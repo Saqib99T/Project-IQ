@@ -224,7 +224,7 @@
           <div class="flex items-start justify-between mb-2">
             <span class="text-xs font-bold text-blue-700 flex items-center gap-1">
               ✨ Auto Assist
-              <span class="font-normal text-blue-500">(Rasa suggestion)</span>
+              <span class="font-normal text-blue-500">(AI suggestion)</span>
             </span>
             <button onclick="dismissDraft()" class="text-blue-400 hover:text-blue-600 text-xs">✕</button>
           </div>
@@ -1109,7 +1109,6 @@ function saveNote(conversationId, value) {
 // INTERACTION HISTORY
 // ═══════════════════════════════════════════════════════════
 async function loadUserHistory(senderId) {
-  // currentQueueId is the numeric queue id of the active session
   const currentQueueId = _activeQueueId ? parseInt(_activeQueueId, 10) : null;
 
   if (!senderId || senderId === 'undefined') {

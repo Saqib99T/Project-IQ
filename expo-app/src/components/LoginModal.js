@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME, APP_TITLE } from '../config';
 
@@ -21,8 +21,9 @@ const LoginModal = ({ visible, onClose, onLogin, isLoading, error }) => {
 
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-            <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                <View style={styles.card}>
+            <KeyboardAvoidingView style={styles.overlay} behavior="padding">
+                <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+                    <View style={styles.card}>
                     {/* Header */}
                     <View style={styles.header}>
                         <Text style={styles.headerText}>🔐 Login to {APP_TITLE}</Text>
@@ -82,8 +83,9 @@ const LoginModal = ({ visible, onClose, onLogin, isLoading, error }) => {
                                 )}
                             </TouchableOpacity>
                         </View>
+                        </View>
                     </View>
-                </View>
+                </ScrollView>
             </KeyboardAvoidingView>
         </Modal>
     );
@@ -93,6 +95,9 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    scrollContainer: {
+        flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 24,

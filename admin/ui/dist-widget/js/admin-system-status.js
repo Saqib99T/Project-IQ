@@ -144,7 +144,7 @@
             // Map to friendly names
             const labels = { api: 'Firecrawl API', redis: 'Redis', rabbitmq: 'RabbitMQ',
                              'nuq-postgres': 'PostgreSQL (NUQ)', 'playwright-service': 'Playwright',
-                             glpi: 'GLPI', 'glpi-db': 'GLPI DB' };
+                             glpi: 'ITSM', 'glpi-db': 'ITSM DB' };
             const label = labels[display] || display;
             return `
             <div class="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
@@ -234,7 +234,7 @@
                 <p class="text-xs text-gray-400">Total on disk: ${m.count}</p>
                </div>`
             : _row(false, 'No model', 'Retrain needed');
-        cards.push(_card('Rasa Model', '🤖', modelHtml));
+        cards.push(_card('ML Platform Model', '🤖', modelHtml));
 
         const grid = document.getElementById('ss-grid');
         if (grid) grid.innerHTML = cards.join('');
