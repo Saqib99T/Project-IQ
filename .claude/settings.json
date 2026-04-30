@@ -14,7 +14,8 @@
       "Bash(npm run:*)",
       "Bash(venv/Scripts/python -c ':*)",
       "Bash(npx eas *)",
-      "WebFetch(domain:job-logs.eascdn.net)"
+      "WebFetch(domain:job-logs.eascdn.net)",
+      "PowerShell(D:\\\\99T\\\\Rasa\\\\Project-IQ\\\\venv\\\\Scripts\\\\python.exe -c \"import paramiko; print\\('ok', paramiko.__version__\\)\" 2>&1)"
     ]
   }
 }

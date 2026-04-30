@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLPI KB Cleanup Dummy Page</title>
+    <link rel="stylesheet" href="/components/tailwind.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center">
+    <div class="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-4 text-center">GLPI KB Cleanup</h1>
+        <p class="mb-6 text-gray-600 text-center">This page will trigger the removal of all 'glpi' mentions from GLPI Knowledge Base articles.</p>
+        <button id="cleanup-btn" class="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 font-semibold">Run Cleanup</button>
+        <div id="result" class="mt-6 text-center text-lg font-mono"></div>
+    </div>
+    <script>
+        document.getElementById('cleanup-btn').onclick = async function() {
+            this.disabled = true;
+            this.textContent = 'Running...';
+            document.getElementById('result').textContent = '';
+            try {
+                // Call the backend endpoint to trigger the cleanup
+                const resp = await fetch('/admin/api/glpi_kb_cleanup', { method: 'POST' });
+                const data = await resp.json();
+                if (data.success) {
+                    document.getElementById('result').textContent = `✅ Updated ${data.updated_count} KB items.`;
+                } else {
+                    document.getElementById('result').textContent = `❌ Error: ${data.error || 'Unknown error'}`;
+                }
+            } catch (e) {
+                document.getElementById('result').textContent = '❌ Request failed.';
+            }
+            this.disabled = false;
+            this.textContent = 'Run Cleanup';
+        };
+    </script>
+</body>
+</html>
