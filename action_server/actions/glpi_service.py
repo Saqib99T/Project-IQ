@@ -1,4 +1,5 @@
 
+import re
 import logging
 import aiohttp
 from typing import Dict, Any, Optional, List
@@ -6,6 +7,69 @@ from typing import Dict, Any, Optional, List
 logger = logging.getLogger(__name__)
 
 class GlpiService:
+    async def remove_glpi_from_kb(self, session_token: str) -> int:
+        """Find all GLPI KB items and replace 'glpi' with '' in their content/title/answer fields."""
+        updated_count = 0
+        kb_items = await self.get_all_knowbase_items(session_token)
+        for item in kb_items:
+            item_id = item.get('id')
+            if not item_id:
+                continue
+            updated = False
+            update_data = {}
+            # Check and replace in 'name', 'content', 'answer' fields
+            for field in ['name', 'content', 'answer']:
+                val = item.get(field)
+                if isinstance(val, str) and 'glpi' in val.lower():
+                    update_data[field] = re.sub(r'(?i)glpi', '', val)
+                    updated = True
+            if updated:
+                await self.update_knowbase_item(session_token, item_id, update_data)
+                updated_count += 1
+        return updated_count
+
+    async def create_knowbase_item(self, session_token: str, title: str, content: str,
+                                    category: str = '') -> Optional[int]:
+        """Create a new knowledge base article in GLPI. Returns the new item ID or None."""
+        url = f"{self.api_uri}/KnowbaseItem"
+        headers = self._get_execution_headers(session_token)
+        payload = {"input": {"name": title, "answer": content}}
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=payload, timeout=15) as response:
+                    response.raise_for_status()
+                    data = await response.json()
+                    return data.get("id")
+        except Exception as e:
+            logger.error(f"GLPI create_knowbase_item failed: {e}")
+            return None
+
+    async def update_knowbase_item(self, session_token: str, item_id: int, update_data: Dict[str, Any]) -> bool:
+        """Update a knowledge base item in GLPI."""
+        url = f"{self.api_uri}/KnowbaseItem/{item_id}"
+        headers = self._get_execution_headers(session_token)
+        payload = {"input": update_data}
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.put(url, headers=headers, json=payload, timeout=15) as response:
+                    response.raise_for_status()
+                    return True
+        except Exception as e:
+            logger.error(f"GLPI update_knowbase_item failed: {e}")
+            return False
+
+    async def delete_knowbase_item(self, session_token: str, item_id: int) -> bool:
+        """Delete a knowledge base item in GLPI."""
+        url = f"{self.api_uri}/KnowbaseItem/{item_id}"
+        headers = self._get_execution_headers(session_token)
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(url, headers=headers, timeout=10) as response:
+                    response.raise_for_status()
+                    return True
+        except Exception as e:
+            logger.error(f"GLPI delete_knowbase_item failed: {e}")
+            return False
     def __init__(self, api_uri: str, app_token: str, user_token: str):
         self.api_uri = api_uri
         self.app_token = app_token

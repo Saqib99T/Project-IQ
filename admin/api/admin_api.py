@@ -1,3 +1,24 @@
+
+
+# --- Eventlet monkey patch must be first ---
+import eventlet
+eventlet.monkey_patch()
+
+import re
+import json
+import asyncio
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
+from action_server.actions.glpi_service import GlpiService
+from typing import Optional
+
+"""
+Admin API Module
+Flask API for admin dashboard operations, analytics, and static file serving.
+Consolidated server running on port 8181.
+Extensible for any plugin modules like Firecrawl, Airbyte...
+"""
 """
 Admin API Module
 Flask API for admin dashboard operations, analytics, and static file serving.
@@ -12,15 +33,16 @@ eventlet.monkey_patch()
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
-import json
 import sys
 import os
-import asyncio
-from typing import Optional
 
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# --- GLPI KB Cleanup Endpoint ---
+# The app instance must be defined before using @app.route
+
+# ...existing code...
+
+# Place this after app = Flask(...) and CORS(app)
 
 from common.conversation_db import (
     get_themes, get_theme, create_theme, update_theme, delete_theme,
@@ -42,6 +64,31 @@ ACTION_URL = _rasa_cfg['action_url']
 
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
 CORS(app)
+
+# --- GLPI KB Cleanup Endpoint ---
+@app.route('/admin/api/glpi_kb_cleanup', methods=['POST'])
+def glpi_kb_cleanup():
+    """Trigger GLPI KB cleanup: replace all 'glpi' with '' in KB articles."""
+    from common.config_manager import get_glpi_config
+
+    glpi_config = get_glpi_config()
+    api_uri = glpi_config.get('api_url')
+    app_token = glpi_config.get('app_token')
+    user_token = glpi_config.get('user_token')
+    if not (api_uri and app_token and user_token):
+        return jsonify({"success": False, "error": "Missing GLPI config."}), 500
+
+    glpi = GlpiService(api_uri, app_token, user_token)
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        session_token = loop.run_until_complete(glpi.init_session())
+        if not session_token:
+            return jsonify({"success": False, "error": "GLPI authentication failed."}), 500
+        updated_count = loop.run_until_complete(glpi.remove_glpi_from_kb(session_token))
+        return jsonify({"success": True, "updated_count": updated_count})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # ── Socket.IO initialisation ─────────────────────────────────────────────────
 # Deferred until config is available; re-initialised in _init_socketio().
@@ -145,16 +192,18 @@ class AdminKBCache:
             # Transform to simplified format
             transformed = []
             for article in glpi_articles:
+                full_answer = article.get('answer', '') or ''
                 transformed.append({
                     "id": f"glpi_{article['id']}",
                     "title": article.get('name', 'Untitled'),
-                    "category": "general",
+                    "category": article.get('category', 'General') or 'General',
                     "source": "glpi",
                     "glpi_id": article['id'],
                     "is_faq": article.get('is_faq', 0) == 1,
                     "date_modified": article.get('date_mod', ''),
                     "question": article.get('question', ''),
-                    "answer": article.get('answer', '')[:200] + '...' if article.get('answer') else ''
+                    "content": full_answer,
+                    "answer": full_answer[:200] + '...' if len(full_answer) > 200 else full_answer,
                 })
 
             self.articles = transformed
@@ -634,10 +683,15 @@ def system_status():
 
         return state, mem_str, uptime
 
+    _svc_display = {
+        'project-iq-rasa':    'ML Platform Core',
+        'project-iq-actions': 'ML Platform Actions',
+        'project-iq-admin':   'Admin API',
+    }
     services = []
     for svc in ['project-iq-rasa', 'project-iq-actions', 'project-iq-admin']:
         state, mem_str, uptime = _svc_info(svc)
-        services.append({'name':   svc.replace('project-iq-', ''),
+        services.append({'name':   _svc_display.get(svc, svc),
                          'state':  state,
                          'mem':    mem_str,
                          'uptime': uptime,
@@ -811,7 +865,7 @@ def system_status():
     # ── Recent errors (journalctl) ────────────────────────────────────────
     errors = []
     for svc in ['project-iq-rasa', 'project-iq-actions', 'project-iq-admin']:
-        label = svc.replace('project-iq-', '')
+        label = _svc_display.get(svc, svc)
         raw_e = _shell(f'journalctl -u {svc} -p err -n 5 --no-pager --output=short 2>/dev/null | grep -v "^--" | tail -5')
         errors.append({'service': label,
                        'errors': [l for l in raw_e.splitlines() if l.strip()]})
@@ -2025,21 +2079,32 @@ def test_firecrawl_connection():
     try:
         import requests as _requests
         data = request.get_json() or {}
-        api_url = data.get('api_url') or get_file_config().get('FIRECRAWL_API_URL', 'http://localhost:3002')
-        api_key = data.get('api_key') or get_file_config().get('FIRECRAWL_API_KEY', 'fc-selfhosted')
+        cfg = get_file_config()
+        api_url = (data.get('api_url') or cfg.get('FIRECRAWL_API_URL', 'http://localhost:3002')).rstrip('/')
 
-        # Firecrawl responds at / with {"message":"Firecrawl API"}
-        root_url = api_url.rstrip('/') + '/'
-        resp = _requests.get(root_url, timeout=5)
-
-        if resp.status_code == 200 and 'firecrawl' in resp.text.lower():
-            return jsonify({"success": True, "message": "Firecrawl is running", "status_code": resp.status_code})
-        elif resp.status_code == 200:
-            return jsonify({"success": True, "message": "Server reachable", "status_code": resp.status_code})
-        else:
-            return jsonify({"success": False, "message": f"Unexpected status {resp.status_code}", "status_code": resp.status_code})
+        # Use /is-production — Firecrawl's own e2e health probe, no auth required
+        probe_url = f"{api_url}/is-production"
+        try:
+            resp = _requests.get(probe_url, timeout=5)
+            if resp.status_code == 200:
+                return jsonify({"success": True, "message": "Firecrawl is running", "url": api_url})
+            else:
+                return jsonify({"success": False,
+                                "message": f"Firecrawl returned HTTP {resp.status_code}",
+                                "url": api_url})
+        except _requests.exceptions.ConnectionError:
+            return jsonify({"success": False,
+                            "message": f"Connection refused — nothing is listening at {api_url}. "
+                                       f"Start Firecrawl (Docker) then retry.",
+                            "url": api_url}), 200
+        except _requests.exceptions.Timeout:
+            return jsonify({"success": False,
+                            "message": f"Timed out connecting to {api_url}. "
+                                       f"Check that Firecrawl is running and the URL is correct.",
+                            "url": api_url}), 200
     except Exception as e:
-        return jsonify({"success": False, "error": str(e), "message": "Could not reach Firecrawl — is it running?"}), 200
+        return jsonify({"success": False, "error": str(e),
+                        "message": f"Unexpected error: {e}"}), 200
 
 
 @app.route('/admin/firecrawl/crawl-jobs', methods=['GET'])
@@ -2331,33 +2396,96 @@ def inspector_list_conversations():
     conn = None
     try:
         limit = request.args.get('limit', 100, type=int)
-        app_id_filter = request.args.get('app_id', None)
-        
+        app_id_filter    = request.args.get('app_id', None)
+        has_handoff_filter = request.args.get('has_handoff', None)
+        user_filter      = request.args.get('user', None)
+        date_filter      = request.args.get('date', None)
+        date_from_filter = request.args.get('date_from', None)
+        date_to_filter   = request.args.get('date_to', None)
+        ticket_filter    = request.args.get('ticket_status', None)
+
         conn = _get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
-        query = '''
-            SELECT 
-                c.id, c.sender_id, c.app_id, c.user_id, c.user_name,
-                c.started_at, c.last_activity, c.resolved,
-                (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count,
-                (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender = 'user') as user_message_count,
-                (SELECT COUNT(*) FROM actions WHERE conversation_id = c.id) as action_count,
-                (SELECT type FROM feedback WHERE conversation_id = c.id ORDER BY timestamp DESC LIMIT 1) as feedback
-            FROM conversations c
-        '''
-        
+
+        # Detect which optional tables/columns exist to keep the query safe across migrations
+        cursor.execute("""
+            SELECT table_name FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name IN ('handoff_queue', 'operators')
+        """)
+        existing_tables = {r['table_name'] for r in cursor.fetchall()}
+        has_handoff_table   = 'handoff_queue' in existing_tables
+        has_operators_table = 'operators'      in existing_tables
+
+        cursor.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'conversations'
+              AND column_name IN ('user_id','user_name','ticket_id',
+                                  'handoff_state','handoff_count','assigned_operator_id')
+        """)
+        existing_cols = {r['column_name'] for r in cursor.fetchall()}
+
+        # Build SELECT list explicitly — no alias inside functions
+        sel = [
+            "c.id", "c.sender_id", "c.app_id",
+            ("c.user_id"   if 'user_id'   in existing_cols else "NULL as user_id"),
+            ("c.user_name" if 'user_name' in existing_cols else "NULL as user_name"),
+            "c.started_at", "c.last_activity", "c.resolved",
+            ("c.ticket_id" if 'ticket_id' in existing_cols else "NULL as ticket_id"),
+            ("COALESCE(c.handoff_state, 'bot_active') as handoff_state"
+             if 'handoff_state' in existing_cols else "'bot_active' as handoff_state"),
+            ("COALESCE(c.handoff_count, 0) as handoff_count"
+             if 'handoff_count' in existing_cols else "0 as handoff_count"),
+            ("EXISTS(SELECT 1 FROM handoff_queue hq WHERE hq.conversation_id = c.id) as had_handoff"
+             if has_handoff_table else "FALSE as had_handoff"),
+            ("(SELECT o.display_name FROM operators o WHERE o.id = c.assigned_operator_id) as operator_name"
+             if has_operators_table and 'assigned_operator_id' in existing_cols else "NULL as operator_name"),
+            "(SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count",
+            "(SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender = 'user') as user_message_count",
+            "(SELECT COUNT(*) FROM actions WHERE conversation_id = c.id) as action_count",
+            "(SELECT type FROM feedback WHERE conversation_id = c.id ORDER BY timestamp DESC LIMIT 1) as feedback",
+        ]
+        query = "SELECT " + ", ".join(sel) + " FROM conversations c"
+
         params = []
+        conditions = []
         if app_id_filter:
-            query += " WHERE c.app_id = %s"
+            conditions.append("c.app_id = %s")
             params.append(app_id_filter)
-        
+        if has_handoff_filter == '1' and has_handoff_table:
+            conditions.append("EXISTS (SELECT 1 FROM handoff_queue hq WHERE hq.conversation_id = c.id)")
+        elif has_handoff_filter == '0' and has_handoff_table:
+            conditions.append("NOT EXISTS (SELECT 1 FROM handoff_queue hq WHERE hq.conversation_id = c.id)")
+        if user_filter and existing_cols & {'user_name', 'user_id'}:
+            pattern = f"%{user_filter}%"
+            parts = []
+            if 'user_name' in existing_cols: parts.append("c.user_name ILIKE %s"); params.append(pattern)
+            if 'user_id'   in existing_cols: parts.append("c.user_id ILIKE %s");   params.append(pattern)
+            parts.append("c.sender_id ILIKE %s"); params.append(pattern)
+            conditions.append("(" + " OR ".join(parts) + ")")
+        if date_filter == '24h':
+            conditions.append("c.started_at >= NOW() - INTERVAL '24 hours'")
+        elif date_filter == '7d':
+            conditions.append("c.started_at >= NOW() - INTERVAL '7 days'")
+        elif date_filter == '30d':
+            conditions.append("c.started_at >= NOW() - INTERVAL '30 days'")
+        if date_from_filter:
+            conditions.append("c.started_at >= %s"); params.append(date_from_filter)
+        if date_to_filter:
+            conditions.append("c.started_at <= %s"); params.append(date_to_filter + ' 23:59:59')
+        if ticket_filter == 'none' and 'ticket_id' in existing_cols:
+            conditions.append("(c.ticket_id IS NULL OR c.ticket_id = '')")
+        elif ticket_filter in ('created', 'resolved', 'closed') and 'ticket_id' in existing_cols:
+            conditions.append("c.ticket_id IS NOT NULL AND c.ticket_id != ''")
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
         query += " ORDER BY c.id DESC LIMIT %s"
         params.append(limit)
-        
+
         cursor.execute(query, tuple(params))
         conversations = []
-        
+
         for row in cursor.fetchall():
             # Use user_name if available, then user_id, then shortened sender_id
             display_name = row.get('user_name') or row.get('user_id') or (row['sender_id'][:12] + "..." if row['sender_id'] and len(row['sender_id']) > 12 else row['sender_id'])
@@ -2372,6 +2500,10 @@ def inspector_list_conversations():
                 "started_at": row['started_at'].isoformat() if row['started_at'] else None,
                 "last_activity": row['last_activity'].isoformat() if row['last_activity'] else None,
                 "resolved": bool(row['resolved']),
+                "handoff_state": row.get('handoff_state') or 'bot_active',
+                "handoff_count": row.get('handoff_count') or 0,
+                "had_handoff": bool(row.get('had_handoff')),
+                "operator_name": row.get('operator_name'),
                 "message_count": row['message_count'],
                 "user_message_count": row['user_message_count'],
                 "action_count": row['action_count'],
@@ -2435,24 +2567,79 @@ def inspector_get_conversation_detail(sender_id):
         
         # Get feedback
         cursor.execute('SELECT type, timestamp FROM feedback WHERE conversation_id = %s ORDER BY timestamp ASC', (conv_id,))
-        feedback = [{"type": row['type'], "timestamp": row['timestamp'].isoformat() if row['timestamp'] else None} 
+        feedback = [{"type": row['type'], "timestamp": row['timestamp'].isoformat() if row['timestamp'] else None}
                     for row in cursor.fetchall()]
-        
+
+        # Get handoff sessions
+        cursor.execute('''
+            SELECT hq.id, hq.status, hq.trigger_reason, hq.queued_at, hq.assigned_at,
+                   hq.resolved_at, hq.wait_time_secs, hq.handle_time_secs,
+                   hq.return_to_bot, hq.closing_note, hq.agent_rating,
+                   o.display_name as operator_name, o.username as operator_username
+            FROM handoff_queue hq
+            LEFT JOIN operators o ON o.id = hq.operator_id
+            WHERE hq.conversation_id = %s
+            ORDER BY hq.queued_at ASC
+        ''', (conv_id,))
+        handoff_sessions = []
+        for row in cursor.fetchall():
+            handoff_sessions.append({
+                "id": row['id'],
+                "status": row['status'],
+                "trigger_reason": row['trigger_reason'],
+                "operator_name": row.get('operator_name'),
+                "operator_username": row.get('operator_username'),
+                "queued_at": row['queued_at'].isoformat() if row['queued_at'] else None,
+                "assigned_at": row['assigned_at'].isoformat() if row['assigned_at'] else None,
+                "resolved_at": row['resolved_at'].isoformat() if row['resolved_at'] else None,
+                "wait_time_secs": row.get('wait_time_secs'),
+                "handle_time_secs": row.get('handle_time_secs'),
+                "return_to_bot": row.get('return_to_bot'),
+                "closing_note": row.get('closing_note'),
+                "agent_rating": row.get('agent_rating'),
+            })
+
+        # Get operator messages and merge into the main message list
+        cursor.execute('''
+            SELECT om.message_text, om.sent_at, om.queue_id,
+                   o.display_name as operator_name, o.username as operator_username
+            FROM operator_messages om
+            LEFT JOIN operators o ON o.id = om.operator_id
+            WHERE om.conversation_id = %s
+            ORDER BY om.sent_at ASC
+        ''', (conv_id,))
+        for row in cursor.fetchall():
+            messages.append({
+                "id": None,
+                "sender": "operator",
+                "operator_name": row.get('operator_name') or row.get('operator_username') or 'Agent',
+                "text": row['message_text'],
+                "intent": None,
+                "timestamp": row['sent_at'].isoformat() if row['sent_at'] else None,
+            })
+
+        # Sort all messages (bot + user + operator) by timestamp
+        messages.sort(key=lambda m: m['timestamp'] or '')
+
         return jsonify({
             "success": True,
             "data": {
                 "conversation": {
                     "id": conv['id'], "sender_id": conv['sender_id'], "app_id": conv['app_id'],
                     "user_id": conv['user_id'],
+                    "handoff_state": conv.get('handoff_state') or 'bot_active',
+                    "handoff_count": conv.get('handoff_count') or 0,
                     "started_at": conv['started_at'].isoformat() if conv['started_at'] else None,
                     "last_activity": conv['last_activity'].isoformat() if conv['last_activity'] else None,
                     "resolved": bool(conv['resolved'])
                 },
-                "messages": messages, "intent_history": intent_history, "actions": actions, "feedback": feedback,
+                "messages": messages, "intent_history": intent_history, "actions": actions,
+                "feedback": feedback, "handoff_sessions": handoff_sessions,
                 "stats": {
                     "total_messages": len(messages),
                     "user_messages": len([m for m in messages if m['sender'] == 'user']),
                     "bot_messages": len([m for m in messages if m['sender'] == 'bot']),
+                    "operator_messages": len([m for m in messages if m['sender'] == 'operator']),
                     "actions_executed": len(actions),
                     "unique_intents": len(set(m['intent'] for m in messages if m['intent']))
                 }
@@ -3580,6 +3767,37 @@ def chat_webhook_proxy():
             if response_text:
                 log_message(sender_id, 'bot', response_text, intent=None,
                             app_id=app_id, user_id=user_id, ticket_id=ticket_id)
+
+        # Log actions from Rasa tracker in a background thread (non-blocking)
+        def _log_actions_async(sid, a_app_id, a_user_id, a_ticket_id):
+            try:
+                from common.conversation_db import log_action as _log_action
+                tr = requests.get(f"{RASA_URL}/conversations/{sid}/tracker", timeout=3)
+                if tr.status_code != 200:
+                    return
+                events = tr.json().get('events', [])
+                # Walk events backwards from the end; collect action events
+                # until we hit the last user message event.
+                recent_actions = []
+                for ev in reversed(events):
+                    if ev.get('event') == 'user':
+                        break
+                    if ev.get('event') == 'action':
+                        name = ev.get('name', '')
+                        # Skip internal Rasa bookkeeping actions
+                        if name and name not in ('action_session_start', 'action_listen'):
+                            recent_actions.append(name)
+                for action_name in recent_actions:
+                    _log_action(sid, action_name, success=True,
+                                app_id=a_app_id, user_id=a_user_id, ticket_id=a_ticket_id)
+            except Exception:
+                pass
+        import threading
+        threading.Thread(
+            target=_log_actions_async,
+            args=(sender_id, app_id, user_id, ticket_id),
+            daemon=True
+        ).start()
 
         return jsonify(bot_responses), rasa_response.status_code
 

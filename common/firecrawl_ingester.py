@@ -273,6 +273,62 @@ def batch_scrape(urls: List[str], category: str = None) -> List[Dict]:
     return articles, errors
 
 
+def _save_article_to_glpi(title: str, content: str, category: str = '') -> Optional[int]:
+    """Push a scraped article into GLPI's KnowledgeBase using synchronous requests.
+    Avoids asyncio so it works safely under eventlet monkey-patching."""
+    try:
+        import requests as _req
+        from common.config_manager import get_glpi_config
+
+        cfg = get_glpi_config()
+        api_uri   = (cfg.get('api_url') or '').rstrip('/')
+        app_token  = cfg.get('app_token', '')
+        user_token = cfg.get('user_token', '')
+
+        if not (api_uri and app_token and user_token):
+            logger.warning("GLPI config incomplete — skipping GLPI KB save")
+            return None
+
+        # 1. Open session
+        init_resp = _req.get(
+            f"{api_uri}/initSession",
+            headers={"App-Token": app_token, "Authorization": f"user_token {user_token}"},
+            timeout=10,
+        )
+        init_resp.raise_for_status()
+        session_token = init_resp.json().get("session_token")
+        if not session_token:
+            logger.error("GLPI initSession returned no session_token")
+            return None
+
+        headers = {
+            "App-Token": app_token,
+            "Session-Token": session_token,
+            "Content-Type": "application/json",
+        }
+        try:
+            # 2. Create KB article
+            create_resp = _req.post(
+                f"{api_uri}/KnowbaseItem",
+                headers=headers,
+                json={"input": {"name": title, "answer": content}},
+                timeout=15,
+            )
+            create_resp.raise_for_status()
+            item_id = create_resp.json().get("id")
+            logger.info(f"GLPI KB article created: id={item_id} title='{title[:60]}'")
+            return item_id
+        finally:
+            # 3. Always close session
+            try:
+                _req.get(f"{api_uri}/killSession", headers=headers, timeout=5)
+            except Exception:
+                pass
+    except Exception as e:
+        logger.error(f"Failed to save article to GLPI KB: {e}")
+        return None
+
+
 def ingest_url_to_kb(url: str, category: str = None) -> Dict:
     """
     Full pipeline: scrape URL → save to KB → rebuild embeddings.
@@ -283,7 +339,7 @@ def ingest_url_to_kb(url: str, category: str = None) -> Dict:
     from common.conversation_db import add_kb_article
     
     article = scrape_url(url, category)
-    
+
     success = add_kb_article(
         article_id=article['id'],
         title=article['title'],
@@ -291,16 +347,23 @@ def ingest_url_to_kb(url: str, category: str = None) -> Dict:
         category=article['category'],
         keywords=article['keywords']
     )
-    
+
     if not success:
         raise RuntimeError(f"Failed to save article to database for {url}")
+
+    # Also push to GLPI KB so it appears in the admin KB browser
+    glpi_id = _save_article_to_glpi(article['title'], article['content'], article['category'] or '')
 
     # Rebuild embeddings cache
     _rebuild_embeddings()
 
+    # Record in job history
+    log_data_source('firecrawl_scrape', {'url': url, 'category': category}, 1)
+
     return {
         "status": "success",
         "article_id": article['id'],
+        "glpi_id": glpi_id,
         "title": article['title'],
         "content_length": len(article['content']),
         "category": article['category'],
@@ -320,6 +383,7 @@ def ingest_crawl_to_kb(url: str, limit: int = 50, category: str = None) -> Dict:
     articles = crawl_site(url, limit, category)
     
     saved = 0
+    results = []
     for article in articles:
         success = add_kb_article(
             article_id=article['id'],
@@ -330,20 +394,23 @@ def ingest_crawl_to_kb(url: str, limit: int = 50, category: str = None) -> Dict:
         )
         if success:
             saved += 1
+            glpi_id = _save_article_to_glpi(article['title'], article['content'], article['category'] or '')
+            results.append({"id": article['id'], "glpi_id": glpi_id,
+                            "title": article['title'], "content_length": len(article['content'])})
 
     # Rebuild embeddings cache
     if saved > 0:
         _rebuild_embeddings()
+
+    # Record in job history
+    log_data_source('firecrawl_crawl', {'url': url, 'limit': limit, 'category': category}, saved)
 
     return {
         "status": "success",
         "total_pages": len(articles),
         "saved": saved,
         "source_url": url,
-        "articles": [
-            {"id": a['id'], "title": a['title'], "content_length": len(a['content'])}
-            for a in articles
-        ]
+        "articles": results
     }
 
 
@@ -366,9 +433,13 @@ def ingest_batch_to_kb(urls: List[str], category: str = None) -> Dict:
         )
         if success:
             saved += 1
+            _save_article_to_glpi(article['title'], article['content'], article['category'] or '')
 
     if saved > 0:
         _rebuild_embeddings()
+
+    # Record in job history
+    log_data_source('firecrawl_batch', {'urls': urls, 'category': category}, saved)
 
     return {
         "status": "success",

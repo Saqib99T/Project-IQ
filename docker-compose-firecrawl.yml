@@ -19,6 +19,8 @@ services:
     restart: unless-stopped
     ports:
       - "3002:3002"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - REDIS_URL=redis://firecrawl-redis:6379
       - REDIS_RATE_LIMIT_URL=redis://firecrawl-redis:6379
@@ -29,6 +31,7 @@ services:
       - HOST=0.0.0.0
       - SELF_HOSTED_WEBHOOK_URL=
       - LOGGING_LEVEL=info
+      - NUQ_DATABASE_URL=postgresql://postgres:12345@host.docker.internal:5432/postgres
     depends_on:
       - firecrawl-redis
       - playwright-service
@@ -39,6 +42,8 @@ services:
     image: ghcr.io/mendableai/firecrawl:latest
     container_name: firecrawl-worker
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - REDIS_URL=redis://firecrawl-redis:6379
       - REDIS_RATE_LIMIT_URL=redis://firecrawl-redis:6379
@@ -47,6 +52,7 @@ services:
       - PORT=3002
       - NUM_WORKERS_PER_QUEUE=8
       - LOGGING_LEVEL=info
+      - NUQ_DATABASE_URL=postgresql://postgres:12345@host.docker.internal:5432/postgres
     entrypoint: ["pnpm", "run", "workers"]
     depends_on:
       - firecrawl-redis

@@ -25,14 +25,23 @@ async function loadAppList() {
 
 async function loadInspectorConversations() {
     try {
-        const app = document.getElementById('filter-app')?.value || '';
+        const app      = document.getElementById('filter-app')?.value || '';
+        const handoff  = document.getElementById('filter-handoff')?.value || '';
+        const user     = document.getElementById('filter-user')?.value?.trim() || '';
+        const date     = document.getElementById('filter-date')?.value || '';
+        const dateFrom = document.getElementById('filter-date-from')?.value || '';
+        const dateTo   = document.getElementById('filter-date-to')?.value || '';
+        const ticket   = document.getElementById('filter-ticket-status')?.value || '';
 
         const params = new URLSearchParams({ limit: 100 });
 
-        // Only send app_id if it's not 'all' (backend supports app_id filter)
-        if (app && app !== 'all') {
-            params.append('app_id', app);
-        }
+        if (app && app !== 'all') params.append('app_id', app);
+        if (handoff)  params.append('has_handoff', handoff);
+        if (user)     params.append('user', user);
+        if (date && date !== 'custom') params.append('date', date);
+        if (date === 'custom' && dateFrom) params.append('date_from', dateFrom);
+        if (date === 'custom' && dateTo)   params.append('date_to', dateTo);
+        if (ticket)   params.append('ticket_status', ticket);
 
         const res = await fetch(`/inspector/conversations?${params.toString()}`);
         const data = await res.json();
@@ -40,7 +49,6 @@ async function loadInspectorConversations() {
             inspectorConversations = data.data;
             renderInspectorConvList();
 
-            // Update count
             const countEl = document.getElementById('conv-count');
             if (countEl) countEl.textContent = data.data.length + (data.data.length >= 100 ? '+' : '');
         }
@@ -68,6 +76,7 @@ function resetInspectorFilters() {
     document.getElementById('filter-user').value = '';
     document.getElementById('filter-app').value = '';
     document.getElementById('filter-ticket-status').value = '';
+    document.getElementById('filter-handoff').value = '';
     document.getElementById('filter-date').value = '';
     document.getElementById('filter-date-from').value = '';
     document.getElementById('filter-date-to').value = '';
@@ -90,6 +99,10 @@ function updateActiveFilterTags() {
 
     const status = document.getElementById('filter-ticket-status')?.value;
     if (status) filters.push({ label: `Status: ${status}`, type: 'ticket-status' });
+
+    const handoff = document.getElementById('filter-handoff')?.value;
+    if (handoff === '1') filters.push({ label: 'Has Handoff', type: 'handoff' });
+    if (handoff === '0') filters.push({ label: 'Bot Only', type: 'handoff' });
 
     const date = document.getElementById('filter-date')?.value;
     if (date && date !== 'custom') filters.push({ label: `Date: ${date}`, type: 'date' });
@@ -117,6 +130,7 @@ function clearFilter(type) {
     if (type === 'user') document.getElementById('filter-user').value = '';
     if (type === 'app') document.getElementById('filter-app').value = '';
     if (type === 'ticket-status') document.getElementById('filter-ticket-status').value = '';
+    if (type === 'handoff') document.getElementById('filter-handoff').value = '';
     if (type === 'date') {
         document.getElementById('filter-date').value = '';
         document.getElementById('filter-date-from').value = '';
@@ -141,6 +155,9 @@ function renderInspectorConvList() {
             const d = new Date(c.started_at);
             return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
         })() : '';
+        const handoffBadge = c.had_handoff
+            ? `<div class="text-xs text-orange-600 mt-0.5">👨‍💼 ${c.handoff_count > 0 ? c.handoff_count + ' handoff' + (c.handoff_count > 1 ? 's' : '') : 'Handoff'}${c.operator_name ? ` · ${c.operator_name}` : ''}</div>`
+            : '';
         return `
         <div onclick="selectInspConversation('${c.sender_id}')"
              class="p-2 rounded cursor-pointer hover:bg-gray-100 border ${selectedInspConv?.sender_id === c.sender_id ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}">
@@ -157,9 +174,23 @@ function renderInspectorConvList() {
             <div class="text-xs text-gray-500 mt-1">${c.app_id} • ${c.message_count} msgs</div>
             ${startedAt ? `<div class="text-xs text-gray-400 mt-0.5">🕐 ${startedAt}</div>` : ''}
             ${c.ticket_id ? `<div class="text-xs text-blue-600 mt-0.5">🎫 Ticket #${c.ticket_id}</div>` : ''}
+            ${handoffBadge}
         </div>
     `}).join('');
     document.getElementById('inspector-conv-list').innerHTML = html || '<div class="text-gray-500">No conversations match filters</div>';
+}
+
+function _fmtTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function _fmtDuration(secs) {
+    if (secs == null) return '—';
+    if (secs < 60) return `${secs}s`;
+    const m = Math.floor(secs / 60), s = secs % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
 async function selectInspConversation(senderId) {
@@ -168,24 +199,132 @@ async function selectInspConversation(senderId) {
     try {
         const res = await fetch(`/inspector/conversation/${encodeURIComponent(senderId)}`);
         const data = await res.json();
-        if (data.success) {
-            document.getElementById('inspector-no-selection').classList.add('hidden');
-            document.getElementById('inspector-conv-detail').classList.remove('hidden');
-            document.getElementById('insp-msg-count').textContent = data.data.stats.total_messages;
-            document.getElementById('insp-action-count').textContent = data.data.stats.actions_executed;
-            document.getElementById('insp-intent-count').textContent = data.data.stats.unique_intents;
+        if (!data.success) return;
 
-            const msgsHtml = data.data.messages.map(m => `
-                <div class="p-2 rounded text-sm ${m.sender === 'user' ? 'bg-blue-50 border-l-4 border-blue-400 ml-8' : 'bg-gray-50 border-l-4 border-gray-300 mr-8'}">
+        document.getElementById('inspector-no-selection').classList.add('hidden');
+        document.getElementById('inspector-conv-detail').classList.remove('hidden');
+
+        const stats = data.data.stats;
+        document.getElementById('insp-msg-count').textContent = stats.total_messages;
+        document.getElementById('insp-action-count').textContent = stats.actions_executed;
+        document.getElementById('insp-intent-count').textContent = stats.unique_intents;
+
+        // Operator messages badge (add/update dynamically)
+        let opBadge = document.getElementById('insp-op-msg-badge');
+        if (stats.operator_messages > 0) {
+            if (!opBadge) {
+                opBadge = document.createElement('span');
+                opBadge.id = 'insp-op-msg-badge';
+                opBadge.className = 'px-3 py-1 bg-orange-100 text-orange-700 rounded text-sm';
+                document.getElementById('insp-msg-count').closest('.flex').appendChild(opBadge);
+            }
+            opBadge.innerHTML = `<b>${stats.operator_messages}</b> agent msgs`;
+        } else if (opBadge) {
+            opBadge.remove();
+        }
+
+        // Build a merged timeline: messages + handoff boundary markers
+        const sessions = data.data.handoff_sessions || [];
+        const timeline = [...data.data.messages];
+
+        // Inject sentinel objects for each handoff transition
+        sessions.forEach(s => {
+            if (s.queued_at) timeline.push({ _marker: 'handoff_start', session: s, timestamp: s.queued_at });
+            if (s.resolved_at) timeline.push({ _marker: 'handoff_end', session: s, timestamp: s.resolved_at });
+        });
+        timeline.sort((a, b) => (a.timestamp || '') < (b.timestamp || '') ? -1 : 1);
+
+        // Messages thread
+        const msgsHtml = timeline.map(m => {
+            // Handoff start marker
+            if (m._marker === 'handoff_start') {
+                const agent = m.session.operator_name || 'Agent';
+                const reason = { user_request: 'user requested', low_confidence: 'low confidence', frustration: 'frustration detected' }[m.session.trigger_reason] || m.session.trigger_reason || '';
+                return `
+                <div class="flex items-center gap-2 my-2">
+                    <div class="flex-1 h-px bg-orange-300"></div>
+                    <span class="text-xs px-3 py-1 bg-orange-100 text-orange-700 rounded-full whitespace-nowrap">
+                        👨‍💼 Handed off to <b>${agent}</b>${reason ? ` (${reason})` : ''} · ${_fmtTime(m.timestamp)}
+                    </span>
+                    <div class="flex-1 h-px bg-orange-300"></div>
+                </div>`;
+            }
+            // Handoff end marker
+            if (m._marker === 'handoff_end') {
+                const returnedToBot = m.session.return_to_bot;
+                return `
+                <div class="flex items-center gap-2 my-2">
+                    <div class="flex-1 h-px bg-gray-300"></div>
+                    <span class="text-xs px-3 py-1 bg-gray-100 text-gray-600 rounded-full whitespace-nowrap">
+                        ${returnedToBot ? '🤖 Returned to bot' : '✅ Session closed'} · ${_fmtTime(m.timestamp)}
+                    </span>
+                    <div class="flex-1 h-px bg-gray-300"></div>
+                </div>`;
+            }
+
+            let containerClass, label;
+            if (m.sender === 'user') {
+                containerClass = 'bg-blue-50 border-l-4 border-blue-400 ml-8';
+                label = '👤 User';
+            } else if (m.sender === 'operator') {
+                containerClass = 'bg-green-50 border-l-4 border-green-500 ml-4 mr-4';
+                label = `👨‍💼 ${m.operator_name || 'Agent'}`;
+            } else {
+                containerClass = 'bg-gray-50 border-l-4 border-gray-300 mr-8';
+                label = '🤖 Bot';
+            }
+            return `
+                <div class="p-2 rounded text-sm ${containerClass}">
                     <div class="flex justify-between text-xs mb-1">
-                        <b>${m.sender === 'user' ? '👤 User' : '🤖 Bot'}</b>
-                        <span class="text-gray-400">${m.timestamp ? (() => { const d = new Date(m.timestamp); return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); })() : ''}</span>
+                        <b>${label}</b>
+                        <span class="text-gray-400">${_fmtTime(m.timestamp)}</span>
                     </div>
                     <div>${m.text || ''}</div>
                     ${m.intent ? `<span class="inline-block mt-1 px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">🎯 ${m.intent}</span>` : ''}
-                </div>
-            `).join('');
-            document.getElementById('inspector-messages').innerHTML = msgsHtml;
+                </div>`;
+        }).join('');
+        document.getElementById('inspector-messages').innerHTML = msgsHtml;
+
+        // Handoff sessions panel (reuses `sessions` declared above)
+        let sessionsHtml = '';
+        if (sessions.length > 0) {
+            const triggerLabels = { user_request: 'User requested', low_confidence: 'Low confidence', frustration: 'Frustration detected' };
+            const statusColors = { waiting: 'bg-yellow-100 text-yellow-700', assigned: 'bg-blue-100 text-blue-700', resolved: 'bg-green-100 text-green-700', abandoned: 'bg-red-100 text-red-700' };
+            sessionsHtml = `
+                <div class="mt-4 border-t pt-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">👨‍💼 Human Agent Sessions (${sessions.length})</h4>
+                    <div class="space-y-2">
+                    ${sessions.map((s, i) => `
+                        <div class="p-3 rounded-lg border border-orange-200 bg-orange-50 text-sm">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="font-semibold text-orange-800">Session ${i + 1}</span>
+                                <span class="px-2 py-0.5 text-xs rounded ${statusColors[s.status] || 'bg-gray-100 text-gray-600'}">${s.status}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-600">
+                                <div><span class="font-medium">Agent:</span> ${s.operator_name || 'Unassigned'}</div>
+                                <div><span class="font-medium">Trigger:</span> ${triggerLabels[s.trigger_reason] || s.trigger_reason || '—'}</div>
+                                <div><span class="font-medium">Queued:</span> ${_fmtTime(s.queued_at)}</div>
+                                <div><span class="font-medium">Assigned:</span> ${_fmtTime(s.assigned_at) || '—'}</div>
+                                <div><span class="font-medium">Wait:</span> ${_fmtDuration(s.wait_time_secs)}</div>
+                                <div><span class="font-medium">Handle time:</span> ${_fmtDuration(s.handle_time_secs)}</div>
+                                ${s.agent_rating ? `<div><span class="font-medium">Rating:</span> ${'★'.repeat(s.agent_rating)}${'☆'.repeat(5 - s.agent_rating)}</div>` : ''}
+                                ${s.return_to_bot != null ? `<div><span class="font-medium">Returned to bot:</span> ${s.return_to_bot ? 'Yes' : 'No'}</div>` : ''}
+                            </div>
+                            ${s.closing_note ? `<div class="mt-1 text-xs text-gray-500 italic">"${s.closing_note}"</div>` : ''}
+                        </div>
+                    `).join('')}
+                    </div>
+                </div>`;
+        }
+
+        // Append sessions after messages
+        const existingPanel = document.getElementById('insp-handoff-sessions');
+        if (existingPanel) existingPanel.remove();
+        if (sessionsHtml) {
+            const panel = document.createElement('div');
+            panel.id = 'insp-handoff-sessions';
+            panel.innerHTML = sessionsHtml;
+            document.getElementById('inspector-messages').after(panel);
         }
     } catch (e) { console.error(e); }
 }

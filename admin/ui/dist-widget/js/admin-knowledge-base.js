@@ -5,6 +5,16 @@ let currentKBPage = 1;
 let currentKBLimit = 50;
 let currentKBFilter = '';
 
+function _kbSource(s) {
+    if (!s || s.toLowerCase() === 'glpi') return 'Knowledge Base';
+    return s;
+}
+
+function _kbId(id) {
+    if (!id) return '--';
+    return String(id).replace(/^glpi_/i, '');
+}
+
 // =====================
 // Main Load Function
 // =====================
@@ -233,7 +243,7 @@ function renderSearchResults(results, query) {
                         <div class="flex gap-2 mt-1">
                             <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${escapeHtml(article.category)}</span>
                             ${article.is_faq ? '<span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">FAQ</span>' : ''}
-                            <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">${escapeHtml(article.source || 'unknown')}</span>
+                            <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">${escapeHtml(_kbSource(article.source))}</span>
                         </div>
                     </div>
                     <div class="flex flex-col items-end gap-1 ml-4">
@@ -309,6 +319,9 @@ async function loadKBArticles(page = 1, limit = 50) {
     }
 }
 
+// Article lookup map — populated by renderArticleTable, read by viewArticleById
+const _kbArticleMap = {};
+
 function renderArticleTable(articles) {
     let html = `
         <table class="w-full table-auto">
@@ -334,15 +347,19 @@ function renderArticleTable(articles) {
         const glpiId = article.glpi_id || '';
         const isFaq = article.is_faq ? '<span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded ml-2">FAQ</span>' : '';
 
+        // Store article in map so the onclick never embeds raw JSON in HTML
+        const mapKey = String(articleId);
+        _kbArticleMap[mapKey] = article;
+
         html += `
             <tr class="hover:bg-gray-50">
-                <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(articleId)}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(_kbId(articleId))}</td>
                 <td class="px-4 py-3 text-sm font-medium text-gray-800">${title}${isFaq}</td>
                 <td class="px-4 py-3 text-sm"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">${category}</span></td>
-                <td class="px-4 py-3 text-sm text-gray-600">${source}${glpiId ? ' #' + glpiId : ''}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(_kbSource(source))}${glpiId ? ' #' + glpiId : ''}</td>
                 <td class="px-4 py-3 text-sm text-gray-600">${dateModified}</td>
                 <td class="px-4 py-3 text-sm">
-                    <button onclick='viewArticle(${JSON.stringify(article)})' class="text-blue-600 hover:text-blue-800">
+                    <button onclick="viewArticleById('${escapeHtml(mapKey)}')" class="text-blue-600 hover:text-blue-800">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -397,6 +414,11 @@ function filterKBArticles() {
 // Article Detail Modal
 // =====================
 
+function viewArticleById(id) {
+    const article = _kbArticleMap[String(id)];
+    if (article) viewArticle(article);
+}
+
 function viewArticle(article) {
     const modal = document.getElementById('kb-article-modal');
     const titleEl = document.getElementById('modal-article-title');
@@ -410,7 +432,7 @@ function viewArticle(article) {
                 <div class="flex gap-2">
                     <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${escapeHtml(article.category)}</span>
                     ${article.is_faq ? '<span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">FAQ</span>' : ''}
-                    <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">${escapeHtml(article.source || 'unknown')}</span>
+                    <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">${escapeHtml(_kbSource(article.source))}</span>
                     ${article.glpi_id ? `<span class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">Ticket #${article.glpi_id}</span>` : ''}
                 </div>
                 ${article.question ? `<div class="bg-yellow-50 p-3 rounded"><strong>Question:</strong> ${escapeHtml(article.question)}</div>` : ''}

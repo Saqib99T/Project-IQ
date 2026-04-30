@@ -129,13 +129,13 @@ const SettingsScreen = ({ navigation }) => {
                         style={styles.urlInput}
                         value={url}
                         onChangeText={setUrl}
-                        placeholder="http://198.233.100.77:8181"
+                        placeholder="http://198.233.100.77:5005"
                         autoCapitalize="none"
                         autoCorrect={false}
                         keyboardType="url"
                     />
                     <Text style={styles.hint}>
-                        Base URL of the admin API server (port 8181). Changes take effect after saving.
+                        Base URL of the Rasa server (port 5005). Changes take effect after saving.
                     </Text>
 
                     {/* Status */}
