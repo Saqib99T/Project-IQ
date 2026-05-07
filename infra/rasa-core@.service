@@ -1,0 +1,62 @@
+# Systemd template service for Rasa Core instances.
+# The %i specifier is replaced by the port number when enabling.
+#
+# Install:
+#   sudo cp infra/rasa-core@.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#
+# Start one instance (default, single-instance mode):
+#   sudo systemctl enable --now rasa-core@5005
+#
+# Start two instances (scale-out mode):
+#   sudo systemctl enable --now rasa-core@5005
+#   sudo systemctl enable --now rasa-core@5006
+#   Then uncomment the two-server upstream block in nginx.conf and reload Nginx.
+#
+# Start three instances:
+#   sudo systemctl enable --now rasa-core@5005
+#   sudo systemctl enable --now rasa-core@5006
+#   sudo systemctl enable --now rasa-core@5007
+#   Then uncomment the three-server upstream block in nginx.conf and reload Nginx.
+#
+# View logs:
+#   journalctl -u rasa-core@5005 -f
+#
+# IMPORTANT: All instances share the same trained model and the same
+# PostgreSQL tracker store. No extra config needed per instance —
+# the port number is the only difference.
+
+[Unit]
+Description=Rasa Core NLU/Dialogue Server (port %i)
+After=network.target postgresql.service project-iq-admin.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=user
+Group=user
+WorkingDirectory=/home/user/project-iq/core
+
+ExecStart=/home/user/project-iq/venv/bin/rasa run \
+    --enable-api \
+    --cors "*" \
+    --port %i \
+    --log-level WARNING
+
+# Restart on failure with backoff
+Restart=on-failure
+RestartSec=10s
+StartLimitInterval=120s
+StartLimitBurst=3
+
+Environment=APP_PROFILE=production
+
+# Resource limits
+LimitNOFILE=32768
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rasa-core-%i
+
+[Install]
+WantedBy=multi-user.target

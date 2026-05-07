@@ -337,24 +337,12 @@ responses:
   utter_greet:
     - text: "👋 **Hello! Welcome to Project IQ Bot!**
 
-I'm here to help you with your IT needs. Here's what I can do for you:
-
-🎫 **Create a Ticket** - Report issues or request assistance
-📋 **View My Tickets** - See all your open and closed tickets
-🔍 **Check Ticket Status** - Get updates on a specific ticket
-📚 **Search Knowledge Base** - Find solutions before creating a ticket
-💬 **Add Comments** - Update your tickets with new information
-
-How can I assist you today?"
+I'm here to help you with your IT needs. Please login to manage tickets, or search the Knowledge Base as a guest."
       buttons:
-        - title: "🎫 Create Ticket"
-          payload: "/create_ticket"
-        - title: "📋 View My Tickets"
-          payload: "/list_tickets"
-        - title: "🔍 Check Status"
-          payload: "/check_status"
-        - title: "❓ Help"
-          payload: "/help"
+        - title: "🔑 Login"
+          payload: "/login"
+        - title: "📚 Search Knowledge Base"
+          payload: "/ask_knowledge"
   utter_goodbye:
     - text: "Goodbye! Let me know if you need anything else."
   utter_ask_ticket_id:
@@ -457,16 +445,12 @@ How can I assist you today?"
   utter_please_rephrase:
     - text: "I'm sorry, I didn't verify that. Could you rephrase?"
   utter_default:
-    - text: "I'm not sure I understand. Here's what I can help you with:"
+    - text: "I'm not sure I understand. You can search the Knowledge Base or login to manage tickets."
       buttons:
-        - title: "📋 List my tickets"
-          payload: '/list_tickets'
-        - title: "🎫 Create a ticket"
-          payload: '/create_ticket'
-        - title: "🔍 Check ticket status"
-          payload: '/check_status'
-        - title: "❓ Help"
-          payload: '/help'
+        - title: "🔑 Login"
+          payload: '/login'
+        - title: "📚 Search Knowledge Base"
+          payload: '/ask_knowledge'
     
   utter_out_of_scope:
     - text: "I'm an IT support assistant and can help you with tickets. I can't help with that request."

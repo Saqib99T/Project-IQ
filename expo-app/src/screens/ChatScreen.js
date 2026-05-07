@@ -2,13 +2,15 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View, Text, TextInput, FlatList, TouchableOpacity,
     KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Alert,
-    Modal, TouchableWithoutFeedback, ScrollView
+    Modal, TouchableWithoutFeedback, ScrollView, Keyboard
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { io } from 'socket.io-client';
 import { storage } from '../utils/storage';
 import { getWebhookUrl, getAppId, getApiUrl, getAdminBaseUrl, THEME, APP_TITLE } from '../config';
+// Hooks extracted from this file — TODO: replace inline socket/history code with these
+import { useChatSocket }  from '../hooks/useChatSocket';
+import { useChatHistory } from '../hooks/useChatHistory';
 import MessageBubble from '../components/MessageBubble';
 import QuickActions from '../components/QuickActions';
 import LoginModal from '../components/LoginModal';
@@ -83,6 +85,7 @@ const ChatScreen = ({ navigation }) => {
 
     // Feedback persistence
     const [feedbackMap, setFeedbackMap] = useState({});
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
     const flatListRef = useRef(null);
     const insets = useSafeAreaInsets();
@@ -130,6 +133,17 @@ const ChatScreen = ({ navigation }) => {
         }
     };
 
+    // Track keyboard visibility to eliminate the bottom inset gap when open
+    useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+        const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+        const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     // Fetch session timeout from admin config
     useEffect(() => {
@@ -809,23 +823,7 @@ const ChatScreen = ({ navigation }) => {
     }
 
     const welcomeBg = '#EEF2FA';
-    
-    useEffect(() => {
-    const keyboardShowListener = Keyboard.addListener("keyboardDidShow", () => {
-        setFlexToggle(false);
-    });
 
-    const keyboardHideListener = Keyboard.addListener("keyboardDidHide", () => {
-        setFlexToggle(true);
-    });
-
-    return () => {
-        keyboardShowListener.remove();
-        keyboardHideListener.remove();
-    };
-    }, []);
-
-    const [flexToggle, setFlexToggle] = useState(false);
     return (
         <SafeAreaView style={[styles.container, isWelcomeState && { backgroundColor: welcomeBg }]} edges={['top']}>
             {/* Header — Gemini style: menu | title (centered) | avatar */}
@@ -854,15 +852,9 @@ const ChatScreen = ({ navigation }) => {
             </View>
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-                style={
-                    flexToggle
-                    ? [{ flexGrow: 1 }, styles.container]
-                    : [{ flex: 1 }, styles.container]
-                }
-                enabled={!flexToggle}
-                >
+                style={styles.flex}
+                behavior={isKeyboardVisible ? (Platform.OS === 'ios' ? 'padding' : 'height') : undefined}
+            >
                 {/* Welcome State */}
                 {isWelcomeState ? (
                     <View style={styles.welcomeContainer}>
@@ -946,7 +938,7 @@ const ChatScreen = ({ navigation }) => {
 
                 {/* Input Bar or New Conversation */}
                 <View
-                    style={[styles.inputSafeArea, { paddingBottom: insets.bottom }, isWelcomeState && { backgroundColor: welcomeBg }]}
+                    style={[styles.inputSafeArea, { paddingBottom: isKeyboardVisible ? 0 : insets.bottom }, isWelcomeState && { backgroundColor: welcomeBg }]}
                 >
                     {sessionEnded ? (
                         /* New Conversation button shown when session is ended */

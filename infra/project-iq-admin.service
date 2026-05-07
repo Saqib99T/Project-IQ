@@ -1,0 +1,58 @@
+# Systemd service for Project IQ Admin Server
+#
+# Install:
+#   sudo cp infra/project-iq-admin.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable project-iq-admin
+#   sudo systemctl start project-iq-admin
+#
+# Commands:
+#   sudo systemctl status project-iq-admin
+#   sudo systemctl restart project-iq-admin
+#   sudo systemctl reload project-iq-admin   ← graceful reload (SIGHUP, zero downtime)
+#   journalctl -u project-iq-admin -f        ← live logs
+
+[Unit]
+Description=Project IQ Admin API Server
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service
+
+[Service]
+Type=notify
+NotifyAccess=all
+
+User=user
+Group=user
+WorkingDirectory=/home/user/project-iq
+
+# Activate the virtualenv and run Gunicorn
+ExecStart=/home/user/project-iq/venv/bin/gunicorn \
+    -c infra/gunicorn.conf.py \
+    admin.api.admin_api:app
+
+# Graceful reload on SIGHUP (used by systemctl reload)
+ExecReload=/bin/kill -s HUP $MAINPID
+
+# Environment
+Environment=APP_PROFILE=production
+Environment=ADMIN_PORT=8181
+# To scale to 4 workers (requires Redis): uncomment below
+# Environment=GUNICORN_WORKERS=4
+
+# Restart policy — restart on crash, not on clean exit
+Restart=on-failure
+RestartSec=5s
+StartLimitInterval=60s
+StartLimitBurst=3
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Logs — redirect to journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=project-iq-admin
+
+[Install]
+WantedBy=multi-user.target

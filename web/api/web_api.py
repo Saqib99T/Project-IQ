@@ -1,0 +1,305 @@
+"""
+Admin API Module
+Flask API for admin dashboard operations, analytics, and static file serving.
+Consolidated server running on port 8181.
+Extensible for any plugin modules like Firecrawl, Airbyte...
+"""
+
+import eventlet
+import eventlet.tpool
+eventlet.monkey_patch()
+
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
+import json
+import sys
+import os
+import asyncio
+from typing import Optional
+
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from common.conversation_db import (
+    get_themes, get_theme, create_theme, update_theme, delete_theme,
+    get_default_theme, get_app_list, get_chat_app, create_chat_app, update_chat_app, delete_chat_app,
+    _get_connection, _release_connection
+)
+from common.analytics_store import get_analytics_summary, get_recent_conversations
+from common.config_manager import get_all_config as get_file_config, set_all_config as save_file_config, get_profile, get_rasa_config
+from web.api.studio_service import studio_service
+
+# Static files directories
+STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ui', 'public')
+WIDGET_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ui', 'dist-widget')
+
+# Service URLs from profile config (resolved once at startup)
+_rasa_cfg = get_rasa_config()
+RASA_URL = _rasa_cfg['api_url'].rstrip('/')
+ACTION_URL = _rasa_cfg['action_url']
+
+app = Flask(__name__, static_folder=None)
+CORS(app)
+
+# Populate shared.py with runtime values so blueprints can import them
+import web.api.shared as _shared
+_shared.configure(
+    rasa_url=RASA_URL,
+    action_url=ACTION_URL,
+    static_dir=STATIC_DIR,
+    widget_dir=WIDGET_DIR,
+)
+
+# ── Socket.IO initialisation ─────────────────────────────────────────────────
+# Deferred until config is available; re-initialised in _init_socketio().
+# socketio is a module-level singleton used everywhere.
+_socketio_instance: Optional['SocketIO'] = None
+
+def _get_socketio() -> 'SocketIO':
+    """Return the SocketIO singleton, initialising lazily if needed."""
+    global _socketio_instance
+    if _socketio_instance is None:
+        _init_socketio()
+    return _socketio_instance  # type: ignore[return-value]
+
+def _init_socketio():
+    """Initialise SocketIO using config values (called at first use or startup)."""
+    global _socketio_instance
+    try:
+        from common.config_manager import get_handoff_config
+        _hcfg = get_handoff_config()
+        _cors_origins = _hcfg.get('socketio_cors_allowed_origins', '*')
+        _async_mode   = _hcfg.get('socketio_async_mode', 'eventlet')
+        _ping_timeout  = int(_hcfg.get('socketio_ping_timeout', 60))
+        _ping_interval = int(_hcfg.get('socketio_ping_interval', 25))
+    except Exception:
+        _cors_origins = '*'
+        _async_mode   = 'eventlet'
+        _ping_timeout  = 60
+        _ping_interval = 25
+
+    # Redis message bus — enables Socket.IO events to work across Gunicorn workers.
+    # Only activated when redis_enabled=true in config. Falls back to in-process
+    # (single-worker) mode silently if Redis is not configured or unreachable.
+    _message_queue = None
+    try:
+        from common.config_manager import get_all_config as _gcfg
+        _rcfg = _gcfg().get('REDIS', {})
+        if str(_rcfg.get('redis_enabled', 'false')).lower() in ('true', '1', 'yes'):
+            _host = _rcfg.get('redis_host', 'localhost')
+            _port = _rcfg.get('redis_port', 6379)
+            _db   = _rcfg.get('redis_db', 0)
+            _pw   = _rcfg.get('redis_password') or ''
+            _auth = f':{_pw}@' if _pw else ''
+            _message_queue = f'redis://{_auth}{_host}:{_port}/{_db}'
+            print(f'[SocketIO] Using Redis message bus: redis://{_host}:{_port}/{_db}')
+    except Exception as _mq_err:
+        print(f'[SocketIO] Redis bus unavailable, using in-process mode. ({_mq_err})')
+
+    _socketio_instance = SocketIO(
+        app,
+        cors_allowed_origins=_cors_origins,
+        async_mode=_async_mode,
+        ping_timeout=_ping_timeout,
+        ping_interval=_ping_interval,
+        message_queue=_message_queue,
+        logger=False,
+        engineio_logger=False,
+    )
+    # Sync the shared.sio instance so blueprints use the same SocketIO object
+    _shared.sio = _socketio_instance
+
+# Initialise eagerly so background threads can use it before first request
+_init_socketio()
+
+# ── Room naming helpers ──────────────────────────────────────────────────────
+# user:{sender_id}          — user's browser tab
+# operator:{operator_id}    — operator dashboard tab
+# admin_live                — admin live-monitor overview
+# admin_watch:{conv_id}     — admin deep-watching a single conversation
+# queue_overview            — lightweight overview pushed to all operator tabs
+
+def _room_user(sender_id: str) -> str:
+    return f"user:{sender_id}"
+
+def _room_operator(op_id) -> str:
+    return f"operator:{op_id}"
+
+def _room_admin_watch(conv_id) -> str:
+    return f"admin_watch:{conv_id}"
+
+
+# Simple KB cache for admin panel
+class AdminKBCache:
+    """Lightweight KB cache for admin panel - loads GLPI articles at startup."""
+    def __init__(self):
+        self.articles = []
+        self.last_update = None
+        self.is_loading = False
+
+    def load_articles(self):
+        """Load articles from GLPI KB."""
+        if self.is_loading:
+            return False
+
+        self.is_loading = True
+        try:
+            from action_server.actions.glpi_service import GlpiService
+            from common.config_manager import get_glpi_config
+            from datetime import datetime
+
+            glpi_config = get_glpi_config()
+            glpi_service = GlpiService(
+                api_uri=glpi_config['api_url'],
+                app_token=glpi_config['app_token'],
+                user_token=glpi_config['user_token']
+            )
+
+            async def _fetch_articles():
+                session_token = await glpi_service.init_session()
+                if not session_token:
+                    print("[Admin KB Cache] Failed to connect to Project IQ")
+                    return None
+                
+                try:
+                    return await glpi_service.get_all_knowbase_items(session_token)
+                finally:
+                    await glpi_service.kill_session(session_token)
+
+            glpi_articles = eventlet.tpool.execute(asyncio.run, _fetch_articles())
+            if glpi_articles is None:
+                return False
+
+            # Transform to simplified format
+            transformed = []
+            for article in glpi_articles:
+                transformed.append({
+                    "id": f"glpi_{article['id']}",
+                    "title": article.get('name', 'Untitled'),
+                    "category": "general",
+                    "source": "glpi",
+                    "glpi_id": article['id'],
+                    "is_faq": article.get('is_faq', 0) == 1,
+                    "date_modified": article.get('date_mod', ''),
+                    "question": article.get('question', ''),
+                    "answer": article.get('answer', '')[:200] + '...' if article.get('answer') else ''
+                })
+
+            self.articles = transformed
+            self.last_update = datetime.now().isoformat()
+            print(f"[Admin KB Cache] Loaded {len(transformed)} articles from Project IQ")
+            return True
+
+
+
+        except Exception as e:
+            log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Log')
+            os.makedirs(log_dir, exist_ok=True)
+            debug_log = os.path.join(log_dir, "admin_kb_debug.log")
+            with open(debug_log, "w") as f:
+                f.write(f"Error loading articles: {e}\n")
+                import traceback
+                f.write(traceback.format_exc())
+            print(f"[Admin KB Cache] Error loading articles: {e}")
+            return False
+        finally:
+            self.is_loading = False
+
+    def get_status(self):
+        """Get cache status."""
+        return {
+            "article_count": len(self.articles),
+            "last_refresh": self.last_update,
+            "source": "glpi",
+            "glpi_connected": True
+        }
+
+    def get_articles(self, page=1, limit=50, search_filter=""):
+        """Get paginated articles."""
+        filtered = self.articles
+
+        if search_filter:
+            search_filter = search_filter.lower()
+            filtered = [
+                article for article in self.articles
+                if search_filter in article.get('title', '').lower() or
+                   search_filter in article.get('question', '').lower()
+            ]
+
+        total_count = len(filtered)
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        paginated = filtered[start_idx:end_idx]
+        total_pages = (total_count + limit - 1) // limit if limit > 0 else 0
+
+        return {
+            "articles": paginated,
+            "count": len(paginated),
+            "total": total_count,
+            "page": page,
+            "total_pages": total_pages,
+            "limit": limit
+        }
+
+# Initialize KB cache
+admin_kb_cache = AdminKBCache()
+
+# Load articles at startup in background
+import threading
+def load_kb_at_startup():
+    import time
+    time.sleep(2)  # Wait for server to start
+    print("[Admin KB Cache] Loading articles from Project IQ at startup...")
+    admin_kb_cache.load_articles()
+
+threading.Thread(target=load_kb_at_startup, daemon=True).start()
+
+
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
+# Serve static files - Flask handles /static/* automatically via static_folder
+
+# ── Clean URLs (canonical) ────────────────────────────────────────────────────
+
+# ── Phase 3: Socket.IO events + background workers ───────────────────────────
+from web.api.impl.socketio_events import register_sio_events, start_background_workers
+
+_sio = _get_socketio()
+register_sio_events(_sio)
+start_background_workers()
+
+
+# ── Blueprint registration (Phase 2.1 — activate when ready) ─────────────────
+# To activate:
+#   1. Uncomment the register_blueprints(app) call below.
+#   2. For each route now in a blueprint, remove its @app.route decorator here.
+#      Flask raises a duplicate-endpoint error if both are active.
+#   3. Restart the server and verify all routes respond correctly.
+#
+# The blueprint files are in admin/api/blueprints/. Activation guide:
+#   admin/api/blueprints/register.py
+#
+from web.api.blueprints.register import register_blueprints
+register_blueprints(app)
+
+
+if __name__ == '__main__':
+    import os as _os
+    _port = int(_os.environ.get('ADMIN_PORT', 8181))
+    print(f"Starting Unified Server on port {_port}...")
+    print(f"Admin files from: {STATIC_DIR}")
+    print(f"Widget files from: {WIDGET_DIR}")
+    print(f"  Admin Dashboard:        http://<YOUR_IP>:{_port}/admin")
+    print(f"  Chat Widget (IT):       http://<YOUR_IP>:{_port}/")
+    print(f"  Operator Console:       http://<YOUR_IP>:{_port}/operator")
+    print(f"  Chat Widget (ACC):      http://<YOUR_IP>:{_port}/acc.html")
+    # Use socketio.run instead of app.run so eventlet serves WebSocket upgrades
+    _sio.run(app, host='0.0.0.0', port=_port, allow_unsafe_werkzeug=True)

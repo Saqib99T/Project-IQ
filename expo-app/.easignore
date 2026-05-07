@@ -1,3 +1,8 @@
+# ── Android build artifacts (large compiled output, not needed for EAS) ──
+android/app/build/
+android/build/
+android/.gradle/
+
 # ── expo-app internals (relative to expo-app/ if EAS scans from here) ──
 node_modules/
 .expo/
@@ -37,3 +42,29 @@ __pycache__/
 *.pkl
 *.pyc
 
+# Database
+*.db
+
+# Ignore Python environments & Caches
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Ignore heavy directories in siblings
+models/
+core/models/
+core/models/*.tar.gz
+*.tar.gz
+admin/ui/node_modules/
+admin/ui/dist-widget/
+admin/ui/dist/
+mobile-app/node_modules/
+core/node_modules/
+common/node_modules/
+Backup/
+admin/data/cache/
+expo-app/node_modules/
+
+# Database
+*.db

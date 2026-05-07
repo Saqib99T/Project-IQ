@@ -1,0 +1,51 @@
+# Infisical Self-Hosted Setup
+# Run with: docker-compose -f docker-compose.infisical.yml up -d
+
+services:
+  # Infisical Backend
+  infisical:
+    image: infisical/infisical:latest
+    container_name: infisical
+    restart: unless-stopped
+    ports:
+      - "8089:8080"  # Web UI and API
+    environment:
+      - ENCRYPTION_KEY=your-32-char-encryption-key-here!
+      - AUTH_SECRET=your-auth-secret-key-for-jwt-tokens
+      - SITE_URL=http://localhost:8089
+      - DB_CONNECTION_URI=postgres://infisical:infisical_password@infisical-db:5432/infisical
+      - REDIS_URL=redis://infisical-redis:6379
+    depends_on:
+      - infisical-db
+      - infisical-redis
+    networks:
+      - infisical-network
+
+  # PostgreSQL for Infisical
+  infisical-db:
+    image: postgres:15-alpine
+    container_name: infisical-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=infisical
+      - POSTGRES_PASSWORD=infisical_password
+      - POSTGRES_DB=infisical
+    volumes:
+      - infisical-db-data:/var/lib/postgresql/data
+    networks:
+      - infisical-network
+
+  # Redis for Infisical
+  infisical-redis:
+    image: redis:7-alpine
+    container_name: infisical-redis
+    restart: unless-stopped
+    networks:
+      - infisical-network
+
+networks:
+  infisical-network:
+    driver: bridge
+
+volumes:
+  infisical-db-data:

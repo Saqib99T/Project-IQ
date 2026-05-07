@@ -55,6 +55,7 @@ def setup_pgvector():
             chunk_index INT,
             title VARCHAR(255),
             content TEXT,
+            category VARCHAR(100),
             embedding vector(384),
             created_at TIMESTAMP DEFAULT NOW()
         );

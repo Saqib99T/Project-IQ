@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const DEFAULT_API_URL = 'http://198.233.100.77:5005';
+const DEFAULT_API_URL = 'http://198.233.100.77:8181';
 const WEBHOOK_PATH = '/webhooks/rest/webhook';
 const DEFAULT_APP_ID = 'IT';
 const APP_TITLE = 'Project IQ Bot';
@@ -26,13 +26,13 @@ export const getApiUrl = async () => {
     try {
         const stored = await AsyncStorage.getItem('rasa_api_url');
         if (stored && stored.startsWith('http')) {
-            // One-time migration: old installs may have :8181 saved instead of :5005
-            if (stored.includes(':8181')) {
-                const fixed = stored.replace(/:8181\b/, ':5005');
-                await AsyncStorage.setItem('rasa_api_url', fixed);
-                return fixed;
+            // Migrate: old installs may have port 5005 (direct Rasa) saved.
+            // All traffic must go through the admin proxy on 8181 for handoff interception.
+            const migrated = stored.replace(/:5005\b/, ':8181');
+            if (migrated !== stored) {
+                await AsyncStorage.setItem('rasa_api_url', migrated);
             }
-            return stored;
+            return migrated;
         }
     } catch {}
     return DEFAULT_API_URL;
@@ -60,14 +60,7 @@ export const getWebhookUrl = async () => {
     return `${base}${WEBHOOK_PATH}`;
 };
 
-// Auto-detect admin API base URL (for history, feedback, handoff, etc.)
-export const getAdminBaseUrl = async () => {
-    try {
-        const rasaUrl = await getApiUrl();
-        return rasaUrl.replace(':5005', ':8181');
-    } catch {
-        return 'http://198.233.100.77:8181';
-    }
-};
+// Admin base URL — same as API URL since all traffic now routes through 8181
+export const getAdminBaseUrl = async () => getApiUrl();
 
 export { WEBHOOK_PATH, APP_TITLE };

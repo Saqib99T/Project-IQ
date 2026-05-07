@@ -1,0 +1,10 @@
+# pgBouncer userlist — passwords in scram-sha-256 or md5 format.
+#
+# Generate a scram-sha-256 hash:
+#   psql -c "SELECT concat('\"', usename, '\" \"', passwd, '\"') FROM pg_shadow WHERE usename='postgres';" -tA
+#
+# Or use plain-text (only for local/dev, not production):
+#   "postgres" "your_password_here"
+#
+# Replace the placeholder below with the actual hash from the command above.
+"postgres" "REPLACE_WITH_SCRAM_HASH_OR_PLAINTEXT_PASSWORD"

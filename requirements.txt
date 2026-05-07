@@ -36,8 +36,15 @@ sentence-transformers==2.3.1
 firecrawl-py>=1.0.0
 airbyte<0.15.0
 
-# Production Server (optional)
-waitress==2.1.2
+# Production Server
+gunicorn>=21.2.0
+
+# Redis — caching + Socket.IO message bus (optional, activated by redis_enabled=true)
+redis>=5.0.0
+kombu>=5.3.0       # required by flask-socketio for Redis message queue
+
+# JWT for operator auth
+PyJWT>=2.8.0
 
 # Testing (optional)
 pytest==7.4.3

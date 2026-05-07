@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Project IQ Chat Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+    <style>
+        .monaco-editor {
+            padding-top: 8px;
+        }
+
+        /* Custom sidebar styles to match admin-core.js expectations */
+        .sidebar-item.active {
+            background-color: #EFF6FF;
+            /* blue-50 */
+            color: #2563EB;
+            /* blue-600 */
+        }
+
+        .sidebar-item:hover:not(.active) {
+            background-color: #F9FAFB;
+            /* gray-50 */
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen font-sans">
+
+    <!-- LOGIN OVERLAY -->
+    <div id="login-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-90 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="p-8">
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800">Admin Access</h2>
+                    <p class="text-gray-500 mt-2">Project IQ Dashboard</p>
+                </div>
+
+                <form onsubmit="handleLoginSubmit(event)" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <input type="text" id="admin-username" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                            placeholder="admin">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="admin-password" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                            placeholder="••••••••">
+                    </div>
+
+                    <div id="login-error" class="hidden text-red-500 text-sm text-center bg-red-50 p-2 rounded">
+                        Invalid credentials
+                    </div>
+
+                    <button type="submit" id="login-submit"
+                        class="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all transform hover:scale-[1.02]">
+                        Sign In
+                    </button>
+                </form>
+            </div>
+            <div class="px-8 py-4 bg-gray-50 border-t border-gray-100 text-center">
+                <p class="text-xs text-gray-500">Secure Admin Environment</p>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MAIN CONTENT WRAPPER -->
+    <div id="main-content" class="flex flex-col min-h-screen hidden">
+
+        <!-- TOP TITLE BAR -->
+        <header class="h-14 bg-white border-b border-gray-200 flex items-center px-6 gap-4 z-20 shadow-sm flex-shrink-0">
+            <!-- Logo + Title -->
+            <div class="flex items-center gap-3">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1"/>
+                </svg>
+                <span class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 tracking-tight">
+                    Project IQ
+                </span>
+                <span id="profile-badge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">LOCAL</span>
+            </div>
+
+            <div class="flex-1"></div>
+
+            <!-- Right icons -->
+            <a href="/opt" target="_blank" title="Operator Console"
+               class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2V10a2 2 0 012-2h6z"/>
+                </svg>
+                <span class="hidden sm:inline text-xs">Operator</span>
+            </a>
+
+            <div class="flex items-center gap-2 pl-3 border-l border-gray-200">
+                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm cursor-default" title="Administrator">
+                    A
+                </div>
+                <span class="text-sm font-medium text-gray-700 hidden md:block" id="user-display-top">Admin</span>
+            </div>
+        </header>
+
+        <!-- SIDEBAR + CONTENT ROW -->
+        <div class="flex flex-1 overflow-hidden">
+
+        <!-- SIDEBAR -->
+        <aside class="w-64 bg-white border-r border-gray-200 flex flex-col z-10 shadow-sm">
+            <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-2">Dashboards</p>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors"
+                    data-section="analytics" onclick="showSection('analytics'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Analytics
+                </a>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors"
+                    data-section="live-monitor" onclick="showSection('live-monitor'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 10l4.553-2.069A1 1 0 0121 8.869V15.13a1 1 0 01-1.447.899L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Live Monitor
+                    <span id="live-monitor-badge" class="hidden ml-auto bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center"></span>
+                </a>
+
+                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-6">Development</p>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors"
+                    data-section="studio" onclick="showSection('studio'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                    Project IQ Studio
+                </a>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors"
+                    data-section="inspector" onclick="showSection('inspector'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 16l2.879-2.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Chat Inspector
+                </a>
+
+                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-6">Human Handoff</p>
+
+                <span
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-400 cursor-not-allowed opacity-50 select-none">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    Routing Rules
+                    <span class="ml-auto text-xs bg-gray-200 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>
+                </span>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors"
+                    data-section="handoff-analytics" onclick="showSection('handoff-analytics'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Handoff Analytics
+                </a>
+
+                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-6">Configuration</p>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors"
+                    data-section="observability" onclick="showSection('observability'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Observability
+                </a>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors"
+                    data-section="knowledge-base" onclick="showSection('knowledge-base'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    Knowledge Base
+                </a>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors"
+                    data-section="firecrawl" onclick="showSection('firecrawl'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                    </svg>
+                    Web Crawling
+                </a>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors"
+                    data-section="themes" onclick="showSection('themes'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                    </svg>
+                    Themes
+                </a>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors"
+                    data-section="configuration" onclick="showSection('configuration'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Settings
+                </a>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 transition-colors mt-4"
+                    data-section="system-status" onclick="showSection('system-status'); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    System Status
+                </a>
+
+                <a href="#"
+                    class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg text-red-600 hover:bg-red-50 transition-colors mt-2"
+                    onclick="handleLogout(); return false;">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Logout
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-gray-200">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+                        A
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-700" id="user-display">Administrator</p>
+                        <p class="text-xs text-gray-500">Online</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 p-8 overflow-auto h-screen flex flex-col">
+            <!-- Analytics Section -->
+            <section id="section-analytics" class="section">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Analytics Overview</h1>
+                        <p class="text-gray-500">Real-time insights into your chatbot's performance</p>
+                    </div>
+                    <div class="flex gap-4">
+                        <select id="analytics-app-filter" onchange="filterAnalytics()"
+                            class="bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="all">All Apps</option>
+                            <option value="IT">IT Support</option>
+                            <option value="Accounting">Accounting Support</option>
+                        </select>
+                        <button onclick="refreshAnalytics()"
+                            class="bg-blue-50 text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Total Conversations</p>
+                                <h3 class="text-2xl font-bold text-gray-800 mt-1" id="stat-conversations">-</h3>
+                            </div>
+                            <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Messages Exchanged</p>
+                                <h3 class="text-2xl font-bold text-gray-800 mt-1" id="stat-messages">-</h3>
+                            </div>
+                            <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Positive Feedback</p>
+                                <h3 class="text-2xl font-bold text-gray-800 mt-1" id="stat-positive">-</h3>
+                            </div>
+                            <div class="p-2 bg-green-50 rounded-lg text-green-600">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Resolution Rate</p>
+                                <h3 class="text-2xl font-bold text-gray-800 mt-1" id="stat-resolution">-</h3>
+                            </div>
+                            <div class="p-2 bg-purple-50 rounded-lg text-purple-600">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 class="font-bold text-gray-800 mb-4">Top Intents</h3>
+                        <div class="h-64">
+                            <canvas id="intentsChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 class="font-bold text-gray-800 mb-4">Satisfaction</h3>
+                        <div class="h-64 flex items-center justify-center">
+                            <canvas id="feedbackChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Conversations -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-800">Recent Conversations</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                                <tr>
+                                    <th class="px-6 py-3 text-left">User ID</th>
+                                    <th class="px-6 py-3 text-left">App</th>
+                                    <th class="px-6 py-3 text-left">Messages</th>
+                                    <th class="px-6 py-3 text-left">Top Intent</th>
+                                    <th class="px-6 py-3 text-left">Feedback</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 text-sm text-gray-600" id="conversations-table">
+                                <!-- Data injected here -->
+                                <tr>
+                                    <td colspan="5" class="py-8 text-center text-gray-400">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="section-configuration" class="section hidden"></section>
+            <section id="section-themes" class="section hidden"></section>
+            <section id="section-integration" class="section hidden"></section>
+            <section id="section-inspector" class="section hidden"></section>
+            <section id="section-observability" class="section hidden"></section>
+
+            <!-- STUDIO SECTION -->
+            <section id="section-studio" class="section hidden flex-1 flex flex-col h-full">
+                <!-- Header -->
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Project IQ Studio</h2>
+                        <p class="text-gray-500">Edit configuration and train your model</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="flex gap-2 mr-4">
+                            <span
+                                class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium flex items-center gap-1"
+                                title="Intents">
+                                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                <span id="stat-intents">-</span> Intents
+                            </span>
+                            <span
+                                class="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium flex items-center gap-1"
+                                title="Stories">
+                                <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                                <span id="stat-stories">-</span> Stories
+                            </span>
+                            <span
+                                class="px-3 py-1 bg-green-50 text-green-700 rounded-lg text-xs font-medium flex items-center gap-1"
+                                title="Rules">
+                                <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                <span id="stat-rules">-</span> Rules
+                            </span>
+                        </div>
+
+                        <div id="train-status-badge"
+                            class="hidden px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                            Idle
+                        </div>
+                        <button onclick="triggerTraining()" id="btn-train"
+                            class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:opacity-90 shadow-sm transition-all">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                            </svg>
+                            Train Model
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-1 gap-6 min-h-0">
+                    <!-- File Explorer -->
+                    <div class="w-64 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col">
+                        <div class="p-4 border-b border-gray-100 bg-gray-50 rounded-t-xl">
+                            <h3 class="font-semibold text-gray-700 text-sm uppercase tracking-wide">Files</h3>
+                        </div>
+                        <div id="studio-file-list" class="flex-1 overflow-y-auto p-2 space-y-1">
+                            <!-- File items injected here -->
+                            <div class="text-center py-4 text-gray-400 text-sm">Loading...</div>
+                        </div>
+                    </div>
+
+                    <!-- Editor Area -->
+                    <div
+                        class="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <!-- Editor Toolbar -->
+                        <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span id="current-filename" class="font-medium text-gray-700 text-sm">Select a
+                                    file</span>
+                                <span id="file-unsaved-indicator" class="hidden w-2 h-2 rounded-full bg-amber-500 ml-1"
+                                    title="Unsaved changes"></span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="saveCurrentFile()" id="btn-save"
+                                    class="text-sm px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled>
+                                    Save Changes
+                                </button>
+                                <button onclick="showHistory()" id="btn-history"
+                                    class="text-sm px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                                    disabled>
+                                    History
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Monaco Container -->
+                        <div id="monaco-container" class="flex-1 relative">
+                            <!-- Editor injected here -->
+                            <div class="absolute inset-0 flex items-center justify-center text-gray-400 bg-gray-50">
+                                <div class="text-center">
+                                    <p>Select a file to start editing</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Training Console (Collapsible) -->
+                <div id="training-console"
+                    class="mt-6 bg-gray-900 rounded-xl shadow-lg border border-gray-700 overflow-hidden flex flex-col transition-all duration-300"
+                    style="height: 0px;">
+                    <div class="px-4 py-2 border-b border-gray-800 flex justify-between items-center bg-gray-800">
+                        <span class="text-xs font-mono text-gray-400 uppercase">Training Logs</span>
+                        <button onclick="toggleConsole()" class="text-gray-400 hover:text-white">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <pre id="training-logs"
+                        class="flex-1 p-4 font-mono text-xs text-green-400 overflow-y-auto whitespace-pre-wrap">Waiting for start...</pre>
+                </div>
+            </section>
+
+            <section id="section-knowledge-base" class="section hidden"></section>
+            <section id="section-firecrawl" class="section hidden"></section>
+            <section id="section-live-monitor" class="section hidden"></section>
+            <section id="section-routing-rules" class="section hidden"></section>
+            <section id="section-handoff-analytics" class="section hidden"></section>
+            <section id="section-system-status" class="section hidden"></section>
+
+            <!-- Toast Notification -->
+            <div id="toast"
+                class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+                <span id="toast-message">Saved successfully!</span>
+            </div>
+
+            <!-- History Modal -->
+            <div id="history-modal"
+                class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden z-50 flex items-center justify-center">
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+                    <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">File History</h3>
+                            <p class="text-sm text-gray-500" id="history-filename">filename.yml</p>
+                        </div>
+                        <button onclick="closeHistory()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div id="history-list" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+                        <!-- History Items Injected Here -->
+                        <div class="text-center py-8 text-gray-400">Loading history...</div>
+                    </div>
+
+                    <div class="p-4 border-t border-gray-100 bg-white rounded-b-xl text-right">
+                        <button onclick="closeHistory()"
+                            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <script src="/web/js/cookieUtils.js"></script>
+            <script src="/web/js/web-auth.js"></script>
+            <script src="/web/js/web-core.js"></script>
+            <script src="/web/js/web-config.js"></script>
+            <script src="/web/js/web-themes.js"></script>
+            <script src="/web/js/web-analytics.js"></script>
+            <script src="/web/js/web-integration.js"></script>
+            <script src="/web/js/web-inspector.js"></script>
+            <script src="/web/js/web-observability.js"></script>
+            <script src="/web/js/web-studio.js"></script>
+            <script src="/web/js/web-knowledge-base.js"></script>
+            <script src="/web/js/web-firecrawl.js"></script>
+            <script src="/web/js/web-live-monitor.js"></script>
+            <script src="/web/js/web-routing-rules.js"></script>
+            <script src="/web/js/web-handoff-analytics.js"></script>
+            <script src="/web/js/web-system-status.js"></script>
+        </main>
+        </div><!-- end sidebar+content row -->
+    </div><!-- end main-content -->
+</body>
+
+</html>

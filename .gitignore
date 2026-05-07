@@ -29,5 +29,29 @@ models/*.tar.gz
 # OS
 .DS_Store
 Thumbs.db
-Log/admin.err
 nul
+_nul
+
+# Database backups (large binary files)
+backups/*.backup
+
+# Rasa
+models/*.tar.gz
+data/history/
+
+# Firecrawl self-host (node_modules, build output, generated files)
+firecrawl-selfhost/**/node_modules/
+firecrawl-selfhost/**/.next/
+firecrawl-selfhost/**/dist/
+firecrawl-selfhost/**/.turbo/
+firecrawl-selfhost/apps/go-sdk/firecrawl-go/
+firecrawl-selfhost/apps/go-sdk/firecrawl-go-examples/
+
+# Build / dist
+web/ui/dist/
+web/ui/dist-widget/glpi-chat-widget.js
+web/ui/dist-widget/modern-web-interface.css
+
+# Credentials (belt-and-suspenders)
+.env.bak
+*.bak

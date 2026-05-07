@@ -15,7 +15,10 @@ db_user = postgres
 db_password = 12345
 
 [RASA]
-rasa_api_url = http://localhost:5005
+# Points to the internal Nginx Rasa load balancer (port 5000).
+# Nginx distributes calls to all running rasa-core@XXXX instances.
+# To revert to a single instance: change back to http://localhost:5005
+rasa_api_url = http://127.0.0.1:5000
 rasa_action_url = http://127.0.0.1:5055/webhook
 
 [SERVER]
@@ -84,4 +87,22 @@ smtp_use_tls = true
 llm_summary_enabled = false
 llm_summary_model = claude-haiku-4-5-20251001
 llm_api_key = YOUR_LLM_API_KEY_IF_ENABLED
+
+[REDIS]
+# Enable Redis for caching + Socket.IO message bus across Gunicorn workers.
+# Required when GUNICORN_WORKERS > 1.
+redis_enabled = true
+redis_host    = localhost
+redis_port    = 6379
+redis_db      = 0
+redis_password =
+
+[DATABASE_REPLICA]
+# Read replica for PostgreSQL — routes read-only queries to replica, writes to primary.
+# Leave db_replica_host blank to disable (all queries go to primary).
+db_replica_host     =
+db_replica_port     = 5432
+db_replica_name     = Chatbot
+db_replica_user     = postgres
+db_replica_password = 12345
 

@@ -15,7 +15,10 @@
       "Bash(venv/Scripts/python -c ':*)",
       "Bash(npx eas *)",
       "WebFetch(domain:job-logs.eascdn.net)",
-      "PowerShell(D:\\\\99T\\\\Rasa\\\\Project-IQ\\\\venv\\\\Scripts\\\\python.exe -c \"import paramiko; print\\('ok', paramiko.__version__\\)\" 2>&1)"
+      "Bash(xargs wc *)",
+      "Bash(sed -i 's/return _ao\\\\.system_status\\(\\)/return _obs.system_status\\(\\)/g' d:/99T/Rasa/Project-IQ/web/api/blueprints/bp_admin_ops.py)",
+      "Bash(sed -i 's/return _ao\\\\.get_system_metrics\\(\\)/return _obs.get_system_metrics\\(\\)/g' d:/99T/Rasa/Project-IQ/web/api/blueprints/bp_admin_ops.py)",
+      "Bash(sed -i 's/return _ao\\\\.observability_/return _obs.observability_/g' d:/99T/Rasa/Project-IQ/web/api/blueprints/bp_admin_ops.py)"
     ]
   }
 }

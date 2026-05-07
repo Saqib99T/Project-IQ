@@ -1,0 +1,141 @@
+"""
+common.db._messages — conversation logging and message retrieval.
+"""
+from datetime import datetime
+from typing import Dict, List, Optional
+from psycopg2.extras import RealDictCursor
+from common.db._connection import _get_connection, _release_connection
+
+
+def log_conversation_start(sender_id: str, app_id: str = "General",
+                            user_id: str = None, user_name: str = None) -> int:
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            'SELECT id, ended_at FROM conversations WHERE sender_id = %s ORDER BY id DESC LIMIT 1',
+            (sender_id,)
+        )
+        row = cursor.fetchone()
+        if row and not row.get('ended_at'):
+            updates = ['last_activity = %s']
+            params = [datetime.now()]
+            if user_id:
+                updates.append('user_id = %s'); params.append(user_id)
+            if user_name:
+                updates.append('user_name = %s'); params.append(user_name)
+            params.append(sender_id)
+            cursor.execute(f'UPDATE conversations SET {", ".join(updates)} WHERE sender_id = %s', params)
+            conn.commit()
+            return row['id']
+        cursor.execute(
+            'INSERT INTO conversations (sender_id, app_id, user_id, user_name, started_at, last_activity) '
+            'VALUES (%s, %s, %s, %s, %s, %s) RETURNING id',
+            (sender_id, app_id, user_id, user_name, datetime.now(), datetime.now())
+        )
+        new_id = cursor.fetchone()['id']
+        conn.commit()
+        return new_id
+    finally:
+        _release_connection(conn)
+
+
+def log_message(sender_id: str, message_type: str, text: str, intent: str = None,
+                app_id: str = "General", user_id: str = None, ticket_id: str = None):
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        conv_id = log_conversation_start(sender_id, app_id, user_id=user_id)
+        cursor.execute(
+            'INSERT INTO messages (conversation_id, sender, text, intent, app_id, user_id, ticket_id, timestamp) '
+            'VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
+            (conv_id, message_type, text[:500] if text else "", intent, app_id, user_id, ticket_id, datetime.now())
+        )
+        if ticket_id:
+            cursor.execute('UPDATE conversations SET last_activity=%s, ticket_id=%s WHERE id=%s',
+                           (datetime.now(), ticket_id, conv_id))
+        else:
+            cursor.execute('UPDATE conversations SET last_activity=%s WHERE id=%s', (datetime.now(), conv_id))
+        conn.commit()
+    finally:
+        _release_connection(conn)
+
+
+def log_intent(sender_id: str, intent: str, confidence: float = None):
+    pass  # Intent is logged with messages
+
+
+def log_feedback(sender_id: str, feedback_type: str, app_id: str = "General",
+                 user_id: str = None, ticket_id: str = None, rating: int = None,
+                 comments: str = None):
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        if feedback_type in ('up', 'positive'):
+            feedback_type = 'positive'
+        elif feedback_type in ('down', 'negative'):
+            feedback_type = 'negative'
+        conv_id = log_conversation_start(sender_id, app_id, user_id=user_id)
+        cursor.execute(
+            'INSERT INTO feedback (conversation_id, type, app_id, user_id, ticket_id, rating, comments, timestamp) '
+            'VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
+            (conv_id, feedback_type, app_id, user_id, ticket_id, rating, comments, datetime.now())
+        )
+        if feedback_type == 'positive':
+            cursor.execute('UPDATE conversations SET resolved = 1 WHERE id = %s', (conv_id,))
+        conn.commit()
+    except Exception as e:
+        print(f"Error saving feedback: {e}")
+        conn.rollback()
+    finally:
+        _release_connection(conn)
+
+
+def log_action(sender_id: str, action_name: str, success: bool = True,
+               app_id: str = "General", user_id: str = None, ticket_id: str = None):
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        conv_id = log_conversation_start(sender_id, app_id, user_id=user_id)
+        cursor.execute(
+            'INSERT INTO actions (conversation_id, action_name, success, app_id, user_id, ticket_id, timestamp) '
+            'VALUES (%s, %s, %s, %s, %s, %s, %s)',
+            (conv_id, action_name, 1 if success else 0, app_id, user_id, ticket_id, datetime.now())
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"Error logging action: {e}")
+        conn.rollback()
+    finally:
+        _release_connection(conn)
+
+
+def get_conversation_transcript(sender_id: str) -> List[Dict]:
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute('SELECT id FROM conversations WHERE sender_id = %s', (sender_id,))
+        row = cursor.fetchone()
+        if not row:
+            return []
+        cursor.execute(
+            'SELECT sender, text, intent, timestamp FROM messages '
+            'WHERE conversation_id = %s ORDER BY timestamp ASC', (row['id'],)
+        )
+        return [dict(r) for r in cursor.fetchall()]
+    finally:
+        _release_connection(conn)
+
+
+def end_conversation(conversation_id: int):
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('UPDATE conversations SET ended_at = %s WHERE id = %s',
+                       (datetime.now(), conversation_id))
+        conn.commit()
+    except Exception as e:
+        print(f"Error ending conversation {conversation_id}: {e}")
+        conn.rollback()
+    finally:
+        _release_connection(conn)
