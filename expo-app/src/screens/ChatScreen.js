@@ -17,6 +17,7 @@ import LoginModal from '../components/LoginModal';
 import { TicketFilterModal, TicketIdModal, TicketFormModal } from '../components/TicketModals';
 import SessionFeedbackModal from '../components/SessionFeedbackModal';
 import * as DocumentPicker from 'expo-document-picker';
+import { io } from 'socket.io-client';
 
 // Fallback UUID generator for React Native to avoid crypto requirement
 const uuidv4 = () => {
@@ -46,6 +47,8 @@ const ChatScreen = ({ navigation }) => {
     const [queuePosition, setQueuePosition] = useState(null);
     const [waitMins, setWaitMins] = useState(null);
     const [operatorTyping, setOperatorTyping] = useState(false);
+    const isAuthenticatedRef = useRef(false);
+    const sessionTokenRef = useRef(null);
     const socketRef = useRef(null);
     const opTypingTimer = useRef(null);
     const [ready, setReady] = useState(false);
@@ -54,6 +57,8 @@ const ChatScreen = ({ navigation }) => {
 
     // Session ended state
     const [sessionEnded, setSessionEnded] = useState(false);
+
+    useEffect(() => { isAuthenticatedRef.current = isAuthenticated; }, [isAuthenticated]);
 
     // Inactivity timeout
     const [timeoutMinutes, setTimeoutMinutes] = useState(10);
@@ -376,6 +381,7 @@ const ChatScreen = ({ navigation }) => {
         const webhookUrl = await getWebhookUrl();
         const meta = { app_id: currentAppId };
         if (authUser) meta.user_name = authUser;
+        if (sessionTokenRef.current) meta.session_token = sessionTokenRef.current;
         const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -502,7 +508,8 @@ const ChatScreen = ({ navigation }) => {
         if (payload === '__SHOW_TICKET_FORM__') { setShowTicketForm(true); return; }
 
         const restricted = ['/create_ticket', '/list_tickets', '/check_status', '/update_ticket', '/verify_resolution'];
-        if (!isAuthenticated && restricted.some(p => payload.startsWith(p))) {
+        console.log('[AUTH CHECK] isAuthenticated:', isAuthenticated, 'ref:', isAuthenticatedRef.current, 'payload:', payload);
+        if (!isAuthenticatedRef.current && !isAuthenticated && restricted.some(p => payload.startsWith(p))) {
             const action = payload.includes('create') ? 'create tickets' : payload.includes('list') ? 'view your tickets' : payload.includes('check') ? 'check ticket status' : 'manage tickets';
             setMessages(prev => [...prev, {
                 id: uuidv4(), sender: 'bot',
@@ -548,13 +555,15 @@ const ChatScreen = ({ navigation }) => {
             const data = await sendToRasa(loginPayload);
             let success = false;
             let errMsg = 'Login failed. Please check your credentials.';
+            let sessionToken = null;
             for (const msg of data) {
-                if (msg.custom?.login_success) { success = true; break; }
+                if (msg.custom?.login_success) { success = true; sessionToken = msg.custom.session_token || null; break; }
                 if (msg.custom?.login_error) { errMsg = msg.custom.error || errMsg; break; }
                 if (msg.text?.includes('Welcome')) success = true;
                 if (msg.text?.includes('failed')) errMsg = msg.text;
             }
             if (success) {
+                sessionTokenRef.current = sessionToken;
                 setIsAuthenticated(true);
                 setIsGuest(false);
                 setAuthUser(username);
@@ -604,6 +613,7 @@ const ChatScreen = ({ navigation }) => {
                 body: JSON.stringify({ sender_id: senderId }),
             });
         } catch (_) {}
+        sessionTokenRef.current = null;
         setIsAuthenticated(false);
         setIsGuest(true);
         setAuthUser('');

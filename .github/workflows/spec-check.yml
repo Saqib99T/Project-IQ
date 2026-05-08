@@ -1,0 +1,36 @@
+name: Spec Linkage Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  spec-check:
+    name: Verify PR links to a spec issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for linked spec issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const title = context.payload.pull_request.title || '';
+
+            // Skip for chore/hotfix/docs PRs
+            const skipPrefixes = ['chore:', 'hotfix:', 'docs:', 'ci:', 'refactor:'];
+            if (skipPrefixes.some(p => title.toLowerCase().startsWith(p))) {
+              console.log('Skipping spec check for non-feature PR.');
+              return;
+            }
+
+            // Require "Closes #N" or "Fixes #N" in the PR body
+            const linked = body.match(/(?:closes|fixes|resolves)\s+#(\d+)/gi);
+            if (!linked) {
+              core.setFailed(
+                'This PR must reference a spec issue.\n' +
+                'Add "Closes #<issue-number>" to the PR description.\n' +
+                'For non-feature PRs prefix the title with: chore:, hotfix:, docs:, ci:, or refactor:'
+              );
+            } else {
+              console.log('Spec linkage found:', linked.join(', '));
+            }
