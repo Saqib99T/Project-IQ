@@ -704,6 +704,13 @@ def operator_get_queue(**kwargs):
         if status == 'assigned':
             all_assigned = get_queue(status='assigned')
             items = [i for i in all_assigned if i.get('operator_id') == op_id]
+            # Keep only the most recent queue item per user to avoid duplicates
+            seen_users = {}
+            for item in items:
+                key = item.get('user_name') or item.get('sender_id')
+                if key not in seen_users or item['id'] > seen_users[key]['id']:
+                    seen_users[key] = item
+            items = list(seen_users.values())
         else:
             items = []
             app_ids = op.get('app_ids') or []
@@ -1340,3 +1347,149 @@ def operator_user_history(sender_id, **kwargs):
         return jsonify({'success': True, 'history': history, 'count': len(history)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ── Operator transfer ─────────────────────────────────────────────────────────
+
+@require_operator_token
+def operator_online_list(**kwargs):
+    """Return online operators (excluding self) for the transfer picker."""
+    op_id = kwargs['_operator_id']
+    conn = _get_connection()
+    try:
+        from psycopg2.extras import RealDictCursor
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT id, display_name, status,
+                       (SELECT COUNT(*) FROM handoff_queue hq
+                        WHERE hq.operator_id = o.id AND hq.status = 'assigned') AS current_load,
+                       max_concurrent
+                FROM operators o
+                WHERE is_active = TRUE
+                  AND status != 'offline'
+                  AND (last_seen IS NULL OR EXTRACT(EPOCH FROM (NOW() - last_seen)) < 300)
+                  AND id != %s
+                ORDER BY display_name
+            """, (op_id,))
+            ops = [dict(r) for r in cur.fetchall()]
+        return jsonify({'operators': ops})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        _release_connection(conn)
+
+
+@require_operator_token
+def operator_transfer_initiate(**kwargs):
+    """Send a transfer request to another operator via Socket.IO."""
+    op_id = kwargs['_operator_id']
+    data = request.get_json(silent=True) or {}
+    queue_id = data.get('queue_id')
+    target_op_id = data.get('target_operator_id')
+    if not queue_id or not target_op_id:
+        return jsonify({'error': 'queue_id and target_operator_id required'}), 400
+
+    conn = _get_connection()
+    try:
+        from psycopg2.extras import RealDictCursor
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT hq.conversation_id, hq.sender_id,
+                       src.display_name AS from_op_name,
+                       tgt.display_name AS target_op_name,
+                       COALESCE(hq.context_package->'user_profile'->>'display_name', hq.sender_id) AS user_display_name
+                FROM handoff_queue hq
+                JOIN operators src ON src.id = %s
+                JOIN operators tgt ON tgt.id = %s
+                WHERE hq.id = %s AND hq.operator_id = %s AND hq.status = 'assigned'
+            """, (op_id, target_op_id, queue_id, op_id))
+            row = cur.fetchone()
+
+        if not row:
+            return jsonify({'error': 'Queue item not found or not assigned to you'}), 404
+
+        emit_to_operator(target_op_id, 'transfer_request', {
+            'queue_id': queue_id,
+            'sender_id': row['sender_id'],
+            'conversation_id': row['conversation_id'],
+            'from_operator_id': op_id,
+            'from_operator_name': row['from_op_name'],
+            'user_display_name': row['user_display_name'],
+        })
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        _release_connection(conn)
+
+
+@require_operator_token
+def operator_transfer_respond(**kwargs):
+    """Accept or reject an incoming transfer request."""
+    op_id = kwargs['_operator_id']   # target (receiving) operator
+    data = request.get_json(silent=True) or {}
+    queue_id = data.get('queue_id')
+    accept = data.get('accept', False)
+    from_operator_id = data.get('from_operator_id')
+    if not queue_id or from_operator_id is None:
+        return jsonify({'error': 'queue_id and from_operator_id required'}), 400
+
+    conn = _get_connection()
+    try:
+        from psycopg2.extras import RealDictCursor
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT display_name FROM operators WHERE id = %s", (op_id,))
+            target_op = cur.fetchone()
+            target_name = target_op['display_name'] if target_op else 'Operator'
+
+            if not accept:
+                emit_to_operator(from_operator_id, 'transfer_rejected', {
+                    'queue_id': queue_id,
+                    'by_operator_name': target_name,
+                })
+                return jsonify({'success': True, 'accepted': False})
+
+            # Reassign the queue item to this operator
+            cur.execute("""
+                UPDATE handoff_queue
+                SET operator_id = %s, assigned_at = NOW()
+                WHERE id = %s AND status = 'assigned'
+                RETURNING conversation_id, sender_id, app_id
+            """, (op_id, queue_id))
+            row = cur.fetchone()
+            if not row:
+                return jsonify({'error': 'Queue item not found or already reassigned'}), 409
+
+            cur.execute(
+                "UPDATE conversations SET assigned_operator_id = %s WHERE id = %s",
+                (op_id, row['conversation_id'])
+            )
+            cur.execute("""
+                INSERT INTO handoff_state_log
+                  (conversation_id, from_state, to_state, triggered_by, triggered_by_id, note)
+                VALUES (%s, 'assigned', 'assigned', 'operator', %s, %s)
+            """, (row['conversation_id'], str(op_id),
+                  f'Transferred from operator {from_operator_id}'))
+            conn.commit()
+
+        # Notify source operator
+        emit_to_operator(from_operator_id, 'transfer_accepted', {
+            'queue_id': queue_id,
+            'by_operator_name': target_name,
+        })
+        # Notify user
+        emit_to_user(row['sender_id'], 'handoff_assigned', {
+            'operator_name': target_name,
+            'message': f'✅ You have been transferred to **{target_name}**.',
+        })
+        # Broadcast queue update
+        _s.sio.emit('queue_item_updated', {'queue_id': queue_id, 'status': 'assigned'},
+                    room='queue_overview')
+        emit_queue_overview()
+
+        return jsonify({'success': True, 'accepted': True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        _release_connection(conn)

@@ -158,6 +158,10 @@ function renderContextPanel(chat) {
         ↩ Release
       </button>
     </div>
+    <button onclick="confirmTransfer()"
+      class="w-full border border-blue-300 text-blue-700 hover:bg-blue-50 text-xs font-semibold rounded-lg py-2 transition-colors">
+      ⇄ Transfer to Operator
+    </button>
 
     <!-- Interaction history placeholder (loaded async) -->
     <div>
@@ -312,6 +316,76 @@ async function loadUserHistory(senderId) {
     const el = document.getElementById('interaction-history');
     if (el) el.innerHTML = '<span class="text-gray-400 text-xs">Could not load</span>';
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// TRANSFER
+// ═══════════════════════════════════════════════════════════
+async function confirmTransfer() {
+  if (!_activeQueueId) return;
+  const list = document.getElementById('transfer-operator-list');
+  list.innerHTML = '<div class="text-xs text-gray-400 py-2 text-center">Loading operators…</div>';
+  document.getElementById('transfer-modal').classList.remove('hidden');
+
+  try {
+    const r = await apiFetch('/operator/online');
+    const d = await r.json();
+    if (!r.ok || !d.operators || d.operators.length === 0) {
+      list.innerHTML = '<div class="text-xs text-gray-400 py-2 text-center">No other operators online</div>';
+      return;
+    }
+    list.innerHTML = d.operators.map(op => {
+      const loadColor = op.current_load >= op.max_concurrent ? 'text-red-500' : 'text-green-600';
+      const dotClass  = op.status === 'available' ? 'bg-green-400' : 'bg-amber-400';
+      return `
+        <div onclick="executeTransfer(${op.id}, '${esc(op.display_name)}')"
+          class="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-blue-50 cursor-pointer border border-transparent hover:border-blue-200 transition-colors">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full ${dotClass} inline-block"></span>
+            <span class="text-sm font-medium text-gray-800">${esc(op.display_name)}</span>
+          </div>
+          <span class="text-xs ${loadColor}">${op.current_load}/${op.max_concurrent} chats</span>
+        </div>`;
+    }).join('');
+  } catch(_) {
+    list.innerHTML = '<div class="text-xs text-red-400 py-2 text-center">Failed to load operators</div>';
+  }
+}
+
+function closeTransferModal() {
+  document.getElementById('transfer-modal').classList.add('hidden');
+}
+
+async function executeTransfer(targetOpId, targetName) {
+  closeTransferModal();
+  if (!_activeQueueId) return;
+  try {
+    const r = await apiFetch('/operator/queue/transfer/initiate', 'POST', {
+      queue_id: _activeQueueId,
+      target_operator_id: targetOpId,
+    });
+    if (!r.ok) { const d = await r.json(); showToast(d.error || 'Transfer failed', true); return; }
+    showToast(`Transfer request sent to ${targetName}`, false);
+  } catch(_) { showToast('Network error', true); }
+}
+
+async function respondTransfer(queueId, fromOperatorId, accept) {
+  document.getElementById('incoming-transfer-modal').classList.add('hidden');
+  try {
+    const r = await apiFetch('/operator/queue/transfer/respond', 'POST', {
+      queue_id: queueId,
+      from_operator_id: fromOperatorId,
+      accept,
+    });
+    if (!r.ok) { const d = await r.json(); showToast(d.error || 'Error', true); return; }
+    if (accept) {
+      showToast('Transfer accepted — loading chat…', false);
+      loadMyChats();
+      loadQueue();
+    } else {
+      showToast('Transfer declined', false);
+    }
+  } catch(_) { showToast('Network error', true); }
 }
 
 // ═══════════════════════════════════════════════════════════

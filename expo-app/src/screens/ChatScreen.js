@@ -123,12 +123,12 @@ const ChatScreen = ({ navigation }) => {
         }
 
         const saved = await storage.getMessages(targetAppId);
-        if (saved) {
+        const welcomeMsg = auth === 'true' && user
+            ? `**Hi ${user}!**\n\nWelcome back. How can I help you today?`
+            : `**Hi, I'm ${TITLE}** \u{1F44B}\n\nI'm here to help you with:\n\n*   **Finding answers** in our knowledge base\n*   **Answering** general IT questions\n*   **Managing** your support tickets\n\n*Log in to unlock full ticket management features.*`;
+        if (saved && auth === 'true') {
             setMessages(saved);
         } else {
-            const welcomeMsg = auth === 'true' && user
-                ? `**Hi ${user}!**\n\nWelcome back. How can I help you today?`
-                : `**Hi, I'm ${TITLE}** \u{1F44B}\n\nI'm here to help you with:\n\n*   **Finding answers** in our knowledge base\n*   **Answering** general IT questions\n*   **Managing** your support tickets\n\n*Log in to unlock full ticket management features.*`;
             setMessages([{ id: 'init', sender: 'bot', text: welcomeMsg }]);
         }
 
@@ -576,7 +576,7 @@ const ChatScreen = ({ navigation }) => {
                     await fetch(`${adminBase}/handoff/end`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sender_id: senderId }),
+                        body: JSON.stringify({ sender_id: senderId, user_name: username }),
                     });
                 } catch (_) {}
                 // Add base36 timestamp suffix so each login creates a new conversation row
@@ -941,8 +941,8 @@ const ChatScreen = ({ navigation }) => {
                     </View>
                 )}
 
-                {/* Quick Actions bar — only shown when bot is active (not during handoff) */}
-                {!isWelcomeState && !sessionEnded && handoffState === 'bot_active' && (
+                {/* Quick Actions bar — only shown after user has interacted */}
+                {!isWelcomeState && !sessionEnded && handoffState === 'bot_active' && messages.some(m => m.sender === 'user') && (
                     <QuickActions onAction={handleButtonClick} isAuthenticated={isAuthenticated && !isGuest} />
                 )}
 

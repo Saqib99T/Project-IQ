@@ -318,6 +318,41 @@
   </div>
 </div>
 
+<!-- Transfer operator picker modal -->
+<div id="transfer-modal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+    <h3 class="font-bold text-gray-800 mb-1">Transfer to Operator</h3>
+    <p class="text-sm text-gray-500 mb-4">Select an online operator to receive this chat.</p>
+    <div id="transfer-operator-list" class="space-y-1 max-h-60 overflow-y-auto mb-4"></div>
+    <button onclick="closeTransferModal()"
+      class="w-full border border-gray-300 text-gray-600 rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
+  </div>
+</div>
+
+<!-- Incoming transfer notification modal -->
+<div id="incoming-transfer-modal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+    <div class="text-2xl mb-3 text-center">⇄</div>
+    <h3 class="font-bold text-gray-800 mb-1 text-center">Incoming Transfer</h3>
+    <p class="text-sm text-gray-500 mb-1 text-center">
+      <span id="transfer-from-name" class="font-semibold text-gray-700"></span> wants to transfer a chat to you.
+    </p>
+    <p class="text-sm text-gray-500 mb-5 text-center">
+      User: <span id="transfer-user-name" class="font-semibold text-gray-700"></span>
+    </p>
+    <div class="flex gap-3">
+      <button id="transfer-reject-btn"
+        class="flex-1 border border-red-300 text-red-600 rounded-lg py-2 text-sm font-semibold hover:bg-red-50">
+        ✕ Decline
+      </button>
+      <button id="transfer-accept-btn"
+        class="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-blue-700">
+        ✓ Accept
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg text-sm font-medium max-w-xs"></div>
 

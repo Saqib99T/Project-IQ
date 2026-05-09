@@ -70,8 +70,12 @@ async function loadMyChats() {
     });
     const activeIds = new Set(items.map(i => K(i.id)));
     Object.keys(_chats).forEach(k => {
-      if (k === _activeQueueId) return;   // never remove the currently active/opening chat
-      if (!activeIds.has(k)) delete _chats[k];
+      if (!activeIds.has(k) && !_chats[k]?.sessionEnded) {
+        // Only keep chats that are still assigned on the server,
+        // or ones already marked ended (operator still viewing them)
+        delete _chats[k];
+        if (_activeQueueId === k) { _activeQueueId = null; showChatEmptyState(); }
+      }
     });
     renderActiveList();
   } catch(_) {}

@@ -85,6 +85,12 @@ async function showSection(section) {
     else if (section === 'handoff-analytics' && window.haInit) {
         haInit();
     }
+    else if (section === 'sessions' && window.sessInit) {
+        sessInit();
+    }
+    else if (section === 'chat-history' && window.chInit) {
+        chInit();
+    }
     else if (section === 'system-status' && window.initSystemStatus) {
         initSystemStatus();
     }

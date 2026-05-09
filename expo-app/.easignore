@@ -1,7 +1,5 @@
-# ── Android build artifacts (large compiled output, not needed for EAS) ──
-android/app/build/
-android/build/
-android/.gradle/
+# ── Android — not needed for iOS EAS builds (built locally via gradlew) ──
+android/
 
 # ── expo-app internals (relative to expo-app/ if EAS scans from here) ──
 node_modules/

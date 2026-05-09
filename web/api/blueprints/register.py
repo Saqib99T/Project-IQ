@@ -55,6 +55,7 @@ def register_blueprints(app: Flask) -> None:
     from web.api.blueprints.bp_operator         import bp as bp_operator
     from web.api.blueprints.bp_internal         import bp as bp_internal
     from web.api.blueprints.bp_admin_ops        import bp as bp_admin_ops
+    from web.api.blueprints.bp_sessions         import bp as bp_sessions
 
     # Register in dependency order — most specific first to avoid catch-all conflicts
     app.register_blueprint(bp_auth)
@@ -68,6 +69,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(bp_operator)
     app.register_blueprint(bp_internal)
     app.register_blueprint(bp_admin_ops)
+    app.register_blueprint(bp_sessions)
     # Static files last — its /<path:filename> catch-all must not shadow API routes
     app.register_blueprint(bp_static)
 

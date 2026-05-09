@@ -74,9 +74,33 @@ def handoff_end():
         if not sender_id:
             return jsonify({'error': 'sender_id required'}), 400
 
+        user_name = (data.get('user_name') or '').strip()
         conn = _get_connection()
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
+
+            # If user_name provided, close ALL stale sessions for this user first
+            # Match senderIds with pattern: user-{appId}-{username}-{suffix}
+            if user_name:
+                cur.execute(
+                    "UPDATE handoff_queue SET status = 'abandoned', abandoned_at = NOW(), "
+                    "closing_note = 'User started new session' "
+                    "WHERE status IN ('waiting', 'assigned') "
+                    "AND id IN ("
+                    "  SELECT hq.id FROM handoff_queue hq "
+                    "  JOIN conversations c ON c.id = hq.conversation_id "
+                    "  WHERE c.sender_id != %s "
+                    "  AND c.sender_id LIKE %s"
+                    ")",
+                    (sender_id, f'user-%-{user_name}-%')
+                )
+                cur.execute(
+                    "UPDATE conversations SET handoff_state = 'closed', assigned_operator_id = NULL "
+                    "WHERE sender_id != %s AND handoff_state IN ('queued', 'assigned') "
+                    "AND sender_id LIKE %s",
+                    (sender_id, f'user-%-{user_name}-%')
+                )
+
             cur.execute(
                 "SELECT hq.id, hq.status, hq.conversation_id, hq.operator_id "
                 "FROM handoff_queue hq "
@@ -87,6 +111,7 @@ def handoff_end():
             )
             row = cur.fetchone()
             if not row:
+                conn.commit()
                 return jsonify({'success': True, 'detail': 'no active handoff'})
 
             queue_id     = row['id']

@@ -75,6 +75,32 @@ function connectSocket() {
   });
 
   _socket.on('queue_overview_update', (d) => updateHeaderBadges(d.waiting_count, d.assigned_count));
+
+  _socket.on('transfer_request', (d) => {
+    const modal = document.getElementById('incoming-transfer-modal');
+    document.getElementById('transfer-from-name').textContent = d.from_operator_name;
+    document.getElementById('transfer-user-name').textContent = d.user_display_name;
+    document.getElementById('transfer-accept-btn').onclick = () => respondTransfer(d.queue_id, d.from_operator_id, true);
+    document.getElementById('transfer-reject-btn').onclick = () => respondTransfer(d.queue_id, d.from_operator_id, false);
+    modal.classList.remove('hidden');
+    playNotify();
+  });
+
+  _socket.on('transfer_accepted', (d) => {
+    const chat = _chats[K(d.queue_id)];
+    if (chat) {
+      delete _chats[K(d.queue_id)];
+      if (_activeQueueId === K(d.queue_id)) { _activeQueueId = null; showChatEmptyState(); }
+      renderActiveList();
+    }
+    showToast(`✅ ${d.by_operator_name} accepted the transfer`, false);
+    loadMyChats();
+    loadQueue();
+  });
+
+  _socket.on('transfer_rejected', (d) => {
+    showToast(`❌ ${d.by_operator_name} declined the transfer`, true);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════

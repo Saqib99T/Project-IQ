@@ -173,3 +173,26 @@ def operator_ai_draft(**kwargs):
 def operator_user_history(sender_id, **kwargs):
     from web.api.impl.operator import operator_user_history as _fn
     return _fn(sender_id, **kwargs)
+
+
+# ── Operator transfer ─────────────────────────────────────────────────────────
+
+@bp.route('/operator/online', methods=['GET'])
+@_s.require_operator_token
+def operator_online_list(**kwargs):
+    from web.api.impl.operator import operator_online_list as _fn
+    return _fn(**kwargs)
+
+
+@bp.route('/operator/queue/transfer/initiate', methods=['POST'])
+@_s.require_operator_token
+def operator_transfer_initiate(**kwargs):
+    from web.api.impl.operator import operator_transfer_initiate as _fn
+    return _fn(**kwargs)
+
+
+@bp.route('/operator/queue/transfer/respond', methods=['POST'])
+@_s.require_operator_token
+def operator_transfer_respond(**kwargs):
+    from web.api.impl.operator import operator_transfer_respond as _fn
+    return _fn(**kwargs)

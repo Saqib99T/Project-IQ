@@ -10,10 +10,12 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 
-# ── same paths relative to git root (Project-IQ/) if EAS scans from there) ──
+# ── expo-app internals relative to git root ──
 expo-app/node_modules/
+expo-app/android/
 expo-app/.expo/
 expo-app/dist/
+expo-app/.gradle/
 
 # ── backend / monorepo siblings — never needed for mobile build ──
 admin/
@@ -30,6 +32,14 @@ Backup/
 firecrawl-selfhost/
 Log/
 __pycache__/
+web/
+infra/
+status/
+backups/
+models/
+.agent/
+.sixth/
+.vs/
 
 # ── large binary files wherever they live ──
 *.tar.gz
