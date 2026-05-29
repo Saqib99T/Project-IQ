@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, Styl
 import { Ionicons } from '@expo/vector-icons';
 import { THEME, APP_TITLE } from '../config';
 
-const LoginModal = ({ visible, onClose, onLogin, isLoading, error }) => {
+const LoginModal = ({ visible, onClose, onLogin, onIamLogin, isLoading, error }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
 
@@ -34,6 +34,19 @@ const LoginModal = ({ visible, onClose, onLogin, isLoading, error }) => {
 
                     {/* Form */}
                     <View style={styles.form}>
+                        {onIamLogin && (
+                            <>
+                                <TouchableOpacity style={styles.iamBtn} onPress={() => { handleClose(); onIamLogin(); }}>
+                                    <Ionicons name="key-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                                    <Text style={styles.iamText}>Sign in with IAM</Text>
+                                </TouchableOpacity>
+                                <View style={styles.dividerRow}>
+                                    <View style={styles.dividerLine} />
+                                    <Text style={styles.dividerLabel}>or</Text>
+                                    <View style={styles.dividerLine} />
+                                </View>
+                            </>
+                        )}
                         <Text style={styles.label}>Username</Text>
                         <View style={styles.inputRow}>
                             <Ionicons name="person-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
@@ -164,6 +177,19 @@ const styles = StyleSheet.create({
     },
     loginText: { color: '#fff', fontWeight: '700', fontSize: 15 },
     disabledBtn: { opacity: 0.5 },
+    iamBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: THEME.primary,
+        paddingVertical: 14,
+        borderRadius: 12,
+        marginBottom: 4,
+    },
+    iamText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: THEME.border },
+    dividerLabel: { marginHorizontal: 10, fontSize: 12, color: '#9ca3af' },
 });
 
 export default LoginModal;

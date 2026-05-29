@@ -45,7 +45,14 @@
     <!-- Project IQ Bot Widget - Using Teal Fresh theme (ID: 10) -->
     <glpi-chat-widget title="Accounting Support Bot" app-id="Accounting" theme-id="9"></glpi-chat-widget>
 
-    <script src="glpi-chat-widget.js?v=20260506"></script>
+    <script>
+        window.__IAM_CONFIG__ = {
+            url:      'https://id.dev.iam.99technologies.com',
+            realm:    '99-iam',
+            clientId: 'project-iq',
+        };
+    </script>
+    <script src="glpi-chat-widget.js?v=20260508"></script>
 </body>
 
 </html>

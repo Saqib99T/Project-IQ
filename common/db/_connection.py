@@ -160,6 +160,49 @@ def _init_database():
             "ALTER TABLE actions ADD COLUMN IF NOT EXISTS app_id TEXT DEFAULT 'General'",
             "ALTER TABLE actions ADD COLUMN IF NOT EXISTS user_id TEXT",
             "ALTER TABLE actions ADD COLUMN IF NOT EXISTS ticket_id TEXT",
+            # IAM migration
+            "ALTER TABLE operators ADD COLUMN IF NOT EXISTS iam_sub TEXT UNIQUE",
+            "CREATE INDEX IF NOT EXISTS idx_operators_iam_sub ON operators(iam_sub)",
+            "ALTER TABLE operators ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE operators ADD COLUMN IF NOT EXISTS email VARCHAR(255)",
+            # KB search gaps — queries that returned no / low-confidence results
+            """CREATE TABLE IF NOT EXISTS kb_search_gaps (
+                id          SERIAL PRIMARY KEY,
+                query       TEXT NOT NULL,
+                app_id      TEXT,
+                sender_id   TEXT,
+                searched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_kb_gaps_time ON kb_search_gaps(searched_at DESC)",
+            # Ticket → sender_id mapping (populated when ticket created through our app)
+            """CREATE TABLE IF NOT EXISTS ticket_senders (
+                glpi_ticket_id INTEGER PRIMARY KEY,
+                sender_id      TEXT NOT NULL,
+                app_id         TEXT,
+                created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+            # Notifications
+            """CREATE TABLE IF NOT EXISTS notifications (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id TEXT NOT NULL,
+                app_id TEXT,
+                type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT,
+                payload JSONB,
+                read BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read, created_at DESC)",
+            # Push tokens for mobile
+            """CREATE TABLE IF NOT EXISTS push_tokens (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                token TEXT NOT NULL,
+                platform TEXT,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(user_id, token)
+            )""",
         ]
         for stmt in migrations:
             try: cursor.execute(stmt)

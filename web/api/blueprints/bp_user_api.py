@@ -15,6 +15,7 @@ def user_get_conversations():
     try:
         user_name     = request.args.get('user_name', '').strip()
         app_id_filter = request.args.get('app_id', '').strip()
+        search_term   = request.args.get('search', '').strip()
         if not user_name:
             return jsonify({"success": False, "error": "user_name is required"}), 400
 
@@ -25,6 +26,7 @@ def user_get_conversations():
                    (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) AS msg_count,
                    (SELECT m.text FROM messages m
                     WHERE m.conversation_id = c.id AND m.sender = 'user'
+                      AND m.text NOT LIKE '/%%'
                     ORDER BY m.timestamp ASC LIMIT 1) AS preview,
                    (SELECT f.rating FROM feedback f WHERE f.conversation_id = c.id
                     ORDER BY f.timestamp DESC LIMIT 1) AS rating
@@ -35,7 +37,11 @@ def user_get_conversations():
         if app_id_filter:
             query += ' AND c.app_id = %s'
             params.append(app_id_filter)
-        query += ' ORDER BY c.started_at DESC LIMIT 50'
+        if search_term:
+            query += (' AND EXISTS (SELECT 1 FROM messages ms WHERE ms.conversation_id = c.id'
+                      ' AND ms.text ILIKE %s)')
+            params.append(f'%{search_term}%')
+        query += ' ORDER BY c.started_at DESC LIMIT 100'
         cursor.execute(query, tuple(params))
         conversations = []
         for row in cursor.fetchall():
@@ -45,7 +51,8 @@ def user_get_conversations():
                 'sender_id':    row['sender_id'],
                 'started_at':   row['started_at'].isoformat()   if row['started_at']   else None,
                 'last_activity':row['last_activity'].isoformat() if row['last_activity'] else None,
-                'preview':      (row['preview'] or '')[:100],
+                'preview':      (row['preview'] or '')[:80],
+                'app_id':       row.get('app_id') or 'General',
                 'rating':       row.get('rating'),
             })
         return jsonify({'success': True, 'data': conversations})

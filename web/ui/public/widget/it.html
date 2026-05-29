@@ -45,7 +45,14 @@
     <!-- Project IQ Bot Widget -->
     <glpi-chat-widget title="Project IQ Bot" app-id="IT" theme-id="#2563eb"></glpi-chat-widget>
 
-    <script src="glpi-chat-widget.js?v=20260506"></script>
+    <script>
+        window.__IAM_CONFIG__ = {
+            url:      'https://id.dev.iam.99technologies.com',
+            realm:    '99-iam',
+            clientId: 'project-iq',
+        };
+    </script>
+    <script src="glpi-chat-widget.js?v=20260508"></script>
 </body>
 
 </html>

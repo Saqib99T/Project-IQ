@@ -94,6 +94,9 @@ async function showSection(section) {
     else if (section === 'system-status' && window.initSystemStatus) {
         initSystemStatus();
     }
+    else if (section === 'system-users' && window.initSystemUsers) {
+        initSystemUsers();
+    }
 }
 
 // Toast Notification

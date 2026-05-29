@@ -3,8 +3,38 @@ if (typeof window !== "undefined" && !window.process) {
 }
 (function() {
   "use strict";
+  var commonjsGlobal = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : {};
   function getDefaultExportFromCjs(x) {
     return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
+  }
+  function getAugmentedNamespace(n) {
+    if (Object.prototype.hasOwnProperty.call(n, "__esModule")) return n;
+    var f = n.default;
+    if (typeof f == "function") {
+      var a = function a2() {
+        var isInstance = false;
+        try {
+          isInstance = this instanceof a2;
+        } catch {
+        }
+        if (isInstance) {
+          return Reflect.construct(f, arguments, this.constructor);
+        }
+        return f.apply(this, arguments);
+      };
+      a.prototype = f.prototype;
+    } else a = {};
+    Object.defineProperty(a, "__esModule", { value: true });
+    Object.keys(n).forEach(function(k) {
+      var d = Object.getOwnPropertyDescriptor(n, k);
+      Object.defineProperty(a, k, d.get ? d : {
+        enumerable: true,
+        get: function() {
+          return n[k];
+        }
+      });
+    });
+    return a;
   }
   var jsxRuntime = { exports: {} };
   var reactJsxRuntime_production = {};
@@ -12532,44 +12562,92 @@ if (typeof window !== "undefined" && !window.process) {
     Component.displayName = toPascalCase(iconName);
     return Component;
   };
-  const __iconNode$e = [["path", { d: "m15 18-6-6 6-6", key: "1wnfg3" }]];
-  const ChevronLeft = createLucideIcon("chevron-left", __iconNode$e);
-  const __iconNode$d = [
+  const __iconNode$k = [
+    ["path", { d: "M10.268 21a2 2 0 0 0 3.464 0", key: "vwvbt9" }],
+    [
+      "path",
+      {
+        d: "M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326",
+        key: "11g9vi"
+      }
+    ]
+  ];
+  const Bell = createLucideIcon("bell", __iconNode$k);
+  const __iconNode$j = [["path", { d: "m15 18-6-6 6-6", key: "1wnfg3" }]];
+  const ChevronLeft = createLucideIcon("chevron-left", __iconNode$j);
+  const __iconNode$i = [
     ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
     ["line", { x1: "12", x2: "12", y1: "8", y2: "12", key: "1pkeuh" }],
     ["line", { x1: "12", x2: "12.01", y1: "16", y2: "16", key: "4dfq90" }]
   ];
-  const CircleAlert = createLucideIcon("circle-alert", __iconNode$d);
-  const __iconNode$c = [
+  const CircleAlert = createLucideIcon("circle-alert", __iconNode$i);
+  const __iconNode$h = [
     ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
     ["path", { d: "m15 9-6 6", key: "1uzhvr" }],
     ["path", { d: "m9 9 6 6", key: "z0biqf" }]
   ];
-  const CircleX = createLucideIcon("circle-x", __iconNode$c);
-  const __iconNode$b = [
+  const CircleX = createLucideIcon("circle-x", __iconNode$h);
+  const __iconNode$g = [
     ["rect", { width: "14", height: "14", x: "8", y: "8", rx: "2", ry: "2", key: "17jyea" }],
     ["path", { d: "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2", key: "zix9uf" }]
   ];
-  const Copy = createLucideIcon("copy", __iconNode$b);
-  const __iconNode$a = [
+  const Copy = createLucideIcon("copy", __iconNode$g);
+  const __iconNode$f = [
     ["path", { d: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", key: "1357e3" }],
     ["path", { d: "M3 3v5h5", key: "1xhq8a" }],
     ["path", { d: "M12 7v5l4 2", key: "1fdv2h" }]
   ];
-  const History = createLucideIcon("history", __iconNode$a);
-  const __iconNode$9 = [
-    ["rect", { width: "18", height: "11", x: "3", y: "11", rx: "2", ry: "2", key: "1w4ew1" }],
-    ["path", { d: "M7 11V7a5 5 0 0 1 10 0v4", key: "fwvmzm" }]
+  const History = createLucideIcon("history", __iconNode$f);
+  const __iconNode$e = [
+    ["path", { d: "M12 2v4", key: "3427ic" }],
+    ["path", { d: "m16.2 7.8 2.9-2.9", key: "r700ao" }],
+    ["path", { d: "M18 12h4", key: "wj9ykh" }],
+    ["path", { d: "m16.2 16.2 2.9 2.9", key: "1bxg5t" }],
+    ["path", { d: "M12 18v4", key: "jadmvz" }],
+    ["path", { d: "m4.9 19.1 2.9-2.9", key: "bwix9q" }],
+    ["path", { d: "M2 12h4", key: "j09sii" }],
+    ["path", { d: "m4.9 4.9 2.9 2.9", key: "giyufr" }]
   ];
-  const Lock = createLucideIcon("lock", __iconNode$9);
-  const __iconNode$8 = [
+  const Loader = createLucideIcon("loader", __iconNode$e);
+  const __iconNode$d = [
+    ["path", { d: "m16 17 5-5-5-5", key: "1bji2h" }],
+    ["path", { d: "M21 12H9", key: "dn1m92" }],
+    ["path", { d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4", key: "1uf3rs" }]
+  ];
+  const LogOut = createLucideIcon("log-out", __iconNode$d);
+  const __iconNode$c = [
+    ["path", { d: "M12 19v3", key: "npa21l" }],
+    ["path", { d: "M15 9.34V5a3 3 0 0 0-5.68-1.33", key: "1gzdoj" }],
+    ["path", { d: "M16.95 16.95A7 7 0 0 1 5 12v-2", key: "cqa7eg" }],
+    ["path", { d: "M18.89 13.23A7 7 0 0 0 19 12v-2", key: "16hl24" }],
+    ["path", { d: "m2 2 20 20", key: "1ooewy" }],
+    ["path", { d: "M9 9v3a3 3 0 0 0 5.12 2.12", key: "r2i35w" }]
+  ];
+  const MicOff = createLucideIcon("mic-off", __iconNode$c);
+  const __iconNode$b = [
+    ["path", { d: "M12 19v3", key: "npa21l" }],
+    ["path", { d: "M19 10v2a7 7 0 0 1-14 0v-2", key: "1vc78b" }],
+    ["rect", { x: "9", y: "2", width: "6", height: "13", rx: "3", key: "s6n7sd" }]
+  ];
+  const Mic = createLucideIcon("mic", __iconNode$b);
+  const __iconNode$a = [
     ["path", { d: "m14 10 7-7", key: "oa77jy" }],
     ["path", { d: "M20 10h-6V4", key: "mjg0md" }],
     ["path", { d: "m3 21 7-7", key: "tjx5ai" }],
     ["path", { d: "M4 14h6v6", key: "rmj7iw" }]
   ];
-  const Minimize2 = createLucideIcon("minimize-2", __iconNode$8);
-  const __iconNode$7 = [
+  const Minimize2 = createLucideIcon("minimize-2", __iconNode$a);
+  const __iconNode$9 = [
+    [
+      "path",
+      {
+        d: "M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401",
+        key: "kfwtm"
+      }
+    ]
+  ];
+  const Moon = createLucideIcon("moon", __iconNode$9);
+  const __iconNode$8 = [
     [
       "path",
       {
@@ -12578,13 +12656,13 @@ if (typeof window !== "undefined" && !window.process) {
       }
     ]
   ];
-  const Paperclip = createLucideIcon("paperclip", __iconNode$7);
-  const __iconNode$6 = [
+  const Paperclip = createLucideIcon("paperclip", __iconNode$8);
+  const __iconNode$7 = [
     ["path", { d: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", key: "1357e3" }],
     ["path", { d: "M3 3v5h5", key: "1xhq8a" }]
   ];
-  const RotateCcw = createLucideIcon("rotate-ccw", __iconNode$6);
-  const __iconNode$5 = [
+  const RotateCcw = createLucideIcon("rotate-ccw", __iconNode$7);
+  const __iconNode$6 = [
     [
       "path",
       {
@@ -12594,8 +12672,8 @@ if (typeof window !== "undefined" && !window.process) {
     ],
     ["path", { d: "m21.854 2.147-10.94 10.939", key: "12cjpa" }]
   ];
-  const Send = createLucideIcon("send", __iconNode$5);
-  const __iconNode$4 = [
+  const Send = createLucideIcon("send", __iconNode$6);
+  const __iconNode$5 = [
     [
       "path",
       {
@@ -12607,7 +12685,19 @@ if (typeof window !== "undefined" && !window.process) {
     ["path", { d: "M22 4h-4", key: "gwowj6" }],
     ["circle", { cx: "4", cy: "20", r: "2", key: "6kqj1y" }]
   ];
-  const Sparkles = createLucideIcon("sparkles", __iconNode$4);
+  const Sparkles = createLucideIcon("sparkles", __iconNode$5);
+  const __iconNode$4 = [
+    ["circle", { cx: "12", cy: "12", r: "4", key: "4exip2" }],
+    ["path", { d: "M12 2v2", key: "tus03m" }],
+    ["path", { d: "M12 20v2", key: "1lh1kg" }],
+    ["path", { d: "m4.93 4.93 1.41 1.41", key: "149t6j" }],
+    ["path", { d: "m17.66 17.66 1.41 1.41", key: "ptbguv" }],
+    ["path", { d: "M2 12h2", key: "1t8f8n" }],
+    ["path", { d: "M20 12h2", key: "1q8mjw" }],
+    ["path", { d: "m6.34 17.66-1.41 1.41", key: "1m8zz5" }],
+    ["path", { d: "m19.07 4.93-1.41 1.41", key: "1shlcs" }]
+  ];
+  const Sun = createLucideIcon("sun", __iconNode$4);
   const __iconNode$3 = [
     [
       "path",
@@ -25375,7 +25465,7 @@ if (typeof window !== "undefined" && !window.process) {
     var skipCamelCase = function(property) {
       return !property || NO_HYPHEN_REGEX.test(property) || CUSTOM_PROPERTY_REGEX.test(property);
     };
-    var capitalize = function(match, character) {
+    var capitalize2 = function(match, character) {
       return character.toUpperCase();
     };
     var trimHyphen = function(match, prefix) {
@@ -25394,7 +25484,7 @@ if (typeof window !== "undefined" && !window.process) {
       } else {
         property = property.replace(VENDOR_PREFIX_REGEX, trimHyphen);
       }
-      return property.replace(HYPHEN_REGEX, capitalize);
+      return property.replace(HYPHEN_REGEX, capitalize2);
     };
     utilities.camelCase = camelCase;
     return utilities;
@@ -36833,17 +36923,22 @@ if (typeof window !== "undefined" && !window.process) {
       }
     );
   };
-  const TicketForm = ({ onSubmit, onCancel, primaryColor = "#6366f1" }) => {
+  const MAX_FILE_BYTES = 1 * 1024 * 1024;
+  const TicketForm = ({ onSubmit, onCancel, primaryColor = "#6366f1", prefill = {}, sessionToken = null }) => {
     const [formData, setFormData] = reactExports.useState({
-      title: "",
-      detail: "",
-      priority: "Medium",
+      title: prefill.title || "",
+      detail: prefill.detail || "",
+      priority: prefill.priority || "Medium",
       urgency: "Medium",
-      category: "Hardware"
+      category: prefill.category || "Hardware"
     });
     const [showConfirm, setShowConfirm] = reactExports.useState(false);
     const [isCompleted, setIsCompleted] = reactExports.useState(false);
     const [error, setError] = reactExports.useState("");
+    const [attachment, setAttachment] = reactExports.useState(null);
+    const [fileError, setFileError] = reactExports.useState("");
+    const [uploading, setUploading] = reactExports.useState(false);
+    const fileRef = reactExports.useRef(null);
     const priorityOptions = ["Minor", "Major", "Medium", "High", "Critical"];
     const urgencyOptions = ["Low", "Medium", "High"];
     const categoryOptions = ["Hardware", "Software", "Network", "Other"];
@@ -36851,6 +36946,36 @@ if (typeof window !== "undefined" && !window.process) {
       const { name: name2, value: value2 } = e.target;
       setFormData((prev) => ({ ...prev, [name2]: value2 }));
       if (name2 === "title" && value2.trim()) setError("");
+    };
+    const handleFileChange = async (e) => {
+      setFileError("");
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (file.size > MAX_FILE_BYTES) {
+        setFileError(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 1 MB.`);
+        e.target.value = "";
+        return;
+      }
+      e.target.value = "";
+      setUploading(true);
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        if (sessionToken) fd.append("session_token", sessionToken);
+        const resp = await fetch("/api/ticket-attachment", { method: "POST", body: fd });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          setFileError(err.error || "Upload failed. Please try again.");
+          return;
+        }
+        const { doc_id, name: name2 } = await resp.json();
+        const sizeLabel = file.size < 1024 ? `${file.size} B` : `${(file.size / 1024).toFixed(1)} KB`;
+        setAttachment({ name: name2, doc_id, sizeLabel });
+      } catch (err) {
+        setFileError("Upload failed. Check your connection.");
+      } finally {
+        setUploading(false);
+      }
     };
     const handleSubmitClick = (e) => {
       e.preventDefault();
@@ -36862,7 +36987,7 @@ if (typeof window !== "undefined" && !window.process) {
     };
     const handleConfirm = () => {
       setIsCompleted(true);
-      onSubmit(formData);
+      onSubmit({ ...formData, attachment });
     };
     const handleCancel = () => {
       setIsCompleted(true);
@@ -36875,6 +37000,26 @@ if (typeof window !== "undefined" && !window.process) {
         "New Ticket"
       ] }),
       !showConfirm ? /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-gray-400 mb-1", children: "Common issues:" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1 mb-2", children: [
+            { label: "💻 Laptop issue", title: "Laptop not working", category: "Hardware" },
+            { label: "🌐 No internet", title: "Unable to connect to internet", category: "Network" },
+            { label: "🔑 Can't log in", title: "Cannot access my account", category: "Software" },
+            { label: "📧 Email problem", title: "Email not working", category: "Software" },
+            { label: "🖨️ Printer issue", title: "Printer not printing", category: "Hardware" },
+            { label: "🔒 Need access", title: "Requesting system access", category: "Software" }
+          ].map((chip) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: () => setFormData((p) => ({ ...p, title: chip.title, category: chip.category })),
+              className: "text-xs px-2 py-1 rounded-full border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600 transition-colors bg-gray-50",
+              children: chip.label
+            },
+            chip.label
+          )) })
+        ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block text-xs font-medium text-gray-700 mb-1", children: [
             "Title ",
@@ -36953,6 +37098,43 @@ if (typeof window !== "undefined" && !window.process) {
             }
           )
         ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block text-xs font-medium text-gray-700 mb-1", children: [
+            "Attachment ",
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-400 font-normal", children: "(max 1 MB)" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              ref: fileRef,
+              type: "file",
+              className: "hidden",
+              onChange: handleFileChange,
+              accept: "image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.png,.jpg,.jpeg"
+            }
+          ),
+          uploading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-600", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Loader, { size: 13, className: "animate-spin flex-shrink-0" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Uploading…" })
+          ] }) : attachment ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Paperclip, { size: 13, className: "text-gray-400 flex-shrink-0" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-gray-700 truncate flex-1", children: attachment.name }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-gray-400", children: attachment.sizeLabel }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => setAttachment(null), className: "text-gray-400 hover:text-gray-600", children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { size: 13 }) })
+          ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "button",
+            {
+              type: "button",
+              onClick: () => fileRef.current?.click(),
+              className: "flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-gray-300 rounded-md text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors w-full",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(Paperclip, { size: 13 }),
+                " Choose file…"
+              ]
+            }
+          ),
+          fileError && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-red-500 mt-1", children: fileError })
+        ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2 pt-2", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
@@ -36995,6 +37177,14 @@ if (typeof window !== "undefined" && !window.process) {
             /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: "Priority:" }),
             " ",
             formData.priority
+          ] }),
+          attachment && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: "Attachment:" }),
+            " ",
+            attachment.name,
+            " (",
+            attachment.sizeLabel,
+            ")"
           ] })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2 justify-center", children: [
@@ -37042,7 +37232,7 @@ if (typeof window !== "undefined" && !window.process) {
     }
     return { id: videoId, start: startTime };
   };
-  const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, botIcon = "🤖", botIconColor = null, userIcon = "👤", userIconColor = "#e5e7eb", buttonFontSize = "13", readonly = false }) => {
+  const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, isDark = false, botIcon = "🤖", botIconColor = null, userIcon = "👤", userIconColor = "#e5e7eb", buttonFontSize = "13", readonly = false, ticketPrefill = {}, sessionToken = null }) => {
     const isBot = message.sender === "bot";
     const isOperator = message.sender === "operator";
     const primaryColor = themeColor || "#000000";
@@ -37066,6 +37256,14 @@ if (typeof window !== "undefined" && !window.process) {
         onFeedback(message.id, type);
       }
     };
+    const dm = {
+      userBubble: isDark ? "#2d3a50" : "#f0f4f9",
+      userText: isDark ? "#e5e7eb" : "#1f2937",
+      systemBg: isDark ? "#1e2533" : "#f3f4f6",
+      systemText: isDark ? "#9ca3af" : "#6b7280",
+      feedbackHover: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+      feedbackColor: isDark ? "#6b7280" : "#9ca3af"
+    };
     if (message.type === "warning" || message.type === "system") {
       const isSystem = message.type === "system";
       return /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -37074,10 +37272,17 @@ if (typeof window !== "undefined" && !window.process) {
           initial: { opacity: 0, y: 6 },
           animate: { opacity: 1, y: 0 },
           className: "flex w-full justify-center mb-4",
-          children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex items-start gap-2 px-4 py-3 rounded-2xl text-sm max-w-[90%] ${isSystem ? "bg-gray-100 text-gray-500" : "bg-amber-50 border border-amber-200 text-amber-800"}`, children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-lg leading-none mt-0.5", children: isSystem ? "💬" : "⏰" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "prose prose-sm max-w-none prose-p:my-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Markdown, { remarkPlugins: [remarkGfm], children: message.text }) })
-          ] })
+          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              className: `flex items-start gap-2 px-4 py-3 rounded-2xl text-sm max-w-[90%] ${isSystem ? "" : "bg-amber-50 border border-amber-200 text-amber-800"}`,
+              style: isSystem ? { backgroundColor: dm.systemBg, color: dm.systemText } : {},
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-lg leading-none mt-0.5", children: isSystem ? "💬" : "⏰" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "prose prose-sm max-w-none prose-p:my-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Markdown, { remarkPlugins: [remarkGfm], children: message.text }) })
+              ]
+            }
+          )
         }
       );
     }
@@ -37087,7 +37292,7 @@ if (typeof window !== "undefined" && !window.process) {
         initial: { opacity: 0, y: 10 },
         animate: { opacity: 1, y: 0 },
         className: `flex w-full mb-4 ${isBot || isOperator ? "justify-start" : "justify-end"}`,
-        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex ${message.ticket_form ? "w-full max-w-full" : "max-w-[90%]"} ${isBot || isOperator ? "flex-row" : "flex-row-reverse"}`, children: [
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex ${message.ticket_form || isBot || isOperator ? "w-full max-w-full" : "max-w-[80%]"} ${isBot || isOperator ? "flex-row" : "flex-row-reverse"}`, children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "div",
             {
@@ -37099,24 +37304,39 @@ if (typeof window !== "undefined" && !window.process) {
               ] }) : isBot ? /* @__PURE__ */ jsxRuntimeExports.jsx(Sparkles, { size: 15, strokeWidth: 2 }) : userIcon
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col min-w-0 overflow-hidden", children: [
             isOperator && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-green-600 font-medium mb-1 ml-1", children: "Support Agent" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "div",
               {
-                className: `p-3 text-sm ${isBot || isOperator ? "text-gray-800" : "rounded-3xl rounded-tr-none text-gray-800 px-5 bg-gray-100"}`,
-                style: isOperator ? { backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "0 12px 12px 12px" } : !isBot ? { backgroundColor: "#f0f4f9" } : {},
+                className: `p-3 text-sm ${isBot || isOperator ? "" : "rounded-3xl rounded-tr-none px-5"}`,
+                style: isOperator ? { backgroundColor: isDark ? "#1a2e20" : "#f0fdf4", border: `1px solid ${isDark ? "#166534" : "#bbf7d0"}`, borderRadius: "0 12px 12px 12px", color: isDark ? "#86efac" : "#166534" } : !isBot ? { backgroundColor: dm.userBubble, color: dm.userText } : { color: isDark ? "#e5e7eb" : "#1f2937" },
                 children: isOperator ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-gray-800 whitespace-pre-wrap leading-relaxed", children: message.text }) : isBot ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-table:my-2", children: [
                   message.text && /* @__PURE__ */ jsxRuntimeExports.jsx(
                     Markdown,
                     {
                       remarkPlugins: [remarkGfm],
                       components: {
-                        table: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("table", { className: "min-w-full divide-y divide-gray-200 my-2 border rounded-md overflow-hidden", ...props }),
-                        thead: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("thead", { className: "bg-gray-50", ...props }),
-                        th: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b", ...props }),
-                        td: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-2 whitespace-normal text-sm text-gray-700 border-b border-r last:border-r-0 border-gray-100 bg-white", ...props }),
+                        table: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { overflowX: "auto", maxWidth: "100%", margin: "6px 0" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("table", { className: "divide-y rounded-md overflow-hidden", style: { border: `1px solid ${isDark ? "#2e3a4e" : "#e5e7eb"}` }, ...props }) }),
+                        thead: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("thead", { style: { backgroundColor: isDark ? "#1e2533" : "#f9fafb" }, ...props }),
+                        th: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left font-medium uppercase tracking-wider border-b", style: { fontSize: "11px", color: isDark ? "#9ca3af" : "#6b7280", borderColor: isDark ? "#2e3a4e" : "#e5e7eb" }, ...props }),
+                        td: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-2 whitespace-normal border-b border-r last:border-r-0", style: { fontSize: "13px", color: isDark ? "#d1d5db" : "#374151", backgroundColor: isDark ? "#111827" : "#ffffff", borderColor: isDark ? "#2e3a4e" : "#f3f4f6" }, ...props }),
                         a: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("a", { style: { color: readonly ? "inherit" : primaryColor, pointerEvents: readonly ? "none" : "auto", textDecoration: readonly ? "none" : void 0 }, className: readonly ? "" : "hover:underline", target: readonly ? void 0 : "_blank", rel: "noopener noreferrer", ...props }),
+                        p: ({ node: node2, children, ...props }) => {
+                          const isImgOnly = node2.children?.every((c) => c.type === "element" && c.tagName === "img");
+                          if (isImgOnly) return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", flexWrap: "wrap", gap: "4px", margin: "4px 0" }, children });
+                          return /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "my-1", ...props, children });
+                        },
+                        img: ({ node: node2, src, alt }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "a",
+                          {
+                            href: src,
+                            target: "_blank",
+                            rel: "noopener noreferrer",
+                            style: { width: "calc(33.33% - 3px)", flexShrink: 0, display: "block" },
+                            children: /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src, alt, style: { width: "100%", height: "80px", objectFit: "cover", borderRadius: "6px", display: "block", cursor: "pointer", border: `1px solid ${isDark ? "#2e3a4e" : "#e5e7eb"}` } })
+                          }
+                        ),
                         ul: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "list-disc pl-5", ...props }),
                         ol: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("ol", { className: "list-decimal pl-5", ...props })
                       },
@@ -37156,6 +37376,8 @@ if (typeof window !== "undefined" && !window.process) {
                     TicketForm,
                     {
                       primaryColor,
+                      prefill: ticketPrefill,
+                      sessionToken,
                       onSubmit: (data) => {
                         const payload = `/submit_ticket_form${JSON.stringify(data)}`;
                         onButtonClick && onButtonClick(payload);
@@ -37191,28 +37413,30 @@ if (typeof window !== "undefined" && !window.process) {
                 ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "whitespace-pre-wrap", children: message.text })
               }
             ),
-            isBot && message.id !== "init" && !readonly && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-0.5 mt-1.5 ml-1", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  onClick: () => handleFeedback("up"),
-                  className: `p-1.5 rounded-full transition-colors ${feedback === "up" ? "text-blue-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`,
-                  title: "Good response",
-                  children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUp, { size: 15, fill: feedback === "up" ? "currentColor" : "none" })
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  onClick: () => handleFeedback("down"),
-                  className: `p-1.5 rounded-full transition-colors ${feedback === "down" ? "text-red-500" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`,
-                  title: "Bad response",
-                  children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDown, { size: 15, fill: feedback === "down" ? "currentColor" : "none" })
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors", title: "Regenerate", children: /* @__PURE__ */ jsxRuntimeExports.jsx(RotateCcw, { size: 15 }) }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors", title: "Copy", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Copy, { size: 15 }) })
-            ] })
+            isBot && message.id !== "init" && !readonly && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center gap-0.5 mt-1.5 ml-1", children: [
+              { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUp, { size: 15, fill: feedback === "up" ? "currentColor" : "none" }), action: () => handleFeedback("up"), active: feedback === "up", activeColor: "#3b82f6", title: "Good response" },
+              { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDown, { size: 15, fill: feedback === "down" ? "currentColor" : "none" }), action: () => handleFeedback("down"), active: feedback === "down", activeColor: "#ef4444", title: "Bad response" },
+              { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(RotateCcw, { size: 15 }), action: null, active: false, activeColor: "", title: "Regenerate" },
+              { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Copy, { size: 15 }), action: null, active: false, activeColor: "", title: "Copy" }
+            ].map((btn, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                onClick: btn.action,
+                className: "p-1.5 rounded-full transition-colors",
+                style: { color: btn.active ? btn.activeColor : dm.feedbackColor },
+                onMouseEnter: (e) => {
+                  e.currentTarget.style.backgroundColor = dm.feedbackHover;
+                  if (!btn.active) e.currentTarget.style.color = isDark ? "#d1d5db" : "#4b5563";
+                },
+                onMouseLeave: (e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = btn.active ? btn.activeColor : dm.feedbackColor;
+                },
+                title: btn.title,
+                children: btn.icon
+              },
+              i
+            )) })
           ] })
         ] })
       }
@@ -37433,6 +37657,268 @@ if (typeof window !== "undefined" && !window.process) {
       }
     );
   };
+  const PRODUCT_LABELS = {
+    IT: "IT Support",
+    Accounting: "Accounting",
+    shipnest: "ShipNest",
+    greenloop: "GreenLoop",
+    accountwise: "AccountWise",
+    General: "General"
+  };
+  const ProfilePanel = ({ authUser, appId, primaryColor, isDark, onToggleDark, onClose, onLogout }) => {
+    const initial = authUser?.[0]?.toUpperCase() || "U";
+    const productLabel = PRODUCT_LABELS[appId] || appId || "General";
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "absolute inset-0 z-[70] flex flex-col",
+        style: { backgroundColor: "#f9fafb" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              className: "flex items-center justify-between px-4 py-3 border-b border-gray-100",
+              style: { backgroundColor: "#ffffff" },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-base font-semibold text-gray-800", children: "My Profile" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    onClick: onClose,
+                    className: "p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-500",
+                    children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { size: 18 })
+                  }
+                )
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center py-8 bg-white border-b border-gray-100", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold text-white mb-3",
+                  style: { backgroundColor: primaryColor },
+                  children: initial
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-lg font-semibold text-gray-800", children: authUser }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-gray-400 mt-0.5", children: "Support User" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-4 space-y-3", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold text-gray-400 uppercase tracking-wider px-1", children: "Account" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(InfoRow, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(User, { size: 16 }), label: "Username", value: authUser }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-gray-50" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(InfoRow, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm", children: "📦" }), label: "Active Product", value: productLabel })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 pt-2", children: "Actions" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "button",
+                  {
+                    onClick: onToggleDark,
+                    className: "w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors text-left",
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+                        isDark ? /* @__PURE__ */ jsxRuntimeExports.jsx(Moon, { size: 16, className: "text-blue-400" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Sun, { size: 16, className: "text-amber-400" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-medium text-gray-700", children: "Dark Mode" })
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${isDark ? "bg-blue-500" : "bg-gray-200"}`, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `w-4 h-4 rounded-full bg-white shadow transition-transform ${isDark ? "translate-x-4" : "translate-x-0"}` }) })
+                    ]
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-gray-50" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "button",
+                  {
+                    onClick: onLogout,
+                    className: "w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors text-left",
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(LogOut, { size: 16, className: "text-red-500" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-medium text-red-600", children: "Sign Out" })
+                    ]
+                  }
+                )
+              ] })
+            ] })
+          ] })
+        ]
+      }
+    );
+  };
+  const InfoRow = ({ icon, label, value: value2 }) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 px-4 py-3", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-blue-500 flex-shrink-0", children: icon }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm text-gray-500 flex-shrink-0 w-28", children: label }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-medium text-gray-800 truncate", children: value2 })
+  ] });
+  const ADMIN_API_URL$2 = window.location.origin;
+  const TYPE_ICONS = {
+    ticket_created: "🎫",
+    handoff_queued: "⏳",
+    handoff_assigned: "💬",
+    handoff_ended: "✅",
+    ticket_update: "🔄"
+  };
+  function relativeTime(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 6e4);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+  const NotificationBell = ({ userId, socket, primaryColor = "#3b82f6", onUnreadChange }) => {
+    const [open, setOpen] = reactExports.useState(false);
+    const [notifications, setNotifications] = reactExports.useState([]);
+    const [unread, setUnread] = reactExports.useState(0);
+    const [loading, setLoading] = reactExports.useState(false);
+    const dropdownRef = reactExports.useRef(null);
+    reactExports.useEffect(() => {
+      onUnreadChange?.(unread);
+    }, [unread, onUnreadChange]);
+    const fetchNotifications = reactExports.useCallback(async () => {
+      if (!userId) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`${ADMIN_API_URL$2}/notifications?sender_id=${encodeURIComponent(userId)}`);
+        const data = await res.json();
+        if (data.success) {
+          setNotifications(data.data);
+          setUnread(data.unread_count);
+        }
+      } catch (e) {
+        console.warn("[NotificationBell] fetch error", e);
+      } finally {
+        setLoading(false);
+      }
+    }, [userId]);
+    reactExports.useEffect(() => {
+      fetchNotifications();
+    }, [fetchNotifications]);
+    reactExports.useEffect(() => {
+      if (!socket) return;
+      const onNew = (payload) => {
+        setUnread(payload.unread_count ?? 0);
+        setNotifications((prev) => [{
+          id: payload.id,
+          type: payload.type,
+          title: payload.title,
+          body: payload.body,
+          payload: payload.payload,
+          read: false,
+          created_at: (/* @__PURE__ */ new Date()).toISOString()
+        }, ...prev].slice(0, 50));
+      };
+      const onCount = (payload) => setUnread(payload.unread_count ?? 0);
+      socket.on("new_notification", onNew);
+      socket.on("notification_count", onCount);
+      return () => {
+        socket.off("new_notification", onNew);
+        socket.off("notification_count", onCount);
+      };
+    }, [socket]);
+    reactExports.useEffect(() => {
+      if (!open) return;
+      const handler = (e) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+          setOpen(false);
+        }
+      };
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
+    }, [open]);
+    const handleOpen = () => {
+      setOpen((v) => !v);
+      if (!open) fetchNotifications();
+    };
+    const markRead = async (id2) => {
+      try {
+        await fetch(`${ADMIN_API_URL$2}/notifications/${id2}/read`, { method: "POST" });
+        setNotifications(
+          (prev) => prev.map((n) => n.id === id2 ? { ...n, read: true } : n)
+        );
+        setUnread((prev) => Math.max(0, prev - 1));
+      } catch {
+      }
+    };
+    const markAllRead = async () => {
+      try {
+        await fetch(`${ADMIN_API_URL$2}/notifications/read-all`, { method: "POST" });
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        setUnread(0);
+      } catch {
+      }
+    };
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", ref: dropdownRef, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          onClick: handleOpen,
+          className: "p-2 rounded-full hover:bg-gray-100 transition-colors relative",
+          title: "Notifications",
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Bell, { size: 18, className: "text-gray-600" }),
+            unread > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "span",
+              {
+                className: "absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full\n                                   text-white text-[9px] font-bold flex items-center justify-center px-0.5",
+                style: { backgroundColor: primaryColor },
+                children: unread > 9 ? "9+" : unread
+              }
+            )
+          ]
+        }
+      ),
+      open && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          className: "absolute right-0 top-10 w-80 rounded-xl shadow-2xl z-[80] overflow-hidden",
+          style: { backgroundColor: "#ffffff", border: "1px solid rgba(0,0,0,0.08)" },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between px-4 py-3 border-b border-gray-100", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-semibold text-gray-800", children: "Notifications" }),
+              unread > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  onClick: markAllRead,
+                  className: "text-xs text-blue-500 hover:text-blue-700 transition-colors",
+                  children: "Mark all read"
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-h-72 overflow-y-auto", children: loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center justify-center py-8 text-gray-400 text-sm", children: "Loading…" }) : notifications.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center py-8 text-gray-400 gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Bell, { size: 24, strokeWidth: 1.2 }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm", children: "No notifications yet" })
+            ] }) : notifications.map((n) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                onClick: () => !n.read && markRead(n.id),
+                className: `flex gap-3 px-4 py-3 border-b border-gray-50 cursor-pointer transition-colors ${n.read ? "bg-white" : "bg-blue-50 hover:bg-blue-100"}`,
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xl flex-shrink-0 mt-0.5", children: TYPE_ICONS[n.type] || "🔔" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: `text-sm leading-snug ${n.read ? "text-gray-700" : "text-gray-900 font-medium"}`, children: n.title }),
+                    n.body && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-gray-400 mt-0.5 truncate", children: n.body }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-gray-400 mt-1", children: relativeTime(n.created_at) })
+                  ] }),
+                  !n.read && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      className: "w-2 h-2 rounded-full flex-shrink-0 mt-1.5",
+                      style: { backgroundColor: primaryColor }
+                    }
+                  )
+                ]
+              },
+              n.id
+            )) })
+          ]
+        }
+      )
+    ] });
+  };
   const byteToHex = [];
   for (let i = 0; i < 256; ++i) {
     byteToHex.push((i + 256).toString(16).slice(1));
@@ -37501,10 +37987,2302 @@ if (typeof window !== "undefined" && !window.process) {
   function deleteCookie(name2, path2 = "/") {
     document.cookie = `${name2}=; path=${path2}; max-age=0`;
   }
+  var sha256$1 = { exports: {} };
+  const __viteBrowserExternal = {};
+  const __viteBrowserExternal$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    default: __viteBrowserExternal
+  }, Symbol.toStringTag, { value: "Module" }));
+  const require$$1 = /* @__PURE__ */ getAugmentedNamespace(__viteBrowserExternal$1);
+  var hasRequiredSha256;
+  function requireSha256() {
+    if (hasRequiredSha256) return sha256$1.exports;
+    hasRequiredSha256 = 1;
+    (function(module) {
+      (function() {
+        var ERROR2 = "input is invalid type";
+        var WINDOW = typeof window === "object";
+        var root2 = WINDOW ? window : {};
+        if (root2.JS_SHA256_NO_WINDOW) {
+          WINDOW = false;
+        }
+        var WEB_WORKER = !WINDOW && typeof self === "object";
+        var NODE_JS = !root2.JS_SHA256_NO_NODE_JS && typeof process === "object" && process.versions && process.versions.node && process.type != "renderer";
+        if (NODE_JS) {
+          root2 = commonjsGlobal;
+        } else if (WEB_WORKER) {
+          root2 = self;
+        }
+        var COMMON_JS = !root2.JS_SHA256_NO_COMMON_JS && true && module.exports;
+        var ARRAY_BUFFER = !root2.JS_SHA256_NO_ARRAY_BUFFER && typeof ArrayBuffer !== "undefined";
+        var HEX_CHARS = "0123456789abcdef".split("");
+        var EXTRA = [-2147483648, 8388608, 32768, 128];
+        var SHIFT = [24, 16, 8, 0];
+        var K = [
+          1116352408,
+          1899447441,
+          3049323471,
+          3921009573,
+          961987163,
+          1508970993,
+          2453635748,
+          2870763221,
+          3624381080,
+          310598401,
+          607225278,
+          1426881987,
+          1925078388,
+          2162078206,
+          2614888103,
+          3248222580,
+          3835390401,
+          4022224774,
+          264347078,
+          604807628,
+          770255983,
+          1249150122,
+          1555081692,
+          1996064986,
+          2554220882,
+          2821834349,
+          2952996808,
+          3210313671,
+          3336571891,
+          3584528711,
+          113926993,
+          338241895,
+          666307205,
+          773529912,
+          1294757372,
+          1396182291,
+          1695183700,
+          1986661051,
+          2177026350,
+          2456956037,
+          2730485921,
+          2820302411,
+          3259730800,
+          3345764771,
+          3516065817,
+          3600352804,
+          4094571909,
+          275423344,
+          430227734,
+          506948616,
+          659060556,
+          883997877,
+          958139571,
+          1322822218,
+          1537002063,
+          1747873779,
+          1955562222,
+          2024104815,
+          2227730452,
+          2361852424,
+          2428436474,
+          2756734187,
+          3204031479,
+          3329325298
+        ];
+        var OUTPUT_TYPES = ["hex", "array", "digest", "arrayBuffer"];
+        var blocks = [];
+        if (root2.JS_SHA256_NO_NODE_JS || !Array.isArray) {
+          Array.isArray = function(obj) {
+            return Object.prototype.toString.call(obj) === "[object Array]";
+          };
+        }
+        if (ARRAY_BUFFER && (root2.JS_SHA256_NO_ARRAY_BUFFER_IS_VIEW || !ArrayBuffer.isView)) {
+          ArrayBuffer.isView = function(obj) {
+            return typeof obj === "object" && obj.buffer && obj.buffer.constructor === ArrayBuffer;
+          };
+        }
+        var createOutputMethod = function(outputType, is224) {
+          return function(message) {
+            return new Sha256(is224, true).update(message)[outputType]();
+          };
+        };
+        var createMethod = function(is224) {
+          var method = createOutputMethod("hex", is224);
+          if (NODE_JS) {
+            method = nodeWrap(method, is224);
+          }
+          method.create = function() {
+            return new Sha256(is224);
+          };
+          method.update = function(message) {
+            return method.create().update(message);
+          };
+          for (var i = 0; i < OUTPUT_TYPES.length; ++i) {
+            var type = OUTPUT_TYPES[i];
+            method[type] = createOutputMethod(type, is224);
+          }
+          return method;
+        };
+        var nodeWrap = function(method, is224) {
+          var crypto2 = require$$1;
+          var Buffer = require$$1.Buffer;
+          var algorithm = is224 ? "sha224" : "sha256";
+          var bufferFrom;
+          if (Buffer.from && !root2.JS_SHA256_NO_BUFFER_FROM) {
+            bufferFrom = Buffer.from;
+          } else {
+            bufferFrom = function(message) {
+              return new Buffer(message);
+            };
+          }
+          var nodeMethod = function(message) {
+            if (typeof message === "string") {
+              return crypto2.createHash(algorithm).update(message, "utf8").digest("hex");
+            } else {
+              if (message === null || message === void 0) {
+                throw new Error(ERROR2);
+              } else if (message.constructor === ArrayBuffer) {
+                message = new Uint8Array(message);
+              }
+            }
+            if (Array.isArray(message) || ArrayBuffer.isView(message) || message.constructor === Buffer) {
+              return crypto2.createHash(algorithm).update(bufferFrom(message)).digest("hex");
+            } else {
+              return method(message);
+            }
+          };
+          return nodeMethod;
+        };
+        var createHmacOutputMethod = function(outputType, is224) {
+          return function(key, message) {
+            return new HmacSha256(key, is224, true).update(message)[outputType]();
+          };
+        };
+        var createHmacMethod = function(is224) {
+          var method = createHmacOutputMethod("hex", is224);
+          method.create = function(key) {
+            return new HmacSha256(key, is224);
+          };
+          method.update = function(key, message) {
+            return method.create(key).update(message);
+          };
+          for (var i = 0; i < OUTPUT_TYPES.length; ++i) {
+            var type = OUTPUT_TYPES[i];
+            method[type] = createHmacOutputMethod(type, is224);
+          }
+          return method;
+        };
+        function Sha256(is224, sharedMemory) {
+          if (sharedMemory) {
+            blocks[0] = blocks[16] = blocks[1] = blocks[2] = blocks[3] = blocks[4] = blocks[5] = blocks[6] = blocks[7] = blocks[8] = blocks[9] = blocks[10] = blocks[11] = blocks[12] = blocks[13] = blocks[14] = blocks[15] = 0;
+            this.blocks = blocks;
+          } else {
+            this.blocks = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+          }
+          if (is224) {
+            this.h0 = 3238371032;
+            this.h1 = 914150663;
+            this.h2 = 812702999;
+            this.h3 = 4144912697;
+            this.h4 = 4290775857;
+            this.h5 = 1750603025;
+            this.h6 = 1694076839;
+            this.h7 = 3204075428;
+          } else {
+            this.h0 = 1779033703;
+            this.h1 = 3144134277;
+            this.h2 = 1013904242;
+            this.h3 = 2773480762;
+            this.h4 = 1359893119;
+            this.h5 = 2600822924;
+            this.h6 = 528734635;
+            this.h7 = 1541459225;
+          }
+          this.block = this.start = this.bytes = this.hBytes = 0;
+          this.finalized = this.hashed = false;
+          this.first = true;
+          this.is224 = is224;
+        }
+        Sha256.prototype.update = function(message) {
+          if (this.finalized) {
+            return;
+          }
+          var notString, type = typeof message;
+          if (type !== "string") {
+            if (type === "object") {
+              if (message === null) {
+                throw new Error(ERROR2);
+              } else if (ARRAY_BUFFER && message.constructor === ArrayBuffer) {
+                message = new Uint8Array(message);
+              } else if (!Array.isArray(message)) {
+                if (!ARRAY_BUFFER || !ArrayBuffer.isView(message)) {
+                  throw new Error(ERROR2);
+                }
+              }
+            } else {
+              throw new Error(ERROR2);
+            }
+            notString = true;
+          }
+          var code2, index2 = 0, i, length = message.length, blocks2 = this.blocks;
+          while (index2 < length) {
+            if (this.hashed) {
+              this.hashed = false;
+              blocks2[0] = this.block;
+              this.block = blocks2[16] = blocks2[1] = blocks2[2] = blocks2[3] = blocks2[4] = blocks2[5] = blocks2[6] = blocks2[7] = blocks2[8] = blocks2[9] = blocks2[10] = blocks2[11] = blocks2[12] = blocks2[13] = blocks2[14] = blocks2[15] = 0;
+            }
+            if (notString) {
+              for (i = this.start; index2 < length && i < 64; ++index2) {
+                blocks2[i >>> 2] |= message[index2] << SHIFT[i++ & 3];
+              }
+            } else {
+              for (i = this.start; index2 < length && i < 64; ++index2) {
+                code2 = message.charCodeAt(index2);
+                if (code2 < 128) {
+                  blocks2[i >>> 2] |= code2 << SHIFT[i++ & 3];
+                } else if (code2 < 2048) {
+                  blocks2[i >>> 2] |= (192 | code2 >>> 6) << SHIFT[i++ & 3];
+                  blocks2[i >>> 2] |= (128 | code2 & 63) << SHIFT[i++ & 3];
+                } else if (code2 < 55296 || code2 >= 57344) {
+                  blocks2[i >>> 2] |= (224 | code2 >>> 12) << SHIFT[i++ & 3];
+                  blocks2[i >>> 2] |= (128 | code2 >>> 6 & 63) << SHIFT[i++ & 3];
+                  blocks2[i >>> 2] |= (128 | code2 & 63) << SHIFT[i++ & 3];
+                } else {
+                  code2 = 65536 + ((code2 & 1023) << 10 | message.charCodeAt(++index2) & 1023);
+                  blocks2[i >>> 2] |= (240 | code2 >>> 18) << SHIFT[i++ & 3];
+                  blocks2[i >>> 2] |= (128 | code2 >>> 12 & 63) << SHIFT[i++ & 3];
+                  blocks2[i >>> 2] |= (128 | code2 >>> 6 & 63) << SHIFT[i++ & 3];
+                  blocks2[i >>> 2] |= (128 | code2 & 63) << SHIFT[i++ & 3];
+                }
+              }
+            }
+            this.lastByteIndex = i;
+            this.bytes += i - this.start;
+            if (i >= 64) {
+              this.block = blocks2[16];
+              this.start = i - 64;
+              this.hash();
+              this.hashed = true;
+            } else {
+              this.start = i;
+            }
+          }
+          if (this.bytes > 4294967295) {
+            this.hBytes += this.bytes / 4294967296 << 0;
+            this.bytes = this.bytes % 4294967296;
+          }
+          return this;
+        };
+        Sha256.prototype.finalize = function() {
+          if (this.finalized) {
+            return;
+          }
+          this.finalized = true;
+          var blocks2 = this.blocks, i = this.lastByteIndex;
+          blocks2[16] = this.block;
+          blocks2[i >>> 2] |= EXTRA[i & 3];
+          this.block = blocks2[16];
+          if (i >= 56) {
+            if (!this.hashed) {
+              this.hash();
+            }
+            blocks2[0] = this.block;
+            blocks2[16] = blocks2[1] = blocks2[2] = blocks2[3] = blocks2[4] = blocks2[5] = blocks2[6] = blocks2[7] = blocks2[8] = blocks2[9] = blocks2[10] = blocks2[11] = blocks2[12] = blocks2[13] = blocks2[14] = blocks2[15] = 0;
+          }
+          blocks2[14] = this.hBytes << 3 | this.bytes >>> 29;
+          blocks2[15] = this.bytes << 3;
+          this.hash();
+        };
+        Sha256.prototype.hash = function() {
+          var a = this.h0, b = this.h1, c = this.h2, d = this.h3, e = this.h4, f = this.h5, g = this.h6, h = this.h7, blocks2 = this.blocks, j, s0, s1, maj, t1, t2, ch, ab, da, cd, bc;
+          for (j = 16; j < 64; ++j) {
+            t1 = blocks2[j - 15];
+            s0 = (t1 >>> 7 | t1 << 25) ^ (t1 >>> 18 | t1 << 14) ^ t1 >>> 3;
+            t1 = blocks2[j - 2];
+            s1 = (t1 >>> 17 | t1 << 15) ^ (t1 >>> 19 | t1 << 13) ^ t1 >>> 10;
+            blocks2[j] = blocks2[j - 16] + s0 + blocks2[j - 7] + s1 << 0;
+          }
+          bc = b & c;
+          for (j = 0; j < 64; j += 4) {
+            if (this.first) {
+              if (this.is224) {
+                ab = 300032;
+                t1 = blocks2[0] - 1413257819;
+                h = t1 - 150054599 << 0;
+                d = t1 + 24177077 << 0;
+              } else {
+                ab = 704751109;
+                t1 = blocks2[0] - 210244248;
+                h = t1 - 1521486534 << 0;
+                d = t1 + 143694565 << 0;
+              }
+              this.first = false;
+            } else {
+              s0 = (a >>> 2 | a << 30) ^ (a >>> 13 | a << 19) ^ (a >>> 22 | a << 10);
+              s1 = (e >>> 6 | e << 26) ^ (e >>> 11 | e << 21) ^ (e >>> 25 | e << 7);
+              ab = a & b;
+              maj = ab ^ a & c ^ bc;
+              ch = e & f ^ ~e & g;
+              t1 = h + s1 + ch + K[j] + blocks2[j];
+              t2 = s0 + maj;
+              h = d + t1 << 0;
+              d = t1 + t2 << 0;
+            }
+            s0 = (d >>> 2 | d << 30) ^ (d >>> 13 | d << 19) ^ (d >>> 22 | d << 10);
+            s1 = (h >>> 6 | h << 26) ^ (h >>> 11 | h << 21) ^ (h >>> 25 | h << 7);
+            da = d & a;
+            maj = da ^ d & b ^ ab;
+            ch = h & e ^ ~h & f;
+            t1 = g + s1 + ch + K[j + 1] + blocks2[j + 1];
+            t2 = s0 + maj;
+            g = c + t1 << 0;
+            c = t1 + t2 << 0;
+            s0 = (c >>> 2 | c << 30) ^ (c >>> 13 | c << 19) ^ (c >>> 22 | c << 10);
+            s1 = (g >>> 6 | g << 26) ^ (g >>> 11 | g << 21) ^ (g >>> 25 | g << 7);
+            cd = c & d;
+            maj = cd ^ c & a ^ da;
+            ch = g & h ^ ~g & e;
+            t1 = f + s1 + ch + K[j + 2] + blocks2[j + 2];
+            t2 = s0 + maj;
+            f = b + t1 << 0;
+            b = t1 + t2 << 0;
+            s0 = (b >>> 2 | b << 30) ^ (b >>> 13 | b << 19) ^ (b >>> 22 | b << 10);
+            s1 = (f >>> 6 | f << 26) ^ (f >>> 11 | f << 21) ^ (f >>> 25 | f << 7);
+            bc = b & c;
+            maj = bc ^ b & d ^ cd;
+            ch = f & g ^ ~f & h;
+            t1 = e + s1 + ch + K[j + 3] + blocks2[j + 3];
+            t2 = s0 + maj;
+            e = a + t1 << 0;
+            a = t1 + t2 << 0;
+            this.chromeBugWorkAround = true;
+          }
+          this.h0 = this.h0 + a << 0;
+          this.h1 = this.h1 + b << 0;
+          this.h2 = this.h2 + c << 0;
+          this.h3 = this.h3 + d << 0;
+          this.h4 = this.h4 + e << 0;
+          this.h5 = this.h5 + f << 0;
+          this.h6 = this.h6 + g << 0;
+          this.h7 = this.h7 + h << 0;
+        };
+        Sha256.prototype.hex = function() {
+          this.finalize();
+          var h0 = this.h0, h1 = this.h1, h2 = this.h2, h3 = this.h3, h4 = this.h4, h5 = this.h5, h6 = this.h6, h7 = this.h7;
+          var hex2 = HEX_CHARS[h0 >>> 28 & 15] + HEX_CHARS[h0 >>> 24 & 15] + HEX_CHARS[h0 >>> 20 & 15] + HEX_CHARS[h0 >>> 16 & 15] + HEX_CHARS[h0 >>> 12 & 15] + HEX_CHARS[h0 >>> 8 & 15] + HEX_CHARS[h0 >>> 4 & 15] + HEX_CHARS[h0 & 15] + HEX_CHARS[h1 >>> 28 & 15] + HEX_CHARS[h1 >>> 24 & 15] + HEX_CHARS[h1 >>> 20 & 15] + HEX_CHARS[h1 >>> 16 & 15] + HEX_CHARS[h1 >>> 12 & 15] + HEX_CHARS[h1 >>> 8 & 15] + HEX_CHARS[h1 >>> 4 & 15] + HEX_CHARS[h1 & 15] + HEX_CHARS[h2 >>> 28 & 15] + HEX_CHARS[h2 >>> 24 & 15] + HEX_CHARS[h2 >>> 20 & 15] + HEX_CHARS[h2 >>> 16 & 15] + HEX_CHARS[h2 >>> 12 & 15] + HEX_CHARS[h2 >>> 8 & 15] + HEX_CHARS[h2 >>> 4 & 15] + HEX_CHARS[h2 & 15] + HEX_CHARS[h3 >>> 28 & 15] + HEX_CHARS[h3 >>> 24 & 15] + HEX_CHARS[h3 >>> 20 & 15] + HEX_CHARS[h3 >>> 16 & 15] + HEX_CHARS[h3 >>> 12 & 15] + HEX_CHARS[h3 >>> 8 & 15] + HEX_CHARS[h3 >>> 4 & 15] + HEX_CHARS[h3 & 15] + HEX_CHARS[h4 >>> 28 & 15] + HEX_CHARS[h4 >>> 24 & 15] + HEX_CHARS[h4 >>> 20 & 15] + HEX_CHARS[h4 >>> 16 & 15] + HEX_CHARS[h4 >>> 12 & 15] + HEX_CHARS[h4 >>> 8 & 15] + HEX_CHARS[h4 >>> 4 & 15] + HEX_CHARS[h4 & 15] + HEX_CHARS[h5 >>> 28 & 15] + HEX_CHARS[h5 >>> 24 & 15] + HEX_CHARS[h5 >>> 20 & 15] + HEX_CHARS[h5 >>> 16 & 15] + HEX_CHARS[h5 >>> 12 & 15] + HEX_CHARS[h5 >>> 8 & 15] + HEX_CHARS[h5 >>> 4 & 15] + HEX_CHARS[h5 & 15] + HEX_CHARS[h6 >>> 28 & 15] + HEX_CHARS[h6 >>> 24 & 15] + HEX_CHARS[h6 >>> 20 & 15] + HEX_CHARS[h6 >>> 16 & 15] + HEX_CHARS[h6 >>> 12 & 15] + HEX_CHARS[h6 >>> 8 & 15] + HEX_CHARS[h6 >>> 4 & 15] + HEX_CHARS[h6 & 15];
+          if (!this.is224) {
+            hex2 += HEX_CHARS[h7 >>> 28 & 15] + HEX_CHARS[h7 >>> 24 & 15] + HEX_CHARS[h7 >>> 20 & 15] + HEX_CHARS[h7 >>> 16 & 15] + HEX_CHARS[h7 >>> 12 & 15] + HEX_CHARS[h7 >>> 8 & 15] + HEX_CHARS[h7 >>> 4 & 15] + HEX_CHARS[h7 & 15];
+          }
+          return hex2;
+        };
+        Sha256.prototype.toString = Sha256.prototype.hex;
+        Sha256.prototype.digest = function() {
+          this.finalize();
+          var h0 = this.h0, h1 = this.h1, h2 = this.h2, h3 = this.h3, h4 = this.h4, h5 = this.h5, h6 = this.h6, h7 = this.h7;
+          var arr = [
+            h0 >>> 24 & 255,
+            h0 >>> 16 & 255,
+            h0 >>> 8 & 255,
+            h0 & 255,
+            h1 >>> 24 & 255,
+            h1 >>> 16 & 255,
+            h1 >>> 8 & 255,
+            h1 & 255,
+            h2 >>> 24 & 255,
+            h2 >>> 16 & 255,
+            h2 >>> 8 & 255,
+            h2 & 255,
+            h3 >>> 24 & 255,
+            h3 >>> 16 & 255,
+            h3 >>> 8 & 255,
+            h3 & 255,
+            h4 >>> 24 & 255,
+            h4 >>> 16 & 255,
+            h4 >>> 8 & 255,
+            h4 & 255,
+            h5 >>> 24 & 255,
+            h5 >>> 16 & 255,
+            h5 >>> 8 & 255,
+            h5 & 255,
+            h6 >>> 24 & 255,
+            h6 >>> 16 & 255,
+            h6 >>> 8 & 255,
+            h6 & 255
+          ];
+          if (!this.is224) {
+            arr.push(h7 >>> 24 & 255, h7 >>> 16 & 255, h7 >>> 8 & 255, h7 & 255);
+          }
+          return arr;
+        };
+        Sha256.prototype.array = Sha256.prototype.digest;
+        Sha256.prototype.arrayBuffer = function() {
+          this.finalize();
+          var buffer = new ArrayBuffer(this.is224 ? 28 : 32);
+          var dataView = new DataView(buffer);
+          dataView.setUint32(0, this.h0);
+          dataView.setUint32(4, this.h1);
+          dataView.setUint32(8, this.h2);
+          dataView.setUint32(12, this.h3);
+          dataView.setUint32(16, this.h4);
+          dataView.setUint32(20, this.h5);
+          dataView.setUint32(24, this.h6);
+          if (!this.is224) {
+            dataView.setUint32(28, this.h7);
+          }
+          return buffer;
+        };
+        function HmacSha256(key, is224, sharedMemory) {
+          var i, type = typeof key;
+          if (type === "string") {
+            var bytes = [], length = key.length, index2 = 0, code2;
+            for (i = 0; i < length; ++i) {
+              code2 = key.charCodeAt(i);
+              if (code2 < 128) {
+                bytes[index2++] = code2;
+              } else if (code2 < 2048) {
+                bytes[index2++] = 192 | code2 >>> 6;
+                bytes[index2++] = 128 | code2 & 63;
+              } else if (code2 < 55296 || code2 >= 57344) {
+                bytes[index2++] = 224 | code2 >>> 12;
+                bytes[index2++] = 128 | code2 >>> 6 & 63;
+                bytes[index2++] = 128 | code2 & 63;
+              } else {
+                code2 = 65536 + ((code2 & 1023) << 10 | key.charCodeAt(++i) & 1023);
+                bytes[index2++] = 240 | code2 >>> 18;
+                bytes[index2++] = 128 | code2 >>> 12 & 63;
+                bytes[index2++] = 128 | code2 >>> 6 & 63;
+                bytes[index2++] = 128 | code2 & 63;
+              }
+            }
+            key = bytes;
+          } else {
+            if (type === "object") {
+              if (key === null) {
+                throw new Error(ERROR2);
+              } else if (ARRAY_BUFFER && key.constructor === ArrayBuffer) {
+                key = new Uint8Array(key);
+              } else if (!Array.isArray(key)) {
+                if (!ARRAY_BUFFER || !ArrayBuffer.isView(key)) {
+                  throw new Error(ERROR2);
+                }
+              }
+            } else {
+              throw new Error(ERROR2);
+            }
+          }
+          if (key.length > 64) {
+            key = new Sha256(is224, true).update(key).array();
+          }
+          var oKeyPad = [], iKeyPad = [];
+          for (i = 0; i < 64; ++i) {
+            var b = key[i] || 0;
+            oKeyPad[i] = 92 ^ b;
+            iKeyPad[i] = 54 ^ b;
+          }
+          Sha256.call(this, is224, sharedMemory);
+          this.update(iKeyPad);
+          this.oKeyPad = oKeyPad;
+          this.inner = true;
+          this.sharedMemory = sharedMemory;
+        }
+        HmacSha256.prototype = new Sha256();
+        HmacSha256.prototype.finalize = function() {
+          Sha256.prototype.finalize.call(this);
+          if (this.inner) {
+            this.inner = false;
+            var innerHash = this.array();
+            Sha256.call(this, this.is224, this.sharedMemory);
+            this.update(this.oKeyPad);
+            this.update(innerHash);
+            Sha256.prototype.finalize.call(this);
+          }
+        };
+        var exports$1 = createMethod();
+        exports$1.sha256 = exports$1;
+        exports$1.sha224 = createMethod(true);
+        exports$1.sha256.hmac = createHmacMethod();
+        exports$1.sha224.hmac = createHmacMethod(true);
+        if (COMMON_JS) {
+          module.exports = exports$1;
+        } else {
+          root2.sha256 = exports$1.sha256;
+          root2.sha224 = exports$1.sha224;
+        }
+      })();
+    })(sha256$1);
+    return sha256$1.exports;
+  }
+  var sha256Exports = requireSha256();
+  const sha256 = /* @__PURE__ */ getDefaultExportFromCjs(sha256Exports);
+  class InvalidTokenError extends Error {
+  }
+  InvalidTokenError.prototype.name = "InvalidTokenError";
+  function b64DecodeUnicode(str) {
+    return decodeURIComponent(atob(str).replace(/(.)/g, (m, p) => {
+      let code2 = p.charCodeAt(0).toString(16).toUpperCase();
+      if (code2.length < 2) {
+        code2 = "0" + code2;
+      }
+      return "%" + code2;
+    }));
+  }
+  function base64UrlDecode(str) {
+    let output = str.replace(/-/g, "+").replace(/_/g, "/");
+    switch (output.length % 4) {
+      case 0:
+        break;
+      case 2:
+        output += "==";
+        break;
+      case 3:
+        output += "=";
+        break;
+      default:
+        throw new Error("base64 string is not of the correct length");
+    }
+    try {
+      return b64DecodeUnicode(output);
+    } catch (err) {
+      return atob(output);
+    }
+  }
+  function jwtDecode(token, options) {
+    if (typeof token !== "string") {
+      throw new InvalidTokenError("Invalid token specified: must be a string");
+    }
+    options || (options = {});
+    const pos = options.header === true ? 0 : 1;
+    const part = token.split(".")[pos];
+    if (typeof part !== "string") {
+      throw new InvalidTokenError(`Invalid token specified: missing part #${pos + 1}`);
+    }
+    let decoded;
+    try {
+      decoded = base64UrlDecode(part);
+    } catch (e) {
+      throw new InvalidTokenError(`Invalid token specified: invalid base64 for part #${pos + 1} (${e.message})`);
+    }
+    try {
+      return JSON.parse(decoded);
+    } catch (e) {
+      throw new InvalidTokenError(`Invalid token specified: invalid json for part #${pos + 1} (${e.message})`);
+    }
+  }
+  if (typeof Promise === "undefined") {
+    throw Error("Keycloak requires an environment that supports Promises. Make sure that you include the appropriate polyfill.");
+  }
+  function Keycloak(config) {
+    if (!(this instanceof Keycloak)) {
+      throw new Error("The 'Keycloak' constructor must be invoked with 'new'.");
+    }
+    var kc = this;
+    var adapter;
+    var refreshQueue = [];
+    var callbackStorage;
+    var loginIframe = {
+      enable: true,
+      callbackList: [],
+      interval: 5
+    };
+    var scripts = document.getElementsByTagName("script");
+    for (var i = 0; i < scripts.length; i++) {
+      if ((scripts[i].src.indexOf("keycloak.js") !== -1 || scripts[i].src.indexOf("keycloak.min.js") !== -1) && scripts[i].src.indexOf("version=") !== -1) {
+        kc.iframeVersion = scripts[i].src.substring(scripts[i].src.indexOf("version=") + 8).split("&")[0];
+      }
+    }
+    var useNonce = true;
+    var logInfo = createLogger(console.info);
+    var logWarn = createLogger(console.warn);
+    kc.init = function(initOptions) {
+      if (kc.didInitialize) {
+        throw new Error("A 'Keycloak' instance can only be initialized once.");
+      }
+      kc.didInitialize = true;
+      kc.authenticated = false;
+      callbackStorage = createCallbackStorage();
+      var adapters = ["default", "cordova", "cordova-native"];
+      if (initOptions && adapters.indexOf(initOptions.adapter) > -1) {
+        adapter = loadAdapter(initOptions.adapter);
+      } else if (initOptions && typeof initOptions.adapter === "object") {
+        adapter = initOptions.adapter;
+      } else {
+        if (window.Cordova || window.cordova) {
+          adapter = loadAdapter("cordova");
+        } else {
+          adapter = loadAdapter();
+        }
+      }
+      if (initOptions) {
+        if (typeof initOptions.useNonce !== "undefined") {
+          useNonce = initOptions.useNonce;
+        }
+        if (typeof initOptions.checkLoginIframe !== "undefined") {
+          loginIframe.enable = initOptions.checkLoginIframe;
+        }
+        if (initOptions.checkLoginIframeInterval) {
+          loginIframe.interval = initOptions.checkLoginIframeInterval;
+        }
+        if (initOptions.onLoad === "login-required") {
+          kc.loginRequired = true;
+        }
+        if (initOptions.responseMode) {
+          if (initOptions.responseMode === "query" || initOptions.responseMode === "fragment") {
+            kc.responseMode = initOptions.responseMode;
+          } else {
+            throw "Invalid value for responseMode";
+          }
+        }
+        if (initOptions.flow) {
+          switch (initOptions.flow) {
+            case "standard":
+              kc.responseType = "code";
+              break;
+            case "implicit":
+              kc.responseType = "id_token token";
+              break;
+            case "hybrid":
+              kc.responseType = "code id_token token";
+              break;
+            default:
+              throw "Invalid value for flow";
+          }
+          kc.flow = initOptions.flow;
+        }
+        if (initOptions.timeSkew != null) {
+          kc.timeSkew = initOptions.timeSkew;
+        }
+        if (initOptions.redirectUri) {
+          kc.redirectUri = initOptions.redirectUri;
+        }
+        if (initOptions.silentCheckSsoRedirectUri) {
+          kc.silentCheckSsoRedirectUri = initOptions.silentCheckSsoRedirectUri;
+        }
+        if (typeof initOptions.silentCheckSsoFallback === "boolean") {
+          kc.silentCheckSsoFallback = initOptions.silentCheckSsoFallback;
+        } else {
+          kc.silentCheckSsoFallback = true;
+        }
+        if (typeof initOptions.pkceMethod !== "undefined") {
+          if (initOptions.pkceMethod !== "S256" && initOptions.pkceMethod !== false) {
+            throw new TypeError(`Invalid value for pkceMethod', expected 'S256' or false but got ${initOptions.pkceMethod}.`);
+          }
+          kc.pkceMethod = initOptions.pkceMethod;
+        } else {
+          kc.pkceMethod = "S256";
+        }
+        if (typeof initOptions.enableLogging === "boolean") {
+          kc.enableLogging = initOptions.enableLogging;
+        } else {
+          kc.enableLogging = false;
+        }
+        if (initOptions.logoutMethod === "POST") {
+          kc.logoutMethod = "POST";
+        } else {
+          kc.logoutMethod = "GET";
+        }
+        if (typeof initOptions.scope === "string") {
+          kc.scope = initOptions.scope;
+        }
+        if (typeof initOptions.acrValues === "string") {
+          kc.acrValues = initOptions.acrValues;
+        }
+        if (typeof initOptions.messageReceiveTimeout === "number" && initOptions.messageReceiveTimeout > 0) {
+          kc.messageReceiveTimeout = initOptions.messageReceiveTimeout;
+        } else {
+          kc.messageReceiveTimeout = 1e4;
+        }
+      }
+      if (!kc.responseMode) {
+        kc.responseMode = "fragment";
+      }
+      if (!kc.responseType) {
+        kc.responseType = "code";
+        kc.flow = "standard";
+      }
+      var promise = createPromise();
+      var initPromise = createPromise();
+      initPromise.promise.then(function() {
+        kc.onReady && kc.onReady(kc.authenticated);
+        promise.setSuccess(kc.authenticated);
+      }).catch(function(error) {
+        promise.setError(error);
+      });
+      var configPromise = loadConfig();
+      function onLoad() {
+        var doLogin = function(prompt) {
+          if (!prompt) {
+            options.prompt = "none";
+          }
+          if (initOptions && initOptions.locale) {
+            options.locale = initOptions.locale;
+          }
+          kc.login(options).then(function() {
+            initPromise.setSuccess();
+          }).catch(function(error) {
+            initPromise.setError(error);
+          });
+        };
+        var checkSsoSilently = function() {
+          var ifrm = document.createElement("iframe");
+          var src = kc.createLoginUrl({ prompt: "none", redirectUri: kc.silentCheckSsoRedirectUri });
+          ifrm.setAttribute("src", src);
+          ifrm.setAttribute("sandbox", "allow-storage-access-by-user-activation allow-scripts allow-same-origin");
+          ifrm.setAttribute("title", "keycloak-silent-check-sso");
+          ifrm.style.display = "none";
+          document.body.appendChild(ifrm);
+          var messageCallback = function(event) {
+            if (event.origin !== window.location.origin || ifrm.contentWindow !== event.source) {
+              return;
+            }
+            var oauth = parseCallback(event.data);
+            processCallback(oauth, initPromise);
+            document.body.removeChild(ifrm);
+            window.removeEventListener("message", messageCallback);
+          };
+          window.addEventListener("message", messageCallback);
+        };
+        var options = {};
+        switch (initOptions.onLoad) {
+          case "check-sso":
+            if (loginIframe.enable) {
+              setupCheckLoginIframe().then(function() {
+                checkLoginIframe().then(function(unchanged) {
+                  if (!unchanged) {
+                    kc.silentCheckSsoRedirectUri ? checkSsoSilently() : doLogin(false);
+                  } else {
+                    initPromise.setSuccess();
+                  }
+                }).catch(function(error) {
+                  initPromise.setError(error);
+                });
+              });
+            } else {
+              kc.silentCheckSsoRedirectUri ? checkSsoSilently() : doLogin(false);
+            }
+            break;
+          case "login-required":
+            doLogin(true);
+            break;
+          default:
+            throw "Invalid value for onLoad";
+        }
+      }
+      function processInit() {
+        var callback = parseCallback(window.location.href);
+        if (callback) {
+          window.history.replaceState(window.history.state, null, callback.newUrl);
+        }
+        if (callback && callback.valid) {
+          return setupCheckLoginIframe().then(function() {
+            processCallback(callback, initPromise);
+          }).catch(function(error) {
+            initPromise.setError(error);
+          });
+        } else if (initOptions) {
+          if (initOptions.token && initOptions.refreshToken) {
+            setToken(initOptions.token, initOptions.refreshToken, initOptions.idToken);
+            if (loginIframe.enable) {
+              setupCheckLoginIframe().then(function() {
+                checkLoginIframe().then(function(unchanged) {
+                  if (unchanged) {
+                    kc.onAuthSuccess && kc.onAuthSuccess();
+                    initPromise.setSuccess();
+                    scheduleCheckIframe();
+                  } else {
+                    initPromise.setSuccess();
+                  }
+                }).catch(function(error) {
+                  initPromise.setError(error);
+                });
+              });
+            } else {
+              kc.updateToken(-1).then(function() {
+                kc.onAuthSuccess && kc.onAuthSuccess();
+                initPromise.setSuccess();
+              }).catch(function(error) {
+                kc.onAuthError && kc.onAuthError();
+                if (initOptions.onLoad) {
+                  onLoad();
+                } else {
+                  initPromise.setError(error);
+                }
+              });
+            }
+          } else if (initOptions.onLoad) {
+            onLoad();
+          } else {
+            initPromise.setSuccess();
+          }
+        } else {
+          initPromise.setSuccess();
+        }
+      }
+      function domReady() {
+        var promise2 = createPromise();
+        var checkReadyState = function() {
+          if (document.readyState === "interactive" || document.readyState === "complete") {
+            document.removeEventListener("readystatechange", checkReadyState);
+            promise2.setSuccess();
+          }
+        };
+        document.addEventListener("readystatechange", checkReadyState);
+        checkReadyState();
+        return promise2.promise;
+      }
+      configPromise.then(function() {
+        domReady().then(check3pCookiesSupported).then(processInit).catch(function(error) {
+          promise.setError(error);
+        });
+      });
+      configPromise.catch(function(error) {
+        promise.setError(error);
+      });
+      return promise.promise;
+    };
+    kc.login = function(options) {
+      return adapter.login(options);
+    };
+    function generateRandomData(len) {
+      var array = null;
+      var crypto2 = window.crypto || window.msCrypto;
+      if (crypto2 && crypto2.getRandomValues && window.Uint8Array) {
+        array = new Uint8Array(len);
+        crypto2.getRandomValues(array);
+        return array;
+      }
+      array = new Array(len);
+      for (var j = 0; j < array.length; j++) {
+        array[j] = Math.floor(256 * Math.random());
+      }
+      return array;
+    }
+    function generateCodeVerifier(len) {
+      return generateRandomString(len, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+    }
+    function generateRandomString(len, alphabet) {
+      var randomData = generateRandomData(len);
+      var chars2 = new Array(len);
+      for (var i2 = 0; i2 < len; i2++) {
+        chars2[i2] = alphabet.charCodeAt(randomData[i2] % alphabet.length);
+      }
+      return String.fromCharCode.apply(null, chars2);
+    }
+    function generatePkceChallenge(pkceMethod, codeVerifier) {
+      if (pkceMethod !== "S256") {
+        throw new TypeError(`Invalid value for 'pkceMethod', expected 'S256' but got '${pkceMethod}'.`);
+      }
+      const hashBytes = new Uint8Array(sha256.arrayBuffer(codeVerifier));
+      const encodedHash = bytesToBase64(hashBytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/\=/g, "");
+      return encodedHash;
+    }
+    function buildClaimsParameter(requestedAcr) {
+      var claims = {
+        id_token: {
+          acr: requestedAcr
+        }
+      };
+      return JSON.stringify(claims);
+    }
+    kc.createLoginUrl = function(options) {
+      var state = createUUID();
+      var nonce = createUUID();
+      var redirectUri = adapter.redirectUri(options);
+      var callbackState = {
+        state,
+        nonce,
+        redirectUri: encodeURIComponent(redirectUri),
+        loginOptions: options
+      };
+      if (options && options.prompt) {
+        callbackState.prompt = options.prompt;
+      }
+      var baseUrl;
+      if (options && options.action == "register") {
+        baseUrl = kc.endpoints.register();
+      } else {
+        baseUrl = kc.endpoints.authorize();
+      }
+      var scope = options && options.scope || kc.scope;
+      if (!scope) {
+        scope = "openid";
+      } else if (scope.indexOf("openid") === -1) {
+        scope = "openid " + scope;
+      }
+      var url2 = baseUrl + "?client_id=" + encodeURIComponent(kc.clientId) + "&redirect_uri=" + encodeURIComponent(redirectUri) + "&state=" + encodeURIComponent(state) + "&response_mode=" + encodeURIComponent(kc.responseMode) + "&response_type=" + encodeURIComponent(kc.responseType) + "&scope=" + encodeURIComponent(scope);
+      if (useNonce) {
+        url2 = url2 + "&nonce=" + encodeURIComponent(nonce);
+      }
+      if (options && options.prompt) {
+        url2 += "&prompt=" + encodeURIComponent(options.prompt);
+      }
+      if (options && options.maxAge) {
+        url2 += "&max_age=" + encodeURIComponent(options.maxAge);
+      }
+      if (options && options.loginHint) {
+        url2 += "&login_hint=" + encodeURIComponent(options.loginHint);
+      }
+      if (options && options.idpHint) {
+        url2 += "&kc_idp_hint=" + encodeURIComponent(options.idpHint);
+      }
+      if (options && options.action && options.action != "register") {
+        url2 += "&kc_action=" + encodeURIComponent(options.action);
+      }
+      if (options && options.locale) {
+        url2 += "&ui_locales=" + encodeURIComponent(options.locale);
+      }
+      if (options && options.acr) {
+        var claimsParameter = buildClaimsParameter(options.acr);
+        url2 += "&claims=" + encodeURIComponent(claimsParameter);
+      }
+      if (options && options.acrValues || kc.acrValues) {
+        url2 += "&acr_values=" + encodeURIComponent(options.acrValues || kc.acrValues);
+      }
+      if (kc.pkceMethod) {
+        var codeVerifier = generateCodeVerifier(96);
+        callbackState.pkceCodeVerifier = codeVerifier;
+        var pkceChallenge = generatePkceChallenge(kc.pkceMethod, codeVerifier);
+        url2 += "&code_challenge=" + pkceChallenge;
+        url2 += "&code_challenge_method=" + kc.pkceMethod;
+      }
+      callbackStorage.add(callbackState);
+      return url2;
+    };
+    kc.logout = function(options) {
+      return adapter.logout(options);
+    };
+    kc.createLogoutUrl = function(options) {
+      const logoutMethod = options?.logoutMethod ?? kc.logoutMethod;
+      if (logoutMethod === "POST") {
+        return kc.endpoints.logout();
+      }
+      var url2 = kc.endpoints.logout() + "?client_id=" + encodeURIComponent(kc.clientId) + "&post_logout_redirect_uri=" + encodeURIComponent(adapter.redirectUri(options, false));
+      if (kc.idToken) {
+        url2 += "&id_token_hint=" + encodeURIComponent(kc.idToken);
+      }
+      return url2;
+    };
+    kc.register = function(options) {
+      return adapter.register(options);
+    };
+    kc.createRegisterUrl = function(options) {
+      if (!options) {
+        options = {};
+      }
+      options.action = "register";
+      return kc.createLoginUrl(options);
+    };
+    kc.createAccountUrl = function(options) {
+      var realm = getRealmUrl();
+      var url2 = void 0;
+      if (typeof realm !== "undefined") {
+        url2 = realm + "/account?referrer=" + encodeURIComponent(kc.clientId) + "&referrer_uri=" + encodeURIComponent(adapter.redirectUri(options));
+      }
+      return url2;
+    };
+    kc.accountManagement = function() {
+      return adapter.accountManagement();
+    };
+    kc.hasRealmRole = function(role) {
+      var access = kc.realmAccess;
+      return !!access && access.roles.indexOf(role) >= 0;
+    };
+    kc.hasResourceRole = function(role, resource) {
+      if (!kc.resourceAccess) {
+        return false;
+      }
+      var access = kc.resourceAccess[resource || kc.clientId];
+      return !!access && access.roles.indexOf(role) >= 0;
+    };
+    kc.loadUserProfile = function() {
+      var url2 = getRealmUrl() + "/account";
+      var req = new XMLHttpRequest();
+      req.open("GET", url2, true);
+      req.setRequestHeader("Accept", "application/json");
+      req.setRequestHeader("Authorization", "bearer " + kc.token);
+      var promise = createPromise();
+      req.onreadystatechange = function() {
+        if (req.readyState == 4) {
+          if (req.status == 200) {
+            kc.profile = JSON.parse(req.responseText);
+            promise.setSuccess(kc.profile);
+          } else {
+            promise.setError();
+          }
+        }
+      };
+      req.send();
+      return promise.promise;
+    };
+    kc.loadUserInfo = function() {
+      var url2 = kc.endpoints.userinfo();
+      var req = new XMLHttpRequest();
+      req.open("GET", url2, true);
+      req.setRequestHeader("Accept", "application/json");
+      req.setRequestHeader("Authorization", "bearer " + kc.token);
+      var promise = createPromise();
+      req.onreadystatechange = function() {
+        if (req.readyState == 4) {
+          if (req.status == 200) {
+            kc.userInfo = JSON.parse(req.responseText);
+            promise.setSuccess(kc.userInfo);
+          } else {
+            promise.setError();
+          }
+        }
+      };
+      req.send();
+      return promise.promise;
+    };
+    kc.isTokenExpired = function(minValidity) {
+      if (!kc.tokenParsed || !kc.refreshToken && kc.flow != "implicit") {
+        throw "Not authenticated";
+      }
+      if (kc.timeSkew == null) {
+        logInfo("[KEYCLOAK] Unable to determine if token is expired as timeskew is not set");
+        return true;
+      }
+      var expiresIn = kc.tokenParsed["exp"] - Math.ceil((/* @__PURE__ */ new Date()).getTime() / 1e3) + kc.timeSkew;
+      if (minValidity) {
+        if (isNaN(minValidity)) {
+          throw "Invalid minValidity";
+        }
+        expiresIn -= minValidity;
+      }
+      return expiresIn < 0;
+    };
+    kc.updateToken = function(minValidity) {
+      var promise = createPromise();
+      if (!kc.refreshToken) {
+        promise.setError();
+        return promise.promise;
+      }
+      minValidity = minValidity || 5;
+      var exec = function() {
+        var refreshToken = false;
+        if (minValidity == -1) {
+          refreshToken = true;
+          logInfo("[KEYCLOAK] Refreshing token: forced refresh");
+        } else if (!kc.tokenParsed || kc.isTokenExpired(minValidity)) {
+          refreshToken = true;
+          logInfo("[KEYCLOAK] Refreshing token: token expired");
+        }
+        if (!refreshToken) {
+          promise.setSuccess(false);
+        } else {
+          var params = "grant_type=refresh_token&refresh_token=" + kc.refreshToken;
+          var url2 = kc.endpoints.token();
+          refreshQueue.push(promise);
+          if (refreshQueue.length == 1) {
+            var req = new XMLHttpRequest();
+            req.open("POST", url2, true);
+            req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            req.withCredentials = true;
+            params += "&client_id=" + encodeURIComponent(kc.clientId);
+            var timeLocal = (/* @__PURE__ */ new Date()).getTime();
+            req.onreadystatechange = function() {
+              if (req.readyState == 4) {
+                if (req.status == 200) {
+                  logInfo("[KEYCLOAK] Token refreshed");
+                  timeLocal = (timeLocal + (/* @__PURE__ */ new Date()).getTime()) / 2;
+                  var tokenResponse = JSON.parse(req.responseText);
+                  setToken(tokenResponse["access_token"], tokenResponse["refresh_token"], tokenResponse["id_token"], timeLocal);
+                  kc.onAuthRefreshSuccess && kc.onAuthRefreshSuccess();
+                  for (var p = refreshQueue.pop(); p != null; p = refreshQueue.pop()) {
+                    p.setSuccess(true);
+                  }
+                } else {
+                  logWarn("[KEYCLOAK] Failed to refresh token");
+                  if (req.status == 400) {
+                    kc.clearToken();
+                  }
+                  kc.onAuthRefreshError && kc.onAuthRefreshError();
+                  for (var p = refreshQueue.pop(); p != null; p = refreshQueue.pop()) {
+                    p.setError(true);
+                  }
+                }
+              }
+            };
+            req.send(params);
+          }
+        }
+      };
+      if (loginIframe.enable) {
+        var iframePromise = checkLoginIframe();
+        iframePromise.then(function() {
+          exec();
+        }).catch(function(error) {
+          promise.setError(error);
+        });
+      } else {
+        exec();
+      }
+      return promise.promise;
+    };
+    kc.clearToken = function() {
+      if (kc.token) {
+        setToken(null, null, null);
+        kc.onAuthLogout && kc.onAuthLogout();
+        if (kc.loginRequired) {
+          kc.login();
+        }
+      }
+    };
+    function getRealmUrl() {
+      if (typeof kc.authServerUrl !== "undefined") {
+        if (kc.authServerUrl.charAt(kc.authServerUrl.length - 1) == "/") {
+          return kc.authServerUrl + "realms/" + encodeURIComponent(kc.realm);
+        } else {
+          return kc.authServerUrl + "/realms/" + encodeURIComponent(kc.realm);
+        }
+      } else {
+        return void 0;
+      }
+    }
+    function getOrigin() {
+      if (!window.location.origin) {
+        return window.location.protocol + "//" + window.location.hostname + (window.location.port ? ":" + window.location.port : "");
+      } else {
+        return window.location.origin;
+      }
+    }
+    function processCallback(oauth, promise) {
+      var code2 = oauth.code;
+      var error = oauth.error;
+      var prompt = oauth.prompt;
+      var timeLocal = (/* @__PURE__ */ new Date()).getTime();
+      if (oauth["kc_action_status"]) {
+        kc.onActionUpdate && kc.onActionUpdate(oauth["kc_action_status"]);
+      }
+      if (error) {
+        if (prompt != "none") {
+          if (oauth.error_description && oauth.error_description === "authentication_expired") {
+            kc.login(oauth.loginOptions);
+          } else {
+            var errorData = { error, error_description: oauth.error_description };
+            kc.onAuthError && kc.onAuthError(errorData);
+            promise && promise.setError(errorData);
+          }
+        } else {
+          promise && promise.setSuccess();
+        }
+        return;
+      } else if (kc.flow != "standard" && (oauth.access_token || oauth.id_token)) {
+        authSuccess(oauth.access_token, null, oauth.id_token, true);
+      }
+      if (kc.flow != "implicit" && code2) {
+        var params = "code=" + code2 + "&grant_type=authorization_code";
+        var url2 = kc.endpoints.token();
+        var req = new XMLHttpRequest();
+        req.open("POST", url2, true);
+        req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        params += "&client_id=" + encodeURIComponent(kc.clientId);
+        params += "&redirect_uri=" + oauth.redirectUri;
+        if (oauth.pkceCodeVerifier) {
+          params += "&code_verifier=" + oauth.pkceCodeVerifier;
+        }
+        req.withCredentials = true;
+        req.onreadystatechange = function() {
+          if (req.readyState == 4) {
+            if (req.status == 200) {
+              var tokenResponse = JSON.parse(req.responseText);
+              authSuccess(tokenResponse["access_token"], tokenResponse["refresh_token"], tokenResponse["id_token"], kc.flow === "standard");
+              scheduleCheckIframe();
+            } else {
+              kc.onAuthError && kc.onAuthError();
+              promise && promise.setError();
+            }
+          }
+        };
+        req.send(params);
+      }
+      function authSuccess(accessToken, refreshToken, idToken, fulfillPromise) {
+        timeLocal = (timeLocal + (/* @__PURE__ */ new Date()).getTime()) / 2;
+        setToken(accessToken, refreshToken, idToken, timeLocal);
+        if (useNonce && (kc.idTokenParsed && kc.idTokenParsed.nonce != oauth.storedNonce)) {
+          logInfo("[KEYCLOAK] Invalid nonce, clearing token");
+          kc.clearToken();
+          promise && promise.setError();
+        } else {
+          if (fulfillPromise) {
+            kc.onAuthSuccess && kc.onAuthSuccess();
+            promise && promise.setSuccess();
+          }
+        }
+      }
+    }
+    function loadConfig(url2) {
+      var promise = createPromise();
+      var configUrl;
+      if (!config) {
+        configUrl = "keycloak.json";
+      } else if (typeof config === "string") {
+        configUrl = config;
+      }
+      function setupOidcEndoints(oidcConfiguration) {
+        if (!oidcConfiguration) {
+          kc.endpoints = {
+            authorize: function() {
+              return getRealmUrl() + "/protocol/openid-connect/auth";
+            },
+            token: function() {
+              return getRealmUrl() + "/protocol/openid-connect/token";
+            },
+            logout: function() {
+              return getRealmUrl() + "/protocol/openid-connect/logout";
+            },
+            checkSessionIframe: function() {
+              var src = getRealmUrl() + "/protocol/openid-connect/login-status-iframe.html";
+              if (kc.iframeVersion) {
+                src = src + "?version=" + kc.iframeVersion;
+              }
+              return src;
+            },
+            thirdPartyCookiesIframe: function() {
+              var src = getRealmUrl() + "/protocol/openid-connect/3p-cookies/step1.html";
+              if (kc.iframeVersion) {
+                src = src + "?version=" + kc.iframeVersion;
+              }
+              return src;
+            },
+            register: function() {
+              return getRealmUrl() + "/protocol/openid-connect/registrations";
+            },
+            userinfo: function() {
+              return getRealmUrl() + "/protocol/openid-connect/userinfo";
+            }
+          };
+        } else {
+          kc.endpoints = {
+            authorize: function() {
+              return oidcConfiguration.authorization_endpoint;
+            },
+            token: function() {
+              return oidcConfiguration.token_endpoint;
+            },
+            logout: function() {
+              if (!oidcConfiguration.end_session_endpoint) {
+                throw "Not supported by the OIDC server";
+              }
+              return oidcConfiguration.end_session_endpoint;
+            },
+            checkSessionIframe: function() {
+              if (!oidcConfiguration.check_session_iframe) {
+                throw "Not supported by the OIDC server";
+              }
+              return oidcConfiguration.check_session_iframe;
+            },
+            register: function() {
+              throw 'Redirection to "Register user" page not supported in standard OIDC mode';
+            },
+            userinfo: function() {
+              if (!oidcConfiguration.userinfo_endpoint) {
+                throw "Not supported by the OIDC server";
+              }
+              return oidcConfiguration.userinfo_endpoint;
+            }
+          };
+        }
+      }
+      if (configUrl) {
+        var req = new XMLHttpRequest();
+        req.open("GET", configUrl, true);
+        req.setRequestHeader("Accept", "application/json");
+        req.onreadystatechange = function() {
+          if (req.readyState == 4) {
+            if (req.status == 200 || fileLoaded(req)) {
+              var config2 = JSON.parse(req.responseText);
+              kc.authServerUrl = config2["auth-server-url"];
+              kc.realm = config2["realm"];
+              kc.clientId = config2["resource"];
+              setupOidcEndoints(null);
+              promise.setSuccess();
+            } else {
+              promise.setError();
+            }
+          }
+        };
+        req.send();
+      } else {
+        if (!config.clientId) {
+          throw "clientId missing";
+        }
+        kc.clientId = config.clientId;
+        var oidcProvider = config["oidcProvider"];
+        if (!oidcProvider) {
+          if (!config["url"]) {
+            var scripts2 = document.getElementsByTagName("script");
+            for (var i2 = 0; i2 < scripts2.length; i2++) {
+              if (scripts2[i2].src.match(/.*keycloak\.js/)) {
+                config.url = scripts2[i2].src.substr(0, scripts2[i2].src.indexOf("/js/keycloak.js"));
+                break;
+              }
+            }
+          }
+          if (!config.realm) {
+            throw "realm missing";
+          }
+          kc.authServerUrl = config.url;
+          kc.realm = config.realm;
+          setupOidcEndoints(null);
+          promise.setSuccess();
+        } else {
+          if (typeof oidcProvider === "string") {
+            var oidcProviderConfigUrl;
+            if (oidcProvider.charAt(oidcProvider.length - 1) == "/") {
+              oidcProviderConfigUrl = oidcProvider + ".well-known/openid-configuration";
+            } else {
+              oidcProviderConfigUrl = oidcProvider + "/.well-known/openid-configuration";
+            }
+            var req = new XMLHttpRequest();
+            req.open("GET", oidcProviderConfigUrl, true);
+            req.setRequestHeader("Accept", "application/json");
+            req.onreadystatechange = function() {
+              if (req.readyState == 4) {
+                if (req.status == 200 || fileLoaded(req)) {
+                  var oidcProviderConfig = JSON.parse(req.responseText);
+                  setupOidcEndoints(oidcProviderConfig);
+                  promise.setSuccess();
+                } else {
+                  promise.setError();
+                }
+              }
+            };
+            req.send();
+          } else {
+            setupOidcEndoints(oidcProvider);
+            promise.setSuccess();
+          }
+        }
+      }
+      return promise.promise;
+    }
+    function fileLoaded(xhr) {
+      return xhr.status == 0 && xhr.responseText && xhr.responseURL.startsWith("file:");
+    }
+    function setToken(token, refreshToken, idToken, timeLocal) {
+      if (kc.tokenTimeoutHandle) {
+        clearTimeout(kc.tokenTimeoutHandle);
+        kc.tokenTimeoutHandle = null;
+      }
+      if (refreshToken) {
+        kc.refreshToken = refreshToken;
+        kc.refreshTokenParsed = jwtDecode(refreshToken);
+      } else {
+        delete kc.refreshToken;
+        delete kc.refreshTokenParsed;
+      }
+      if (idToken) {
+        kc.idToken = idToken;
+        kc.idTokenParsed = jwtDecode(idToken);
+      } else {
+        delete kc.idToken;
+        delete kc.idTokenParsed;
+      }
+      if (token) {
+        kc.token = token;
+        kc.tokenParsed = jwtDecode(token);
+        kc.sessionId = kc.tokenParsed.sid;
+        kc.authenticated = true;
+        kc.subject = kc.tokenParsed.sub;
+        kc.realmAccess = kc.tokenParsed.realm_access;
+        kc.resourceAccess = kc.tokenParsed.resource_access;
+        if (timeLocal) {
+          kc.timeSkew = Math.floor(timeLocal / 1e3) - kc.tokenParsed.iat;
+        }
+        if (kc.timeSkew != null) {
+          logInfo("[KEYCLOAK] Estimated time difference between browser and server is " + kc.timeSkew + " seconds");
+          if (kc.onTokenExpired) {
+            var expiresIn = (kc.tokenParsed["exp"] - (/* @__PURE__ */ new Date()).getTime() / 1e3 + kc.timeSkew) * 1e3;
+            logInfo("[KEYCLOAK] Token expires in " + Math.round(expiresIn / 1e3) + " s");
+            if (expiresIn <= 0) {
+              kc.onTokenExpired();
+            } else {
+              kc.tokenTimeoutHandle = setTimeout(kc.onTokenExpired, expiresIn);
+            }
+          }
+        }
+      } else {
+        delete kc.token;
+        delete kc.tokenParsed;
+        delete kc.subject;
+        delete kc.realmAccess;
+        delete kc.resourceAccess;
+        kc.authenticated = false;
+      }
+    }
+    function createUUID() {
+      var hexDigits = "0123456789abcdef";
+      var s = generateRandomString(36, hexDigits).split("");
+      s[14] = "4";
+      s[19] = hexDigits.substr(s[19] & 3 | 8, 1);
+      s[8] = s[13] = s[18] = s[23] = "-";
+      var uuid = s.join("");
+      return uuid;
+    }
+    function parseCallback(url2) {
+      var oauth = parseCallbackUrl(url2);
+      if (!oauth) {
+        return;
+      }
+      var oauthState = callbackStorage.get(oauth.state);
+      if (oauthState) {
+        oauth.valid = true;
+        oauth.redirectUri = oauthState.redirectUri;
+        oauth.storedNonce = oauthState.nonce;
+        oauth.prompt = oauthState.prompt;
+        oauth.pkceCodeVerifier = oauthState.pkceCodeVerifier;
+        oauth.loginOptions = oauthState.loginOptions;
+      }
+      return oauth;
+    }
+    function parseCallbackUrl(url2) {
+      var supportedParams;
+      switch (kc.flow) {
+        case "standard":
+          supportedParams = ["code", "state", "session_state", "kc_action_status", "iss"];
+          break;
+        case "implicit":
+          supportedParams = ["access_token", "token_type", "id_token", "state", "session_state", "expires_in", "kc_action_status", "iss"];
+          break;
+        case "hybrid":
+          supportedParams = ["access_token", "token_type", "id_token", "code", "state", "session_state", "expires_in", "kc_action_status", "iss"];
+          break;
+      }
+      supportedParams.push("error");
+      supportedParams.push("error_description");
+      supportedParams.push("error_uri");
+      var queryIndex = url2.indexOf("?");
+      var fragmentIndex = url2.indexOf("#");
+      var newUrl;
+      var parsed;
+      if (kc.responseMode === "query" && queryIndex !== -1) {
+        newUrl = url2.substring(0, queryIndex);
+        parsed = parseCallbackParams(url2.substring(queryIndex + 1, fragmentIndex !== -1 ? fragmentIndex : url2.length), supportedParams);
+        if (parsed.paramsString !== "") {
+          newUrl += "?" + parsed.paramsString;
+        }
+        if (fragmentIndex !== -1) {
+          newUrl += url2.substring(fragmentIndex);
+        }
+      } else if (kc.responseMode === "fragment" && fragmentIndex !== -1) {
+        newUrl = url2.substring(0, fragmentIndex);
+        parsed = parseCallbackParams(url2.substring(fragmentIndex + 1), supportedParams);
+        if (parsed.paramsString !== "") {
+          newUrl += "#" + parsed.paramsString;
+        }
+      }
+      if (parsed && parsed.oauthParams) {
+        if (kc.flow === "standard" || kc.flow === "hybrid") {
+          if ((parsed.oauthParams.code || parsed.oauthParams.error) && parsed.oauthParams.state) {
+            parsed.oauthParams.newUrl = newUrl;
+            return parsed.oauthParams;
+          }
+        } else if (kc.flow === "implicit") {
+          if ((parsed.oauthParams.access_token || parsed.oauthParams.error) && parsed.oauthParams.state) {
+            parsed.oauthParams.newUrl = newUrl;
+            return parsed.oauthParams;
+          }
+        }
+      }
+    }
+    function parseCallbackParams(paramsString, supportedParams) {
+      var p = paramsString.split("&");
+      var result = {
+        paramsString: "",
+        oauthParams: {}
+      };
+      for (var i2 = 0; i2 < p.length; i2++) {
+        var split = p[i2].indexOf("=");
+        var key = p[i2].slice(0, split);
+        if (supportedParams.indexOf(key) !== -1) {
+          result.oauthParams[key] = p[i2].slice(split + 1);
+        } else {
+          if (result.paramsString !== "") {
+            result.paramsString += "&";
+          }
+          result.paramsString += p[i2];
+        }
+      }
+      return result;
+    }
+    function createPromise() {
+      var p = {
+        setSuccess: function(result) {
+          p.resolve(result);
+        },
+        setError: function(result) {
+          p.reject(result);
+        }
+      };
+      p.promise = new Promise(function(resolve, reject) {
+        p.resolve = resolve;
+        p.reject = reject;
+      });
+      return p;
+    }
+    function applyTimeoutToPromise(promise, timeout, errorMessage) {
+      var timeoutHandle = null;
+      var timeoutPromise = new Promise(function(resolve, reject) {
+        timeoutHandle = setTimeout(function() {
+          reject({ "error": errorMessage });
+        }, timeout);
+      });
+      return Promise.race([promise, timeoutPromise]).finally(function() {
+        clearTimeout(timeoutHandle);
+      });
+    }
+    function setupCheckLoginIframe() {
+      var promise = createPromise();
+      if (!loginIframe.enable) {
+        promise.setSuccess();
+        return promise.promise;
+      }
+      if (loginIframe.iframe) {
+        promise.setSuccess();
+        return promise.promise;
+      }
+      var iframe = document.createElement("iframe");
+      loginIframe.iframe = iframe;
+      iframe.onload = function() {
+        var authUrl = kc.endpoints.authorize();
+        if (authUrl.charAt(0) === "/") {
+          loginIframe.iframeOrigin = getOrigin();
+        } else {
+          loginIframe.iframeOrigin = authUrl.substring(0, authUrl.indexOf("/", 8));
+        }
+        promise.setSuccess();
+      };
+      var src = kc.endpoints.checkSessionIframe();
+      iframe.setAttribute("src", src);
+      iframe.setAttribute("sandbox", "allow-storage-access-by-user-activation allow-scripts allow-same-origin");
+      iframe.setAttribute("title", "keycloak-session-iframe");
+      iframe.style.display = "none";
+      document.body.appendChild(iframe);
+      var messageCallback = function(event) {
+        if (event.origin !== loginIframe.iframeOrigin || loginIframe.iframe.contentWindow !== event.source) {
+          return;
+        }
+        if (!(event.data == "unchanged" || event.data == "changed" || event.data == "error")) {
+          return;
+        }
+        if (event.data != "unchanged") {
+          kc.clearToken();
+        }
+        var callbacks = loginIframe.callbackList.splice(0, loginIframe.callbackList.length);
+        for (var i2 = callbacks.length - 1; i2 >= 0; --i2) {
+          var promise2 = callbacks[i2];
+          if (event.data == "error") {
+            promise2.setError();
+          } else {
+            promise2.setSuccess(event.data == "unchanged");
+          }
+        }
+      };
+      window.addEventListener("message", messageCallback, false);
+      return promise.promise;
+    }
+    function scheduleCheckIframe() {
+      if (loginIframe.enable) {
+        if (kc.token) {
+          setTimeout(function() {
+            checkLoginIframe().then(function(unchanged) {
+              if (unchanged) {
+                scheduleCheckIframe();
+              }
+            });
+          }, loginIframe.interval * 1e3);
+        }
+      }
+    }
+    function checkLoginIframe() {
+      var promise = createPromise();
+      if (loginIframe.iframe && loginIframe.iframeOrigin) {
+        var msg = kc.clientId + " " + (kc.sessionId ? kc.sessionId : "");
+        loginIframe.callbackList.push(promise);
+        var origin = loginIframe.iframeOrigin;
+        if (loginIframe.callbackList.length == 1) {
+          loginIframe.iframe.contentWindow.postMessage(msg, origin);
+        }
+      } else {
+        promise.setSuccess();
+      }
+      return promise.promise;
+    }
+    function check3pCookiesSupported() {
+      var promise = createPromise();
+      if (loginIframe.enable || kc.silentCheckSsoRedirectUri) {
+        var iframe = document.createElement("iframe");
+        iframe.setAttribute("src", kc.endpoints.thirdPartyCookiesIframe());
+        iframe.setAttribute("sandbox", "allow-storage-access-by-user-activation allow-scripts allow-same-origin");
+        iframe.setAttribute("title", "keycloak-3p-check-iframe");
+        iframe.style.display = "none";
+        document.body.appendChild(iframe);
+        var messageCallback = function(event) {
+          if (iframe.contentWindow !== event.source) {
+            return;
+          }
+          if (event.data !== "supported" && event.data !== "unsupported") {
+            return;
+          } else if (event.data === "unsupported") {
+            logWarn(
+              "[KEYCLOAK] Your browser is blocking access to 3rd-party cookies, this means:\n\n - It is not possible to retrieve tokens without redirecting to the Keycloak server (a.k.a. no support for silent authentication).\n - It is not possible to automatically detect changes to the session status (such as the user logging out in another tab).\n\nFor more information see: https://www.keycloak.org/docs/latest/securing_apps/#_modern_browsers"
+            );
+            loginIframe.enable = false;
+            if (kc.silentCheckSsoFallback) {
+              kc.silentCheckSsoRedirectUri = false;
+            }
+          }
+          document.body.removeChild(iframe);
+          window.removeEventListener("message", messageCallback);
+          promise.setSuccess();
+        };
+        window.addEventListener("message", messageCallback, false);
+      } else {
+        promise.setSuccess();
+      }
+      return applyTimeoutToPromise(promise.promise, kc.messageReceiveTimeout, "Timeout when waiting for 3rd party check iframe message.");
+    }
+    function loadAdapter(type) {
+      if (!type || type == "default") {
+        return {
+          login: function(options) {
+            window.location.assign(kc.createLoginUrl(options));
+            return createPromise().promise;
+          },
+          logout: async function(options) {
+            const logoutMethod = options?.logoutMethod ?? kc.logoutMethod;
+            if (logoutMethod === "GET") {
+              window.location.replace(kc.createLogoutUrl(options));
+              return;
+            }
+            const logoutUrl = kc.createLogoutUrl(options);
+            const response = await fetch(logoutUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+              },
+              body: new URLSearchParams({
+                id_token_hint: kc.idToken,
+                client_id: kc.clientId,
+                post_logout_redirect_uri: adapter.redirectUri(options, false)
+              })
+            });
+            if (response.redirected) {
+              window.location.href = response.url;
+              return;
+            }
+            if (response.ok) {
+              window.location.reload();
+              return;
+            }
+            throw new Error("Logout failed, request returned an error code.");
+          },
+          register: function(options) {
+            window.location.assign(kc.createRegisterUrl(options));
+            return createPromise().promise;
+          },
+          accountManagement: function() {
+            var accountUrl = kc.createAccountUrl();
+            if (typeof accountUrl !== "undefined") {
+              window.location.href = accountUrl;
+            } else {
+              throw "Not supported by the OIDC server";
+            }
+            return createPromise().promise;
+          },
+          redirectUri: function(options, encodeHash) {
+            if (options && options.redirectUri) {
+              return options.redirectUri;
+            } else if (kc.redirectUri) {
+              return kc.redirectUri;
+            } else {
+              return location.href;
+            }
+          }
+        };
+      }
+      if (type == "cordova") {
+        loginIframe.enable = false;
+        var cordovaOpenWindowWrapper = function(loginUrl, target, options) {
+          if (window.cordova && window.cordova.InAppBrowser) {
+            return window.cordova.InAppBrowser.open(loginUrl, target, options);
+          } else {
+            return window.open(loginUrl, target, options);
+          }
+        };
+        var shallowCloneCordovaOptions = function(userOptions) {
+          if (userOptions && userOptions.cordovaOptions) {
+            return Object.keys(userOptions.cordovaOptions).reduce(function(options, optionName) {
+              options[optionName] = userOptions.cordovaOptions[optionName];
+              return options;
+            }, {});
+          } else {
+            return {};
+          }
+        };
+        var formatCordovaOptions = function(cordovaOptions) {
+          return Object.keys(cordovaOptions).reduce(function(options, optionName) {
+            options.push(optionName + "=" + cordovaOptions[optionName]);
+            return options;
+          }, []).join(",");
+        };
+        var createCordovaOptions = function(userOptions) {
+          var cordovaOptions = shallowCloneCordovaOptions(userOptions);
+          cordovaOptions.location = "no";
+          if (userOptions && userOptions.prompt == "none") {
+            cordovaOptions.hidden = "yes";
+          }
+          return formatCordovaOptions(cordovaOptions);
+        };
+        var getCordovaRedirectUri = function() {
+          return kc.redirectUri || "http://localhost";
+        };
+        return {
+          login: function(options) {
+            var promise = createPromise();
+            var cordovaOptions = createCordovaOptions(options);
+            var loginUrl = kc.createLoginUrl(options);
+            var ref = cordovaOpenWindowWrapper(loginUrl, "_blank", cordovaOptions);
+            var completed = false;
+            var closed = false;
+            var closeBrowser = function() {
+              closed = true;
+              ref.close();
+            };
+            ref.addEventListener("loadstart", function(event) {
+              if (event.url.indexOf(getCordovaRedirectUri()) == 0) {
+                var callback = parseCallback(event.url);
+                processCallback(callback, promise);
+                closeBrowser();
+                completed = true;
+              }
+            });
+            ref.addEventListener("loaderror", function(event) {
+              if (!completed) {
+                if (event.url.indexOf(getCordovaRedirectUri()) == 0) {
+                  var callback = parseCallback(event.url);
+                  processCallback(callback, promise);
+                  closeBrowser();
+                  completed = true;
+                } else {
+                  promise.setError();
+                  closeBrowser();
+                }
+              }
+            });
+            ref.addEventListener("exit", function(event) {
+              if (!closed) {
+                promise.setError({
+                  reason: "closed_by_user"
+                });
+              }
+            });
+            return promise.promise;
+          },
+          logout: function(options) {
+            var promise = createPromise();
+            var logoutUrl = kc.createLogoutUrl(options);
+            var ref = cordovaOpenWindowWrapper(logoutUrl, "_blank", "location=no,hidden=yes,clearcache=yes");
+            var error;
+            ref.addEventListener("loadstart", function(event) {
+              if (event.url.indexOf(getCordovaRedirectUri()) == 0) {
+                ref.close();
+              }
+            });
+            ref.addEventListener("loaderror", function(event) {
+              if (event.url.indexOf(getCordovaRedirectUri()) == 0) {
+                ref.close();
+              } else {
+                error = true;
+                ref.close();
+              }
+            });
+            ref.addEventListener("exit", function(event) {
+              if (error) {
+                promise.setError();
+              } else {
+                kc.clearToken();
+                promise.setSuccess();
+              }
+            });
+            return promise.promise;
+          },
+          register: function(options) {
+            var promise = createPromise();
+            var registerUrl = kc.createRegisterUrl();
+            var cordovaOptions = createCordovaOptions(options);
+            var ref = cordovaOpenWindowWrapper(registerUrl, "_blank", cordovaOptions);
+            ref.addEventListener("loadstart", function(event) {
+              if (event.url.indexOf(getCordovaRedirectUri()) == 0) {
+                ref.close();
+                var oauth = parseCallback(event.url);
+                processCallback(oauth, promise);
+              }
+            });
+            return promise.promise;
+          },
+          accountManagement: function() {
+            var accountUrl = kc.createAccountUrl();
+            if (typeof accountUrl !== "undefined") {
+              var ref = cordovaOpenWindowWrapper(accountUrl, "_blank", "location=no");
+              ref.addEventListener("loadstart", function(event) {
+                if (event.url.indexOf(getCordovaRedirectUri()) == 0) {
+                  ref.close();
+                }
+              });
+            } else {
+              throw "Not supported by the OIDC server";
+            }
+          },
+          redirectUri: function(options) {
+            return getCordovaRedirectUri();
+          }
+        };
+      }
+      if (type == "cordova-native") {
+        loginIframe.enable = false;
+        return {
+          login: function(options) {
+            var promise = createPromise();
+            var loginUrl = kc.createLoginUrl(options);
+            universalLinks.subscribe("keycloak", function(event) {
+              universalLinks.unsubscribe("keycloak");
+              window.cordova.plugins.browsertab.close();
+              var oauth = parseCallback(event.url);
+              processCallback(oauth, promise);
+            });
+            window.cordova.plugins.browsertab.openUrl(loginUrl);
+            return promise.promise;
+          },
+          logout: function(options) {
+            var promise = createPromise();
+            var logoutUrl = kc.createLogoutUrl(options);
+            universalLinks.subscribe("keycloak", function(event) {
+              universalLinks.unsubscribe("keycloak");
+              window.cordova.plugins.browsertab.close();
+              kc.clearToken();
+              promise.setSuccess();
+            });
+            window.cordova.plugins.browsertab.openUrl(logoutUrl);
+            return promise.promise;
+          },
+          register: function(options) {
+            var promise = createPromise();
+            var registerUrl = kc.createRegisterUrl(options);
+            universalLinks.subscribe("keycloak", function(event) {
+              universalLinks.unsubscribe("keycloak");
+              window.cordova.plugins.browsertab.close();
+              var oauth = parseCallback(event.url);
+              processCallback(oauth, promise);
+            });
+            window.cordova.plugins.browsertab.openUrl(registerUrl);
+            return promise.promise;
+          },
+          accountManagement: function() {
+            var accountUrl = kc.createAccountUrl();
+            if (typeof accountUrl !== "undefined") {
+              window.cordova.plugins.browsertab.openUrl(accountUrl);
+            } else {
+              throw "Not supported by the OIDC server";
+            }
+          },
+          redirectUri: function(options) {
+            if (options && options.redirectUri) {
+              return options.redirectUri;
+            } else if (kc.redirectUri) {
+              return kc.redirectUri;
+            } else {
+              return "http://localhost";
+            }
+          }
+        };
+      }
+      throw "invalid adapter type: " + type;
+    }
+    var LocalStorage = function() {
+      if (!(this instanceof LocalStorage)) {
+        return new LocalStorage();
+      }
+      localStorage.setItem("kc-test", "test");
+      localStorage.removeItem("kc-test");
+      var cs = this;
+      function clearExpired() {
+        var time2 = (/* @__PURE__ */ new Date()).getTime();
+        for (var i2 = 0; i2 < localStorage.length; i2++) {
+          var key = localStorage.key(i2);
+          if (key && key.indexOf("kc-callback-") == 0) {
+            var value2 = localStorage.getItem(key);
+            if (value2) {
+              try {
+                var expires = JSON.parse(value2).expires;
+                if (!expires || expires < time2) {
+                  localStorage.removeItem(key);
+                }
+              } catch (err) {
+                localStorage.removeItem(key);
+              }
+            }
+          }
+        }
+      }
+      cs.get = function(state) {
+        if (!state) {
+          return;
+        }
+        var key = "kc-callback-" + state;
+        var value2 = localStorage.getItem(key);
+        if (value2) {
+          localStorage.removeItem(key);
+          value2 = JSON.parse(value2);
+        }
+        clearExpired();
+        return value2;
+      };
+      cs.add = function(state) {
+        clearExpired();
+        var key = "kc-callback-" + state.state;
+        state.expires = (/* @__PURE__ */ new Date()).getTime() + 60 * 60 * 1e3;
+        localStorage.setItem(key, JSON.stringify(state));
+      };
+    };
+    var CookieStorage = function() {
+      if (!(this instanceof CookieStorage)) {
+        return new CookieStorage();
+      }
+      var cs = this;
+      cs.get = function(state) {
+        if (!state) {
+          return;
+        }
+        var value2 = getCookie2("kc-callback-" + state);
+        setCookie2("kc-callback-" + state, "", cookieExpiration(-100));
+        if (value2) {
+          return JSON.parse(value2);
+        }
+      };
+      cs.add = function(state) {
+        setCookie2("kc-callback-" + state.state, JSON.stringify(state), cookieExpiration(60));
+      };
+      cs.removeItem = function(key) {
+        setCookie2(key, "", cookieExpiration(-100));
+      };
+      var cookieExpiration = function(minutes) {
+        var exp = /* @__PURE__ */ new Date();
+        exp.setTime(exp.getTime() + minutes * 60 * 1e3);
+        return exp;
+      };
+      var getCookie2 = function(key) {
+        var name2 = key + "=";
+        var ca = document.cookie.split(";");
+        for (var i2 = 0; i2 < ca.length; i2++) {
+          var c = ca[i2];
+          while (c.charAt(0) == " ") {
+            c = c.substring(1);
+          }
+          if (c.indexOf(name2) == 0) {
+            return c.substring(name2.length, c.length);
+          }
+        }
+        return "";
+      };
+      var setCookie2 = function(key, value2, expirationDate) {
+        var cookie = key + "=" + value2 + "; expires=" + expirationDate.toUTCString() + "; ";
+        document.cookie = cookie;
+      };
+    };
+    function createCallbackStorage() {
+      try {
+        return new LocalStorage();
+      } catch (err) {
+      }
+      return new CookieStorage();
+    }
+    function createLogger(fn) {
+      return function() {
+        if (kc.enableLogging) {
+          fn.apply(console, Array.prototype.slice.call(arguments));
+        }
+      };
+    }
+  }
+  function bytesToBase64(bytes) {
+    const binString = String.fromCodePoint(...bytes);
+    return btoa(binString);
+  }
+  let _kc = null;
+  let _initPromise = null;
+  function getKcConfig() {
+    if (window.__IAM_CONFIG__) return window.__IAM_CONFIG__;
+    return {
+      url: "https://id.dev.iam.99technologies.com",
+      realm: "99-iam",
+      clientId: "project-iq"
+    };
+  }
+  function getOrCreateKc() {
+    if (!_kc) {
+      _kc = new Keycloak(getKcConfig());
+    }
+    return _kc;
+  }
+  function parseUser(kc) {
+    if (!kc?.authenticated || !kc.tokenParsed) return null;
+    const t = kc.tokenParsed;
+    const resourceAccess = t.resource_access || {};
+    const config = getKcConfig();
+    const clientRoles = resourceAccess[config.clientId]?.roles || [];
+    const apps = t.apps || Object.keys(resourceAccess).filter(
+      (k) => !["account", "account-console", "broker"].includes(k) && resourceAccess[k]?.roles?.length > 0
+    );
+    const _orgRaw = t.organization;
+    const org = Array.isArray(_orgRaw) ? _orgRaw[0] || {} : _orgRaw || {};
+    const realmRoles = t.realm_access?.roles || [];
+    return {
+      sub: t.sub,
+      username: t.preferred_username || "",
+      email: t.email || "",
+      name: t.name || `${t.given_name || ""} ${t.family_name || ""}`.trim(),
+      given_name: t.given_name || "",
+      family_name: t.family_name || "",
+      apps,
+      realm_roles: realmRoles,
+      client_roles: clientRoles,
+      // Project IQ client roles
+      is_admin: clientRoles.includes("Admin"),
+      is_operator: clientRoles.includes("Operator"),
+      is_member: clientRoles.includes("Member"),
+      // Realm roles
+      is_super_admin: realmRoles.includes("super_admin"),
+      is_org_admin: realmRoles.includes("org_admin"),
+      organization_id: org.id || "",
+      organization_alias: org.alias || ""
+    };
+  }
+  function useIam() {
+    const [isAuthenticated, setIsAuthenticated] = reactExports.useState(false);
+    const [isLoading, setIsLoading] = reactExports.useState(true);
+    const [user, setUser] = reactExports.useState(null);
+    const [token, setToken] = reactExports.useState(null);
+    const refreshTimer = reactExports.useRef(null);
+    const scheduleRefresh = reactExports.useCallback((kc) => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      const exp = kc.tokenParsed?.exp;
+      if (!exp) return;
+      const msUntilRefresh = Math.max(0, (exp - 120) * 1e3 - Date.now());
+      refreshTimer.current = setTimeout(async () => {
+        try {
+          const refreshed = await kc.updateToken(130);
+          if (refreshed) {
+            setToken(kc.token);
+            scheduleRefresh(kc);
+          }
+        } catch {
+          kc.login();
+        }
+      }, msUntilRefresh);
+    }, []);
+    reactExports.useEffect(() => {
+      const kc = getOrCreateKc();
+      if (!_initPromise) {
+        _initPromise = kc.init({
+          onLoad: "check-sso",
+          silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
+          pkceMethod: "S256",
+          checkLoginIframe: false
+        });
+      }
+      _initPromise.then((authenticated) => {
+        if (authenticated) {
+          setIsAuthenticated(true);
+          setUser(parseUser(kc));
+          setToken(kc.token);
+          scheduleRefresh(kc);
+        }
+      }).catch((err) => {
+        console.warn("[IAM] init error", err);
+      }).finally(() => setIsLoading(false));
+      kc.onAuthRefreshSuccess = () => {
+        setToken(kc.token);
+        setUser(parseUser(kc));
+        scheduleRefresh(kc);
+      };
+      kc.onAuthLogout = () => {
+        setIsAuthenticated(false);
+        setUser(null);
+        setToken(null);
+      };
+      return () => {
+        if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      };
+    }, [scheduleRefresh]);
+    const login = reactExports.useCallback((opts = {}) => {
+      getOrCreateKc().login(opts);
+    }, []);
+    const logout = reactExports.useCallback((opts = {}) => {
+      getOrCreateKc().logout(opts);
+    }, []);
+    return {
+      isAuthenticated,
+      isGuest: !isAuthenticated,
+      isLoading,
+      user,
+      token,
+      login,
+      logout,
+      kc: _kc
+    };
+  }
+  const CATEGORY_KEYWORDS = {
+    Hardware: [
+      "laptop",
+      "computer",
+      "keyboard",
+      "mouse",
+      "monitor",
+      "screen",
+      "printer",
+      "hardware",
+      "device",
+      "headset",
+      "charger",
+      "battery",
+      "cable",
+      "usb",
+      "docking"
+    ],
+    Network: [
+      "network",
+      "internet",
+      "wifi",
+      "vpn",
+      "connection",
+      "slow",
+      "disconnected",
+      "proxy",
+      "firewall",
+      "ethernet",
+      "bandwidth",
+      "ping",
+      "dns",
+      "ip"
+    ],
+    Software: [
+      "software",
+      "app",
+      "application",
+      "install",
+      "update",
+      "crash",
+      "error",
+      "bug",
+      "login",
+      "password",
+      "account",
+      "access",
+      "permission",
+      "license",
+      "office",
+      "excel",
+      "word",
+      "teams",
+      "outlook",
+      "browser",
+      "chrome",
+      "email"
+    ]
+  };
+  const PRIORITY_HIGH_WORDS = [
+    "urgent",
+    "asap",
+    "immediately",
+    "critical",
+    "emergency",
+    "can't work",
+    "cannot work",
+    "blocked",
+    "down",
+    "broken",
+    "not working"
+  ];
+  const PRIORITY_LOW_WORDS = ["whenever", "no rush", "low priority", "minor", "small", "sometime"];
+  function capitalize(str) {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+  }
+  function detectCategory(text2) {
+    const lower = text2.toLowerCase();
+    for (const [cat, words] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (words.some((w) => lower.includes(w))) return cat;
+    }
+    return "Other";
+  }
+  function detectPriority(text2) {
+    const lower = text2.toLowerCase();
+    if (PRIORITY_HIGH_WORDS.some((w) => lower.includes(w))) return "High";
+    if (PRIORITY_LOW_WORDS.some((w) => lower.includes(w))) return "Minor";
+    return "Medium";
+  }
+  function extractTitle(text2) {
+    const sentence = text2.split(/[.!?\n]/)[0].trim();
+    return sentence.length > 80 ? sentence.slice(0, 77) + "…" : capitalize(sentence);
+  }
+  function prefillFromMessages(messages = []) {
+    const userMessages = messages.filter(
+      (m) => m.sender !== "bot" && m.text && !m.text.startsWith("/") && m.type !== "ticket_summary"
+    );
+    if (!userMessages.length) return {};
+    const lastText = userMessages[userMessages.length - 1].text || "";
+    const allText = userMessages.map((m) => m.text).join(" ");
+    return {
+      title: extractTitle(lastText),
+      category: detectCategory(allText),
+      priority: detectPriority(allText),
+      detail: lastText.length > 80 ? lastText : ""
+    };
+  }
+  const QUEUE_KEY = "projectiq_offline_queue";
+  function useOfflineQueue(onSend) {
+    const [isOnline, setIsOnline] = reactExports.useState(navigator.onLine);
+    const onSendRef = reactExports.useRef(onSend);
+    reactExports.useEffect(() => {
+      onSendRef.current = onSend;
+    }, [onSend]);
+    const drainQueue = reactExports.useCallback(async () => {
+      try {
+        const raw = sessionStorage.getItem(QUEUE_KEY);
+        const queue = raw ? JSON.parse(raw) : [];
+        if (!queue.length) return;
+        sessionStorage.removeItem(QUEUE_KEY);
+        for (const text2 of queue) {
+          await onSendRef.current(text2);
+        }
+      } catch {
+      }
+    }, []);
+    reactExports.useEffect(() => {
+      const goOnline = () => {
+        setIsOnline(true);
+        drainQueue();
+      };
+      const goOffline = () => setIsOnline(false);
+      window.addEventListener("online", goOnline);
+      window.addEventListener("offline", goOffline);
+      return () => {
+        window.removeEventListener("online", goOnline);
+        window.removeEventListener("offline", goOffline);
+      };
+    }, [drainQueue]);
+    const enqueue = reactExports.useCallback((text2) => {
+      try {
+        const raw = sessionStorage.getItem(QUEUE_KEY);
+        const queue = raw ? JSON.parse(raw) : [];
+        queue.push(text2);
+        sessionStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+      } catch {
+      }
+    }, []);
+    return { isOnline, enqueue };
+  }
   const ADMIN_API_URL$1 = window.location.origin;
   const RASA_API_URL = `${ADMIN_API_URL$1}/webhooks/rest/webhook`;
   const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
   const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) => {
+    const iam = useIam();
+    const iamAuthenticated = iam.isAuthenticated && !!iam.user;
     const primaryColor = theme?.primaryColor || "#000000";
     theme?.secondaryColor || adjustBrightness(primaryColor, 20);
     const bgColor = theme?.bgColor || "#ffffff";
@@ -37523,7 +40301,6 @@ if (typeof window !== "undefined" && !window.process) {
     const buttonFontSize = theme?.buttonFontSize || "13";
     const inputFontSize = theme?.inputFontSize || "14";
     adjustBrightness(primaryColor, 20);
-    const shadowColor = `${primaryColor}4D`;
     function adjustBrightness(hex2, percent2) {
       if (!hex2.startsWith("#")) return hex2;
       const num = parseInt(hex2.replace("#", ""), 16);
@@ -37540,18 +40317,35 @@ if (typeof window !== "undefined" && !window.process) {
       setCookie(getStorageKey(appId, "senderId"), newId);
       return newId;
     });
-    const _operatorBrowser = !!localStorage.getItem("op_token");
+    const getAuthHeaders = reactExports.useCallback(() => {
+      const h = { "Content-Type": "application/json" };
+      if (iam.token) h["Authorization"] = `Bearer ${iam.token}`;
+      return h;
+    }, [iam.token]);
+    const handleIamLogin = reactExports.useCallback(() => {
+      iam.login({ redirectUri: window.location.href });
+    }, [iam]);
+    reactExports.useEffect(() => {
+      if (iamAuthenticated && iam.user) {
+        const iamSenderId = `iam-${iam.user.sub}`;
+        setSenderId(iamSenderId);
+        setCookie(getStorageKey(appId, "senderId"), iamSenderId);
+        setIsAuthenticated(true);
+        setIsGuest(false);
+        setAuthUser(iam.user.name || iam.user.username || iam.user.email);
+        setCookie(getStorageKey(appId, "isAuthenticated"), "true");
+        setCookie(getStorageKey(appId, "authUser"), iam.user.username || "");
+      }
+    }, [iamAuthenticated, iam.user, appId]);
+    !!localStorage.getItem("op_token");
     const [isAuthenticated, setIsAuthenticated] = reactExports.useState(() => {
-      if (_operatorBrowser) return false;
       return getCookie(getStorageKey(appId, "isAuthenticated")) === "true";
     });
     const [isGuest, setIsGuest] = reactExports.useState(() => {
-      if (_operatorBrowser) return true;
       const loggedIn = getCookie(getStorageKey(appId, "isAuthenticated")) === "true";
       return !loggedIn;
     });
     const [authUser, setAuthUser] = reactExports.useState(() => {
-      if (_operatorBrowser) return "";
       return getCookie(getStorageKey(appId, "authUser")) || "";
     });
     const [loginUsername, setLoginUsername] = reactExports.useState("");
@@ -37559,6 +40353,73 @@ if (typeof window !== "undefined" && !window.process) {
     const [loginError, setLoginError] = reactExports.useState("");
     const [isLoggingIn, setIsLoggingIn] = reactExports.useState(false);
     const [showLoginPrompt, setShowLoginPrompt] = reactExports.useState(false);
+    const [showProfile, setShowProfile] = reactExports.useState(false);
+    const [isDarkMode, setIsDarkMode] = reactExports.useState(() => localStorage.getItem("piq_dark") === "true");
+    const toggleDark = () => setIsDarkMode((v) => {
+      localStorage.setItem("piq_dark", !v);
+      return !v;
+    });
+    const darkBg = "#111827";
+    const darkText = "#f9fafb";
+    const effectiveBg = isDarkMode ? darkBg : bgColor;
+    const effectiveTx = isDarkMode ? darkText : textColor;
+    const c = {
+      bg: effectiveBg,
+      text: effectiveTx,
+      surface: isDarkMode ? "#1e2533" : "#ffffff",
+      surfaceAlt: isDarkMode ? "#252d3d" : "#f9fafb",
+      border: isDarkMode ? "#2e3a4e" : "#e5e7eb",
+      borderLight: isDarkMode ? "#2e3a4e" : "#f3f4f6",
+      textMuted: isDarkMode ? "#9ca3af" : "#6b7280",
+      textSub: isDarkMode ? "#6b7280" : "#9ca3af",
+      inputBg: isDarkMode ? "#1e2533" : "#f3f4f6",
+      hover: isDarkMode ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.04)",
+      welcomeBg: isDarkMode ? "#151e2e" : "#EEF2FA"
+    };
+    const [isListening, setIsListening] = reactExports.useState(false);
+    const recognitionRef = reactExports.useRef(null);
+    const startVoice = reactExports.useCallback(() => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) return;
+      if (isListening) {
+        recognitionRef.current?.stop();
+        return;
+      }
+      const rec = new SR();
+      rec.lang = "en-US";
+      rec.interimResults = false;
+      rec.onresult = (e) => setInputText(e.results[0][0].transcript);
+      rec.onend = () => setIsListening(false);
+      rec.onerror = () => setIsListening(false);
+      recognitionRef.current = rec;
+      rec.start();
+      setIsListening(true);
+    }, [isListening]);
+    const [webUnreadCount, setWebUnreadCount] = reactExports.useState(0);
+    const [historySearch, setHistorySearch] = reactExports.useState("");
+    reactExports.useEffect(() => {
+      const base = title || "Project IQ";
+      if (webUnreadCount > 0) {
+        document.title = `(${webUnreadCount}) ${base}`;
+        if ("setAppBadge" in navigator) {
+          navigator.setAppBadge(webUnreadCount).catch(() => {
+          });
+        }
+      } else {
+        document.title = base;
+        if ("clearAppBadge" in navigator) {
+          navigator.clearAppBadge().catch(() => {
+          });
+        }
+      }
+      const onVisible = () => {
+        if (document.visibilityState === "visible" && webUnreadCount === 0) {
+          document.title = base;
+        }
+      };
+      document.addEventListener("visibilitychange", onVisible);
+      return () => document.removeEventListener("visibilitychange", onVisible);
+    }, [webUnreadCount, title]);
     const [messages, setMessages] = reactExports.useState(() => {
       const saved = localStorage.getItem(getStorageKey(appId, "messages"));
       if (saved) {
@@ -37571,8 +40432,8 @@ if (typeof window !== "undefined" && !window.process) {
           console.warn("Failed to parse saved messages:", e);
         }
       }
-      const loggedIn = !_operatorBrowser && getCookie(getStorageKey(appId, "isAuthenticated")) === "true";
-      const userName = _operatorBrowser ? "" : getCookie(getStorageKey(appId, "authUser"));
+      const loggedIn = getCookie(getStorageKey(appId, "isAuthenticated")) === "true";
+      const userName = getCookie(getStorageKey(appId, "authUser"));
       if (loggedIn && userName) {
         return [{ id: "init", sender: "bot", text: `**Hi ${userName}!**
 
@@ -37931,11 +40792,13 @@ I'm here to help you with:
         setIsLoggingIn(false);
       }
     };
-    const fetchUserHistory = async () => {
+    const fetchUserHistory = async (search2 = "") => {
       if (!authUser) return;
       setHistoryLoading(true);
       try {
-        const res = await fetch(`${ADMIN_API_URL$1}/api/user/conversations?user_name=${encodeURIComponent(authUser)}&app_id=${encodeURIComponent(appId)}`);
+        const params = new URLSearchParams({ user_name: authUser });
+        if (search2) params.set("search", search2);
+        const res = await fetch(`${ADMIN_API_URL$1}/api/user/conversations?${params}`);
         const data = await res.json();
         if (data.success) setSessions(data.data);
       } catch (e) {
@@ -37979,10 +40842,13 @@ I'm here to help you with:
       const freshId = v4();
       setCookie(getStorageKey(appId, "senderId"), freshId);
       setSenderId(freshId);
-      setMessages([{ id: "init", sender: "bot", text: `You've been logged out. Continuing as guest.
+      setMessages([{ id: "init", sender: "bot", text: `You've been signed out. Continuing as guest.
 
-📚 You can still search the Knowledge Base and ask questions!
-🔑 Login anytime for full ticket features.` }]);
+📚 You can still search the Knowledge Base!
+🔑 Sign in anytime for full ticket features.` }]);
+      if (iamAuthenticated) {
+        iam.logout({ redirectUri: window.location.href });
+      }
     };
     const handleEndSession = () => {
       emitUserEndSession();
@@ -38053,7 +40919,7 @@ I'm here to help you with:
             body: JSON.stringify({
               sender: senderId,
               message: payload,
-              metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
+              metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
             })
           });
           const data = await response.json();
@@ -38107,7 +40973,7 @@ I'm here to help you with:
           body: JSON.stringify({
             sender: senderId,
             message: intent,
-            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
+            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
           })
         });
         console.log(`Feedback ${feedbackType} sent for message ${messageId}`);
@@ -38146,7 +41012,7 @@ I'm here to help you with:
       clearTimeout(userTypingTimer.current);
       lastActivityRef.current = Date.now();
       warningShownRef.current = false;
-      if (payload === "__LOGIN__") {
+      if (payload === "__LOGIN__" || payload === "/trigger_login") {
         setShowLoginPrompt(true);
         return;
       }
@@ -38189,17 +41055,18 @@ Priority: ${data.priority}`;
       } else if (payload.includes("status_id")) {
         displayText = "🔍 Filtering tickets...";
       }
-      const userMsg = { id: v4(), sender: senderId, text: displayText };
+      const msgType = payload.startsWith("/submit_ticket_form") ? "ticket_summary" : void 0;
+      const userMsg = { id: v4(), sender: senderId, text: displayText, ...msgType && { type: msgType } };
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
       try {
         const response = await fetch(RASA_API_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             sender: senderId,
             message,
-            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
+            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
           })
         });
         const data = await response.json();
@@ -38270,10 +41137,49 @@ Priority: ${data.priority}`;
         setIsLoading(false);
       }
     };
+    const { isOnline, enqueue: enqueueOffline } = useOfflineQueue(
+      reactExports.useCallback((text2) => {
+        setMessages((prev) => [...prev, { id: v4(), sender: senderId, text: text2 }]);
+        return fetch(RASA_API_URL, {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            sender: senderId,
+            message: text2,
+            metadata: {
+              app_id: appId,
+              user_name: authUser || void 0,
+              is_authenticated: isAuthenticated || iamAuthenticated,
+              iam_sub: iam.user?.sub,
+              iam_name: iam.user?.name,
+              iam_email: iam.user?.email
+            }
+          })
+        }).then((r) => r.json()).then((data) => {
+          if (data?.length) setMessages((prev) => [...prev, ...data.filter((m) => m.text).map((m) => ({ id: v4(), sender: "bot", text: m.text, buttons: m.buttons }))]);
+        });
+      }, [senderId, appId, authUser, isAuthenticated, iamAuthenticated, iam.user])
+    );
     const handleSendMessage = async (e) => {
       e.preventDefault();
       if (!inputText.trim()) return;
       if (handoffState === "queued") return;
+      if (!isOnline) {
+        enqueueOffline(inputText.trim());
+        setMessages((prev) => [...prev, {
+          id: v4(),
+          sender: senderId,
+          text: inputText,
+          pending: true
+        }]);
+        setMessages((prev) => [...prev, {
+          id: v4(),
+          sender: "bot",
+          text: "📵 You appear to be offline. Your message has been queued and will be sent when your connection is restored."
+        }]);
+        setInputText("");
+        return;
+      }
       emitUserTyping(false);
       clearTimeout(userTypingTimer.current);
       lastActivityRef.current = Date.now();
@@ -38301,7 +41207,7 @@ Priority: ${data.priority}`;
           body: JSON.stringify({
             sender: senderId,
             message: userMsg.text,
-            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
+            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
           })
         });
         const data = await response.json();
@@ -38401,114 +41307,142 @@ Priority: ${data.priority}`;
           exit: { opacity: 0, scale: 0.9, y: 20 },
           className: "w-[400px] h-[600px] backdrop-blur-xl border border-white/20 shadow-2xl flex flex-col overflow-hidden mb-4 relative",
           style: {
-            backgroundColor: bgColor,
+            backgroundColor: effectiveBg,
             borderRadius: `${borderRadius}px`,
-            color: textColor
+            color: effectiveTx
           },
           children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "div",
               {
                 className: "flex items-center justify-between px-2 py-3",
-                style: { backgroundColor: bgColor, color: textColor },
+                style: { backgroundColor: c.bg, color: c.text, borderBottom: `1px solid ${c.borderLight}` },
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "button",
-                    {
-                      onClick: () => setIsOpen(false),
-                      className: "p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600",
-                      title: "Close",
-                      children: /* @__PURE__ */ jsxRuntimeExports.jsx(Minimize2, { size: 18 })
-                    }
-                  ),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "h1",
-                    {
-                      className: "font-normal text-gray-800 tracking-wide",
-                      style: { fontSize: `${parseInt(headerFontSize) + 2}px` },
-                      children: title
-                    }
-                  ),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center gap-1", ref: userMenuRef, children: isAuthenticated && !isGuest ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-0.5", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx(
                       "button",
                       {
-                        onClick: () => setShowUserMenu((v) => !v),
-                        className: "w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold focus:outline-none",
-                        style: { backgroundColor: primaryColor },
-                        children: authUser ? authUser[0].toUpperCase() : "U"
+                        onClick: () => setIsOpen(false),
+                        className: "p-2 rounded-full transition-colors",
+                        style: { color: c.textMuted },
+                        onMouseEnter: (e) => e.currentTarget.style.backgroundColor = c.hover,
+                        onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
+                        title: "Close",
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(Minimize2, { size: 18 })
                       }
                     ),
-                    showUserMenu && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute right-0 top-10 w-56 rounded-xl shadow-2xl z-[80] overflow-hidden", style: { backgroundColor: "#ffffff", border: "1px solid rgba(0,0,0,0.08)" }, children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-4 py-3", style: { borderBottom: "1px solid rgba(0,0,0,0.08)" }, children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-semibold text-sm", style: { color: "#111827" }, children: authUser }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs mt-0.5", style: { color: "#9ca3af" }, children: authUser })
-                      ] }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "py-1", children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    isAuthenticated && !isGuest && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        onClick: () => {
+                          if (historyView === "chat") {
+                            fetchUserHistory();
+                            setHistoryView("history");
+                          } else {
+                            setHistoryView("chat");
+                            setSelectedSession(null);
+                          }
+                        },
+                        className: "p-2 rounded-full transition-colors",
+                        style: { color: historyView !== "chat" ? "#3b82f6" : c.textMuted },
+                        onMouseEnter: (e) => e.currentTarget.style.backgroundColor = c.hover,
+                        onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
+                        title: "Chat history",
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(History, { size: 18 })
+                      }
+                    )
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "h1",
+                    {
+                      className: "font-normal tracking-wide",
+                      style: { fontSize: `${parseInt(headerFontSize) + 2}px`, color: c.text },
+                      children: title
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1", ref: userMenuRef, children: [
+                    (isAuthenticated || iamAuthenticated) && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      NotificationBell,
+                      {
+                        userId: senderId,
+                        socket: socketRef.current,
+                        primaryColor,
+                        onUnreadChange: setWebUnreadCount
+                      }
+                    ),
+                    isAuthenticated && !isGuest ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "button",
+                        {
+                          onClick: () => setShowUserMenu((v) => !v),
+                          className: "w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold focus:outline-none",
+                          style: { backgroundColor: primaryColor },
+                          children: authUser ? authUser[0].toUpperCase() : "U"
+                        }
+                      ),
+                      showUserMenu && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute right-0 top-10 w-56 rounded-xl shadow-2xl z-[80] overflow-hidden", style: { backgroundColor: "#ffffff", border: "1px solid rgba(0,0,0,0.08)" }, children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-4 py-3", style: { borderBottom: "1px solid rgba(0,0,0,0.08)" }, children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-semibold text-sm", style: { color: "#111827" }, children: authUser }),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs mt-0.5", style: { color: "#9ca3af" }, children: authUser })
+                        ] }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "py-1", children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx(
+                            "button",
+                            {
+                              className: "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                              style: { color: "#4b5563" },
+                              onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.04)",
+                              onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
+                              onClick: () => {
+                                setShowUserMenu(false);
+                                setShowProfile(true);
+                              },
+                              children: "My Profile"
+                            }
+                          ),
+                          !isWelcomeState && !sessionEnded && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                            "button",
+                            {
+                              className: "w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors",
+                              style: { color: "#111827" },
+                              onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.04)",
+                              onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
+                              onClick: () => {
+                                setShowUserMenu(false);
+                                handleEndSession();
+                              },
+                              children: "End This Conversation"
+                            }
+                          )
+                        ] }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { borderTop: "1px solid rgba(0,0,0,0.08)" }, className: "py-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                           "button",
                           {
                             className: "w-full text-left px-4 py-2.5 text-sm transition-colors",
                             style: { color: "#4b5563" },
                             onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.04)",
                             onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
-                            children: "My Profile"
-                          }
-                        ),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx(
-                          "button",
-                          {
-                            className: "w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors",
-                            style: { color: "#111827" },
-                            onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.04)",
-                            onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
                             onClick: () => {
                               setShowUserMenu(false);
-                              fetchUserHistory();
-                              setHistoryView("history");
+                              handleLogout();
                             },
-                            children: "History"
+                            children: "Logout"
                           }
-                        ),
-                        !isWelcomeState && !sessionEnded && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                          "button",
-                          {
-                            className: "w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors",
-                            style: { color: "#111827" },
-                            onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.04)",
-                            onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
-                            onClick: () => {
-                              setShowUserMenu(false);
-                              handleEndSession();
-                            },
-                            children: "End This Conversation"
-                          }
-                        )
-                      ] }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { borderTop: "1px solid rgba(0,0,0,0.08)" }, className: "py-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-                        "button",
-                        {
-                          className: "w-full text-left px-4 py-2.5 text-sm transition-colors",
-                          style: { color: "#4b5563" },
-                          onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.04)",
-                          onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
-                          onClick: () => {
-                            setShowUserMenu(false);
-                            handleLogout();
-                          },
-                          children: "Logout"
-                        }
-                      ) })
-                    ] })
-                  ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "button",
-                    {
-                      onClick: () => setShowLoginPrompt(true),
-                      className: "p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-500",
-                      title: "Login",
-                      children: /* @__PURE__ */ jsxRuntimeExports.jsx(User, { size: 18 })
-                    }
-                  ) })
+                        ) })
+                      ] })
+                    ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        onClick: () => setShowLoginPrompt(true),
+                        className: "p-1.5 rounded-full transition-colors",
+                        style: { color: c.textMuted },
+                        onMouseEnter: (e) => e.currentTarget.style.backgroundColor = c.hover,
+                        onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
+                        title: "Login",
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(User, { size: 18 })
+                      }
+                    )
+                  ] })
                 ]
               }
             ),
@@ -38763,82 +41697,72 @@ Priority: ${data.priority}`;
                     initial: { scale: 0.9, y: 20 },
                     animate: { scale: 1, y: 0 },
                     exit: { scale: 0.9, y: 20 },
-                    className: "bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden",
+                    className: "bg-white rounded-2xl shadow-xl w-full max-w-xs overflow-hidden",
                     children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-4 border-b border-gray-100 flex justify-between items-center", style: { backgroundColor: primaryColor }, children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "font-semibold text-white", children: "🔐 Login to Project IQ" }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx(
-                          "button",
-                          {
-                            onClick: () => setShowLoginPrompt(false),
-                            className: "text-white/70 hover:text-white p-1",
-                            children: /* @__PURE__ */ jsxRuntimeExports.jsx(CircleX, { size: 20 })
-                          }
-                        )
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-5 border-b border-gray-100 flex justify-between items-center", style: { backgroundColor: primaryColor }, children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "font-semibold text-white text-base", children: "Sign in to continue" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setShowLoginPrompt(false), className: "text-white/70 hover:text-white p-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(CircleX, { size: 20 }) })
                       ] }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { onSubmit: handleLogin, className: "p-4 space-y-4", children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                          /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Username" }),
-                          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
-                            /* @__PURE__ */ jsxRuntimeExports.jsx(User, { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400", size: 18 }),
-                            /* @__PURE__ */ jsxRuntimeExports.jsx(
-                              "input",
-                              {
-                                type: "text",
-                                value: loginUsername,
-                                onChange: (e) => setLoginUsername(e.target.value),
-                                placeholder: "Username",
-                                className: "w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all",
-                                style: { "--tw-ring-color": primaryColor },
-                                disabled: isLoggingIn,
-                                autoFocus: true
-                              }
-                            )
-                          ] })
-                        ] }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                          /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Password" }),
-                          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
-                            /* @__PURE__ */ jsxRuntimeExports.jsx(Lock, { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400", size: 18 }),
-                            /* @__PURE__ */ jsxRuntimeExports.jsx(
-                              "input",
-                              {
-                                type: "password",
-                                value: loginPassword,
-                                onChange: (e) => setLoginPassword(e.target.value),
-                                placeholder: "Password",
-                                className: "w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all",
-                                style: { "--tw-ring-color": primaryColor },
-                                disabled: isLoggingIn
-                              }
-                            )
-                          ] })
-                        ] }),
-                        loginError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm", children: [
-                          "❌ ",
-                          loginError
-                        ] }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-3", children: [
-                          /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-5 flex flex-col gap-3", children: [
+                        iam.login && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsxs(
                             "button",
                             {
-                              type: "button",
-                              onClick: () => setShowLoginPrompt(false),
-                              className: "flex-1 px-4 py-2.5 text-gray-700 font-medium bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors",
-                              children: "Cancel"
+                              onClick: () => {
+                                setShowLoginPrompt(false);
+                                handleIamLogin();
+                              },
+                              className: "w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-white transition-all hover:opacity-90",
+                              style: { backgroundColor: primaryColor },
+                              children: [
+                                /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "w-4 h-4", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" }) }),
+                                "Sign in with IAM"
+                              ]
                             }
                           ),
+                          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+                            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 h-px bg-gray-200" }),
+                            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-gray-400", children: "or" }),
+                            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 h-px bg-gray-200" })
+                          ] })
+                        ] }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { onSubmit: handleLogin, className: "flex flex-col gap-2", children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx(
+                            "input",
+                            {
+                              type: "text",
+                              placeholder: "GLPI Username",
+                              value: loginUsername,
+                              onChange: (e) => setLoginUsername(e.target.value),
+                              className: "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2",
+                              style: { focusRingColor: primaryColor },
+                              autoComplete: "username"
+                            }
+                          ),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx(
+                            "input",
+                            {
+                              type: "password",
+                              placeholder: "Password",
+                              value: loginPassword,
+                              onChange: (e) => setLoginPassword(e.target.value),
+                              className: "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2",
+                              autoComplete: "current-password"
+                            }
+                          ),
+                          loginError && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-red-500", children: loginError }),
                           /* @__PURE__ */ jsxRuntimeExports.jsx(
                             "button",
                             {
                               type: "submit",
                               disabled: isLoggingIn,
-                              className: "flex-1 py-2.5 text-white font-medium rounded-lg transition-all disabled:opacity-50",
-                              style: { backgroundColor: primaryColor },
-                              children: isLoggingIn ? "Signing in..." : "Login"
+                              className: "w-full py-2.5 rounded-xl font-semibold text-white transition-all hover:opacity-90 disabled:opacity-60",
+                              style: { backgroundColor: "#374151" },
+                              children: isLoggingIn ? "Signing in…" : "Sign in with password"
                             }
                           )
-                        ] })
+                        ] }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setShowLoginPrompt(false), className: "text-xs text-gray-400 hover:text-gray-600 text-center", children: "Continue as guest" })
                       ] })
                     ]
                   }
@@ -38853,27 +41777,45 @@ Priority: ${data.priority}`;
                 exit: { x: -400, opacity: 0 },
                 transition: { type: "tween", duration: 0.22 },
                 className: "absolute inset-0 z-[60] flex flex-col",
-                style: { backgroundColor: bgColor },
+                style: { backgroundColor: c.bg },
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-2 py-3 border-b border-gray-100", style: { backgroundColor: bgColor }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-2 py-3", style: { backgroundColor: c.bg, borderBottom: `1px solid ${c.borderLight}` }, children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx(
                       "button",
                       {
                         onClick: () => setHistoryView("chat"),
-                        className: "p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600",
+                        className: "p-2 rounded-full transition-colors",
+                        style: { color: c.textMuted },
+                        onMouseEnter: (e) => e.currentTarget.style.backgroundColor = c.hover,
+                        onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
                         children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronLeft, { size: 18 })
                       }
                     ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "font-normal text-gray-800 text-base flex-1 text-center pr-8", children: "Conversation History" })
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "font-normal text-base flex-1 text-center pr-8", style: { color: c.text }, children: "Conversation History" })
                   ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto p-3 space-y-1", style: { backgroundColor: "#f9fafb" }, children: historyLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-full text-gray-400 gap-2 pt-10", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-3 py-2", style: { borderBottom: `1px solid ${c.borderLight}` }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "input",
+                    {
+                      type: "text",
+                      placeholder: "Search conversations…",
+                      value: historySearch,
+                      onChange: (e) => {
+                        setHistorySearch(e.target.value);
+                        clearTimeout(window._hsTimer);
+                        window._hsTimer = setTimeout(() => fetchUserHistory(e.target.value), 350);
+                      },
+                      className: "w-full text-sm px-3 py-1.5 rounded-lg focus:outline-none",
+                      style: { backgroundColor: c.inputBg, border: `1px solid ${c.border}`, color: c.text }
+                    }
+                  ) }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto p-3 space-y-1", style: { backgroundColor: c.surfaceAlt }, children: historyLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-full text-gray-400 gap-2 pt-10", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "animate-spin", width: "28", height: "28", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" }) }),
                     /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "Loading history..." })
                   ] }) : sessions.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-full text-gray-400 gap-2 pt-10", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx(History, { size: 32, strokeWidth: 1.2 }),
                     /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "No previous conversations" })
                   ] }) : (() => {
-                    const formatLabel = (iso) => {
+                    const fmtDate = (iso) => {
                       const d = new Date(iso);
                       const today = /* @__PURE__ */ new Date();
                       const yesterday = new Date(today);
@@ -38882,36 +41824,50 @@ Priority: ${data.priority}`;
                       if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
                       return d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
                     };
-                    const formatTime = (iso) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-                    const grouped = sessions.reduce((acc, s) => {
-                      const lbl = formatLabel(s.started_at);
-                      (acc[lbl] = acc[lbl] || []).push(s);
+                    const fmtTime = (iso) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                    const cleanPreview = (p) => {
+                      if (!p || p.startsWith("/")) return "New conversation";
+                      return p.length > 55 ? p.slice(0, 55) + "…" : p;
+                    };
+                    const productLabels = { IT: "IT Support", Accounting: "Accounting", shipnest: "ShipNest", greenloop: "GreenLoop", accountwise: "AccountWise", General: "General" };
+                    const byProduct = sessions.reduce((acc, s) => {
+                      const pid = s.app_id || "General";
+                      (acc[pid] = acc[pid] || []).push(s);
                       return acc;
                     }, {});
-                    return Object.entries(grouped).map(([label, group]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 py-2", children: label }),
-                      group.map((session) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                        "button",
-                        {
-                          onClick: () => fetchSessionMessages(session),
-                          disabled: sessionLoading,
-                          className: "w-full text-left bg-white rounded-xl px-4 py-3 mb-1.5 shadow-sm border border-gray-100 hover:border-gray-300 hover:shadow transition-all disabled:opacity-50",
-                          children: [
-                            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-xs text-gray-400 mb-1", children: [
-                              formatLabel(session.started_at),
-                              " · ",
-                              formatTime(session.started_at)
-                            ] }),
-                            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-sm text-gray-700 truncate", children: [
-                              '"',
-                              session.preview,
-                              '"'
-                            ] })
-                          ]
-                        },
-                        session.sender_id
-                      ))
-                    ] }, label));
+                    return Object.entries(byProduct).map(([productId, productSessions]) => {
+                      const byDate = productSessions.reduce((acc, s) => {
+                        const lbl = fmtDate(s.started_at);
+                        (acc[lbl] = acc[lbl] || []).push(s);
+                        return acc;
+                      }, {});
+                      return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4", children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-1 py-1.5 mb-1", children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-bold text-blue-600 uppercase tracking-wider", children: productLabels[productId] || productId }),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 h-px bg-blue-100" })
+                        ] }),
+                        Object.entries(byDate).map(([dateLabel, group]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs font-medium text-gray-400 px-1 py-1", children: dateLabel }),
+                          group.map((session) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                            "button",
+                            {
+                              onClick: () => fetchSessionMessages(session),
+                              disabled: sessionLoading,
+                              className: "w-full text-left rounded-xl px-3 py-2.5 mb-1 shadow-sm transition-all disabled:opacity-50",
+                              style: { backgroundColor: c.surface, border: `1px solid ${c.border}` },
+                              onMouseEnter: (e) => e.currentTarget.style.borderColor = "#3b82f6",
+                              onMouseLeave: (e) => e.currentTarget.style.borderColor = c.border,
+                              children: [
+                                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs mb-0.5", style: { color: c.textSub }, children: fmtTime(session.started_at) }),
+                                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm leading-snug", style: { color: c.text }, children: cleanPreview(session.preview) }),
+                                session.rating && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs text-amber-500 mt-0.5", children: "★".repeat(session.rating) })
+                              ]
+                            },
+                            session.sender_id
+                          ))
+                        ] }, dateLabel))
+                      ] }, productId);
+                    });
                   })() })
                 ]
               }
@@ -38924,9 +41880,9 @@ Priority: ${data.priority}`;
                 exit: { x: 400, opacity: 0 },
                 transition: { type: "tween", duration: 0.22 },
                 className: "absolute inset-0 z-[61] flex flex-col",
-                style: { backgroundColor: bgColor },
+                style: { backgroundColor: c.bg },
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-2 py-3 border-b border-gray-100", style: { backgroundColor: bgColor }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-2 py-3", style: { backgroundColor: c.bg, borderBottom: `1px solid ${c.borderLight}` }, children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx(
                       "button",
                       {
@@ -38934,18 +41890,20 @@ Priority: ${data.priority}`;
                           setHistoryView("history");
                           setSelectedSession(null);
                         },
-                        className: "p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600",
+                        className: "p-2 rounded-full transition-colors",
+                        style: { color: c.textMuted },
+                        onMouseEnter: (e) => e.currentTarget.style.backgroundColor = c.hover,
+                        onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
                         children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronLeft, { size: 18 })
                       }
                     ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "font-normal text-gray-700 text-sm flex-1 truncate pr-2", children: [
-                      new Date(selectedSession.started_at).toLocaleDateString("en-US", { day: "2-digit", month: "short" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "font-normal text-sm flex-1 truncate pr-2", style: { color: c.textMuted }, children: [
+                      new Date(selectedSession.started_at).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }),
                       " · ",
-                      selectedSession.preview.slice(0, 35),
-                      selectedSession.preview.length > 35 ? "..." : ""
+                      new Date(selectedSession.started_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
                     ] })
                   ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto p-4 space-y-1 bg-gray-50/50", style: { fontSize: `${messageFontSize}px` }, children: sessionLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-full text-gray-400 gap-2", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto p-4 space-y-1", style: { fontSize: `${messageFontSize}px`, backgroundColor: c.bg }, children: sessionLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-full text-gray-400 gap-2", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "animate-spin", width: "28", height: "28", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" }) }),
                     /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "Loading messages..." })
                   ] }) : (selectedSession.messages || []).map((msg) => /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -38962,127 +41920,174 @@ Priority: ${data.priority}`;
                     },
                     msg.id
                   )) }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-4 py-2.5 border-t border-gray-100 flex items-center justify-center gap-1.5 bg-gray-50 text-xs text-gray-400", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-4 py-2.5 flex items-center justify-between text-xs", style: { borderTop: `1px solid ${c.borderLight}`, backgroundColor: c.surfaceAlt, color: c.textMuted }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
+                      ] }),
+                      "Read-only · ",
+                      new Date(selectedSession.started_at).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })
                     ] }),
-                    "Read-only · ",
-                    new Date(selectedSession.started_at).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }),
-                    " ",
-                    new Date(selectedSession.started_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        onClick: () => {
+                          const msgs = selectedSession.messages || [];
+                          const rows = msgs.map((m) => `<div style="background:${m.sender === "bot" ? "#f3f4f6" : "#dbeafe"};border-radius:8px;padding:8px 12px;margin:6px 0${m.sender !== "bot" ? ";text-align:right" : ""}"><strong style="font-size:11px;color:#6b7280">${m.sender === "bot" ? "🤖 Bot" : "👤 You"}</strong><p style="margin:4px 0">${(m.text || "").replace(/</g, "&lt;")}</p></div>`).join("");
+                          const w = window.open("", "_blank");
+                          w.document.write(`<html><head><title>Conversation Export</title><style>body{font-family:sans-serif;padding:20px;max-width:700px;margin:auto}@media print{button{display:none}}</style></head><body><h2>Conversation — ${new Date(selectedSession.started_at).toLocaleDateString()}</h2>${rows}<br><button onclick="window.print()">🖨️ Print / Save as PDF</button></body></html>`);
+                          w.document.close();
+                        },
+                        className: "text-blue-500 hover:text-blue-700 font-medium",
+                        children: "Export PDF"
+                      }
+                    )
                   ] })
                 ]
               }
             ) }),
-            !isAuthenticated && !isGuest ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 flex flex-col p-6 bg-gray-50/50", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-sm mx-auto flex-1 flex flex-col justify-center", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-center mb-6", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "div",
-                  {
-                    className: "w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl text-white",
-                    style: { backgroundColor: primaryColor },
-                    children: "🔐"
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-semibold text-gray-800", children: "Project IQ Login" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-gray-500 mt-1", children: "Please sign in to continue" })
+            showProfile && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              ProfilePanel,
+              {
+                authUser,
+                appId,
+                primaryColor,
+                isDark: isDarkMode,
+                onToggleDark: toggleDark,
+                onClose: () => setShowProfile(false),
+                onLogout: () => {
+                  setShowProfile(false);
+                  handleLogout();
+                }
+              }
+            ),
+            !isAuthenticated && !isGuest ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 flex flex-col items-center justify-center p-8 gap-4 overflow-y-auto", style: { backgroundColor: c.bg }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "w-14 h-14 rounded-full flex items-center justify-center text-white text-2xl shadow-lg",
+                  style: { backgroundColor: primaryColor },
+                  children: "🔐"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-center", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-lg font-semibold", style: { color: c.text }, children: "Sign in to continue" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm mt-1", style: { color: c.textMuted }, children: "Access full support features with your account." })
               ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { onSubmit: handleLogin, className: "space-y-4", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Username" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(User, { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400", size: 18 }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "input",
-                      {
-                        type: "text",
-                        value: loginUsername,
-                        onChange: (e) => setLoginUsername(e.target.value),
-                        placeholder: "Enter your username",
-                        className: "w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all",
-                        style: { "--tw-ring-color": primaryColor },
-                        disabled: isLoggingIn
-                      }
-                    )
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-xs flex flex-col gap-3", children: [
+                iam.login && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                    "button",
+                    {
+                      onClick: handleIamLogin,
+                      className: "w-full flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl font-semibold text-white shadow-md hover:opacity-90 transition-all",
+                      style: { backgroundColor: primaryColor },
+                      children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "w-4 h-4", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" }) }),
+                        "Sign in with IAM"
+                      ]
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 h-px", style: { backgroundColor: c.borderLight } }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs", style: { color: c.textSub }, children: "or" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 h-px", style: { backgroundColor: c.borderLight } })
                   ] })
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "block text-sm font-medium text-gray-700 mb-1", children: "Password" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(Lock, { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400", size: 18 }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "input",
-                      {
-                        type: "password",
-                        value: loginPassword,
-                        onChange: (e) => setLoginPassword(e.target.value),
-                        placeholder: "Enter your password",
-                        className: "w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all",
-                        style: { "--tw-ring-color": primaryColor },
-                        disabled: isLoggingIn
-                      }
-                    )
-                  ] })
-                ] }),
-                loginError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm", children: [
-                  "❌ ",
-                  loginError
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "button",
-                  {
-                    type: "submit",
-                    disabled: isLoggingIn,
-                    className: "w-full py-2.5 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed",
-                    style: {
-                      backgroundColor: primaryColor,
-                      boxShadow: `0 4px 14px ${shadowColor}`
-                    },
-                    children: isLoggingIn ? /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center justify-center gap-2", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" }),
-                      "Signing in..."
-                    ] }) : "Sign In"
-                  }
-                )
-              ] })
-            ] }) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { onSubmit: handleLogin, className: "flex flex-col gap-2", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "input",
+                    {
+                      type: "text",
+                      placeholder: "GLPI Username",
+                      value: loginUsername,
+                      onChange: (e) => setLoginUsername(e.target.value),
+                      className: "w-full px-3 py-2 border rounded-lg text-sm outline-none",
+                      style: { backgroundColor: c.inputBg, color: c.text, borderColor: c.border },
+                      autoComplete: "username"
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "input",
+                    {
+                      type: "password",
+                      placeholder: "Password",
+                      value: loginPassword,
+                      onChange: (e) => setLoginPassword(e.target.value),
+                      className: "w-full px-3 py-2 border rounded-lg text-sm outline-none",
+                      style: { backgroundColor: c.inputBg, color: c.text, borderColor: c.border },
+                      autoComplete: "current-password"
+                    }
+                  ),
+                  loginError && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-red-500", children: loginError }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      type: "submit",
+                      disabled: isLoggingIn,
+                      className: "w-full py-2.5 rounded-xl font-semibold text-white hover:opacity-90 transition-all disabled:opacity-60",
+                      style: { backgroundColor: "#374151" },
+                      children: isLoggingIn ? "Signing in…" : "Sign in with password"
+                    }
+                  )
+                ] })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  onClick: () => setIsGuest(true),
+                  className: "text-xs transition-colors",
+                  style: { color: c.textSub },
+                  onMouseEnter: (e) => e.currentTarget.style.color = c.textMuted,
+                  onMouseLeave: (e) => e.currentTarget.style.color = c.textSub,
+                  children: "Continue as guest (KB only)"
+                }
+              )
+            ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
               isWelcomeState ? (
                 /* Welcome state — Gemini style */
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto p-5", style: { backgroundColor: "#EEF2FA" }, children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-1 text-2xl font-normal text-gray-800", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto p-5", style: { backgroundColor: c.welcomeBg }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-1 text-2xl font-normal", style: { color: c.text }, children: [
                     "Hi ",
                     isAuthenticated && authUser ? authUser : "there"
                   ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-6 text-2xl font-semibold text-gray-800", children: "Where should we start?" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-6 text-2xl font-semibold", style: { color: c.text }, children: "Where should we start?" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: (isAuthenticated ? [
                     { label: "📝 Create Ticket", payload: "/create_ticket" },
                     { label: "📋 My Tickets", payload: "/list_tickets" },
                     { label: "🔍 Check Status", payload: "/check_status" },
                     { label: "❓ Get Help", payload: "/help" }
-                  ].map((action, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  ] : [
+                    { label: "🔑 Login", payload: "/login" },
+                    { label: "📚 Search Knowledge Base", payload: "/ask_knowledge" }
+                  ]).map((action, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "button",
                     {
                       onClick: () => handleButtonClick(action.payload),
-                      className: "px-4 py-2 bg-white rounded-full shadow-sm hover:shadow-md text-gray-700 text-sm font-normal transition-shadow whitespace-nowrap",
+                      className: "px-4 py-2 rounded-full shadow-sm hover:shadow-md text-sm font-normal transition-shadow whitespace-nowrap",
+                      style: { backgroundColor: c.surface, color: c.text, border: `1px solid ${c.border}` },
                       children: action.label
                     },
                     idx
                   )) })
                 ] })
-              ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50", style: { fontSize: `${messageFontSize}px` }, children: [
-                messages.map((msg) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto p-4 space-y-4", style: { fontSize: `${messageFontSize}px`, backgroundColor: c.bg }, children: [
+                messages.map((msg, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx(
                   MessageBubble,
                   {
                     message: msg,
                     onButtonClick: handleButtonClick,
                     onFeedback: handleFeedback,
                     themeColor: primaryColor,
+                    isDark: isDarkMode,
                     botIcon,
                     botIconColor,
                     userIcon,
                     userIconColor,
-                    buttonFontSize
+                    buttonFontSize,
+                    ticketPrefill: msg.ticket_form ? prefillFromMessages(messages.slice(0, idx)) : {},
+                    sessionToken: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0
                   },
                   msg.id
                 )),
@@ -39108,7 +42113,7 @@ Priority: ${data.priority}`;
                 ] }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: messagesEndRef })
               ] }),
-              !isWelcomeState && !sessionEnded && handoffState === "bot_active" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-3 py-1.5 flex gap-1.5 border-t border-gray-100", children: [
+              isAuthenticated && !isWelcomeState && !sessionEnded && handoffState === "bot_active" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-3 py-1.5 flex gap-1.5", style: { borderTop: `1px solid ${c.borderLight}`, backgroundColor: c.bg }, children: [
                 [
                   { label: "Create Ticket", payload: "/create_ticket" },
                   { label: "List Tickets", payload: "/list_tickets" },
@@ -39118,8 +42123,16 @@ Priority: ${data.priority}`;
                   "button",
                   {
                     onClick: () => handleButtonClick(action.payload),
-                    className: "flex-1 py-1 bg-transparent border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-gray-700 rounded-full transition-colors text-center",
-                    style: { fontSize: "11px" },
+                    className: "flex-1 py-1 rounded-full transition-colors text-center",
+                    style: { fontSize: "11px", backgroundColor: "transparent", border: `1px solid ${c.border}`, color: c.textMuted },
+                    onMouseEnter: (e) => {
+                      e.currentTarget.style.backgroundColor = c.hover;
+                      e.currentTarget.style.color = c.text;
+                    },
+                    onMouseLeave: (e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.color = c.textMuted;
+                    },
                     children: action.label
                   },
                   idx
@@ -39138,7 +42151,7 @@ Priority: ${data.priority}`;
                 "div",
                 {
                   className: "p-4 flex justify-center",
-                  style: { backgroundColor: bgColor },
+                  style: { backgroundColor: c.bg, borderTop: `1px solid ${c.borderLight}` },
                   children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
                     "button",
                     {
@@ -39163,57 +42176,75 @@ Priority: ${data.priority}`;
                 {
                   onSubmit: handleSendMessage,
                   className: "p-4 flex items-center gap-2",
-                  style: { backgroundColor: isWelcomeState ? "#EEF2FA" : bgColor },
-                  children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 focus-within:ring-2 transition-all shadow-sm border border-gray-200", style: { "--tw-ring-color": `${primaryColor}80` }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "input",
-                      {
-                        type: "file",
-                        ref: fileInputRef,
-                        className: "hidden",
-                        onChange: handleFileSelect
-                      }
-                    ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "button",
-                      {
-                        type: "button",
-                        onClick: () => handoffState === "bot_active" && fileInputRef.current?.click(),
-                        disabled: handoffState !== "bot_active",
-                        className: "text-gray-400 hover:text-gray-600 transition-colors mr-2 disabled:opacity-30 disabled:cursor-not-allowed",
-                        onMouseEnter: (e) => handoffState === "bot_active" && (e.target.style.color = primaryColor),
-                        onMouseLeave: (e) => e.target.style.color = "#9ca3af",
-                        title: handoffState === "bot_active" ? "Attach File" : "Unavailable during handoff",
-                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(Paperclip, { size: 20 })
-                      }
-                    ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "input",
-                      {
-                        type: "text",
-                        value: inputText,
-                        onChange: (e) => {
-                          setInputText(e.target.value);
-                          handleInputTyping();
-                        },
-                        placeholder: handoffState === "assigned" ? "Reply to agent…" : "Message Project IQ…",
-                        disabled: handoffState === "queued",
-                        className: "flex-1 bg-transparent text-gray-800 focus:outline-none font-light py-1 disabled:opacity-50 disabled:cursor-not-allowed",
-                        style: { fontSize: `${inputFontSize}px` }
-                      }
-                    ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "button",
-                      {
-                        type: "submit",
-                        disabled: !inputText.trim() || isLoading || handoffState === "queued",
-                        className: "text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2",
-                        onMouseEnter: (e) => !e.target.disabled && (e.target.style.color = primaryColor),
-                        onMouseLeave: (e) => !e.target.disabled && (e.target.style.color = "#9ca3af"),
-                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(Send, { size: 20 })
-                      }
-                    )
-                  ] })
+                  style: { backgroundColor: isWelcomeState ? c.welcomeBg : c.bg, borderTop: `1px solid ${c.borderLight}` },
+                  children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                    "div",
+                    {
+                      className: "flex-1 flex items-center rounded-full px-4 py-2 focus-within:ring-2 transition-all shadow-sm",
+                      style: { backgroundColor: c.inputBg, border: `1px solid ${c.border}`, "--tw-ring-color": `${primaryColor}80` },
+                      children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "input",
+                          {
+                            type: "file",
+                            ref: fileInputRef,
+                            className: "hidden",
+                            onChange: handleFileSelect
+                          }
+                        ),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "button",
+                          {
+                            type: "button",
+                            onClick: () => handoffState === "bot_active" && fileInputRef.current?.click(),
+                            disabled: handoffState !== "bot_active",
+                            className: "transition-colors mr-2 disabled:opacity-30 disabled:cursor-not-allowed",
+                            style: { color: c.textMuted },
+                            onMouseEnter: (e) => handoffState === "bot_active" && (e.target.style.color = primaryColor),
+                            onMouseLeave: (e) => e.target.style.color = c.textMuted,
+                            title: handoffState === "bot_active" ? "Attach File" : "Unavailable during handoff",
+                            children: /* @__PURE__ */ jsxRuntimeExports.jsx(Paperclip, { size: 20 })
+                          }
+                        ),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "input",
+                          {
+                            type: "text",
+                            value: inputText,
+                            onChange: (e) => {
+                              setInputText(e.target.value);
+                              handleInputTyping();
+                            },
+                            placeholder: handoffState === "assigned" ? "Reply to agent…" : "Message Project IQ…",
+                            disabled: handoffState === "queued",
+                            className: "flex-1 bg-transparent focus:outline-none font-light py-1 disabled:opacity-50 disabled:cursor-not-allowed",
+                            style: { fontSize: `${inputFontSize}px`, color: c.text }
+                          }
+                        ),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "button",
+                          {
+                            type: "submit",
+                            disabled: !inputText.trim() || isLoading || handoffState === "queued",
+                            className: "text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2",
+                            onMouseEnter: (e) => !e.target.disabled && (e.target.style.color = primaryColor),
+                            onMouseLeave: (e) => !e.target.disabled && (e.target.style.color = "#9ca3af"),
+                            children: /* @__PURE__ */ jsxRuntimeExports.jsx(Send, { size: 20 })
+                          }
+                        ),
+                        (window.SpeechRecognition || window.webkitSpeechRecognition) && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "button",
+                          {
+                            type: "button",
+                            onClick: startVoice,
+                            className: `transition-colors ml-1 ${isListening ? "text-red-500 animate-pulse" : "text-gray-400 hover:text-gray-600"}`,
+                            title: isListening ? "Stop listening" : "Speak",
+                            children: isListening ? /* @__PURE__ */ jsxRuntimeExports.jsx(MicOff, { size: 18 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Mic, { size: 18 })
+                          }
+                        )
+                      ]
+                    }
+                  )
                 }
               ),
               /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: showPrivacyPopup && /* @__PURE__ */ jsxRuntimeExports.jsxs(

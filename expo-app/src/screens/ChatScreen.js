@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     View, Text, TextInput, FlatList, TouchableOpacity,
     KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Alert,
@@ -7,7 +7,12 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { storage } from '../utils/storage';
-import { getWebhookUrl, getAppId, getApiUrl, getAdminBaseUrl, THEME, APP_TITLE } from '../config';
+import { getWebhookUrl, getAppId, getApiUrl, getAdminBaseUrl, THEME, APP_TITLE, IAM_CONFIG } from '../config';
+import { useTheme } from '../context/ThemeContext';
+import { useIamAuth } from '../hooks/useIamAuth';
+import { useBiometric } from '../hooks/useBiometric';
+import { prefillFromMessages } from '../utils/prefillTicket';
+import { useOfflineQueue } from '../hooks/useOfflineQueue';
 // Hooks extracted from this file — TODO: replace inline socket/history code with these
 import { useChatSocket }  from '../hooks/useChatSocket';
 import { useChatHistory } from '../hooks/useChatHistory';
@@ -17,6 +22,8 @@ import LoginModal from '../components/LoginModal';
 import { TicketFilterModal, TicketIdModal, TicketFormModal } from '../components/TicketModals';
 import SessionFeedbackModal from '../components/SessionFeedbackModal';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import { io } from 'socket.io-client';
 
 // Fallback UUID generator for React Native to avoid crypto requirement
@@ -27,13 +34,37 @@ const uuidv4 = () => {
 const TITLE = APP_TITLE;
 
 const WELCOME_ACTIONS = [
-    { label: '📝 Create Ticket', payload: '/create_ticket' },
-    { label: '📋 My Tickets', payload: '/list_tickets' },
-    { label: '🔍 Check Status', payload: '/check_status' },
-    { label: '❓ Get Help', payload: '/help' },
+    { label: '📝 Create', payload: '/create_ticket' },
+    { label: '📋 List', payload: '/list_tickets' },
+    { label: '🔍 View', payload: '/check_status' },
+    { label: '❓ Help', payload: '/help' },
 ];
 
 const ChatScreen = ({ navigation }) => {
+    // shadows the module-level THEME import so all component refs use dynamic theme
+    const { theme: THEME } = useTheme(); // eslint-disable-line no-shadow
+    const styles = useMemo(() => makeStyles(THEME), [THEME]);
+
+    // ── IAM Authentication ────────────────────────────────────────────────────
+    const iam = useIamAuth(IAM_CONFIG);
+    const { authenticateWithBiometric } = useBiometric();
+
+    // Prompt biometric when app comes to foreground with an active session
+    useEffect(() => {
+        const { AppState } = require('react-native');
+        let lastState = AppState.currentState;
+        const sub = AppState.addEventListener('change', async (next) => {
+            if (lastState.match(/inactive|background/) && next === 'active') {
+                if (iam.isAuthenticated) {
+                    const ok = await authenticateWithBiometric();
+                    if (!ok) iam.logout().catch(() => {});
+                }
+            }
+            lastState = next;
+        });
+        return () => sub.remove();
+    }, [iam.isAuthenticated, authenticateWithBiometric]);
+
     // State
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
@@ -58,7 +89,73 @@ const ChatScreen = ({ navigation }) => {
     // Session ended state
     const [sessionEnded, setSessionEnded] = useState(false);
 
+    // ── Notification state ────────────────────────────────────────────────────
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // ── Offline queue (mobile) ────────────────────────────────────────────────
+    const { isOnline, enqueue: enqueueOffline } = useOfflineQueue(
+        useCallback(async (text) => {
+            const data = await sendToRasa(text);
+            const responses = processResponse(data);
+            if (responses.length > 0) setMessages(prev => [...prev, ...responses]);
+        }, []) // sendToRasa captured via closure — stable after mount
+    );
+
+    // ── App icon badge — update whenever unread count changes ─────────────────
+    useEffect(() => {
+        Notifications.setBadgeCountAsync(unreadCount).catch(() => {});
+    }, [unreadCount]);
+
+    // ── Sync IAM → local auth state ───────────────────────────────────────────
+    useEffect(() => {
+        if (iam.isAuthenticated && iam.user && !iam.isLoading) {
+            const iamSenderId = `iam-${iam.user.sub}`;
+            setSenderId(iamSenderId);
+            storage.setItem(appIdRef.current, 'senderId', iamSenderId).catch(() => {});
+            setIsAuthenticated(true);
+            isAuthenticatedRef.current = true;
+            setIsGuest(false);
+            setAuthUser(iam.user.name || iam.user.username || iam.user.email || '');
+            storage.setItem(appIdRef.current, 'isAuthenticated', 'true').catch(() => {});
+            storage.setItem(appIdRef.current, 'authUser', iam.user.username || '').catch(() => {});
+            // Set app_id from IAM apps[] if available
+            if (iam.user.apps?.length > 0) {
+                const firstApp = iam.user.apps[0];
+                appIdRef.current = firstApp;
+                setAppIdState(firstApp);
+            }
+            // Register push token + fetch unread count
+            _registerPushToken(iamSenderId);
+            _fetchUnreadCount(iamSenderId);
+        }
+    }, [iam.isAuthenticated, iam.user, iam.isLoading]);
+
+    const _registerPushToken = async (userId) => {
+        try {
+            if (!Device.isDevice) return;
+            const { status } = await Notifications.requestPermissionsAsync();
+            if (status !== 'granted') return;
+            const tokenData = await Notifications.getExpoPushTokenAsync();
+            const adminBase = await getAdminBaseUrl();
+            await fetch(`${adminBase}/notifications/push-token`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', ...(iam.token ? { Authorization: `Bearer ${iam.token}` } : {}) },
+                body:    JSON.stringify({ token: tokenData.data, platform: 'expo', sender_id: userId }),
+            });
+        } catch (e) { /* best-effort */ }
+    };
+
+    const _fetchUnreadCount = async (userId) => {
+        try {
+            const adminBase = await getAdminBaseUrl();
+            const res  = await fetch(`${adminBase}/notifications?sender_id=${encodeURIComponent(userId)}`);
+            const data = await res.json();
+            if (data.success) setUnreadCount(data.unread_count ?? 0);
+        } catch {}
+    };
+
     useEffect(() => { isAuthenticatedRef.current = isAuthenticated; }, [isAuthenticated]);
+    useEffect(() => { getApiUrl().then(setApiBaseUrl); }, []);
 
     // Inactivity timeout
     const [timeoutMinutes, setTimeoutMinutes] = useState(10);
@@ -87,10 +184,12 @@ const ChatScreen = ({ navigation }) => {
     const [selectedSession, setSelectedSession] = useState(null);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [sessionLoading, setSessionLoading] = useState(false);
+    const [historySearch, setHistorySearch] = useState('');
 
     // Feedback persistence
     const [feedbackMap, setFeedbackMap] = useState({});
     const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+    const [apiBaseUrl, setApiBaseUrl] = useState('');
 
     const flatListRef = useRef(null);
     const insets = useSafeAreaInsets();
@@ -295,6 +394,13 @@ const ChatScreen = ({ navigation }) => {
                 }]);
             });
 
+            socket.on('new_notification', (d) => {
+                setUnreadCount(d.unread_count ?? 0);
+            });
+            socket.on('notification_count', (d) => {
+                setUnreadCount(d.unread_count ?? 0);
+            });
+
             socket.on('operator_message', (d) => {
                 if (d.sender_id && d.sender_id !== senderId) return;
                 setMessages(prev => [...prev, {
@@ -377,14 +483,22 @@ const ChatScreen = ({ navigation }) => {
 
     // API helper
     const sendToRasa = async (message) => {
-        const currentAppId = await getAppId();
+        const currentAppId = appIdRef.current || await getAppId();
         const webhookUrl = await getWebhookUrl();
         const meta = { app_id: currentAppId };
         if (authUser) meta.user_name = authUser;
         if (sessionTokenRef.current) meta.session_token = sessionTokenRef.current;
+        // Inject IAM identity into Rasa metadata
+        if (iam.user) {
+            meta.iam_sub   = iam.user.sub;
+            meta.iam_name  = iam.user.name;
+            meta.iam_email = iam.user.email;
+        }
+        const headers = { 'Content-Type': 'application/json' };
+        if (iam.token) headers['Authorization'] = `Bearer ${iam.token}`;
         const response = await fetch(webhookUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ sender: senderId, message, metadata: meta }),
         });
         return response.json();
@@ -452,6 +566,17 @@ const ChatScreen = ({ navigation }) => {
 
         lastActivityRef.current = Date.now();
         warningShownRef.current = false;
+
+        // Offline — queue and show pending indicator
+        if (!isOnline) {
+            await enqueueOffline(text);
+            setMessages(prev => [...prev,
+                { id: uuidv4(), sender: senderId, text, pending: true },
+                { id: uuidv4(), sender: 'bot', text: '📵 You\'re offline. Your message is queued and will be sent when you reconnect.' },
+            ]);
+            setInputText('');
+            return;
+        }
 
         // Skip guardrails during live human handoff
         if (!handoffState || handoffState !== 'assigned') {
@@ -601,7 +726,7 @@ const ChatScreen = ({ navigation }) => {
 
     // Logout
     const handleLogout = async () => {
-        // End any active handoff before switching identity
+        // End any active handoff before signing out
         if (socketRef.current && (handoffState === 'assigned' || handoffState === 'queued')) {
             socketRef.current.emit('user_end_session', { sender_id: senderId });
         }
@@ -615,6 +740,7 @@ const ChatScreen = ({ navigation }) => {
         } catch (_) {}
         sessionTokenRef.current = null;
         setIsAuthenticated(false);
+        isAuthenticatedRef.current = false;
         setIsGuest(true);
         setAuthUser('');
         setHandoffState('bot_active');
@@ -624,7 +750,11 @@ const ChatScreen = ({ navigation }) => {
         const freshId = uuidv4();
         await storage.setItem(appIdRef.current, 'senderId', freshId);
         setSenderId(freshId);
-        setMessages([{ id: 'init', sender: 'bot', text: "You've been logged out. Continuing as guest.\n\n📚 You can still search the Knowledge Base!\n🔑 Login anytime for full ticket features." }]);
+        setMessages([{ id: 'init', sender: 'bot', text: "You've been signed out. Continuing as guest.\n\n📚 You can still search the Knowledge Base!\n🔑 Sign in anytime for full ticket features." }]);
+        // Sign out of Keycloak if using IAM
+        if (iam.isAuthenticated) {
+            iam.logout().catch(() => {});
+        }
     };
 
     // End session
@@ -725,12 +855,14 @@ const ChatScreen = ({ navigation }) => {
     };
 
     // History — fetch conversation list from DB
-    const fetchUserHistory = async () => {
+    const fetchUserHistory = async (search = '') => {
         if (!authUser) return;
         setHistoryLoading(true);
         try {
             const adminBase = await getAdminBaseUrl();
-            const res = await fetch(`${adminBase}/api/user/conversations?user_name=${encodeURIComponent(authUser)}&app_id=${encodeURIComponent(appIdRef.current)}`);
+            const params = new URLSearchParams({ user_name: authUser });
+            if (search) params.set('search', search);
+            const res  = await fetch(`${adminBase}/api/user/conversations?${params}`);
             const resp = await res.json();
             if (resp.success) setHistoryList(resp.data);
         } catch (e) { console.error('Failed to fetch history', e); }
@@ -805,27 +937,38 @@ const ChatScreen = ({ navigation }) => {
         }
     };
 
-    // Group history sessions by date label
-    const groupSessionsByDate = (sessions) => {
+    const PRODUCT_LABELS = { IT: 'IT Support', Accounting: 'Accounting', shipnest: 'ShipNest', greenloop: 'GreenLoop', accountwise: 'AccountWise', General: 'General' };
+
+    const cleanPreview = (p) => {
+        if (!p || p.startsWith('/')) return 'New conversation';
+        return p.length > 60 ? p.slice(0, 60) + '…' : p;
+    };
+
+    const dateLabel = (iso) => {
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-        const groups = {};
+        const d = new Date(iso); d.setHours(0, 0, 0, 0);
+        if (d.getTime() === today.getTime()) return 'Today';
+        if (d.getTime() === yesterday.getTime()) return 'Yesterday';
+        return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+
+    // Group sessions by product (app_id) then by date
+    const groupSessionsByProduct = (sessions) => {
+        const byProduct = {};
         for (const s of sessions) {
-            const d = new Date(s.started_at);
-            d.setHours(0, 0, 0, 0);
-            let label;
-            if (d.getTime() === today.getTime()) label = 'Today';
-            else if (d.getTime() === yesterday.getTime()) label = 'Yesterday';
-            else label = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-            if (!groups[label]) groups[label] = [];
-            groups[label].push(s);
+            const pid = s.app_id || 'General';
+            if (!byProduct[pid]) byProduct[pid] = {};
+            const dl = dateLabel(s.started_at);
+            if (!byProduct[pid][dl]) byProduct[pid][dl] = [];
+            byProduct[pid][dl].push(s);
         }
-        return groups;
+        return byProduct;
     };
 
     if (!ready) {
         return (
-            <SafeAreaView style={styles.loadingContainer}>
+            <SafeAreaView style={styles.loadingContainer} edges={['top', 'bottom']}>
                 <ActivityIndicator size="large" color={THEME.primary} />
                 <Text style={styles.loadingText}>Loading...</Text>
             </SafeAreaView>
@@ -840,16 +983,49 @@ const ChatScreen = ({ navigation }) => {
             <View style={[styles.header, isWelcomeState && { backgroundColor: welcomeBg }]}>
                 <TouchableOpacity
                     style={styles.headerIconBtn}
-                    onPress={() => navigation.navigate('Settings')}
+                    onPress={() => {
+                        if (historyView !== 'chat') {
+                            setHistoryView('chat');
+                            setSelectedSession(null);
+                        } else if (isAuthenticated && !isGuest) {
+                            fetchUserHistory();
+                            setHistoryView('history');
+                        } else {
+                            navigation.navigate('Settings');
+                        }
+                    }}
                 >
-                    <Ionicons name="menu-outline" size={24} color={THEME.text} />
+                    <Ionicons
+                        name={historyView !== 'chat' ? 'arrow-back' : 'time-outline'}
+                        size={24}
+                        color={historyView !== 'chat' ? THEME.primary : THEME.text}
+                    />
                 </TouchableOpacity>
 
                 <Text style={styles.headerTitle}>{TITLE}</Text>
 
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {(isAuthenticated || iam.isAuthenticated) && (
+                    <TouchableOpacity
+                        style={[styles.headerIconBtn, { marginRight: 0 }]}
+                        onPress={() => navigation.navigate('Notifications', { userId: senderId })}
+                    >
+                        <View>
+                            <Ionicons name="notifications-outline" size={23} color={THEME.text} />
+                            {unreadCount > 0 && (
+                                <View style={styles.notifBadge}>
+                                    <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                                </View>
+                            )}
+                        </View>
+                    </TouchableOpacity>
+                )}
                 <TouchableOpacity
                     style={styles.headerIconBtn}
-                    onPress={isAuthenticated && !isGuest ? () => setShowUserMenu(true) : () => setShowLogin(true)}
+                    onPress={isAuthenticated && !isGuest
+                        ? () => setShowUserMenu(true)
+                        : () => setShowLogin(true)
+                    }
                 >
                     {isAuthenticated && authUser ? (
                         <View style={styles.avatarCircle}>
@@ -859,6 +1035,7 @@ const ChatScreen = ({ navigation }) => {
                         <Ionicons name="person-circle-outline" size={28} color={THEME.textSecondary} />
                     )}
                 </TouchableOpacity>
+                </View>
             </View>
 
             <KeyboardAvoidingView
@@ -912,6 +1089,7 @@ const ChatScreen = ({ navigation }) => {
                                 onButtonClick={handleButtonClick}
                                 onFeedback={handleFeedback}
                                 initialFeedback={feedbackMap[item.id]}
+                                apiBaseUrl={apiBaseUrl}
                             />
                         )}
                         contentContainerStyle={styles.messagesList}
@@ -941,8 +1119,8 @@ const ChatScreen = ({ navigation }) => {
                     </View>
                 )}
 
-                {/* Quick Actions bar — only shown after user has interacted */}
-                {!isWelcomeState && !sessionEnded && handoffState === 'bot_active' && messages.some(m => m.sender === 'user') && (
+                {/* Quick Actions bar */}
+                {!isWelcomeState && !sessionEnded && handoffState === 'bot_active' && (
                     <QuickActions onAction={handleButtonClick} isAuthenticated={isAuthenticated && !isGuest} />
                 )}
 
@@ -1000,7 +1178,14 @@ const ChatScreen = ({ navigation }) => {
                                         />
                                     </TouchableOpacity>
                                 ) : (
-                                    <TouchableOpacity style={styles.inputIconBtn}>
+                                    <TouchableOpacity
+                                        style={styles.inputIconBtn}
+                                        onPress={() => Alert.alert(
+                                            'Voice Input',
+                                            'Tap the 🎤 microphone button on your keyboard to dictate.',
+                                            [{ text: 'Got it', style: 'default' }]
+                                        )}
+                                    >
                                         <Ionicons name="mic-outline" size={22} color={THEME.textSecondary} />
                                     </TouchableOpacity>
                                 )}
@@ -1047,6 +1232,7 @@ const ChatScreen = ({ navigation }) => {
                 visible={showLogin}
                 onClose={() => { setShowLogin(false); setLoginError(''); }}
                 onLogin={handleLogin}
+                onIamLogin={iam.login ? () => { setShowLogin(false); iam.login(); } : null}
                 isLoading={loginLoading}
                 error={loginError}
             />
@@ -1064,6 +1250,8 @@ const ChatScreen = ({ navigation }) => {
                 visible={showTicketForm}
                 onClose={() => setShowTicketForm(false)}
                 onSubmit={handleTicketFormSubmit}
+                prefill={prefillFromMessages(messages)}
+                apiBaseUrl={apiBaseUrl}
             />
             <SessionFeedbackModal
                 visible={showFeedback}
@@ -1082,11 +1270,18 @@ const ChatScreen = ({ navigation }) => {
                                     <Text style={styles.menuUserName}>{authUser}</Text>
                                     <Text style={styles.menuUserSub}>{authUser}</Text>
                                 </View>
-                                <TouchableOpacity style={styles.menuItem}>
-                                    <Text style={styles.menuItemTextMuted}>My Profile</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.menuItem} onPress={() => { setShowUserMenu(false); fetchUserHistory(); setHistoryView('history'); }}>
-                                    <Text style={styles.menuItemText}>History</Text>
+                                <TouchableOpacity
+                                    style={styles.menuItem}
+                                    onPress={() => {
+                                        setShowUserMenu(false);
+                                        navigation.navigate('Profile', {
+                                            authUser,
+                                            appId: appIdRef.current,
+                                            onLogout: handleLogout,
+                                        });
+                                    }}
+                                >
+                                    <Text style={styles.menuItemText}>My Profile</Text>
                                 </TouchableOpacity>
                                 {!isWelcomeState && !sessionEnded && (
                                     <TouchableOpacity style={styles.menuItem} onPress={() => { setShowUserMenu(false); handleEndSession(); }}>
@@ -1105,7 +1300,7 @@ const ChatScreen = ({ navigation }) => {
 
             {/* History Panel */}
             <Modal visible={historyView !== 'chat'} animationType="slide" onRequestClose={() => { setHistoryView('chat'); setSelectedSession(null); }}>
-                <SafeAreaView style={styles.historyContainer} edges={['top']}>
+                <SafeAreaView style={styles.historyContainer} edges={['top', 'bottom']}>
                     {/* History List View */}
                     {historyView === 'history' && (
                         <>
@@ -1115,6 +1310,21 @@ const ChatScreen = ({ navigation }) => {
                                 </TouchableOpacity>
                                 <Text style={styles.historyTitle}>Conversation History</Text>
                             </View>
+                            {/* Search bar */}
+                            <View style={styles.searchBar}>
+                                <Ionicons name="search-outline" size={16} color={THEME.textSecondary} style={{ marginRight: 6 }} />
+                                <TextInput
+                                    style={styles.searchInput}
+                                    value={historySearch}
+                                    onChangeText={t => {
+                                        setHistorySearch(t);
+                                        clearTimeout(window._mhTimer);
+                                        window._mhTimer = setTimeout(() => fetchUserHistory(t), 350);
+                                    }}
+                                    placeholder="Search conversations…"
+                                    placeholderTextColor="#9ca3af"
+                                    returnKeyType="search"
+                                /></View>
                             {historyLoading ? (
                                 <View style={styles.historyCentered}>
                                     <ActivityIndicator size="large" color={THEME.primary} />
@@ -1125,36 +1335,43 @@ const ChatScreen = ({ navigation }) => {
                                     <Text style={styles.historyEmptyText}>No previous conversations</Text>
                                 </View>
                             ) : (
-                                <ScrollView style={styles.historyScroll} showsVerticalScrollIndicator={false}>
-                                    {Object.entries(groupSessionsByDate(historyList)).map(([label, sessions]) => (
-                                        <View key={label}>
-                                            <Text style={styles.historySectionLabel}>{label}</Text>
-                                            {sessions.map(session => (
-                                                <TouchableOpacity
-                                                    key={session.sender_id}
-                                                    style={styles.historyCard}
-                                                    onPress={() => fetchSessionMessages(session)}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <View style={styles.historyCardHeader}>
-                                                        <View>
-                                                            <Text style={styles.historyCardTime}>
-                                                                {new Date(session.started_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                                                                {' · '}
-                                                                {new Date(session.started_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                            </Text>
-                                                            <Text style={styles.historyCardPreview} numberOfLines={2}>
-                                                                "{session.preview}"
-                                                            </Text>
-                                                        </View>
-                                                        {session.rating && (
-                                                            <View style={styles.ratingBadge}>
-                                                                <Ionicons name="star" size={14} color="#fbbf24" />
-                                                                <Text style={styles.ratingText}>{session.rating}</Text>
+                                <ScrollView style={styles.historyScroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+                                    {Object.entries(groupSessionsByProduct(historyList)).map(([productId, dateGroups]) => (
+                                        <View key={productId} style={{ marginBottom: 16 }}>
+                                            {/* Product header */}
+                                            <View style={styles.historyProductHeader}>
+                                                <Text style={styles.historyProductLabel}>{PRODUCT_LABELS[productId] || productId}</Text>
+                                                <View style={styles.historyProductLine} />
+                                            </View>
+                                            {Object.entries(dateGroups).map(([dl, sessions]) => (
+                                                <View key={dl}>
+                                                    <Text style={styles.historySectionLabel}>{dl}</Text>
+                                                    {sessions.map(session => (
+                                                        <TouchableOpacity
+                                                            key={session.sender_id}
+                                                            style={styles.historyCard}
+                                                            onPress={() => fetchSessionMessages(session)}
+                                                            activeOpacity={0.7}
+                                                        >
+                                                            <View style={styles.historyCardHeader}>
+                                                                <View style={{ flex: 1 }}>
+                                                                    <Text style={styles.historyCardTime}>
+                                                                        {new Date(session.started_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                                                    </Text>
+                                                                    <Text style={styles.historyCardPreview} numberOfLines={2}>
+                                                                        {cleanPreview(session.preview)}
+                                                                    </Text>
+                                                                </View>
+                                                                {session.rating && (
+                                                                    <View style={styles.ratingBadge}>
+                                                                        <Ionicons name="star" size={14} color="#fbbf24" />
+                                                                        <Text style={styles.ratingText}>{session.rating}</Text>
+                                                                    </View>
+                                                                )}
                                                             </View>
-                                                        )}
-                                                    </View>
-                                                </TouchableOpacity>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
                                             ))}
                                         </View>
                                     ))}
@@ -1167,12 +1384,51 @@ const ChatScreen = ({ navigation }) => {
                     {historyView === 'session' && selectedSession && (
                         <>
                             <View style={styles.historyHeader}>
-                                <TouchableOpacity onPress={() => { setHistoryView('history'); setSelectedSession(null); }} style={styles.historyBackBtn}>
+                                <TouchableOpacity
+                                    onPress={() => { setHistoryView('history'); setSelectedSession(null); }}
+                                    style={styles.historyBackBtn}
+                                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                                >
                                     <Ionicons name="arrow-back" size={22} color={THEME.text} />
                                 </TouchableOpacity>
-                                <Text style={styles.historyTitle} numberOfLines={1}>
-                                    {selectedSession.preview?.substring(0, 30) || 'Conversation'}
-                                </Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.historyTitle} numberOfLines={1}>
+                                        {new Date(selectedSession.started_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    </Text>
+                                    <Text style={{ fontSize: 11, color: THEME.textSecondary, marginTop: 1 }} numberOfLines={1}>
+                                        {cleanPreview(selectedSession.preview)}
+                                    </Text>
+                                </View>
+                                <TouchableOpacity
+                                    style={styles.historyBackBtn}
+                                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                                    onPress={async () => {
+                                        try {
+                                            const Print   = await import('expo-print');
+                                            const Sharing = await import('expo-sharing');
+                                            const msgs    = selectedSession.messages || [];
+                                            const rows    = msgs.map(m => `
+                                                <div class="${m.sender === 'bot' ? 'bot' : 'user'}">
+                                                    <strong>${m.sender === 'bot' ? '🤖 Bot' : '👤 You'}</strong>
+                                                    <p>${(m.text || '').replace(/</g,'&lt;')}</p>
+                                                </div>`).join('');
+                                            const html = `<html><head><style>
+                                                body{font-family:sans-serif;padding:20px;font-size:13px}
+                                                .bot{background:#f3f4f6;border-radius:8px;padding:8px 12px;margin:6px 0}
+                                                .user{background:#dbeafe;border-radius:8px;padding:8px 12px;margin:6px 0;text-align:right}
+                                                strong{font-size:11px;color:#6b7280}
+                                                p{margin:4px 0}
+                                            </style></head><body>
+                                                <h2>Conversation — ${new Date(selectedSession.started_at).toLocaleDateString()}</h2>
+                                                ${rows}
+                                            </body></html>`;
+                                            const { uri } = await Print.default.printToFileAsync({ html });
+                                            await Sharing.default.shareAsync(uri, { mimeType: 'application/pdf' });
+                                        } catch (e) { Alert.alert('Export failed', e.message); }
+                                    }}
+                                >
+                                    <Ionicons name="share-outline" size={22} color={THEME.primary} />
+                                </TouchableOpacity>
                             </View>
                             {sessionLoading ? (
                                 <View style={styles.historyCentered}>
@@ -1182,13 +1438,14 @@ const ChatScreen = ({ navigation }) => {
                                 <FlatList
                                     data={selectedSession.messages || []}
                                     keyExtractor={item => item.id}
-                                    contentContainerStyle={styles.messagesList}
+                                    contentContainerStyle={[styles.messagesList, { paddingTop: 8 }]}
                                     renderItem={({ item }) => (
                                         <MessageBubble
                                             message={item}
                                             readonly
                                         />
                                     )}
+                                    showsVerticalScrollIndicator={false}
                                     ListFooterComponent={
                                         <View style={styles.readonlyFooter}>
                                             <Ionicons name="lock-closed-outline" size={13} color="#9ca3af" />
@@ -1229,7 +1486,7 @@ const ChatScreen = ({ navigation }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (THEME) => StyleSheet.create({
     container: { flex: 1, backgroundColor: THEME.background },
     flex: { flex: 1 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: THEME.background },
@@ -1256,7 +1513,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 4,
         paddingVertical: 10,
+        minHeight: 56,
         backgroundColor: THEME.background,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: THEME.border,
     },
     headerTitle: {
         fontSize: 20,
@@ -1305,8 +1565,10 @@ const styles = StyleSheet.create({
     welcomeChip: {
         paddingHorizontal: 22,
         paddingVertical: 16,
-        backgroundColor: '#ffffff',
+        backgroundColor: THEME.background,
         borderRadius: 26,
+        borderWidth: 1,
+        borderColor: THEME.border,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.08,
@@ -1330,7 +1592,7 @@ const styles = StyleSheet.create({
     inputRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f0f4f9',
+        backgroundColor: THEME.userBubble,
         borderRadius: 30,
         marginHorizontal: 16,
         marginBottom: 16,
@@ -1389,7 +1651,7 @@ const styles = StyleSheet.create({
         top: 60,
         right: 12,
         width: 220,
-        backgroundColor: '#ffffff',
+        backgroundColor: THEME.background,
         borderRadius: 14,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
@@ -1398,7 +1660,7 @@ const styles = StyleSheet.create({
         elevation: 10,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.08)',
+        borderColor: THEME.border,
     },
     menuUserInfo: {
         paddingHorizontal: 16,
@@ -1409,7 +1671,7 @@ const styles = StyleSheet.create({
     menuUserName: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#111827',
+        color: THEME.text,
     },
     menuUserSub: {
         fontSize: 12,
@@ -1423,11 +1685,11 @@ const styles = StyleSheet.create({
     menuItemText: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#111827',
+        color: THEME.text,
     },
     menuItemTextMuted: {
         fontSize: 14,
-        color: '#4b5563',
+        color: THEME.textSecondary,
     },
     menuDivider: {
         height: 1,
@@ -1436,24 +1698,67 @@ const styles = StyleSheet.create({
     },
 
     // History panel
-    historyContainer: { flex: 1, backgroundColor: '#f9fafb' },
+    historyContainer: { flex: 1, backgroundColor: THEME.background },
     historyHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 8,
         paddingVertical: 12,
-        backgroundColor: '#ffffff',
+        paddingTop: 14,
+        backgroundColor: THEME.background,
         borderBottomWidth: 1,
-        borderBottomColor: '#e5e7eb',
+        borderBottomColor: THEME.border,
+        minHeight: 56,
     },
-    historyBackBtn: { padding: 8, borderRadius: 20 },
+    notifBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        minWidth: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: THEME.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 2,
+    },
+    notifBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
+    historyBackBtn: { padding: 8, borderRadius: 20, marginRight: 4 },
     historyTitle: {
-        flex: 1,
-        fontSize: 17,
+        fontSize: 16,
         fontWeight: '600',
         color: THEME.text,
-        textAlign: 'center',
-        marginRight: 40,
+    },
+    searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: THEME.userBubble,
+        borderRadius: 10,
+        marginHorizontal: 16,
+        marginVertical: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+    },
+    searchInput: { flex: 1, fontSize: 14, color: THEME.text },
+    historyProductHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 4,
+        gap: 8,
+    },
+    historyProductLabel: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: THEME.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
+    historyProductLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#dbeafe',
     },
     historyCentered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
     historyEmptyText: { fontSize: 14, color: '#9ca3af' },
@@ -1468,12 +1773,12 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     historyCard: {
-        backgroundColor: '#ffffff',
+        backgroundColor: THEME.background,
         borderRadius: 12,
         padding: 14,
         marginBottom: 8,
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: THEME.border,
     },
     historyCardHeader: {
         flexDirection: 'row',

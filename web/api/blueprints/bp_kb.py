@@ -54,6 +54,20 @@ def get_kb_articles():
         return jsonify({"success": False, "error": str(e), "articles": []}), 500
 
 
+@bp.route('/admin/kb/gaps', methods=['GET'])
+def get_kb_gaps():
+    """Return top unanswered queries — Knowledge Gap report."""
+    try:
+        from common.db._kb_gaps import get_kb_gaps
+        days   = int(request.args.get('days', 7))
+        limit  = int(request.args.get('limit', 20))
+        app_id = request.args.get('app_id') or None
+        gaps   = get_kb_gaps(days=days, limit=limit, app_id=app_id)
+        return jsonify({'success': True, 'data': gaps, 'days': days})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @bp.route('/admin/kb/search', methods=['POST'])
 def test_kb_search():
     try:

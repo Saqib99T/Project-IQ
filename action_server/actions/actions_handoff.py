@@ -17,6 +17,7 @@ from action_server.actions._shared import (
     get_analytics_context, get_effective_session_token,
     check_user_login, glpi_service, logger,
     _call_admin_api, _get_handoff_runtime_cfg,
+    get_iam_identity, is_iam_authenticated, require_iam_auth,
 )
 
 
@@ -30,6 +31,11 @@ class ActionRequestHandoff(Action):
 
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
+
+        # Require IAM authentication or legacy GLPI session for handoff
+        iam = get_iam_identity(tracker)
+        if not iam["sub"] and not get_effective_session_token(tracker):
+            return [require_iam_auth(dispatcher)] if not require_iam_auth(dispatcher) else []
 
         handoff_state = tracker.get_slot('handoff_state') or 'bot_active'
         if handoff_state in ('queued', 'assigned'):

@@ -155,6 +155,49 @@ def require_operator_token(f):
     return decorated
 
 
+def require_iam_token(f):
+    """Decorator: validates Keycloak Bearer JWT, injects g.iam_user into Flask context."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        from flask import g
+        from common.iam_service import get_iam_user_from_request, IamTokenError
+        try:
+            user = get_iam_user_from_request(request)
+            if not user:
+                return jsonify({'error': 'Missing Authorization header'}), 401
+            g.iam_user = user
+        except IamTokenError as e:
+            return jsonify({'error': str(e)}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+
+def require_role(role: str):
+    """Decorator factory: requires require_iam_token already applied + a specific realm role."""
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            from flask import g
+            user = getattr(g, 'iam_user', None)
+            if not user:
+                return jsonify({'error': 'Not authenticated'}), 401
+            if role not in user.get('realm_roles', []):
+                return jsonify({'error': f'Role required: {role}'}), 403
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
+
+def get_iam_user_or_guest(request_obj) -> dict | None:
+    """
+    Try to extract IAM user from request.
+    Returns normalised user dict or None if no Bearer token (guest).
+    Raises IamTokenError if token present but invalid.
+    """
+    from common.iam_service import get_iam_user_from_request
+    return get_iam_user_from_request(request_obj)
+
+
 def require_admin_token(f):
     """Decorator: validates admin session token or dev-mode bypass."""
     @wraps(f)

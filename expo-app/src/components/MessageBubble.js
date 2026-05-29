@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, Clipboard } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Clipboard, Image } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { THEME } from '../config';
+import { useTheme } from '../context/ThemeContext';
 
 const extractYouTubeInfo = (video) => {
     if (!video) return { id: '', start: 0, title: '' };
@@ -33,7 +34,9 @@ const extractYouTubeInfo = (video) => {
     return { id: videoId, start: startTime, title };
 };
 
-const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFeedback }) => {
+const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFeedback, apiBaseUrl = '' }) => {
+    const { theme: THEME } = useTheme();
+    const styles = useMemo(() => makeStyles(THEME), [THEME]);
     const [feedbackGiven, setFeedbackGiven] = useState(initialFeedback || null);
     const isBot = message.sender === 'bot';
     const isOperator = message.sender === 'operator';
@@ -56,16 +59,16 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
         ordered_list: { marginLeft: 4, marginVertical: 2 },
         list_item: { marginVertical: 1 },
         link: { color: readonly ? THEME.textSecondary : THEME.primary, textDecorationLine: readonly ? 'none' : 'underline' },
-        heading1: { fontSize: 18, fontWeight: '700', marginVertical: 6, color: '#111' },
-        heading2: { fontSize: 16, fontWeight: '600', marginVertical: 4, color: '#111' },
-        heading3: { fontSize: 14, fontWeight: '600', marginVertical: 3, color: '#111' },
+        heading1: { fontSize: 18, fontWeight: '700', marginVertical: 6, color: THEME.text },
+        heading2: { fontSize: 16, fontWeight: '600', marginVertical: 4, color: THEME.text },
+        heading3: { fontSize: 14, fontWeight: '600', marginVertical: 3, color: THEME.text },
         table: { borderWidth: 1, borderColor: THEME.border, borderRadius: 8, marginVertical: 8 },
-        thead: { backgroundColor: '#f9fafb' },
-        th: { padding: 8, fontWeight: '600', fontSize: 13, color: '#374151' },
-        td: { padding: 8, fontSize: 13, color: '#4b5563', borderTopWidth: 1, borderColor: THEME.border },
-        code_inline: { backgroundColor: '#f3f4f6', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, fontFamily: 'monospace', fontSize: 13, color: THEME.text },
-        fence: { backgroundColor: '#f8fafc', padding: 12, borderRadius: 8, marginVertical: 8, borderWidth: 1, borderColor: '#e2e8f0' },
-        code_block: { fontFamily: 'monospace', fontSize: 12, color: '#0f172a' },
+        thead: { backgroundColor: THEME.userBubble },
+        th: { padding: 8, fontWeight: '600', fontSize: 13, color: THEME.text },
+        td: { padding: 8, fontSize: 13, color: THEME.textSecondary, borderTopWidth: 1, borderColor: THEME.border },
+        code_inline: { backgroundColor: THEME.userBubble, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, fontFamily: 'monospace', fontSize: 13, color: THEME.text },
+        fence: { backgroundColor: THEME.userBubble, padding: 12, borderRadius: 8, marginVertical: 8, borderWidth: 1, borderColor: THEME.border },
+        code_block: { fontFamily: 'monospace', fontSize: 12, color: THEME.text },
     };
 
     // Warning / system banner
@@ -113,7 +116,26 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
                     {message.text ? (
                         <Markdown
                             style={mdStyles}
-                            onLinkPress={readonly ? () => false : (url) => { Linking.openURL(url); return false; }}
+                            onLinkPress={readonly ? () => false : (url) => {
+                                const resolved = url.startsWith('/') ? `${apiBaseUrl}${url}` : url;
+                                Linking.openURL(resolved);
+                                return false;
+                            }}
+                            rules={{
+                                image: (node) => {
+                                    const src = node.attributes?.src || '';
+                                    const resolved = src.startsWith('/') ? `${apiBaseUrl}${src}` : src;
+                                    return (
+                                        <TouchableOpacity key={node.key} onPress={() => Linking.openURL(resolved)} activeOpacity={0.8}
+                                            style={{ width: '30%', marginRight: 4, marginBottom: 4 }}>
+                                            <Image
+                                                source={{ uri: resolved }}
+                                                style={{ width: '100%', height: 70, borderRadius: 6, resizeMode: 'cover', backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb' }}
+                                            />
+                                        </TouchableOpacity>
+                                    );
+                                },
+                            }}
                         >
                             {message.text}
                         </Markdown>
@@ -208,7 +230,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
     );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (THEME) => StyleSheet.create({
     row: { flexDirection: 'row', marginVertical: 4, paddingHorizontal: 8 },
     botRow: { justifyContent: 'flex-start', alignItems: 'flex-start' },
     userRow: { justifyContent: 'flex-end', marginLeft: 60 },
@@ -248,15 +270,15 @@ const styles = StyleSheet.create({
     // Chart
     chartContainer: {
         marginTop: 10, padding: 10,
-        backgroundColor: '#f8fafc', borderRadius: 10,
-        borderWidth: 1, borderColor: '#e2e8f0',
+        backgroundColor: THEME.userBubble, borderRadius: 10,
+        borderWidth: 1, borderColor: THEME.border,
     },
-    chartTitle: { fontSize: 12, fontWeight: '600', color: '#374151', marginBottom: 8 },
+    chartTitle: { fontSize: 12, fontWeight: '600', color: THEME.text, marginBottom: 8 },
     chartRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 3, gap: 6 },
-    chartLabel: { fontSize: 11, color: '#6b7280', width: 72 },
-    chartBarTrack: { flex: 1, height: 6, backgroundColor: '#e5e7eb', borderRadius: 3, overflow: 'hidden' },
+    chartLabel: { fontSize: 11, color: THEME.textSecondary, width: 72 },
+    chartBarTrack: { flex: 1, height: 6, backgroundColor: THEME.border, borderRadius: 3, overflow: 'hidden' },
     chartBar: { height: 6, backgroundColor: THEME.primary, borderRadius: 3 },
-    chartValue: { fontSize: 11, color: '#374151', width: 24, textAlign: 'right' },
+    chartValue: { fontSize: 11, color: THEME.text, width: 24, textAlign: 'right' },
 
     archivedNote: { fontSize: 11, color: '#9ca3af', marginTop: 6, fontStyle: 'italic' },
 
@@ -277,7 +299,7 @@ const styles = StyleSheet.create({
     bannerWrapper: { alignItems: 'center', marginVertical: 6, paddingHorizontal: 16 },
     banner: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, maxWidth: '100%' },
     bannerWarning: { backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a' },
-    bannerSystem: { backgroundColor: '#f3f4f6' },
+    bannerSystem: { backgroundColor: THEME.userBubble },
     bannerIcon: { fontSize: 14, lineHeight: 20 },
 });
 

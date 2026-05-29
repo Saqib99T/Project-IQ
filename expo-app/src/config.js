@@ -1,13 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DEFAULT_API_URL = 'http://198.233.100.77:8181';
+
+export const IAM_CONFIG = {
+    keycloakUrl: 'https://id.dev.iam.99technologies.com',
+    realm:       '99-iam',
+    clientId:    'project-iq',
+};
 const WEBHOOK_PATH = '/webhooks/rest/webhook';
 const DEFAULT_APP_ID = 'IT';
 const APP_TITLE = 'Project IQ Bot';
 
 export const THEME = {
-    primary: '#3b82f6', // Project IQ Blue
-    secondary: '#eff6ff', // Light Blue background
+    primary: '#3b82f6',
+    secondary: '#eff6ff',
     background: '#ffffff',
     userBubble: '#f0f4f9',
     text: '#111827',
@@ -15,6 +21,18 @@ export const THEME = {
     border: '#e5e7eb',
     success: '#10b981',
     error: '#ef4444',
+};
+
+export const THEME_DARK = {
+    primary: '#60a5fa',
+    secondary: '#1e3a5f',
+    background: '#111827',
+    userBubble: '#1f2937',
+    text: '#f9fafb',
+    textSecondary: '#9ca3af',
+    border: '#374151',
+    success: '#34d399',
+    error: '#f87171',
 };
 
 export const APP_ID_OPTIONS = [

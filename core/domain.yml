@@ -181,6 +181,29 @@ slots:
     influence_conversation: false
     mappings: []
 
+  # IAM identity slots — set from message metadata on each request
+  iam_sub:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_text
+        intent: session_start
+
+  iam_name:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  iam_email:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  glpi_user_id:
+    type: float
+    influence_conversation: false
+    mappings: []
+
   glpi_username:
     type: text
     influence_conversation: false
@@ -207,11 +230,6 @@ slots:
 
   is_authenticated:
     type: bool
-    influence_conversation: false
-    mappings: []
-
-  glpi_user_id:
-    type: text
     influence_conversation: false
     mappings: []
 

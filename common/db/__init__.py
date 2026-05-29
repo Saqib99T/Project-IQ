@@ -32,12 +32,17 @@ from common.db._config import (
     _deep_merge, _HANDOFF_RUNTIME_DEFAULTS,
 )
 from common.db._handoff import (
-    get_operators, get_operator, get_operator_by_username,
+    get_operators, get_operator, get_operator_by_username, get_operator_by_iam_sub,
     create_operator, update_operator, update_operator_last_seen,
     get_operator_current_load, get_operator_stats,
     get_available_operators, _is_within_shift,
     enqueue_handoff, _recalculate_queue_positions,
     get_queue, log_handoff_consent,
+)
+from common.db._notifications import (
+    create_notification, get_notifications, get_unread_count,
+    mark_read, mark_all_read,
+    upsert_push_token, get_push_tokens,
 )
 
 __all__ = [
@@ -57,7 +62,7 @@ __all__ = [
     'get_handoff_runtime_config', 'set_handoff_runtime_config',
     '_deep_merge', '_HANDOFF_RUNTIME_DEFAULTS',
     # handoff
-    'get_operators', 'get_operator', 'get_operator_by_username',
+    'get_operators', 'get_operator', 'get_operator_by_username', 'get_operator_by_iam_sub',
     'create_operator', 'update_operator', 'update_operator_last_seen',
     'get_operator_current_load', 'get_operator_stats',
     'get_available_operators', '_is_within_shift',

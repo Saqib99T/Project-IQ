@@ -56,6 +56,60 @@ def get_operator(operator_id: int) -> Optional[Dict]:
         _release_connection(conn)
 
 
+def get_operator_by_iam_sub(iam_sub: str) -> Optional[Dict]:
+    """Look up an operator by their Keycloak subject UUID (iam_sub column)."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        # iam_sub column added by migration; fall back gracefully if missing
+        try:
+            cursor.execute(
+                "SELECT id, username, display_name, email, team, app_ids, "
+                "status, max_concurrent, is_active "
+                "FROM operators WHERE iam_sub=%s AND is_active=TRUE",
+                (iam_sub,)
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        except Exception:
+            return None
+    finally:
+        _release_connection(conn)
+
+
+def get_operator_by_email(email: str) -> Optional[Dict]:
+    """Look up an operator by email address (used to link IAM sub on first login)."""
+    if not email:
+        return None
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT id, username, display_name, email, team, app_ids, "
+            "status, max_concurrent, is_active, iam_sub "
+            "FROM operators WHERE LOWER(email)=LOWER(%s) AND is_active=TRUE",
+            (email,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    finally:
+        _release_connection(conn)
+
+
+def update_operator_iam_sub(operator_id: int, iam_sub: str) -> None:
+    """Persist the Keycloak sub on an existing operator record (first IAM login)."""
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE operators SET iam_sub=%s WHERE id=%s",
+            (iam_sub, operator_id)
+        )
+        conn.commit()
+    finally:
+        _release_connection(conn)
+
+
 def get_operator_by_username(username: str) -> Optional[Dict]:
     conn = _get_connection()
     try:
@@ -74,19 +128,30 @@ def get_operator_by_username(username: str) -> Optional[Dict]:
 
 def create_operator(username: str, display_name: str, password_hash: str,
                     email: str = None, team: str = None, app_ids: List[str] = None,
-                    max_concurrent: int = None, shift_schedule: Dict = None) -> int:
+                    max_concurrent: int = None, shift_schedule: Dict = None,
+                    iam_sub: str = None) -> int:
     conn = _get_connection()
     try:
         cfg = get_handoff_runtime_config()
         default_max = cfg['operators']['default_max_concurrent']
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute(
-            "INSERT INTO operators (username, display_name, password_hash, email, team, app_ids, "
-            "max_concurrent, shift_schedule) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-            (username, display_name, password_hash, email, team, app_ids or [],
-             max_concurrent if max_concurrent is not None else default_max,
-             json.dumps(shift_schedule) if shift_schedule else None)
-        )
+        # iam_sub column is optional — inserted only when provided
+        if iam_sub:
+            cursor.execute(
+                "INSERT INTO operators (username, display_name, password_hash, email, team, app_ids, "
+                "max_concurrent, shift_schedule, iam_sub) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                (username, display_name, password_hash, email, team, app_ids or [],
+                 max_concurrent if max_concurrent is not None else default_max,
+                 json.dumps(shift_schedule) if shift_schedule else None, iam_sub)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO operators (username, display_name, password_hash, email, team, app_ids, "
+                "max_concurrent, shift_schedule) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                (username, display_name, password_hash, email, team, app_ids or [],
+                 max_concurrent if max_concurrent is not None else default_max,
+                 json.dumps(shift_schedule) if shift_schedule else None)
+            )
         new_id = cursor.fetchone()['id']
         conn.commit()
         return new_id
@@ -96,7 +161,7 @@ def create_operator(username: str, display_name: str, password_hash: str,
 
 def update_operator(operator_id: int, **kwargs) -> bool:
     allowed = {'display_name', 'email', 'team', 'app_ids', 'max_concurrent',
-               'shift_schedule', 'status', 'is_active', 'password_hash'}
+               'shift_schedule', 'status', 'is_active', 'password_hash', 'is_admin'}
     updates = {k: v for k, v in kwargs.items() if k in allowed}
     if not updates: return False
     conn = _get_connection()

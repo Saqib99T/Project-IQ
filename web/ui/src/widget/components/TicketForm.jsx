@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
-import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { AlertCircle, CheckCircle, XCircle, Paperclip, X as XIcon, Loader } from 'lucide-react';
 
-const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1' }) => {
+const MAX_FILE_BYTES = 1 * 1024 * 1024; // 1 MB
+
+const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1', prefill = {}, sessionToken = null }) => {
     const [formData, setFormData] = useState({
-        title: '',
-        detail: '',
-        priority: 'Medium',
-        urgency: 'Medium',
-        category: 'Hardware'
+        title:    prefill.title    || '',
+        detail:   prefill.detail   || '',
+        priority: prefill.priority || 'Medium',
+        urgency:  'Medium',
+        category: prefill.category || 'Hardware',
     });
 
     const [showConfirm, setShowConfirm] = useState(false);
     const [isCompleted, setIsCompleted] = useState(false);
     const [error, setError] = useState('');
+    const [attachment, setAttachment] = useState(null); // { name, doc_id, sizeLabel } after upload
+    const [fileError, setFileError] = useState('');
+    const [uploading, setUploading] = useState(false);
+    const fileRef = useRef(null);
 
     const priorityOptions = ['Minor', 'Major', 'Medium', 'High', 'Critical'];
     const urgencyOptions = ['Low', 'Medium', 'High'];
@@ -22,6 +28,37 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1' }) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
         if (name === 'title' && value.trim()) setError('');
+    };
+
+    const handleFileChange = async (e) => {
+        setFileError('');
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > MAX_FILE_BYTES) {
+            setFileError(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 1 MB.`);
+            e.target.value = '';
+            return;
+        }
+        e.target.value = '';
+        setUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            if (sessionToken) fd.append('session_token', sessionToken);
+            const resp = await fetch('/api/ticket-attachment', { method: 'POST', body: fd });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                setFileError(err.error || 'Upload failed. Please try again.');
+                return;
+            }
+            const { doc_id, name } = await resp.json();
+            const sizeLabel = file.size < 1024 ? `${file.size} B` : `${(file.size / 1024).toFixed(1)} KB`;
+            setAttachment({ name, doc_id, sizeLabel });
+        } catch (err) {
+            setFileError('Upload failed. Check your connection.');
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleSubmitClick = (e) => {
@@ -35,7 +72,7 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1' }) => {
 
     const handleConfirm = () => {
         setIsCompleted(true);
-        onSubmit(formData);
+        onSubmit({ ...formData, attachment });
     };
 
     const handleCancel = () => {
@@ -54,6 +91,27 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1' }) => {
 
             {!showConfirm ? (
                 <form className="space-y-2">
+                    {/* Quick issue chips */}
+                    <div>
+                        <p className="text-xs text-gray-400 mb-1">Common issues:</p>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                            {[
+                                { label: '💻 Laptop issue',      title: 'Laptop not working',          category: 'Hardware' },
+                                { label: '🌐 No internet',       title: 'Unable to connect to internet', category: 'Network'  },
+                                { label: '🔑 Can\'t log in',     title: 'Cannot access my account',    category: 'Software' },
+                                { label: '📧 Email problem',     title: 'Email not working',            category: 'Software' },
+                                { label: '🖨️ Printer issue',     title: 'Printer not printing',         category: 'Hardware' },
+                                { label: '🔒 Need access',       title: 'Requesting system access',     category: 'Software' },
+                            ].map(chip => (
+                                <button key={chip.label} type="button"
+                                    onClick={() => setFormData(p => ({ ...p, title: chip.title, category: chip.category }))}
+                                    className="text-xs px-2 py-1 rounded-full border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600 transition-colors bg-gray-50"
+                                >
+                                    {chip.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     {/* Title (Mandatory) */}
                     <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Title <span className="text-red-500">*</span></label>
@@ -127,6 +185,35 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1' }) => {
                         </select>
                     </div>
 
+                    {/* Attachment */}
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Attachment <span className="text-gray-400 font-normal">(max 1 MB)</span></label>
+                        <input ref={fileRef} type="file" className="hidden" onChange={handleFileChange}
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.png,.jpg,.jpeg" />
+                        {uploading ? (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-600">
+                                <Loader size={13} className="animate-spin flex-shrink-0" />
+                                <span>Uploading…</span>
+                            </div>
+                        ) : attachment ? (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+                                <Paperclip size={13} className="text-gray-400 flex-shrink-0" />
+                                <span className="text-xs text-gray-700 truncate flex-1">{attachment.name}</span>
+                                <span className="text-xs text-gray-400">{attachment.sizeLabel}</span>
+                                <button type="button" onClick={() => setAttachment(null)} className="text-gray-400 hover:text-gray-600">
+                                    <XIcon size={13} />
+                                </button>
+                            </div>
+                        ) : (
+                            <button type="button" onClick={() => fileRef.current?.click()}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-gray-300 rounded-md text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors w-full"
+                            >
+                                <Paperclip size={13} /> Choose file…
+                            </button>
+                        )}
+                        {fileError && <p className="text-xs text-red-500 mt-1">{fileError}</p>}
+                    </div>
+
                     {/* Actions */}
                     <div className="flex gap-2 pt-2">
                         <button
@@ -162,6 +249,7 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1' }) => {
                         <p><strong>Title:</strong> {formData.title}</p>
                         <p><strong>Category:</strong> {formData.category}</p>
                         <p><strong>Priority:</strong> {formData.priority}</p>
+                        {attachment && <p><strong>Attachment:</strong> {attachment.name} ({attachment.sizeLabel})</p>}
                     </div>
 
                     <div className="flex gap-2 justify-center">

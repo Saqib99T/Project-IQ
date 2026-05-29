@@ -226,8 +226,129 @@ async function loadProfileBadge() {
     } catch (e) { /* badge stays as default */ }
 }
 
+// ── IAM Login — pure PKCE, no external library needed ────────────────────────
+const AdminIam = {
+    IAM_URL:   'https://id.dev.iam.99technologies.com',
+    REALM:     '99-iam',
+    CLIENT_ID: 'project-iq',
+
+    _tokenBase() { return `${this.IAM_URL}/realms/${this.REALM}/protocol/openid-connect`; },
+
+    // ── PKCE helpers ──────────────────────────────────────────────────────────
+    _random() {
+        const arr = new Uint8Array(32);
+        crypto.getRandomValues(arr);
+        return btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    },
+    async _challenge(verifier) {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+        return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    },
+
+    // ── Start login — redirect to Keycloak ────────────────────────────────────
+    async login() {
+        const verifier   = this._random();
+        const challenge  = await this._challenge(verifier);
+        const state      = this._random();
+        const redirectUri = window.location.origin + window.location.pathname;
+
+        sessionStorage.setItem('iam_verifier',    verifier);
+        sessionStorage.setItem('iam_state',        state);
+        sessionStorage.setItem('iam_redirect_uri', redirectUri);
+
+        const params = new URLSearchParams({
+            client_id:             this.CLIENT_ID,
+            response_type:         'code',
+            redirect_uri:          redirectUri,
+            scope:                 'openid profile email',
+            state,
+            code_challenge:        challenge,
+            code_challenge_method: 'S256',
+        });
+        window.location.href = `${this._tokenBase()}/auth?${params}`;
+    },
+
+    // ── Handle callback — exchange code for token ─────────────────────────────
+    async handleCallback() {
+        const p = new URLSearchParams(window.location.search);
+        const code     = p.get('code');
+        const state    = p.get('state');
+        const verifier = sessionStorage.getItem('iam_verifier');
+        const savedState  = sessionStorage.getItem('iam_state');
+        const redirectUri = sessionStorage.getItem('iam_redirect_uri');
+
+        if (!code || !verifier) return false;
+        if (state !== savedState) { console.error('[IAM] state mismatch'); return false; }
+
+        sessionStorage.removeItem('iam_verifier');
+        sessionStorage.removeItem('iam_state');
+        sessionStorage.removeItem('iam_redirect_uri');
+
+        // Clean URL
+        history.replaceState({}, '', window.location.pathname);
+
+        const btn = document.getElementById('iam-login-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+
+        try {
+            // Exchange code for token directly
+            const tokenRes = await fetch(`${this._tokenBase()}/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    grant_type:    'authorization_code',
+                    client_id:     this.CLIENT_ID,
+                    code,
+                    redirect_uri:  redirectUri,
+                    code_verifier: verifier,
+                }),
+            });
+            const tokens = await tokenRes.json();
+            if (!tokens.access_token) throw new Error(tokens.error_description || 'Token exchange failed');
+
+            // Send token to our backend
+            await this.exchangeToken(tokens.access_token);
+            return true;
+        } catch (e) {
+            const err = document.getElementById('login-error');
+            if (err) { err.textContent = e.message; err.classList.remove('hidden'); }
+            return false;
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Sign in with IAM'; }
+        }
+    },
+
+    async exchangeToken(iamToken) {
+        const res  = await fetch('/admin/iam-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${iamToken}` },
+            body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (data.success) {
+            CookieUtils.set(AdminAuth.SESSION_KEY, data.session_token, { session: true });
+            CookieUtils.set(AdminAuth.USER_KEY, JSON.stringify(data.user), { session: true });
+            AdminAuth.hideLoginOverlay();
+            if (typeof loadAnalyticsData === 'function') loadAnalyticsData();
+        } else {
+            throw new Error(data.error || 'Access denied');
+        }
+    },
+
+    init() {
+        // Show any IAM error returned by the server callback
+        const qErr = new URLSearchParams(window.location.search).get('iam_error');
+        if (qErr) {
+            const err = document.getElementById('login-error');
+            if (err) { err.textContent = decodeURIComponent(qErr); err.classList.remove('hidden'); }
+            history.replaceState({}, '', window.location.pathname);
+        }
+    },
+};
+
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    AdminAuth.init();
+document.addEventListener('DOMContentLoaded', async () => {
+    const valid = await AdminAuth.init();
+    if (!valid) AdminIam.init();
     loadProfileBadge();
 });

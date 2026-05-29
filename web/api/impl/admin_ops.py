@@ -37,21 +37,25 @@ def create_operator_endpoint():
         username     = (data.get('username') or '').strip().lower()
         display_name = (data.get('display_name') or '').strip()
         password     = data.get('password') or ''
-        if not username or not display_name or not password:
-            return jsonify({'error': 'username, display_name, and password are required'}), 400
-        if len(password) < 8:
+        if not username or not display_name:
+            return jsonify({'error': 'username and display_name are required'}), 400
+        if password and len(password) < 8:
             return jsonify({'error': 'Password must be at least 8 characters'}), 400
 
         new_id = create_operator(
             username=username,
             display_name=display_name,
-            password_hash=hash_password(password),
+            password_hash=hash_password(password) if password else 'iam-managed',
             email=data.get('email'),
             team=data.get('team'),
             app_ids=data.get('app_ids', []),
             max_concurrent=data.get('max_concurrent'),
-            shift_schedule=data.get('shift_schedule')
+            shift_schedule=data.get('shift_schedule'),
+            iam_sub=data.get('iam_sub'),
         )
+        if data.get('is_admin'):
+            from common.conversation_db import update_operator
+            update_operator(new_id, is_admin=True)
         return jsonify({'success': True, 'operator_id': new_id}), 201
     except Exception as e:
         if 'unique' in str(e).lower():
@@ -80,7 +84,7 @@ def update_operator_endpoint(operator_id):
         data = request.get_json(silent=True) or {}
         updates = {}
         for field in ('display_name', 'email', 'team', 'app_ids',
-                      'max_concurrent', 'shift_schedule', 'is_active'):
+                      'max_concurrent', 'shift_schedule', 'is_active', 'is_admin'):
             if field in data:
                 updates[field] = data[field]
         if 'new_password' in data:

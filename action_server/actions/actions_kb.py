@@ -457,7 +457,16 @@ class ActionSearchKnowledgeBase(Action):
                 json_message=video_payload
             )
         else:
-            # No matches found
+            # No matches found — log as knowledge gap
+            try:
+                from common.db._kb_gaps import log_kb_gap
+                meta      = tracker.latest_message.get('metadata', {}) if isinstance(tracker.latest_message, dict) else {}
+                _app_id   = tracker.get_slot('app_id') or meta.get('app_id')
+                _sender   = tracker.sender_id
+                log_kb_gap(query=user_message, app_id=_app_id, sender_id=_sender)
+            except Exception:
+                pass
+
             dispatcher.utter_message(
                 text="I couldn't find a specific answer in our knowledge base for that question.\n\nWould you like to:",
                 buttons=[
@@ -466,7 +475,7 @@ class ActionSearchKnowledgeBase(Action):
                     {"title": "❓ Get help", "payload": "/help"}
                 ]
             )
-        
+
         return []
 
 

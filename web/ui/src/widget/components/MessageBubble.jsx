@@ -35,7 +35,7 @@ const extractYouTubeInfo = (url) => {
 };
 
 
-const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, botIcon = '🤖', botIconColor = null, userIcon = '👤', userIconColor = '#e5e7eb', buttonFontSize = '13', readonly = false }) => {
+const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, isDark = false, botIcon = '🤖', botIconColor = null, userIcon = '👤', userIconColor = '#e5e7eb', buttonFontSize = '13', readonly = false, ticketPrefill = {}, sessionToken = null }) => {
     const isBot      = message.sender === 'bot';
     const isOperator = message.sender === 'operator';
 
@@ -69,6 +69,16 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
         }
     };
 
+    // Dark palette for MessageBubble
+    const dm = {
+        userBubble:   isDark ? '#2d3a50' : '#f0f4f9',
+        userText:     isDark ? '#e5e7eb' : '#1f2937',
+        systemBg:     isDark ? '#1e2533' : '#f3f4f6',
+        systemText:   isDark ? '#9ca3af' : '#6b7280',
+        feedbackHover:isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+        feedbackColor:isDark ? '#6b7280' : '#9ca3af',
+    };
+
     // Warning/system messages render as a centered banner
     if (message.type === 'warning' || message.type === 'system') {
         const isSystem = message.type === 'system';
@@ -78,7 +88,9 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                 animate={{ opacity: 1, y: 0 }}
                 className="flex w-full justify-center mb-4"
             >
-                <div className={`flex items-start gap-2 px-4 py-3 rounded-2xl text-sm max-w-[90%] ${isSystem ? 'bg-gray-100 text-gray-500' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                <div className={`flex items-start gap-2 px-4 py-3 rounded-2xl text-sm max-w-[90%] ${isSystem ? '' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}
+                    style={isSystem ? { backgroundColor: dm.systemBg, color: dm.systemText } : {}}
+                >
                     <span className="text-lg leading-none mt-0.5">{isSystem ? '💬' : '⏰'}</span>
                     <div className="prose prose-sm max-w-none prose-p:my-0">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
@@ -94,7 +106,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
             animate={{ opacity: 1, y: 0 }}
             className={`flex w-full mb-4 ${(isBot || isOperator) ? 'justify-start' : 'justify-end'}`}
         >
-            <div className={`flex ${message.ticket_form ? 'w-full max-w-full' : 'max-w-[90%]'} ${(isBot || isOperator) ? 'flex-row' : 'flex-row-reverse'}`}>
+            <div className={`flex ${(message.ticket_form || isBot || isOperator) ? 'w-full max-w-full' : 'max-w-[80%]'} ${(isBot || isOperator) ? 'flex-row' : 'flex-row-reverse'}`}>
                 {/* Avatar */}
                 <div
                     className={`flex-shrink-0 h-8 w-8 flex items-center justify-center ${(isBot || isOperator) ? 'mr-3 mt-1' : 'ml-2 rounded-full text-base'}`}
@@ -114,19 +126,16 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                 </div>
 
                 {/* Bubble + Feedback container */}
-                <div className="flex flex-col">
+                <div className="flex flex-col min-w-0 overflow-hidden">
                     {isOperator && (
                         <span className="text-xs text-green-600 font-medium mb-1 ml-1">Support Agent</span>
                     )}
                     {/* Bubble */}
                     <div
-                        className={`p-3 text-sm ${(isBot || isOperator)
-                            ? 'text-gray-800'
-                            : 'rounded-3xl rounded-tr-none text-gray-800 px-5 bg-gray-100'
-                            }`}
+                        className={`p-3 text-sm ${(isBot || isOperator) ? '' : 'rounded-3xl rounded-tr-none px-5'}`}
                         style={isOperator
-                            ? { backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0 12px 12px 12px' }
-                            : (!isBot ? { backgroundColor: '#f0f4f9' } : {})}
+                            ? { backgroundColor: isDark ? '#1a2e20' : '#f0fdf4', border: `1px solid ${isDark ? '#166534' : '#bbf7d0'}`, borderRadius: '0 12px 12px 12px', color: isDark ? '#86efac' : '#166534' }
+                            : (!isBot ? { backgroundColor: dm.userBubble, color: dm.userText } : { color: isDark ? '#e5e7eb' : '#1f2937' })}
                     >
                         {isOperator ? (
                             <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{message.text}</p>
@@ -137,11 +146,22 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         components={{
-                                            table: ({ node, ...props }) => <table className="min-w-full divide-y divide-gray-200 my-2 border rounded-md overflow-hidden" {...props} />,
-                                            thead: ({ node, ...props }) => <thead className="bg-gray-50" {...props} />,
-                                            th: ({ node, ...props }) => <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b" {...props} />,
-                                            td: ({ node, ...props }) => <td className="px-3 py-2 whitespace-normal text-sm text-gray-700 border-b border-r last:border-r-0 border-gray-100 bg-white" {...props} />,
+                                            table: ({ node, ...props }) => <div style={{ overflowX: 'auto', maxWidth: '100%', margin: '6px 0' }}><table className="divide-y rounded-md overflow-hidden" style={{ border: `1px solid ${isDark ? '#2e3a4e' : '#e5e7eb'}` }} {...props} /></div>,
+                                            thead: ({ node, ...props }) => <thead style={{ backgroundColor: isDark ? '#1e2533' : '#f9fafb' }} {...props} />,
+                                            th: ({ node, ...props }) => <th className="px-3 py-2 text-left font-medium uppercase tracking-wider border-b" style={{ fontSize: '11px', color: isDark ? '#9ca3af' : '#6b7280', borderColor: isDark ? '#2e3a4e' : '#e5e7eb' }} {...props} />,
+                                            td: ({ node, ...props }) => <td className="px-3 py-2 whitespace-normal border-b border-r last:border-r-0" style={{ fontSize: '13px', color: isDark ? '#d1d5db' : '#374151', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#2e3a4e' : '#f3f4f6' }} {...props} />,
                                             a: ({ node, ...props }) => <a style={{ color: readonly ? 'inherit' : primaryColor, pointerEvents: readonly ? 'none' : 'auto', textDecoration: readonly ? 'none' : undefined }} className={readonly ? '' : 'hover:underline'} target={readonly ? undefined : '_blank'} rel="noopener noreferrer" {...props} />,
+                                            p: ({ node, children, ...props }) => {
+                                                const isImgOnly = node.children?.every(c => c.type === 'element' && c.tagName === 'img');
+                                                if (isImgOnly) return <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', margin: '4px 0' }}>{children}</div>;
+                                                return <p className="my-1" {...props}>{children}</p>;
+                                            },
+                                            img: ({ node, src, alt }) => (
+                                                <a href={src} target="_blank" rel="noopener noreferrer"
+                                                    style={{ width: 'calc(33.33% - 3px)', flexShrink: 0, display: 'block' }}>
+                                                    <img src={src} alt={alt} style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '6px', display: 'block', cursor: 'pointer', border: `1px solid ${isDark ? '#2e3a4e' : '#e5e7eb'}` }} />
+                                                </a>
+                                            ),
                                             ul: ({ node, ...props }) => <ul className="list-disc pl-5" {...props} />,
                                             ol: ({ node, ...props }) => <ol className="list-decimal pl-5" {...props} />,
                                         }}
@@ -194,6 +214,8 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                         ) : (
                                         <TicketForm
                                             primaryColor={primaryColor}
+                                            prefill={ticketPrefill}
+                                            sessionToken={sessionToken}
                                             onSubmit={(data) => {
                                                 // Convert form data to a hidden intent payload
                                                 // We'll format it as a JSON string to be parsed by custom action
@@ -245,26 +267,23 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                     {/* Feedback row — Gemini style: thumbs up, down, refresh, copy */}
                     {isBot && message.id !== 'init' && !readonly && (
                         <div className="flex items-center gap-0.5 mt-1.5 ml-1">
-                            <button
-                                onClick={() => handleFeedback('up')}
-                                className={`p-1.5 rounded-full transition-colors ${feedback === 'up' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
-                                title="Good response"
-                            >
-                                <ThumbsUp size={15} fill={feedback === 'up' ? 'currentColor' : 'none'} />
-                            </button>
-                            <button
-                                onClick={() => handleFeedback('down')}
-                                className={`p-1.5 rounded-full transition-colors ${feedback === 'down' ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
-                                title="Bad response"
-                            >
-                                <ThumbsDown size={15} fill={feedback === 'down' ? 'currentColor' : 'none'} />
-                            </button>
-                            <button className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Regenerate">
-                                <RotateCcw size={15} />
-                            </button>
-                            <button className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Copy">
-                                <Copy size={15} />
-                            </button>
+                            {[
+                                { icon: <ThumbsUp size={15} fill={feedback === 'up' ? 'currentColor' : 'none'} />, action: () => handleFeedback('up'), active: feedback === 'up', activeColor: '#3b82f6', title: 'Good response' },
+                                { icon: <ThumbsDown size={15} fill={feedback === 'down' ? 'currentColor' : 'none'} />, action: () => handleFeedback('down'), active: feedback === 'down', activeColor: '#ef4444', title: 'Bad response' },
+                                { icon: <RotateCcw size={15} />, action: null, active: false, activeColor: '', title: 'Regenerate' },
+                                { icon: <Copy size={15} />, action: null, active: false, activeColor: '', title: 'Copy' },
+                            ].map((btn, i) => (
+                                <button key={i}
+                                    onClick={btn.action}
+                                    className="p-1.5 rounded-full transition-colors"
+                                    style={{ color: btn.active ? btn.activeColor : dm.feedbackColor }}
+                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = dm.feedbackHover; if (!btn.active) e.currentTarget.style.color = isDark ? '#d1d5db' : '#4b5563'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = btn.active ? btn.activeColor : dm.feedbackColor; }}
+                                    title={btn.title}
+                                >
+                                    {btn.icon}
+                                </button>
+                            ))}
                         </div>
                     )}
                 </div>

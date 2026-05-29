@@ -56,8 +56,14 @@ def register_blueprints(app: Flask) -> None:
     from web.api.blueprints.bp_internal         import bp as bp_internal
     from web.api.blueprints.bp_admin_ops        import bp as bp_admin_ops
     from web.api.blueprints.bp_sessions         import bp as bp_sessions
+    from web.api.blueprints.bp_notifications    import bp as bp_notifications
+    from web.api.blueprints.bp_glpi_webhook       import bp as bp_glpi_webhook
+    from web.api.blueprints.bp_ticket_attachment  import bp as bp_ticket_attachment
 
     # Register in dependency order — most specific first to avoid catch-all conflicts
+    app.register_blueprint(bp_ticket_attachment)
+    app.register_blueprint(bp_glpi_webhook)
+    app.register_blueprint(bp_notifications)
     app.register_blueprint(bp_auth)
     app.register_blueprint(bp_system)
     app.register_blueprint(bp_admin_config)

@@ -1,40 +1,16 @@
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { THEME } from '../config';
+import { useTheme } from '../context/ThemeContext';
 
 const ACTIONS = [
-    { label: '📝 Create Ticket', payload: '/create_ticket' },
-    { label: '📋 List Tickets', payload: '/list_tickets' },
-    { label: '🔍 Check Status', payload: '/check_status' },
+    { label: '📝 Create', payload: '/create_ticket' },
+    { label: '📋 List', payload: '/list_tickets' },
+    { label: '🔍 View', payload: '/check_status' },
     { label: '❓ Help', payload: '/help' },
 ];
 
-const QuickActions = ({ onAction, isAuthenticated }) => (
-    <View style={styles.container}>
-        <View style={styles.row}>
-            {ACTIONS.map((action, idx) => (
-                <TouchableOpacity
-                    key={idx}
-                    style={styles.chip}
-                    onPress={() => onAction(action.payload)}
-                    activeOpacity={0.7}
-                >
-                    <Text style={styles.chipText}>{action.label}</Text>
-                </TouchableOpacity>
-            ))}
-            {isAuthenticated && (
-                <TouchableOpacity
-                    style={[styles.chip, styles.humanChip]}
-                    onPress={() => onAction('/request_human_agent')}
-                    activeOpacity={0.7}
-                >
-                    <Text style={[styles.chipText, styles.humanChipText]}>👤 Talk to Human</Text>
-                </TouchableOpacity>
-            )}
-        </View>
-    </View>
-);
-
-const styles = StyleSheet.create({
+const makeStyles = (THEME) => StyleSheet.create({
     container: {
         backgroundColor: THEME.background,
         paddingVertical: 8,
@@ -67,5 +43,35 @@ const styles = StyleSheet.create({
         color: '#16a34a',
     },
 });
+
+const QuickActions = ({ onAction, isAuthenticated }) => {
+    const { theme: THEME } = useTheme(); // eslint-disable-line no-shadow
+    const styles = useMemo(() => makeStyles(THEME), [THEME]);
+    return (
+        <View style={styles.container}>
+            <View style={styles.row}>
+                {ACTIONS.map((action, idx) => (
+                    <TouchableOpacity
+                        key={idx}
+                        style={styles.chip}
+                        onPress={() => onAction(action.payload)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.chipText}>{action.label}</Text>
+                    </TouchableOpacity>
+                ))}
+                {isAuthenticated && (
+                    <TouchableOpacity
+                        style={[styles.chip, styles.humanChip]}
+                        onPress={() => onAction('/request_human_agent')}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={[styles.chipText, styles.humanChipText]}>👤 Human</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+        </View>
+    );
+};
 
 export default QuickActions;

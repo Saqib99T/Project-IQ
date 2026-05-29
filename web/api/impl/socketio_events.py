@@ -102,6 +102,49 @@ def register_sio_events(sio) -> None:
         except Exception as _e:
             print(f"[SIO user_end_session] error (non-fatal): {_e}")
 
+    @sio.on('handoff_queued')
+    def _sio_handoff_queued(data):
+        """Operator panel emits this after enqueue; we notify the user."""
+        sender_id = (data or {}).get('sender_id', '')
+        app_id    = (data or {}).get('app_id')
+        if sender_id:
+            from web.api.impl.notify import notify_user
+            notify_user(
+                user_id=sender_id, type='handoff_queued', app_id=app_id,
+                title='You\'re in the queue',
+                body='An agent will be with you shortly.',
+                payload={'sender_id': sender_id},
+            )
+
+    @sio.on('handoff_assigned')
+    def _sio_handoff_assigned(data):
+        """Operator panel emits this when accepting a session; notify the user."""
+        sender_id     = (data or {}).get('sender_id', '')
+        operator_name = (data or {}).get('operator_name', 'An agent')
+        app_id        = (data or {}).get('app_id')
+        if sender_id:
+            from web.api.impl.notify import notify_user
+            notify_user(
+                user_id=sender_id, type='handoff_assigned', app_id=app_id,
+                title='Agent connected',
+                body=f'{operator_name} has joined your session.',
+                payload={'sender_id': sender_id, 'operator_name': operator_name},
+            )
+
+    @sio.on('handoff_ended')
+    def _sio_handoff_ended(data):
+        """Operator resolves/abandons the session; notify the user."""
+        sender_id = (data or {}).get('sender_id', '')
+        app_id    = (data or {}).get('app_id')
+        if sender_id:
+            from web.api.impl.notify import notify_user
+            notify_user(
+                user_id=sender_id, type='handoff_ended', app_id=app_id,
+                title='Session closed',
+                body='Your support session has ended. Rate your experience below.',
+                payload={'sender_id': sender_id},
+            )
+
     @sio.on('join_user')
     def _sio_join_user(data):
         sender_id = (data or {}).get('sender_id', '')

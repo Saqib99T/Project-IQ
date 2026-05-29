@@ -248,27 +248,32 @@ class GlpiService:
             return False
 
     # --- Document API ---
-    async def upload_document(self, session_token: str, file_name: str, file_content_base64: str) -> Optional[int]:
+    async def upload_document(self, session_token: str, file_name: str, file_content_base64: str, mime_type: str = "application/octet-stream") -> Optional[int]:
         """Uploads a document to GLPI."""
         url = f"{self.api_uri}/Document"
         headers = {"App-Token": self.app_token, "Session-Token": session_token}
-        
+
         import base64
         import json
-        
+
         try:
             file_bytes = base64.b64decode(file_content_base64)
             manifest = {"input": {"name": file_name, "_filename": [file_name]}}
-            
+
             data = aiohttp.FormData()
-            data.add_field('uploadManifest', json.dumps(manifest))
-            data.add_field('filename[]', file_bytes, filename=file_name)
+            data.add_field('uploadManifest', json.dumps(manifest), content_type='application/json')
+            data.add_field('filename[]', file_bytes, filename=file_name, content_type=mime_type)
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, headers=headers, data=data, timeout=30) as response:
-                    response.raise_for_status()
-                    res_data = await response.json()
-                    return res_data.get("id")
+                    body = await response.text()
+                    if response.status not in (200, 201):
+                        logger.error(f"GLPI upload_document HTTP {response.status}: {body[:500]}")
+                        return None
+                    res_data = json.loads(body)
+                    doc_id = res_data.get("id")
+                    logger.info(f"GLPI upload_document response: id={doc_id}, body={body[:200]}")
+                    return doc_id
         except Exception as e:
             logger.error(f"GLPI upload_document failed: {e}")
             return None
@@ -281,7 +286,15 @@ class GlpiService:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, headers=headers, json=payload, timeout=10) as response:
-                    response.raise_for_status()
+                    body = await response.json()
+                    logger.info(f"[LinkDoc] HTTP {response.status} doc={document_id} ticket={ticket_id} body={body}")
+                    if response.status not in (200, 201):
+                        logger.error(f"[LinkDoc] GLPI rejected link: {body}")
+                        return False
+                    # GLPI returns {"id": -1, "message": "..."} on soft errors
+                    if isinstance(body, dict) and body.get("id", 0) < 0:
+                        logger.error(f"[LinkDoc] GLPI soft error: {body}")
+                        return False
                     return True
         except Exception as e:
             logger.error(f"GLPI link_document_to_ticket failed: {e}")
@@ -291,23 +304,30 @@ class GlpiService:
         """Retrieves documents linked to a ticket."""
         url = f"{self.api_uri}/Ticket/{ticket_id}/Document_Item"
         headers = self._get_execution_headers(session_token, entity_id)
+        logger.info(f"[GetDocs] GET {url} entity={entity_id}")
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers, timeout=10) as response:
-                    response.raise_for_status()
-                    items = await response.json()
-                    
+                    raw_text = await response.text()
+                    logger.info(f"[GetDocs] HTTP {response.status} body={raw_text[:500]}")
+                    if response.status != 200:
+                        return []
+                    items = await response.json(content_type=None)
+                    if not isinstance(items, list):
+                        logger.warning(f"[GetDocs] Unexpected response type: {type(items)}")
+                        return []
+                    logger.info(f"[GetDocs] {len(items)} Document_Item entries found")
                     detailed_docs = []
-                    # We need to fetch details for each doc in parallel for speed
-                    # But kept simple here
                     for item in items:
                         doc_id = item.get('documents_id')
                         if doc_id:
                             doc_url = f"{self.api_uri}/Document/{doc_id}"
                             try:
                                 async with session.get(doc_url, headers=headers, timeout=5) as doc_resp:
+                                    doc_body = await doc_resp.text()
+                                    logger.info(f"[GetDocs] Document/{doc_id} HTTP {doc_resp.status} body={doc_body[:300]}")
                                     if doc_resp.status == 200:
-                                        doc_data = await doc_resp.json()
+                                        doc_data = await doc_resp.json(content_type=None)
                                         detailed_docs.append({
                                             "id": doc_id,
                                             "name": doc_data.get("name", "Unknown"),
@@ -317,11 +337,12 @@ class GlpiService:
                                         })
                                     else:
                                         detailed_docs.append(item)
-                            except:
+                            except Exception as de:
+                                logger.error(f"[GetDocs] Document/{doc_id} fetch error: {de}")
                                 detailed_docs.append(item)
                     return detailed_docs
         except Exception as e:
-            logger.error(f"GLPI get_ticket_documents failed: {e}")
+            logger.error(f"[GetDocs] get_ticket_documents failed: {e}", exc_info=True)
             return []
 
     # --- Knowledge Base API ---

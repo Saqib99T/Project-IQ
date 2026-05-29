@@ -16,6 +16,7 @@ from action_server.actions._shared import (
     get_glpi_service, get_glpi_base_url, log_bot_response,
     get_analytics_context, get_effective_session_token,
     check_user_login, glpi_service, logger,
+    get_iam_identity, is_iam_authenticated, require_iam_auth,
 )
 
 
@@ -27,59 +28,75 @@ class ActionCreateGlpiTicket(Action):
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
 
-        # Check if user is logged in
-        if not await check_user_login(tracker, dispatcher):
-            return [SlotSet("ticket_id", None)]
-        session_token = get_effective_session_token(tracker)
+        # ── Auth check: prefer IAM, fall back to GLPI session ─────────────────
+        iam = get_iam_identity(tracker)
+        if iam["sub"]:
+            # IAM authenticated — get or provision GLPI user
+            session_token = get_effective_session_token(tracker)  # may be None (service account used)
+            try:
+                from common.db.iam_glpi_users import get_or_provision_glpi_user
+                glpi_requester_id = get_or_provision_glpi_user(
+                    iam_sub=iam["sub"], name=iam["name"],
+                    email=iam["email"],
+                    given_name=iam.get("given_name", ""),
+                    family_name=iam.get("family_name", ""),
+                )
+            except Exception as e:
+                logger.warning(f"[IAM] Failed to provision GLPI user: {e}")
+                glpi_requester_id = None
+        else:
+            # Legacy GLPI session path
+            if not await check_user_login(tracker, dispatcher):
+                return [SlotSet("ticket_id", None)]
+            session_token = get_effective_session_token(tracker)
+            glpi_requester_id = None  # GLPI session owns the requester context
 
-        # 2. Retrieve form slots
-        ticket_title = tracker.get_slot("ticket_title") 
-        ticket_content = tracker.get_slot("ticket_content") 
-        issue_type = tracker.get_slot("issue_type")
-        urgency = tracker.get_slot("urgency")
+        # Retrieve form slots
+        ticket_title   = tracker.get_slot("ticket_title")
+        ticket_content = tracker.get_slot("ticket_content")
+        issue_type     = tracker.get_slot("issue_type")
+        urgency        = tracker.get_slot("urgency")
 
-        # 3. Map Rasa Slots to GLPI format
         urgency_map = {"Low": 1, "Medium": 3, "High": 5}
-        
-        # Context-Aware Category Mapping
-        app_id = tracker.get_slot("app_id")
-        
-        if app_id == "Accounting": # Accounting Context
-            category_id_map = {
-                "Hardware": 10, # Example: Accounting Hardware
-                "Software": 11, # Example: Accounting Software
-                "Network": 12,
-                "Other": 2     # Accounting General
-            }
-        else: # Default (IT)
-            category_id_map = {"Hardware": 4, "Software": 6, "Network": 8, "Other": 1}        # Entity Mapping
+
+        # Context-aware category mapping
         app_id = tracker.get_slot("app_id")
         if not app_id:
-             latest_msg = tracker.latest_message
-             if isinstance(latest_msg, dict):
-                 app_id = latest_msg.get("metadata", {}).get("app_id")
+            latest_msg = tracker.latest_message
+            if isinstance(latest_msg, dict):
+                app_id = latest_msg.get("metadata", {}).get("app_id")
 
-        # Entity context is already set in ActionInitGlpiSession
-        # GLPI will automatically use the active entity for new tickets
-        
+        if app_id == "Accounting":
+            category_id_map = {"Hardware": 10, "Software": 11, "Network": 12, "Other": 2}
+        else:
+            category_id_map = {"Hardware": 4, "Software": 6, "Network": 8, "Other": 1}
+
         ticket_data = {
-            "name": f"[{app_id or 'General'}] {ticket_title}", # Tag title with App ID for visibility       
-            "content": ticket_content,    
-            "urgency": urgency_map.get(urgency, 3),
-            "itilcategories_id": category_id_map.get(issue_type, 1),
-            "users_id_requester": 1, 
+            "name":               f"[{app_id or 'General'}] {ticket_title}",
+            "content":            ticket_content,
+            "urgency":            urgency_map.get(urgency, 3),
+            "itilcategories_id":  category_id_map.get(issue_type, 1),
         }
+        if glpi_requester_id:
+            ticket_data["_users_id_requester"] = glpi_requester_id
 
-        # Map app_id to entity_id for GLPI-Entity header
         entity_id_map = {"Root": 0, "IT": 1, "Accounting": 2}
-        entity_id = entity_id_map.get(app_id, 1)  # Default to IT (1)
+        entity_id = entity_id_map.get(app_id, 1)
 
-        # 4. Use Service to Create Ticket
         new_ticket_id = await glpi_service.create_ticket(session_token, ticket_data, entity_id)
         
         if new_ticket_id:
             ticket_ref = f"Ticket-{new_ticket_id}"
-            response_text = f"✅ Success! Your new ticket **{ticket_ref}** has been created."
+            # Build SLA line
+            try:
+                from common.config_manager import get_sla_config
+                sla   = get_sla_config()
+                prio  = (urgency or 'Medium').lower()
+                hours = sla.get(prio, sla.get('medium', 8))
+                sla_line = f"\n⏱ Expected resolution: ~{hours}h ({urgency or 'Medium'} priority)"
+            except Exception:
+                sla_line = ''
+            response_text = f"✅ Your ticket **{ticket_ref}** has been created.{sla_line}"
             dispatcher.utter_message(
                 text=response_text,
                 buttons=[
@@ -127,7 +144,7 @@ class ActionCheckGlpiStatus(Action):
             dispatcher.utter_message(response="utter_ask_ticket_id")
             return []
 
-        ticket_number = ticket_id_slot.upper().replace('GLPI-', '')
+        ticket_number = ticket_id_slot.upper().replace('GLPI-', '').replace('TICKET-', '')
         
         # Entity context is set in ActionInitGlpiSession
         # GLPI should only return tickets in the active entity
@@ -138,8 +155,10 @@ class ActionCheckGlpiStatus(Action):
         entity_id_map = {"Root": 0, "IT": 1, "Accounting": 2}
         entity_id = entity_id_map.get(app_id, 1)  # Default to IT (1)
 
-        # 2. Use Service to Get Ticket
-        ticket_data = await glpi_service.get_ticket(session_token, ticket_number, entity_id)
+        # Use service account token for ticket lookup (user token may be expired on mobile)
+        svc = get_glpi_service()
+        svc_token = await svc.init_session() or session_token
+        ticket_data = await glpi_service.get_ticket(svc_token, ticket_number, entity_id)
 
         if ticket_data:
             # --- Entity Access Control ---
@@ -173,11 +192,19 @@ class ActionCheckGlpiStatus(Action):
                 4: "Pending", 5: "Solved", 6: "Closed", 10: "Approved"
             }
             
+            def _fmt_date(raw):
+                try:
+                    from datetime import datetime
+                    dt = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
+                    return dt.strftime("%y-%m-%d %H:%M")
+                except Exception:
+                    return raw or "N/A"
+
             current_status_id = ticket_data.get("status")
             current_status = status_map.get(current_status_id, "Unknown Status")
             title = ticket_data.get("name", "No Title")
-            date_creation = ticket_data.get("date_creation", "N/A")
-            date_mod = ticket_data.get("date_mod", "N/A")
+            date_creation = _fmt_date(ticket_data.get("date_creation", ""))
+            date_mod = _fmt_date(ticket_data.get("date_mod", ""))
             
             # Simple content clean up (strip HTML loosely if needed or just show snippet)
             # content = ticket_data.get("content", "")[:100] + "..."
@@ -189,6 +216,28 @@ class ActionCheckGlpiStatus(Action):
             message += f"| **Title** | {title} |\n"
             message += f"| **Created** | {date_creation} |\n"
             message += f"| **Updated** | {date_mod} |\n"
+
+            # Fetch attachments using service account token (user token lacks Document_Item read permission)
+            try:
+                numeric_id = int(ticket_number)
+                svc = get_glpi_service()
+                svc_token = await svc.init_session()
+                if svc_token:
+                    docs = await glpi_service.get_ticket_documents(svc_token, numeric_id, entity_id)
+                    logger.info(f"[CheckStatus] get_ticket_documents returned {len(docs)} docs")
+                    if docs:
+                        message += "\n\n**📎 Attachments:**\n\n"
+                        for doc in docs:
+                            doc_id = doc.get('id')
+                            fname = doc.get('filename') or doc.get('name', 'File')
+                            mime = doc.get('mime', '')
+                            url = f"/api/ticket-attachment?doc_id={doc_id}"
+                            if mime.startswith('image/'):
+                                message += f"![{fname}]({url}) "
+                            else:
+                                message += f"- [{fname}]({url})\n"
+            except Exception as e:
+                logger.warning(f"[CheckStatus] Could not fetch attachments: {e}", exc_info=True)
 
             dispatcher.utter_message(
                 text=message,
@@ -859,11 +908,12 @@ class ActionCreateTicketFromForm(Action):
         # Parse JSON payload from message text
         # Format: /submit_ticket_form{"title": "...", ...}
         message_text = tracker.latest_message.get("text", "")
+        logger.info(f"[TicketForm] Raw message length: {len(message_text)}")
         try:
             json_start = message_text.find("{")
             if json_start == -1:
                 raise ValueError("No JSON data found")
-            
+
             form_data = json.loads(message_text[json_start:])
         except Exception as e:
             logger.error(f"Failed to parse ticket form data: {e}")
@@ -875,6 +925,8 @@ class ActionCreateTicketFromForm(Action):
         priority = form_data.get("priority", "Medium")
         urgency = form_data.get("urgency", "Medium")
         category = form_data.get("category", "Hardware")
+        attachment = form_data.get("attachment")  # { name, doc_id } after pre-upload, or None
+        logger.info(f"[TicketForm] attachment present: {attachment is not None}, doc_id={attachment.get('doc_id') if attachment else None}")
 
         # Map Form Values to GLPI IDs
         urgency_map = {"Low": 1, "Medium": 3, "High": 5}
@@ -893,12 +945,23 @@ class ActionCreateTicketFromForm(Action):
             category_id_map = {"Hardware": 4, "Software": 6, "Network": 8, "Other": 1}
 
         ticket_data = {
-            "name": f"[{app_id}] {title}",      
-            "content": detail,    
+            "name": f"[{app_id}] {title}",
+            "content": detail,
             "urgency": urgency_map.get(urgency, 3),
             "itilcategories_id": category_id_map.get(category, 1),
-            "users_id_requester": 1, # Default or from user context if available
+            "users_id_requester": 1,
         }
+
+        # Embed attachment during creation to avoid separate Document_Item permission issues
+        attach_note = ""
+        if attachment and attachment.get("doc_id") and attachment.get("name"):
+            try:
+                doc_id = int(attachment["doc_id"])
+                ticket_data["_documents_id"] = [doc_id]
+                logger.info(f"[TicketForm] Embedding doc_id={doc_id} in ticket creation payload")
+                attach_note = f"\n📎 Attachment **{attachment['name']}** linked."
+            except Exception as e:
+                logger.error(f"[TicketForm] Could not embed attachment: {e}")
 
         # Entity Mapping
         entity_id_map = {"Root": 0, "IT": 1, "Accounting": 2}
@@ -906,11 +969,12 @@ class ActionCreateTicketFromForm(Action):
 
         # Create Ticket
         new_ticket_id = await glpi_service.create_ticket(session_token, ticket_data, entity_id)
-        
+
         if new_ticket_id:
             ticket_ref = f"TICKET-{new_ticket_id}"
+
             dispatcher.utter_message(
-                text=f"✅ Success! Ticket **{ticket_ref}** created.",
+                text=f"✅ Success! Ticket **{ticket_ref}** created.{attach_note}",
                 buttons=[
                     {"title": "🔍 View Ticket", "payload": "/check_status"},
                     {"title": "📋 List Tickets", "payload": "/list_tickets"},

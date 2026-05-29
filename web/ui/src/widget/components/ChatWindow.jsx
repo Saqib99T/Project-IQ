@@ -1,13 +1,18 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Paperclip, Minimize2, X, User, Lock, XCircle, Sparkles, History, ChevronLeft } from 'lucide-react';
+import { Send, Paperclip, Minimize2, X, User, Lock, XCircle, Sparkles, History, ChevronLeft, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
 import MessageBubble from './MessageBubble';
 import AnimatedChatIcon from './AnimatedChatIcon';
+import ProfilePanel from './ProfilePanel';
+import NotificationBell from './NotificationBell';
 import { v4 as uuidv4 } from 'uuid';
 import { getCookie, setCookie, deleteCookie } from '../utils/cookieUtils';
 import { useChatSocket }  from '../hooks/useChatSocket';
 import { useChatHistory } from '../hooks/useChatHistory';
+import { useIam } from '../hooks/useIam';
+import { prefillFromMessages } from '../utils/prefillTicket';
+import { useOfflineQueue } from '../hooks/useOfflineQueue';
 
 // All API calls (including Rasa proxy) go through the admin server on the same origin.
 // This ensures the passive-mode gate in chat_webhook_proxy() fires correctly.
@@ -21,6 +26,11 @@ const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
 
 
 const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) => {
+    // ── IAM integration ───────────────────────────────────────────────────────
+    const iam = useIam();
+    // When IAM authenticates, override local auth state
+    const iamAuthenticated = iam.isAuthenticated && !!iam.user;
+
     // Extract theme properties with defaults
     const primaryColor = theme?.primaryColor || '#000000';
     const secondaryColor = theme?.secondaryColor || adjustBrightness(primaryColor, 20);
@@ -70,6 +80,32 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         return newId;
     });
 
+    // ── IAM-aware fetch headers ───────────────────────────────────────────────
+    const getAuthHeaders = useCallback(() => {
+        const h = { 'Content-Type': 'application/json' };
+        if (iam.token) h['Authorization'] = `Bearer ${iam.token}`;
+        return h;
+    }, [iam.token]);
+
+    // ── Login via IAM ─────────────────────────────────────────────────────────
+    const handleIamLogin = useCallback(() => {
+        iam.login({ redirectUri: window.location.href });
+    }, [iam]);
+
+    // ── Sync IAM → local auth state ───────────────────────────────────────────
+    useEffect(() => {
+        if (iamAuthenticated && iam.user) {
+            const iamSenderId = `iam-${iam.user.sub}`;
+            setSenderId(iamSenderId);
+            setCookie(getStorageKey(appId, 'senderId'), iamSenderId);
+            setIsAuthenticated(true);
+            setIsGuest(false);
+            setAuthUser(iam.user.name || iam.user.username || iam.user.email);
+            setCookie(getStorageKey(appId, 'isAuthenticated'), 'true');
+            setCookie(getStorageKey(appId, 'authUser'), iam.user.username || '');
+        }
+    }, [iamAuthenticated, iam.user, appId]);
+
     // Authentication state - check cookies for persisted login.
     // If this browser has an active operator session (op_token in localStorage),
     // never auto-restore a chatbot user session — operators should not appear
@@ -77,16 +113,13 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const _operatorBrowser = !!localStorage.getItem('op_token');
 
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
-        if (_operatorBrowser) return false;
         return getCookie(getStorageKey(appId, 'isAuthenticated')) === 'true';
     });
     const [isGuest, setIsGuest] = useState(() => {
-        if (_operatorBrowser) return true;
         const loggedIn = getCookie(getStorageKey(appId, 'isAuthenticated')) === 'true';
         return !loggedIn;
     });
     const [authUser, setAuthUser] = useState(() => {
-        if (_operatorBrowser) return '';
         return getCookie(getStorageKey(appId, 'authUser')) || '';
     });
     const [loginUsername, setLoginUsername] = useState('');
@@ -94,6 +127,75 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const [loginError, setLoginError] = useState('');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('piq_dark') === 'true');
+    const toggleDark = () => setIsDarkMode(v => { localStorage.setItem('piq_dark', !v); return !v; });
+
+    const darkBg      = '#111827';
+    const darkText    = '#f9fafb';
+    const effectiveBg = isDarkMode ? darkBg   : bgColor;
+    const effectiveTx = isDarkMode ? darkText : textColor;
+
+    // Unified dark/light palette — use `c.*` throughout instead of hardcoded colors
+    const c = {
+        bg:         effectiveBg,
+        text:       effectiveTx,
+        surface:    isDarkMode ? '#1e2533' : '#ffffff',
+        surfaceAlt: isDarkMode ? '#252d3d' : '#f9fafb',
+        border:     isDarkMode ? '#2e3a4e' : '#e5e7eb',
+        borderLight:isDarkMode ? '#2e3a4e' : '#f3f4f6',
+        textMuted:  isDarkMode ? '#9ca3af' : '#6b7280',
+        textSub:    isDarkMode ? '#6b7280' : '#9ca3af',
+        inputBg:    isDarkMode ? '#1e2533' : '#f3f4f6',
+        msgUser:    isDarkMode ? '#2d3a50' : '#f0f4f9',
+        hover:      isDarkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)',
+        welcomeBg:  isDarkMode ? '#151e2e' : '#EEF2FA',
+    };
+
+    const [isListening, setIsListening] = useState(false);
+    const recognitionRef = useRef(null);
+
+    const startVoice = useCallback(() => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return;
+        if (isListening) { recognitionRef.current?.stop(); return; }
+        const rec = new SR();
+        rec.lang = 'en-US';
+        rec.interimResults = false;
+        rec.onresult  = (e) => setInputText(e.results[0][0].transcript);
+        rec.onend     = () => setIsListening(false);
+        rec.onerror   = () => setIsListening(false);
+        recognitionRef.current = rec;
+        rec.start();
+        setIsListening(true);
+    }, [isListening]);
+    const [webUnreadCount, setWebUnreadCount] = useState(0);
+    const [historySearch, setHistorySearch] = useState('');
+
+    // ── Tab title badge + PWA badge API ───────────────────────────────────────
+    useEffect(() => {
+        const base = title || 'Project IQ';
+        if (webUnreadCount > 0) {
+            document.title = `(${webUnreadCount}) ${base}`;
+            // Web App Badge API — works when installed as PWA (Chrome/Edge)
+            if ('setAppBadge' in navigator) {
+                navigator.setAppBadge(webUnreadCount).catch(() => {});
+            }
+        } else {
+            document.title = base;
+            if ('clearAppBadge' in navigator) {
+                navigator.clearAppBadge().catch(() => {});
+            }
+        }
+        // Clear badge when tab is visible
+        const onVisible = () => {
+            if (document.visibilityState === 'visible' && webUnreadCount === 0) {
+                document.title = base;
+            }
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [webUnreadCount, title]);
 
     // Load saved messages or use welcome message
     const [messages, setMessages] = useState(() => {
@@ -109,8 +211,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             }
         }
         // Different welcome for logged-in vs guest users (never use operator browser's chatbot session)
-        const loggedIn = !_operatorBrowser && getCookie(getStorageKey(appId, 'isAuthenticated')) === 'true';
-        const userName = _operatorBrowser ? '' : getCookie(getStorageKey(appId, 'authUser'));
+        const loggedIn = getCookie(getStorageKey(appId, 'isAuthenticated')) === 'true';
+        const userName = getCookie(getStorageKey(appId, 'authUser'));
         if (loggedIn && userName) {
             return [{ id: 'init', sender: 'bot', text: `**Hi ${userName}!**\n\nWelcome back. How can I help you today?` }];
         }
@@ -557,11 +659,13 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     };
 
     // Fetch conversation history list from DB
-    const fetchUserHistory = async () => {
+    const fetchUserHistory = async (search = '') => {
         if (!authUser) return;
         setHistoryLoading(true);
         try {
-            const res = await fetch(`${ADMIN_API_URL}/api/user/conversations?user_name=${encodeURIComponent(authUser)}&app_id=${encodeURIComponent(appId)}`);
+            const params = new URLSearchParams({ user_name: authUser });
+            if (search) params.set('search', search);
+            const res  = await fetch(`${ADMIN_API_URL}/api/user/conversations?${params}`);
             const data = await res.json();
             if (data.success) setSessions(data.data);
         } catch (e) {
@@ -592,7 +696,6 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const handleLogout = () => {
         // End handoff under current senderId via both Socket.IO and REST
         emitUserEndSession();
-        // Also fire REST with current senderId BEFORE it changes
         fetch(`${ADMIN_API_URL}/handoff/end`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -607,11 +710,14 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         deleteCookie(getStorageKey(appId, 'authUser'));
         deleteCookie(getStorageKey(appId, 'glpiSessionToken'));
         localStorage.removeItem(getStorageKey(appId, 'messages'));
-        // Generate a fresh senderId so the next user gets a clean session
         const freshId = uuidv4();
         setCookie(getStorageKey(appId, 'senderId'), freshId);
         setSenderId(freshId);
-        setMessages([{ id: 'init', sender: 'bot', text: `You've been logged out. Continuing as guest.\n\n📚 You can still search the Knowledge Base and ask questions!\n🔑 Login anytime for full ticket features.` }]);
+        setMessages([{ id: 'init', sender: 'bot', text: `You've been signed out. Continuing as guest.\n\n📚 You can still search the Knowledge Base!\n🔑 Sign in anytime for full ticket features.` }]);
+        // If authenticated via IAM, sign out of Keycloak too
+        if (iamAuthenticated) {
+            iam.logout({ redirectUri: window.location.href });
+        }
     };
 
     const handleEndSession = () => {
@@ -683,7 +789,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                     body: JSON.stringify({
                         sender: senderId,
                         message: payload,
-                        metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
+                        metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
                     }),
                 });
 
@@ -752,7 +858,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 body: JSON.stringify({
                     sender: senderId,
                     message: intent,
-                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
+                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
                 })
             });
             console.log(`Feedback ${feedbackType} sent for message ${messageId}`);
@@ -800,7 +906,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         warningShownRef.current = false;
 
         // Handle login button click
-        if (payload === '__LOGIN__') {
+        if (payload === '__LOGIN__' || payload === '/trigger_login') {
             setShowLoginPrompt(true);
             return;
         }
@@ -855,18 +961,19 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         }
 
         // Show user's choice
-        const userMsg = { id: uuidv4(), sender: senderId, text: displayText };
+        const msgType = payload.startsWith('/submit_ticket_form') ? 'ticket_summary' : undefined;
+        const userMsg = { id: uuidv4(), sender: senderId, text: displayText, ...(msgType && { type: msgType }) };
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
 
         try {
             const response = await fetch(RASA_API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     sender: senderId,
                     message: message,
-                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
+                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
                 }),
             });
 
@@ -942,12 +1049,43 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         }
     };
 
+    // ── Offline queue (web) ───────────────────────────────────────────────────
+    const { isOnline, enqueue: enqueueOffline } = useOfflineQueue(
+        useCallback((text) => {
+            setMessages(prev => [...prev, { id: uuidv4(), sender: senderId, text }]);
+            return fetch(RASA_API_URL, {
+                method: 'POST', headers: getAuthHeaders(),
+                body: JSON.stringify({ sender: senderId, message: text,
+                    metadata: { app_id: appId, user_name: authUser || undefined,
+                        is_authenticated: isAuthenticated || iamAuthenticated,
+                        iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email } })
+            }).then(r => r.json()).then(data => {
+                if (data?.length) setMessages(prev => [...prev, ...data.filter(m => m.text).map(m => ({ id: uuidv4(), sender: 'bot', text: m.text, buttons: m.buttons }))]);
+            });
+        }, [senderId, appId, authUser, isAuthenticated, iamAuthenticated, iam.user])
+    );
+
     const handleSendMessage = async (e) => {
         e.preventDefault();
         if (!inputText.trim()) return;
 
         // Block while queued — user should wait
         if (handoffState === 'queued') return;
+
+        // Offline — queue the message and show pending indicator
+        if (!isOnline) {
+            enqueueOffline(inputText.trim());
+            setMessages(prev => [...prev, {
+                id: uuidv4(), sender: senderId, text: inputText,
+                pending: true
+            }]);
+            setMessages(prev => [...prev, {
+                id: uuidv4(), sender: 'bot',
+                text: '📵 You appear to be offline. Your message has been queued and will be sent when your connection is restored.'
+            }]);
+            setInputText('');
+            return;
+        }
 
         // Stop typing emission before sending
         emitUserTyping(false);
@@ -983,7 +1121,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 body: JSON.stringify({
                     sender: senderId,
                     message: userMsg.text,
-                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
+                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
                 }),
             });
 
@@ -1104,35 +1242,60 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         className="w-[400px] h-[600px] backdrop-blur-xl border border-white/20 shadow-2xl flex flex-col overflow-hidden mb-4 relative"
                         style={{
-                            backgroundColor: bgColor,
+                            backgroundColor: effectiveBg,
                             borderRadius: `${borderRadius}px`,
-                            color: textColor
+                            color: effectiveTx
                         }}
                     >
                         {/* Header — Gemini style: hamburger | title | avatar */}
                         <div
                             className="flex items-center justify-between px-2 py-3"
-                            style={{ backgroundColor: bgColor, color: textColor }}
+                            style={{ backgroundColor: c.bg, color: c.text, borderBottom: `1px solid ${c.borderLight}` }}
                         >
-                            {/* Left: hamburger / minimize */}
-                            <button
-                                onClick={() => setIsOpen(false)}
-                                className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600"
-                                title="Close"
-                            >
-                                <Minimize2 size={18} />
-                            </button>
+                            {/* Left: minimize + history toggle */}
+                            <div className="flex items-center gap-0.5">
+                                <button
+                                    onClick={() => setIsOpen(false)}
+                                    className="p-2 rounded-full transition-colors"
+                                    style={{ color: c.textMuted }}
+                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = c.hover}
+                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                    title="Close"
+                                >
+                                    <Minimize2 size={18} />
+                                </button>
+                                {isAuthenticated && !isGuest && (
+                                    <button
+                                        onClick={() => { if (historyView === 'chat') { fetchUserHistory(); setHistoryView('history'); } else { setHistoryView('chat'); setSelectedSession(null); } }}
+                                        className="p-2 rounded-full transition-colors"
+                                        style={{ color: historyView !== 'chat' ? '#3b82f6' : c.textMuted }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = c.hover}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                        title="Chat history"
+                                    >
+                                        <History size={18} />
+                                    </button>
+                                )}
+                            </div>
 
                             {/* Center: title */}
                             <h1
-                                className="font-normal text-gray-800 tracking-wide"
-                                style={{ fontSize: `${parseInt(headerFontSize) + 2}px` }}
+                                className="font-normal tracking-wide"
+                                style={{ fontSize: `${parseInt(headerFontSize) + 2}px`, color: c.text }}
                             >
                                 {title}
                             </h1>
 
-                            {/* Right: avatar dropdown / login */}
+                            {/* Right: notification bell + avatar dropdown / login */}
                             <div className="flex items-center gap-1" ref={userMenuRef}>
+                                {(isAuthenticated || iamAuthenticated) && (
+                                    <NotificationBell
+                                        userId={senderId}
+                                        socket={socketRef.current}
+                                        primaryColor={primaryColor}
+                                        onUnreadChange={setWebUnreadCount}
+                                    />
+                                )}
                                 {isAuthenticated && !isGuest ? (
                                     <div className="relative">
                                         <button
@@ -1154,17 +1317,9 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                     <button className="w-full text-left px-4 py-2.5 text-sm transition-colors" style={{ color: '#4b5563' }}
                                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
                                                         onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                        onClick={() => { setShowUserMenu(false); setShowProfile(true); }}
                                                     >
                                                         My Profile
-                                                    </button>
-                                                    <button
-                                                        className="w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors"
-                                                        style={{ color: '#111827' }}
-                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
-                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                        onClick={() => { setShowUserMenu(false); fetchUserHistory(); setHistoryView('history'); }}
-                                                    >
-                                                        History
                                                     </button>
                                                     {!isWelcomeState && !sessionEnded && (
                                                         <button
@@ -1195,7 +1350,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                 ) : (
                                     <button
                                         onClick={() => setShowLoginPrompt(true)}
-                                        className="p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+                                        className="p-1.5 rounded-full transition-colors"
+                                        style={{ color: c.textMuted }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = c.hover}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                         title="Login"
                                     >
                                         <User size={18} />
@@ -1453,7 +1611,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             )}
                         </AnimatePresence>
 
-                        {/* Login Prompt Popup - for guests */}
+                        {/* IAM Sign In Prompt */}
                         <AnimatePresence>
                             {showLoginPrompt && (
                                 <motion.div
@@ -1466,76 +1624,66 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                         initial={{ scale: 0.9, y: 20 }}
                                         animate={{ scale: 1, y: 0 }}
                                         exit={{ scale: 0.9, y: 20 }}
-                                        className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden"
+                                        className="bg-white rounded-2xl shadow-xl w-full max-w-xs overflow-hidden"
                                     >
-                                        <div className="p-4 border-b border-gray-100 flex justify-between items-center" style={{ backgroundColor: primaryColor }}>
-                                            <h3 className="font-semibold text-white">🔐 Login to Project IQ</h3>
-                                            <button
-                                                onClick={() => setShowLoginPrompt(false)}
-                                                className="text-white/70 hover:text-white p-1"
-                                            >
+                                        <div className="p-5 border-b border-gray-100 flex justify-between items-center" style={{ backgroundColor: primaryColor }}>
+                                            <h3 className="font-semibold text-white text-base">Sign in to continue</h3>
+                                            <button onClick={() => setShowLoginPrompt(false)} className="text-white/70 hover:text-white p-1">
                                                 <XCircle size={20} />
                                             </button>
                                         </div>
-
-                                        <form onSubmit={handleLogin} className="p-4 space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                                                <div className="relative">
-                                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                                    <input
-                                                        type="text"
-                                                        value={loginUsername}
-                                                        onChange={(e) => setLoginUsername(e.target.value)}
-                                                        placeholder="Username"
-                                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all"
-                                                        style={{ '--tw-ring-color': primaryColor }}
-                                                        disabled={isLoggingIn}
-                                                        autoFocus
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                                <div className="relative">
-                                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                                    <input
-                                                        type="password"
-                                                        value={loginPassword}
-                                                        onChange={(e) => setLoginPassword(e.target.value)}
-                                                        placeholder="Password"
-                                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all"
-                                                        style={{ '--tw-ring-color': primaryColor }}
-                                                        disabled={isLoggingIn}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {loginError && (
-                                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                                                    ❌ {loginError}
-                                                </div>
+                                        <div className="p-5 flex flex-col gap-3">
+                                            {iam.login && (
+                                                <>
+                                                    <button
+                                                        onClick={() => { setShowLoginPrompt(false); handleIamLogin(); }}
+                                                        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-white transition-all hover:opacity-90"
+                                                        style={{ backgroundColor: primaryColor }}
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                                        </svg>
+                                                        Sign in with IAM
+                                                    </button>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex-1 h-px bg-gray-200" />
+                                                        <span className="text-xs text-gray-400">or</span>
+                                                        <div className="flex-1 h-px bg-gray-200" />
+                                                    </div>
+                                                </>
                                             )}
-
-                                            <div className="flex gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowLoginPrompt(false)}
-                                                    className="flex-1 px-4 py-2.5 text-gray-700 font-medium bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                                                >
-                                                    Cancel
-                                                </button>
+                                            <form onSubmit={handleLogin} className="flex flex-col gap-2">
+                                                <input
+                                                    type="text"
+                                                    placeholder="GLPI Username"
+                                                    value={loginUsername}
+                                                    onChange={e => setLoginUsername(e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2"
+                                                    style={{ focusRingColor: primaryColor }}
+                                                    autoComplete="username"
+                                                />
+                                                <input
+                                                    type="password"
+                                                    placeholder="Password"
+                                                    value={loginPassword}
+                                                    onChange={e => setLoginPassword(e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2"
+                                                    autoComplete="current-password"
+                                                />
+                                                {loginError && <p className="text-xs text-red-500">{loginError}</p>}
                                                 <button
                                                     type="submit"
                                                     disabled={isLoggingIn}
-                                                    className="flex-1 py-2.5 text-white font-medium rounded-lg transition-all disabled:opacity-50"
-                                                    style={{ backgroundColor: primaryColor }}
+                                                    className="w-full py-2.5 rounded-xl font-semibold text-white transition-all hover:opacity-90 disabled:opacity-60"
+                                                    style={{ backgroundColor: '#374151' }}
                                                 >
-                                                    {isLoggingIn ? 'Signing in...' : 'Login'}
+                                                    {isLoggingIn ? 'Signing in…' : 'Sign in with password'}
                                                 </button>
-                                            </div>
-                                        </form>
+                                            </form>
+                                            <button onClick={() => setShowLoginPrompt(false)} className="text-xs text-gray-400 hover:text-gray-600 text-center">
+                                                Continue as guest
+                                            </button>
+                                        </div>
                                     </motion.div>
                                 </motion.div>
                             )}
@@ -1550,20 +1698,39 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                     exit={{ x: -400, opacity: 0 }}
                                     transition={{ type: 'tween', duration: 0.22 }}
                                     className="absolute inset-0 z-[60] flex flex-col"
-                                    style={{ backgroundColor: bgColor }}
+                                    style={{ backgroundColor: c.bg }}
                                 >
                                     {/* Panel header */}
-                                    <div className="flex items-center gap-2 px-2 py-3 border-b border-gray-100" style={{ backgroundColor: bgColor }}>
+                                    <div className="flex items-center gap-2 px-2 py-3" style={{ backgroundColor: c.bg, borderBottom: `1px solid ${c.borderLight}` }}>
                                         <button
                                             onClick={() => setHistoryView('chat')}
-                                            className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600"
+                                            className="p-2 rounded-full transition-colors"
+                                            style={{ color: c.textMuted }}
+                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = c.hover}
+                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                         >
                                             <ChevronLeft size={18} />
                                         </button>
-                                        <h2 className="font-normal text-gray-800 text-base flex-1 text-center pr-8">Conversation History</h2>
+                                        <h2 className="font-normal text-base flex-1 text-center pr-8" style={{ color: c.text }}>Conversation History</h2>
                                     </div>
-                                    {/* Session list */}
-                                    <div className="flex-1 overflow-y-auto p-3 space-y-1" style={{ backgroundColor: '#f9fafb' }}>
+                                    {/* Search */}
+                                    <div className="px-3 py-2" style={{ borderBottom: `1px solid ${c.borderLight}` }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Search conversations…"
+                                            value={historySearch}
+                                            onChange={e => {
+                                                setHistorySearch(e.target.value);
+                                                clearTimeout(window._hsTimer);
+                                                window._hsTimer = setTimeout(() => fetchUserHistory(e.target.value), 350);
+                                            }}
+                                            className="w-full text-sm px-3 py-1.5 rounded-lg focus:outline-none"
+                                            style={{ backgroundColor: c.inputBg, border: `1px solid ${c.border}`, color: c.text }}
+                                        />
+                                    </div>
+
+                                    {/* Session list grouped by product then date */}
+                                    <div className="flex-1 overflow-y-auto p-3 space-y-1" style={{ backgroundColor: c.surfaceAlt }}>
                                         {historyLoading ? (
                                             <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2 pt-10">
                                                 <svg className="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
@@ -1575,7 +1742,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                 <p className="text-sm">No previous conversations</p>
                                             </div>
                                         ) : (() => {
-                                            const formatLabel = (iso) => {
+                                            const fmtDate = (iso) => {
                                                 const d = new Date(iso);
                                                 const today = new Date();
                                                 const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
@@ -1583,28 +1750,52 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                 if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
                                                 return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
                                             };
-                                            const formatTime = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                                            const grouped = sessions.reduce((acc, s) => {
-                                                const lbl = formatLabel(s.started_at);
-                                                (acc[lbl] = acc[lbl] || []).push(s);
+                                            const fmtTime = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                                            const cleanPreview = (p) => {
+                                                if (!p || p.startsWith('/')) return 'New conversation';
+                                                return p.length > 55 ? p.slice(0, 55) + '…' : p;
+                                            };
+                                            const productLabels = { IT: 'IT Support', Accounting: 'Accounting', shipnest: 'ShipNest', greenloop: 'GreenLoop', accountwise: 'AccountWise', General: 'General' };
+                                            const byProduct = sessions.reduce((acc, s) => {
+                                                const pid = s.app_id || 'General';
+                                                (acc[pid] = acc[pid] || []).push(s);
                                                 return acc;
                                             }, {});
-                                            return Object.entries(grouped).map(([label, group]) => (
-                                                <div key={label}>
-                                                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 py-2">{label}</div>
-                                                    {group.map(session => (
-                                                        <button
-                                                            key={session.sender_id}
-                                                            onClick={() => fetchSessionMessages(session)}
-                                                            disabled={sessionLoading}
-                                                            className="w-full text-left bg-white rounded-xl px-4 py-3 mb-1.5 shadow-sm border border-gray-100 hover:border-gray-300 hover:shadow transition-all disabled:opacity-50"
-                                                        >
-                                                            <div className="text-xs text-gray-400 mb-1">{formatLabel(session.started_at)} · {formatTime(session.started_at)}</div>
-                                                            <div className="text-sm text-gray-700 truncate">"{session.preview}"</div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            ));
+                                            return Object.entries(byProduct).map(([productId, productSessions]) => {
+                                                const byDate = productSessions.reduce((acc, s) => {
+                                                    const lbl = fmtDate(s.started_at);
+                                                    (acc[lbl] = acc[lbl] || []).push(s);
+                                                    return acc;
+                                                }, {});
+                                                return (
+                                                    <div key={productId} className="mb-4">
+                                                        <div className="flex items-center gap-2 px-1 py-1.5 mb-1">
+                                                            <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">{productLabels[productId] || productId}</span>
+                                                            <div className="flex-1 h-px bg-blue-100" />
+                                                        </div>
+                                                        {Object.entries(byDate).map(([dateLabel, group]) => (
+                                                            <div key={dateLabel}>
+                                                                <div className="text-xs font-medium text-gray-400 px-1 py-1">{dateLabel}</div>
+                                                                {group.map(session => (
+                                                                    <button
+                                                                        key={session.sender_id}
+                                                                        onClick={() => fetchSessionMessages(session)}
+                                                                        disabled={sessionLoading}
+                                                                        className="w-full text-left rounded-xl px-3 py-2.5 mb-1 shadow-sm transition-all disabled:opacity-50"
+                                                                        style={{ backgroundColor: c.surface, border: `1px solid ${c.border}` }}
+                                                                        onMouseEnter={e => e.currentTarget.style.borderColor = '#3b82f6'}
+                                                                        onMouseLeave={e => e.currentTarget.style.borderColor = c.border}
+                                                                    >
+                                                                        <div className="text-xs mb-0.5" style={{ color: c.textSub }}>{fmtTime(session.started_at)}</div>
+                                                                        <div className="text-sm leading-snug" style={{ color: c.text }}>{cleanPreview(session.preview)}</div>
+                                                                        {session.rating && <div className="text-xs text-amber-500 mt-0.5">{'★'.repeat(session.rating)}</div>}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            });
                                         })()}
                                     </div>
                                 </motion.div>
@@ -1620,22 +1811,25 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                     exit={{ x: 400, opacity: 0 }}
                                     transition={{ type: 'tween', duration: 0.22 }}
                                     className="absolute inset-0 z-[61] flex flex-col"
-                                    style={{ backgroundColor: bgColor }}
+                                    style={{ backgroundColor: c.bg }}
                                 >
                                     {/* Panel header */}
-                                    <div className="flex items-center gap-2 px-2 py-3 border-b border-gray-100" style={{ backgroundColor: bgColor }}>
+                                    <div className="flex items-center gap-2 px-2 py-3" style={{ backgroundColor: c.bg, borderBottom: `1px solid ${c.borderLight}` }}>
                                         <button
                                             onClick={() => { setHistoryView('history'); setSelectedSession(null); }}
-                                            className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600"
+                                            className="p-2 rounded-full transition-colors"
+                                            style={{ color: c.textMuted }}
+                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = c.hover}
+                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                         >
                                             <ChevronLeft size={18} />
                                         </button>
-                                        <h2 className="font-normal text-gray-700 text-sm flex-1 truncate pr-2">
-                                            {new Date(selectedSession.started_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short' })} · {selectedSession.preview.slice(0, 35)}{selectedSession.preview.length > 35 ? '...' : ''}
+                                        <h2 className="font-normal text-sm flex-1 truncate pr-2" style={{ color: c.textMuted }}>
+                                            {new Date(selectedSession.started_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })} · {new Date(selectedSession.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                                         </h2>
                                     </div>
                                     {/* Messages read-only */}
-                                    <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-gray-50/50" style={{ fontSize: `${messageFontSize}px` }}>
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-1" style={{ fontSize: `${messageFontSize}px`, backgroundColor: c.bg }}>
                                         {sessionLoading ? (
                                             <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
                                                 <svg className="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
@@ -1656,101 +1850,121 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                         ))}
                                     </div>
                                     {/* Read-only footer strip */}
-                                    <div className="px-4 py-2.5 border-t border-gray-100 flex items-center justify-center gap-1.5 bg-gray-50 text-xs text-gray-400">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                        Read-only · {new Date(selectedSession.started_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })} {new Date(selectedSession.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                    <div className="px-4 py-2.5 flex items-center justify-between text-xs" style={{ borderTop: `1px solid ${c.borderLight}`, backgroundColor: c.surfaceAlt, color: c.textMuted }}>
+                                        <div className="flex items-center gap-1.5">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                            Read-only · {new Date(selectedSession.started_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                const msgs  = selectedSession.messages || [];
+                                                const rows  = msgs.map(m => `<div style="background:${m.sender==='bot'?'#f3f4f6':'#dbeafe'};border-radius:8px;padding:8px 12px;margin:6px 0${m.sender!=='bot'?';text-align:right':''}"><strong style="font-size:11px;color:#6b7280">${m.sender==='bot'?'🤖 Bot':'👤 You'}</strong><p style="margin:4px 0">${(m.text||'').replace(/</g,'&lt;')}</p></div>`).join('');
+                                                const w = window.open('', '_blank');
+                                                w.document.write(`<html><head><title>Conversation Export</title><style>body{font-family:sans-serif;padding:20px;max-width:700px;margin:auto}@media print{button{display:none}}</style></head><body><h2>Conversation — ${new Date(selectedSession.started_at).toLocaleDateString()}</h2>${rows}<br><button onclick="window.print()">🖨️ Print / Save as PDF</button></body></html>`);
+                                                w.document.close();
+                                            }}
+                                            className="text-blue-500 hover:text-blue-700 font-medium"
+                                        >
+                                            Export PDF
+                                        </button>
                                     </div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
 
-                        {/* Login Form - Show when not authenticated AND not guest (legacy - for apps that require login) */}
-                        {/* For guest mode, users see the chat directly */}
+                        {/* Profile Panel */}
+                        {showProfile && (
+                            <ProfilePanel
+                                authUser={authUser}
+                                appId={appId}
+                                primaryColor={primaryColor}
+                                isDark={isDarkMode}
+                                onToggleDark={toggleDark}
+                                onClose={() => setShowProfile(false)}
+                                onLogout={() => { setShowProfile(false); handleLogout(); }}
+                            />
+                        )}
+
+                        {/* Sign In Screen */}
                         {!isAuthenticated && !isGuest ? (
-                            <div className="flex-1 flex flex-col p-6 bg-gray-50/50">
-                                <div className="w-full max-w-sm mx-auto flex-1 flex flex-col justify-center">
-                                    <div className="text-center mb-6">
-                                        <div
-                                            className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl text-white"
-                                            style={{ backgroundColor: primaryColor }}
-                                        >
-                                            🔐
-                                        </div>
-                                        <h2 className="text-xl font-semibold text-gray-800">Project IQ Login</h2>
-                                        <p className="text-sm text-gray-500 mt-1">Please sign in to continue</p>
-                                    </div>
-
-                                    <form onSubmit={handleLogin} className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                                            <div className="relative">
-                                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                                <input
-                                                    type="text"
-                                                    value={loginUsername}
-                                                    onChange={(e) => setLoginUsername(e.target.value)}
-                                                    placeholder="Enter your username"
-                                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all"
-                                                    style={{ '--tw-ring-color': primaryColor }}
-                                                    disabled={isLoggingIn}
-                                                />
+                            <div className="flex-1 flex flex-col items-center justify-center p-8 gap-4 overflow-y-auto" style={{ backgroundColor: c.bg }}>
+                                <div
+                                    className="w-14 h-14 rounded-full flex items-center justify-center text-white text-2xl shadow-lg"
+                                    style={{ backgroundColor: primaryColor }}
+                                >
+                                    🔐
+                                </div>
+                                <div className="text-center">
+                                    <h2 className="text-lg font-semibold" style={{ color: c.text }}>Sign in to continue</h2>
+                                    <p className="text-sm mt-1" style={{ color: c.textMuted }}>Access full support features with your account.</p>
+                                </div>
+                                <div className="w-full max-w-xs flex flex-col gap-3">
+                                    {iam.login && (
+                                        <>
+                                            <button
+                                                onClick={handleIamLogin}
+                                                className="w-full flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl font-semibold text-white shadow-md hover:opacity-90 transition-all"
+                                                style={{ backgroundColor: primaryColor }}
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                                </svg>
+                                                Sign in with IAM
+                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1 h-px" style={{ backgroundColor: c.borderLight }} />
+                                                <span className="text-xs" style={{ color: c.textSub }}>or</span>
+                                                <div className="flex-1 h-px" style={{ backgroundColor: c.borderLight }} />
                                             </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                            <div className="relative">
-                                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                                <input
-                                                    type="password"
-                                                    value={loginPassword}
-                                                    onChange={(e) => setLoginPassword(e.target.value)}
-                                                    placeholder="Enter your password"
-                                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent outline-none transition-all"
-                                                    style={{ '--tw-ring-color': primaryColor }}
-                                                    disabled={isLoggingIn}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {loginError && (
-                                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                                                ❌ {loginError}
-                                            </div>
-                                        )}
-
+                                        </>
+                                    )}
+                                    <form onSubmit={handleLogin} className="flex flex-col gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="GLPI Username"
+                                            value={loginUsername}
+                                            onChange={e => setLoginUsername(e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-lg text-sm outline-none"
+                                            style={{ backgroundColor: c.inputBg, color: c.text, borderColor: c.border }}
+                                            autoComplete="username"
+                                        />
+                                        <input
+                                            type="password"
+                                            placeholder="Password"
+                                            value={loginPassword}
+                                            onChange={e => setLoginPassword(e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-lg text-sm outline-none"
+                                            style={{ backgroundColor: c.inputBg, color: c.text, borderColor: c.border }}
+                                            autoComplete="current-password"
+                                        />
+                                        {loginError && <p className="text-xs text-red-500">{loginError}</p>}
                                         <button
                                             type="submit"
                                             disabled={isLoggingIn}
-                                            className="w-full py-2.5 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                            style={{
-                                                backgroundColor: primaryColor,
-                                                boxShadow: `0 4px 14px ${shadowColor}`
-                                            }}
+                                            className="w-full py-2.5 rounded-xl font-semibold text-white hover:opacity-90 transition-all disabled:opacity-60"
+                                            style={{ backgroundColor: '#374151' }}
                                         >
-                                            {isLoggingIn ? (
-                                                <span className="flex items-center justify-center gap-2">
-                                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                                    Signing in...
-                                                </span>
-                                            ) : (
-                                                'Sign In'
-                                            )}
+                                            {isLoggingIn ? 'Signing in…' : 'Sign in with password'}
                                         </button>
                                     </form>
                                 </div>
-
+                                <button onClick={() => setIsGuest(true)} className="text-xs transition-colors" style={{ color: c.textSub }}
+                                    onMouseEnter={e => e.currentTarget.style.color = c.textMuted}
+                                    onMouseLeave={e => e.currentTarget.style.color = c.textSub}
+                                >
+                                    Continue as guest (KB only)
+                                </button>
                             </div>
                         ) : (
                             <>
                                 {/* Messages Area */}
                                 {isWelcomeState ? (
                                     /* Welcome state — Gemini style */
-                                    <div className="flex-1 overflow-y-auto p-5" style={{ backgroundColor: '#EEF2FA' }}>
-                                        <div className="mb-1 text-2xl font-normal text-gray-800">
+                                    <div className="flex-1 overflow-y-auto p-5" style={{ backgroundColor: c.welcomeBg }}>
+                                        <div className="mb-1 text-2xl font-normal" style={{ color: c.text }}>
                                             Hi {isAuthenticated && authUser ? authUser : 'there'}
                                         </div>
-                                        <div className="mb-6 text-2xl font-semibold text-gray-800">
+                                        <div className="mb-6 text-2xl font-semibold" style={{ color: c.text }}>
                                             Where should we start?
                                         </div>
                                         <div className="flex flex-wrap gap-2">
@@ -1766,7 +1980,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                 <button
                                                     key={idx}
                                                     onClick={() => handleButtonClick(action.payload)}
-                                                    className="px-4 py-2 bg-white rounded-full shadow-sm hover:shadow-md text-gray-700 text-sm font-normal transition-shadow whitespace-nowrap"
+                                                    className="px-4 py-2 rounded-full shadow-sm hover:shadow-md text-sm font-normal transition-shadow whitespace-nowrap"
+                                                    style={{ backgroundColor: c.surface, color: c.text, border: `1px solid ${c.border}` }}
                                                 >
                                                     {action.label}
                                                 </button>
@@ -1774,19 +1989,22 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50" style={{ fontSize: `${messageFontSize}px` }}>
-                                        {messages.map(msg => (
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ fontSize: `${messageFontSize}px`, backgroundColor: c.bg }}>
+                                        {messages.map((msg, idx) => (
                                             <MessageBubble
                                                 key={msg.id}
                                                 message={msg}
                                                 onButtonClick={handleButtonClick}
                                                 onFeedback={handleFeedback}
                                                 themeColor={primaryColor}
+                                                isDark={isDarkMode}
                                                 botIcon={botIcon}
                                                 botIconColor={botIconColor}
                                                 userIcon={userIcon}
                                                 userIconColor={userIconColor}
                                                 buttonFontSize={buttonFontSize}
+                                                ticketPrefill={msg.ticket_form ? prefillFromMessages(messages.slice(0, idx)) : {}}
+                                                sessionToken={getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined}
                                             />
                                         ))}
                                         {isLoading && handoffState === 'bot_active' && (
@@ -1818,7 +2036,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
 
                                 {/* Quick Actions - authenticated users only, hidden during handoff */}
                                 {isAuthenticated && !isWelcomeState && !sessionEnded && handoffState === 'bot_active' && (
-                                    <div className="px-3 py-1.5 flex gap-1.5 border-t border-gray-100">
+                                    <div className="px-3 py-1.5 flex gap-1.5" style={{ borderTop: `1px solid ${c.borderLight}`, backgroundColor: c.bg }}>
                                         {[
                                             { label: 'Create Ticket', payload: '/create_ticket' },
                                             { label: 'List Tickets', payload: '/list_tickets' },
@@ -1828,8 +2046,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                             <button
                                                 key={idx}
                                                 onClick={() => handleButtonClick(action.payload)}
-                                                className="flex-1 py-1 bg-transparent border border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-gray-700 rounded-full transition-colors text-center"
-                                                style={{ fontSize: '11px' }}
+                                                className="flex-1 py-1 rounded-full transition-colors text-center"
+                                                style={{ fontSize: '11px', backgroundColor: 'transparent', border: `1px solid ${c.border}`, color: c.textMuted }}
+                                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = c.hover; e.currentTarget.style.color = c.text; }}
+                                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = c.textMuted; }}
                                             >
                                                 {action.label}
                                             </button>
@@ -1848,7 +2068,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                 {sessionEnded ? (
                                     <div
                                         className="p-4 flex justify-center"
-                                        style={{ backgroundColor: bgColor }}
+                                        style={{ backgroundColor: c.bg, borderTop: `1px solid ${c.borderLight}` }}
                                     >
                                         <button
                                             onClick={handleNewConversation}
@@ -1865,9 +2085,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                     <form
                                         onSubmit={handleSendMessage}
                                         className="p-4 flex items-center gap-2"
-                                        style={{ backgroundColor: isWelcomeState ? '#EEF2FA' : bgColor }}
+                                        style={{ backgroundColor: isWelcomeState ? c.welcomeBg : c.bg, borderTop: `1px solid ${c.borderLight}` }}
                                     >
-                                        <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 focus-within:ring-2 transition-all shadow-sm border border-gray-200" style={{ '--tw-ring-color': `${primaryColor}80` }}>
+                                        <div className="flex-1 flex items-center rounded-full px-4 py-2 focus-within:ring-2 transition-all shadow-sm"
+                                            style={{ backgroundColor: c.inputBg, border: `1px solid ${c.border}`, '--tw-ring-color': `${primaryColor}80` }}>
                                             <input
                                                 type="file"
                                                 ref={fileInputRef}
@@ -1878,9 +2099,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                 type="button"
                                                 onClick={() => handoffState === 'bot_active' && fileInputRef.current?.click()}
                                                 disabled={handoffState !== 'bot_active'}
-                                                className="text-gray-400 hover:text-gray-600 transition-colors mr-2 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                className="transition-colors mr-2 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                style={{ color: c.textMuted }}
                                                 onMouseEnter={(e) => handoffState === 'bot_active' && (e.target.style.color = primaryColor)}
-                                                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
+                                                onMouseLeave={(e) => e.target.style.color = c.textMuted}
                                                 title={handoffState === 'bot_active' ? 'Attach File' : 'Unavailable during handoff'}
                                             >
                                                 <Paperclip size={20} />
@@ -1891,8 +2113,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                 onChange={(e) => { setInputText(e.target.value); handleInputTyping(); }}
                                                 placeholder={handoffState === 'assigned' ? 'Reply to agent…' : 'Message Project IQ…'}
                                                 disabled={handoffState === 'queued'}
-                                                className="flex-1 bg-transparent text-gray-800 focus:outline-none font-light py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                style={{ fontSize: `${inputFontSize}px` }}
+                                                className="flex-1 bg-transparent focus:outline-none font-light py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                style={{ fontSize: `${inputFontSize}px`, color: c.text }}
                                             />
                                             <button
                                                 type="submit"
@@ -1903,6 +2125,17 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                             >
                                                 <Send size={20} />
                                             </button>
+                                            {/* Voice input — Web Speech API (Chrome/Edge/Safari) */}
+                                            {(window.SpeechRecognition || window.webkitSpeechRecognition) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={startVoice}
+                                                    className={`transition-colors ml-1 ${isListening ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gray-600'}`}
+                                                    title={isListening ? 'Stop listening' : 'Speak'}
+                                                >
+                                                    {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                                                </button>
+                                            )}
                                         </div>
                                     </form>
                                 )}

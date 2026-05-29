@@ -188,9 +188,40 @@ def chat_webhook_proxy():
             except Exception:
                 return jsonify([]), 200
 
+        # ── IAM Bearer extraction ──────────────────────────────────────────────
+        iam_user = None
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            try:
+                from common.iam_service import verify_iam_token, extract_iam_user, IamTokenError
+                claims   = verify_iam_token(auth_header[7:])
+                iam_user = extract_iam_user(claims)
+                # Stable, deterministic sender_id from IAM sub
+                sender_id = f"iam-{iam_user['sub']}"
+                # Inject IAM identity into Rasa metadata so actions can read slots
+                metadata.setdefault('iam_sub',   iam_user['sub'])
+                metadata.setdefault('iam_name',  iam_user['name'])
+                metadata.setdefault('iam_email', iam_user['email'])
+                metadata.setdefault('app_id',    (iam_user['apps'] or ['General'])[0])
+            except Exception as _iam_err:
+                print(f"[IAM] Token validation warning: {_iam_err}")
+                # Invalid token — treat as guest (don't block KB access)
+
+        # ── Member role gate ───────────────────────────────────────────────
+        # Authenticated users must have the 'Member' project role to use the chatbot.
+        # Guests (no token) fall through to KB-only / restricted action mode.
+        if iam_user and not iam_user.get('is_member') \
+                and not iam_user.get('is_admin') \
+                and not iam_user.get('is_operator') \
+                and not iam_user.get('is_super_admin'):
+            return jsonify([{
+                'text': "Your account doesn't have access to this chatbot. "
+                        "Please contact your administrator to get the Member role assigned."
+            }]), 403
+
         app_id    = metadata.get('app_id', 'General')
-        user_id   = metadata.get('user_id')
-        user_name = metadata.get('user_name')
+        user_id   = iam_user['sub']      if iam_user else metadata.get('user_id')
+        user_name = iam_user['username'] if iam_user else metadata.get('user_name')
         ticket_id = metadata.get('ticket_id')
         client_meta = {k: metadata.get(k, '') for k in
                        ('browser', 'os', 'device_type', 'page_url', 'device_id') if metadata.get(k)}
@@ -274,6 +305,31 @@ def chat_webhook_proxy():
             if r.get('text'):
                 log_message(sender_id, 'bot', r['text'], app_id=app_id,
                             user_id=user_id, ticket_id=ticket_id)
+
+        # Notify user when a ticket is created (detect "Ticket-XXXX" in response)
+        if not ticket_id:
+            import re as _re
+            for r in bot_responses:
+                m = _re.search(r'Ticket-(\d+)', r.get('text', ''))
+                if m:
+                    tid = int(m.group(1))
+                    try:
+                        from web.api.impl.notify import notify_user
+                        notify_user(
+                            user_id=sender_id, type='ticket_created', app_id=app_id,
+                            title=f'Ticket #{tid} created',
+                            body='Your support ticket has been submitted.',
+                            payload={'ticket_id': tid, 'sender_id': sender_id},
+                        )
+                    except Exception:
+                        pass
+                    # Store sender mapping so GLPI webhook can find this user later
+                    try:
+                        from common.db.iam_glpi_users import store_ticket_sender
+                        store_ticket_sender(tid, sender_id, app_id)
+                    except Exception:
+                        pass
+                    break
 
         return jsonify(bot_responses), rasa_resp.status_code
     except Exception as e:

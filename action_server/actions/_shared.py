@@ -89,28 +89,68 @@ def get_analytics_context(tracker: Tracker) -> Dict[str, str]:
 
 
 def get_effective_session_token(tracker) -> Optional[str]:
-    """Get session token from slot or, for new sessions, from message metadata."""
+    """Get session token from slot, message metadata, or service-account fallback."""
     token = tracker.get_slot("session_token")
     if not token:
         token = tracker.latest_message.get("metadata", {}).get("session_token")
+    if not token:
+        token = getattr(tracker, '_fallback_session_token', None)
     return token
+
+
+def get_iam_identity(tracker) -> dict:
+    """
+    Return IAM identity from slots or message metadata.
+    Returns dict with keys: sub, name, email (empty strings if guest).
+    """
+    meta = {}
+    if isinstance(tracker.latest_message, dict):
+        meta = tracker.latest_message.get("metadata", {}) or {}
+    return {
+        "sub":   tracker.get_slot("iam_sub")   or meta.get("iam_sub",   ""),
+        "name":  tracker.get_slot("iam_name")  or meta.get("iam_name",  ""),
+        "email": tracker.get_slot("iam_email") or meta.get("iam_email", ""),
+    }
+
+
+def is_iam_authenticated(tracker) -> bool:
+    """Return True if an IAM sub is present (user authenticated via Keycloak)."""
+    identity = get_iam_identity(tracker)
+    return bool(identity["sub"])
+
+
+def require_iam_auth(dispatcher: CollectingDispatcher) -> bool:
+    """
+    Emit a login-required message and return False.
+    Call this when is_iam_authenticated() returns False.
+    """
+    dispatcher.utter_message(
+        text="🔐 **Sign in required**\n\nPlease sign in to use this feature.",
+        buttons=[{"title": "🔑 Sign In", "payload": "/trigger_login"}]
+    )
+    return False
 
 
 async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -> bool:
     """Check if user is logged in. Returns True if authenticated.
 
-    On a new session tracker slots are blank. The widget sends the stored
-    session_token in metadata so we can verify it live and continue without re-login.
+    Accepts IAM (Keycloak) authentication OR legacy GLPI session token.
     Draft senders (operator AI-draft requests) bypass auth entirely.
     """
+    # ── IAM fast path ────────────────────────────────────────────────────────
+    iam = get_iam_identity(tracker)
+    if iam["sub"]:
+        logger.info(f"LOGIN CHECK PASSED (IAM sub={iam['sub'][:8]}...)")
+        return True
+
     is_authenticated = tracker.get_slot("is_authenticated")
 
     # Explicit logout — is_authenticated=False is definitive, never accept any token
     if is_authenticated is False:
         dispatcher.utter_message(
-            text="🔐 **Login Required**\n\nTo perform ticket operations, please login with your Project IQ credentials.",
+            text="🔐 **Sign in required**\n\nPlease sign in to use this feature.",
             buttons=[
-                {"title": "🔑 Login Now", "payload": "/login"},
+                {"title": "🔑 Sign In", "payload": "/trigger_login"},
                 {"title": "📚 Search KB Instead", "payload": "/ask_knowledge"}
             ]
         )
@@ -122,12 +162,12 @@ async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -
 
     logger.info(f"LOGIN CHECK: is_auth={is_authenticated} slot_token={'set' if slot_token else 'None'} meta_token={'set' if meta_token else 'None'}")
 
-    # Fast path: slot says authenticated and we have a token
+    # Fast path: slot says authenticated and we have a token — skip live verify
     if is_authenticated and session_token:
         logger.info("LOGIN CHECK PASSED (slot)")
         return True
 
-    # Token present but is_authenticated not yet set — new session, verify live
+    # Token present but is_authenticated not yet set — verify live with GLPI
     if session_token:
         service = get_glpi_service()
         user_info = await service._get_current_user(session_token)
@@ -135,13 +175,47 @@ async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -
         if user_info and user_info.get("id"):
             logger.info(f"LOGIN CHECK PASSED (token verified, user={user_info.get('name')})")
             return True
-        logger.info("LOGIN CHECK - token invalid/expired")
+        logger.info("LOGIN CHECK - user token invalid/expired, trying service account")
+
+    # User token is absent or expired — fall back to service account session so
+    # the conversation continues without forcing re-login.  The user is still
+    # considered authenticated if they previously set is_authenticated=True OR
+    # if they have a glpi_user_id slot (set after successful login) OR
+    # if the frontend metadata says is_authenticated=True (persisted in cookie,
+    # sent on every message — covers page-refresh where Rasa slots are lost).
+    meta = tracker.latest_message.get("metadata", {}) or {}
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except Exception:
+            meta = {}
+    meta_is_authenticated = meta.get("is_authenticated") is True
+    # A session token cookie proves a prior login even when the token is now expired.
+    # This handles page-refresh after Rasa restart regardless of is_authenticated state.
+    has_prior_token = bool(meta_token or slot_token)
+    glpi_user_id = tracker.get_slot("glpi_user_id") or tracker.get_slot("glpi_user_name")
+    if is_authenticated or glpi_user_id or meta_is_authenticated or has_prior_token:
+        try:
+            service = get_glpi_service()
+            svc_token = await service.init_session()
+            if svc_token:
+                logger.info(f"LOGIN CHECK PASSED (service account fallback, glpi_user={glpi_user_id})")
+                # Patch the effective token so callers get a working session
+                # Store in mutable dict so get_effective_session_token can pick it up
+                if not hasattr(tracker, '_fallback_session_token'):
+                    try:
+                        object.__setattr__(tracker, '_fallback_session_token', svc_token)
+                    except Exception:
+                        pass
+                return True
+        except Exception as e:
+            logger.warning(f"LOGIN CHECK - service account fallback failed: {e}")
 
     logger.info("LOGIN CHECK FAILED")
     dispatcher.utter_message(
-        text="🔐 **Login Required**\n\nTo perform ticket operations, please login with your Project IQ credentials.",
+        text="🔐 **Sign in required**\n\nPlease sign in to use this feature.",
         buttons=[
-            {"title": "🔑 Login Now", "payload": "/login"},
+            {"title": "🔑 Sign In", "payload": "/trigger_login"},
             {"title": "📚 Search KB Instead", "payload": "/ask_knowledge"}
         ]
     )

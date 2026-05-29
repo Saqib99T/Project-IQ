@@ -41,6 +41,7 @@ RASA_URL = _rasa_cfg['api_url'].rstrip('/')
 ACTION_URL = _rasa_cfg['action_url']
 
 app = Flask(__name__, static_folder=None)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'projectiq-iam-pkce-secret-change-in-prod')
 CORS(app)
 
 # Populate shared.py with runtime values so blueprints can import them

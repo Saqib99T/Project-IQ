@@ -229,6 +229,54 @@ def get_kb_config() -> Dict[str, Any]:
     }
 
 
+def get_sla_config() -> Dict[str, int]:
+    """Get SLA hours per priority."""
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'critical': int(_get_secret('SLA_CRITICAL_HOURS', '2')),
+            'high':     int(_get_secret('SLA_HIGH_HOURS',     '4')),
+            'medium':   int(_get_secret('SLA_MEDIUM_HOURS',   '8')),
+            'low':      int(_get_secret('SLA_LOW_HOURS',      '24')),
+        }
+    config = load_config()
+    return {
+        'critical': config.getint('SLA', 'critical_hours', fallback=2),
+        'high':     config.getint('SLA', 'high_hours',     fallback=4),
+        'medium':   config.getint('SLA', 'medium_hours',   fallback=8),
+        'low':      config.getint('SLA', 'low_hours',      fallback=24),
+    }
+
+
+def get_glpi_webhook_config() -> Dict[str, str]:
+    """Get GLPI webhook configuration."""
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'secret': _get_secret('GLPI_WEBHOOK_SECRET', 'change-me-to-a-random-secret'),
+        }
+    config = load_config()
+    return {
+        'secret': config.get('GLPI_WEBHOOK', 'secret', fallback='change-me-to-a-random-secret'),
+    }
+
+
+def get_iam_config() -> Dict[str, str]:
+    """Get IAM / Keycloak configuration settings."""
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'keycloak_url': _get_secret('IAM_KEYCLOAK_URL', 'https://id.dev.iam.99technologies.com'),
+            'realm':        _get_secret('IAM_REALM',        '99-iam'),
+            'client_id':    _get_secret('IAM_CLIENT_ID',    'project-iq'),
+            'api_url':      _get_secret('IAM_API_URL',      'https://api.dev.iam.99technologies.com'),
+        }
+    config = load_config()
+    return {
+        'keycloak_url': config.get('IAM', 'keycloak_url', fallback='https://id.dev.iam.99technologies.com'),
+        'realm':        config.get('IAM', 'realm',        fallback='99-iam'),
+        'client_id':    config.get('IAM', 'client_id',    fallback='project-iq'),
+        'api_url':      config.get('IAM', 'api_url',      fallback='https://api.dev.iam.99technologies.com'),
+    }
+
+
 def get_all_config() -> Dict[str, str]:
     """Get all configuration as flat dictionary for admin API."""
     if _init_infisical() and _infisical_secrets:

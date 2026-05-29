@@ -76,7 +76,7 @@ const SettingsScreen = ({ navigation }) => {
     const selectedLabel = APP_ID_OPTIONS.find(o => o.value === selectedAppId)?.label || selectedAppId;
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>

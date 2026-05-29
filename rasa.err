@@ -1,0 +1,21 @@
+D:\99T\Code\Project-IQ-V2\venv\lib\site-packages\rasa\core\tracker_store.py:1044: MovedIn20Warning: Deprecated API features detected! These feature(s) are not compatible with SQLAlchemy 2.0. To prevent incompatible upgrades prior to updating applications, ensure requirements files are pinned to "sqlalchemy<2.0". Set environment variable SQLALCHEMY_WARN_20=1 to show all deprecation warnings.  Set environment variable SQLALCHEMY_SILENCE_UBER_WARNING=1 to silence this message. (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+  Base: DeclarativeMeta = declarative_base()
+D:\99T\Code\Project-IQ-V2\venv\lib\site-packages\rasa\shared\utils\validation.py:134: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+  import pkg_resources
+D:\99T\Code\Project-IQ-V2\venv\lib\site-packages\pkg_resources\__init__.py:3117: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('mpl_toolkits')`.
+Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+  declare_namespace(pkg)
+D:\99T\Code\Project-IQ-V2\venv\lib\site-packages\pkg_resources\__init__.py:3117: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('ruamel')`.
+Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+  declare_namespace(pkg)
+D:\99T\Code\Project-IQ-V2\venv\lib\site-packages\sanic_cors\extension.py:39: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+  SANIC_VERSION = LooseVersion(sanic_version)
+D:\99T\Code\Project-IQ-V2\venv\lib\site-packages\tensorflow\lite\python\util.py:52: DeprecationWarning: jax.xla_computation is deprecated. Please use the AOT APIs.
+  from jax import xla_computation as _xla_computation
+2026-05-22 23:46:24 [1;30mINFO    [0m [34mroot[0m  - Starting Rasa server on http://0.0.0.0:5005
+[93mD:\99T\Code\Project-IQ-V2\venv\lib\site-packages\rasa\shared\utils\io.py:100: UserWarning: Tracker store with type 'custom_tracker_store.CustomTrackerStore' not found. Using `InMemoryTrackerStore` instead.
+[0m2026-05-22 23:46:26 [1;30mINFO    [0m [34mrasa.core.processor[0m  - Loading model models\20260508-184852-khaki-bracket.tar.gz...
+[93mD:\99T\Code\Project-IQ-V2\venv\lib\site-packages\rasa\utils\train_utils.py:530: UserWarning: constrain_similarities is set to `False`. It is recommended to set it to `True` when using cross-entropy loss.
+  rasa.shared.utils.io.raise_warning(
+[0m2026-05-22 23:48:33 [1;30mWARNING [0m [34mrasa.shared.utils.common[0m  - [33mThe UnexpecTED Intent Policy is currently experimental and might change or be removed in the future \U0001f52c Please share your feedback on it in the forum (https://forum.rasa.com) to help us make this feature ready for production.[0m
+2026-05-22 23:48:33 [1;30mINFO    [0m [34mroot[0m  - Rasa server is up and running.
