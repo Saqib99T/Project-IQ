@@ -55,3 +55,4 @@ web/ui/dist-widget/modern-web-interface.css
 # Credentials (belt-and-suspenders)
 .env.bak
 *.bak
+expo-app/ProjectIQ.aab
