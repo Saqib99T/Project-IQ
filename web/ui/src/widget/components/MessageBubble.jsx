@@ -6,6 +6,29 @@ import { motion } from 'framer-motion';
 import ChartRenderer from './ChartRenderer';
 import TicketForm from './TicketForm';
 
+const PAYLOAD_LABELS = {
+    '/create_ticket':        'Create a ticket',
+    '/list_tickets':         'List my tickets',
+    '/check_status':         'Check ticket status',
+    '/help':                 'Help',
+    '/request_human_agent':  'Talk to a human agent',
+    '/confirm_gdpr_consent': 'I agree to the terms',
+    '/deny_gdpr_consent':    'I do not agree',
+    '/login':                'Login',
+    '/logout':               'Logout',
+    '/greet':                'Hello',
+    '/affirm':               'Yes',
+    '/deny':                 'No',
+    '/restart':              'Start over',
+    '/out_of_scope':         'Other',
+};
+
+const formatUserMessage = (text) => {
+    if (!text || !text.startsWith('/')) return text;
+    const key = text.split('{')[0].trim().toLowerCase();
+    return PAYLOAD_LABELS[key] || text.slice(1).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+};
+
 // Helper function to extract YouTube video ID and optional start time from various URL formats
 const extractYouTubeInfo = (url) => {
     if (!url) return { id: '', start: 0 };
@@ -260,7 +283,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                 )}
                             </div>
                         ) : (
-                            <p className="whitespace-pre-wrap">{message.text}</p>
+                            <p className="whitespace-pre-wrap">{formatUserMessage(message.text)}</p>
                         )}
                     </div>
 

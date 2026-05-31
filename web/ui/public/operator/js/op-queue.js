@@ -211,6 +211,13 @@ async function openChat(queueId) {
   renderContextPanel(chat);
 }
 
+function fmtPayload(text) {
+    if (!text || !text.startsWith('/')) return text;
+    const MAP = { '/create_ticket':'Create a ticket','/list_tickets':'List my tickets','/check_status':'Check ticket status','/help':'Help','/request_human_agent':'Talk to a human agent','/confirm_gdpr_consent':'I agree to the terms','/deny_gdpr_consent':'I do not agree','/login':'Login','/logout':'Logout','/greet':'Hello','/hi':'Hello','/affirm':'Yes','/deny':'No','/restart':'Start over','/out_of_scope':'Other','/ask_knowledge':'Search Knowledge Base','/submit_ticket_form':'Ticket submitted','/show_ticket_graph':'View ticket graph','/show_chart':'View chart','/accept_ticket_fallback':'Create a support ticket','/confirm_handoff':'Wait in queue','/cancel_handoff':'Cancel handoff','/kb_not_helpful':'Not helpful','/kb_show_full_answer':'Show full answer','/kb_show_full_article':'Show full article','/feedback_positive':'Positive feedback','/feedback_negative':'Negative feedback','/inform':'Option selected','/inform_update':'Update ticket','/stop':'Cancel','/clear':'Clear session','/verify_resolution':'Mark as resolved','/update_ticket':'Update ticket','/list_attachments':'List attachments','/upload_file':'Upload file','/rating_1':'Rating: 1★','/rating_2':'Rating: 2★','/rating_3':'Rating: 3★','/rating_4':'Rating: 4★','/rating_5':'Rating: 5★' };
+    const key = text.split('{')[0].trim().toLowerCase();
+    return MAP[key] || text.slice(1).replace(/_/g,' ').replace(/^\w/,c=>c.toUpperCase());
+}
+
 function messageBubble(m) {
   const isBot = m.sender === 'bot';
   const isUser = m.sender === 'user';
@@ -220,7 +227,7 @@ function messageBubble(m) {
     return `<div class="flex items-end gap-2">
       <div class="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">U</div>
       <div class="max-w-[70%]">
-        <div class="bg-white border border-gray-200 rounded-xl rounded-bl-sm px-3 py-2 text-sm text-gray-800 shadow-sm">${esc(m.text)}</div>
+        <div class="bg-white border border-gray-200 rounded-xl rounded-bl-sm px-3 py-2 text-sm text-gray-800 shadow-sm">${esc(fmtPayload(m.text))}</div>
         <div class="text-xs text-gray-400 mt-0.5 ml-1">${ts}</div>
       </div>
     </div>`;

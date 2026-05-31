@@ -534,3 +534,220 @@ def admin_monitor_queue():
         return jsonify({'error': str(e)}), 500
 
 
+# ── Client Users ───────────────────────────────────────────────────────────────
+
+def _fetch_glpi_users_sync():
+    """Fetch all active users from GLPI API. Returns list of dicts."""
+    import asyncio, aiohttp as _aio
+
+    async def _run():
+        from action_server.actions.glpi_service import GlpiService
+        from common.config_manager import get_glpi_config
+        cfg  = get_glpi_config()
+        glpi = GlpiService(cfg['api_url'], cfg['app_token'], cfg['user_token'])
+        sess = await glpi.init_session()
+        if not sess:
+            return []
+        try:
+            hdrs = {'App-Token': cfg['app_token'], 'Session-Token': sess}
+            url  = f"{cfg['api_url']}/User"
+            async with _aio.ClientSession() as http:
+                async with http.get(url, headers=hdrs,
+                                    params={'range': '0-1000', 'is_deleted': 0},
+                                    timeout=_aio.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        return await resp.json()
+                    return []
+        finally:
+            await glpi.kill_session(sess)
+
+    try:
+        return asyncio.run(_run())
+    except Exception as e:
+        import logging; logging.getLogger(__name__).error(f"GLPI users fetch: {e}")
+        return []
+
+
+# System-level GLPI accounts that should never appear in the Client Users list
+_GLPI_SYSTEM_ACCOUNTS = {
+    'admin', 'post-only', 'tech', 'normal', 'glpi-system',
+    'botuser1', 'glpi', 'glpi-api',
+}
+
+
+def list_client_users():
+    """Return client users from GLPI, supplemented with conversation stats."""
+    try:
+        search = (request.args.get('search') or '').strip().lower()
+        app_id = (request.args.get('app_id') or '').strip()
+
+        # ── 1. Get operator usernames to exclude ───────────────────────────
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT username FROM operators WHERE username IS NOT NULL")
+            operator_names = {r['username'] for r in cur.fetchall()}
+
+            # ── 2. Conversation stats per user_name ────────────────────────
+            cur.execute("""
+                SELECT
+                    user_name,
+                    MAX(NULLIF(user_id, ''))   AS user_id,
+                    ARRAY_AGG(DISTINCT app_id) AS apps,
+                    COUNT(*)                   AS conv_count,
+                    MAX(last_activity)         AS last_active,
+                    MIN(started_at)            AS first_seen
+                FROM conversations
+                WHERE user_name IS NOT NULL AND user_name <> ''
+                GROUP BY user_name
+            """)
+            conv_stats = {r['user_name']: r for r in cur.fetchall()}
+        finally:
+            _release_connection(conn)
+
+        # ── 3. Fetch GLPI users ────────────────────────────────────────────
+        glpi_rows = _fetch_glpi_users_sync()
+        exclude   = operator_names | _GLPI_SYSTEM_ACCOUNTS
+
+        users = []
+        for g in glpi_rows:
+            un = (g.get('name') or '').strip()
+            if not un or un in exclude:
+                continue
+            if search and search not in un.lower() \
+                      and search not in (g.get('firstname') or '').lower() \
+                      and search not in (g.get('realname') or '').lower() \
+                      and search not in (g.get('email') or '').lower():
+                continue
+
+            stats = conv_stats.get(un, {})
+            apps  = list(stats.get('apps') or [])
+            if app_id and app_id not in apps:
+                continue
+
+            la = stats.get('last_active')
+            fs = stats.get('first_seen')
+            users.append({
+                'user_name':   un,
+                'firstname':   g.get('firstname') or '',
+                'lastname':    g.get('realname')  or '',
+                'email':       g.get('email') or (g.get('_useremails') or [{}])[0].get('email', '') if isinstance(g.get('_useremails'), list) else '',
+                'glpi_id':     g.get('id'),
+                'user_id':     stats.get('user_id') or '',
+                'apps':        apps,
+                'conv_count':  stats.get('conv_count') or 0,
+                'last_active': la.isoformat() if la else None,
+                'first_seen':  fs.isoformat() if fs else None,
+            })
+
+        # Users with conversations first (newest), then no-conv users alphabetically
+        with_conv    = sorted([u for u in users if u['last_active']], key=lambda u: u['last_active'], reverse=True)
+        without_conv = sorted([u for u in users if not u['last_active']], key=lambda u: u['user_name'])
+        users = with_conv + without_conv
+
+        return jsonify({'success': True, 'users': users, 'count': len(users)})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+def create_client_user():
+    """Create a new client user in GLPI."""
+    import asyncio, aiohttp as _aio
+    data = request.get_json(silent=True) or {}
+    username  = (data.get('username') or '').strip()
+    firstname = (data.get('firstname') or '').strip()
+    lastname  = (data.get('lastname')  or '').strip()
+    email     = (data.get('email')     or '').strip()
+    password  = data.get('password') or ''
+    if not username:
+        return jsonify({'error': 'username is required'}), 400
+    if not password:
+        return jsonify({'error': 'password is required'}), 400
+
+    async def _run():
+        from action_server.actions.glpi_service import GlpiService
+        from common.config_manager import get_glpi_config
+        cfg  = get_glpi_config()
+        glpi = GlpiService(cfg['api_url'], cfg['app_token'], cfg['user_token'])
+        sess = await glpi.init_session()
+        if not sess:
+            raise RuntimeError('Could not connect to GLPI')
+        try:
+            hdrs    = {'App-Token': cfg['app_token'], 'Session-Token': sess, 'Content-Type': 'application/json'}
+            payload = {'input': {'name': username, 'firstname': firstname, 'realname': lastname,
+                                 'password': password, 'password2': password,
+                                 '_useremails': [{'email': email}] if email else []}}
+            async with _aio.ClientSession() as http:
+                async with http.post(f"{cfg['api_url']}/User", json=payload, headers=hdrs,
+                                     timeout=_aio.ClientTimeout(total=10)) as resp:
+                    body = await resp.json()
+                    if resp.status in (200, 201):
+                        return body
+                    raise RuntimeError(body if isinstance(body, str) else str(body))
+        finally:
+            await glpi.kill_session(sess)
+
+    try:
+        result = asyncio.run(_run())
+        return jsonify({'success': True, 'glpi_id': result.get('id') if isinstance(result, dict) else result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def update_client_user(username):
+    """Update an existing client user in GLPI."""
+    import asyncio, aiohttp as _aio
+    data = request.get_json(silent=True) or {}
+    if not username:
+        return jsonify({'error': 'username is required'}), 400
+
+    async def _run():
+        from action_server.actions.glpi_service import GlpiService
+        from common.config_manager import get_glpi_config
+        cfg  = get_glpi_config()
+        glpi = GlpiService(cfg['api_url'], cfg['app_token'], cfg['user_token'])
+        sess = await glpi.init_session()
+        if not sess:
+            raise RuntimeError('Could not connect to GLPI')
+        try:
+            hdrs = {'App-Token': cfg['app_token'], 'Session-Token': sess, 'Content-Type': 'application/json'}
+            # Find user ID by username
+            async with _aio.ClientSession() as http:
+                async with http.get(f"{cfg['api_url']}/User", headers=hdrs,
+                                    params={'searchText[name]': username, 'range': '0-5'},
+                                    timeout=_aio.ClientTimeout(total=10)) as resp:
+                    users = await resp.json() if resp.status == 200 else []
+                glpi_id = next((u['id'] for u in (users if isinstance(users, list) else []) if u.get('name') == username), None)
+                if not glpi_id:
+                    raise RuntimeError(f'User "{username}" not found in GLPI')
+
+                # Build update payload
+                inp = {}
+                if data.get('firstname'): inp['firstname'] = data['firstname'].strip()
+                if data.get('lastname'):  inp['realname']  = data['lastname'].strip()
+                if data.get('email'):
+                    inp['_useremails'] = [{'email': data['email'].strip()}]
+                if data.get('password'):
+                    inp['password']  = data['password']
+                    inp['password2'] = data['password']
+                if not inp:
+                    return {'id': glpi_id}
+
+                async with http.put(f"{cfg['api_url']}/User/{glpi_id}", json={'input': inp}, headers=hdrs,
+                                    timeout=_aio.ClientTimeout(total=10)) as resp:
+                    body = await resp.json()
+                    if resp.status in (200, 201):
+                        return body
+                    raise RuntimeError(str(body))
+        finally:
+            await glpi.kill_session(sess)
+
+    try:
+        asyncio.run(_run())
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+

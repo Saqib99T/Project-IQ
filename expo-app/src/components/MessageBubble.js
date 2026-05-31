@@ -6,6 +6,55 @@ import { WebView } from 'react-native-webview';
 import { THEME } from '../config';
 import { useTheme } from '../context/ThemeContext';
 
+const PAYLOAD_LABELS = {
+    '/create_ticket':          'Create a ticket',
+    '/list_tickets':           'List my tickets',
+    '/check_status':           'Check ticket status',
+    '/help':                   'Help',
+    '/request_human_agent':    'Talk to a human agent',
+    '/confirm_gdpr_consent':   'I agree to the terms',
+    '/deny_gdpr_consent':      'I do not agree',
+    '/login':                  'Login',
+    '/logout':                 'Logout',
+    '/greet':                  'Hello',
+    '/hi':                     'Hello',
+    '/affirm':                 'Yes',
+    '/deny':                   'No',
+    '/restart':                'Start over',
+    '/out_of_scope':           'Other',
+    '/ask_knowledge':          'Search Knowledge Base',
+    '/submit_ticket_form':     'Ticket submitted',
+    '/show_ticket_graph':      'View ticket graph',
+    '/show_chart':             'View chart',
+    '/accept_ticket_fallback': 'Create a support ticket',
+    '/confirm_handoff':        'Wait in queue',
+    '/cancel_handoff':         'Cancel handoff',
+    '/kb_not_helpful':         'Not helpful',
+    '/kb_show_full_answer':    'Show full answer',
+    '/kb_show_full_article':   'Show full article',
+    '/feedback_positive':      'Positive feedback',
+    '/feedback_negative':      'Negative feedback',
+    '/inform':                 'Option selected',
+    '/inform_update':          'Update ticket',
+    '/stop':                   'Cancel',
+    '/clear':                  'Clear session',
+    '/verify_resolution':      'Mark as resolved',
+    '/update_ticket':          'Update ticket',
+    '/list_attachments':       'List attachments',
+    '/upload_file':            'Upload file',
+    '/rating_1':               'Rating: 1★',
+    '/rating_2':               'Rating: 2★',
+    '/rating_3':               'Rating: 3★',
+    '/rating_4':               'Rating: 4★',
+    '/rating_5':               'Rating: 5★',
+};
+
+const formatUserMessage = (text) => {
+    if (!text || !text.startsWith('/')) return text;
+    const key = text.split('{')[0].trim().toLowerCase();
+    return PAYLOAD_LABELS[key] || text.slice(1).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+};
+
 const extractYouTubeInfo = (video) => {
     if (!video) return { id: '', start: 0, title: '' };
     const url = typeof video === 'string' ? video : (video.url || video.youtube_id || '');
@@ -137,7 +186,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
                                 },
                             }}
                         >
-                            {message.text}
+                            {(isBot || isOperator) ? message.text : formatUserMessage(message.text)}
                         </Markdown>
                     ) : null}
 

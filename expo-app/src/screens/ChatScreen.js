@@ -860,7 +860,9 @@ const ChatScreen = ({ navigation }) => {
         setHistoryLoading(true);
         try {
             const adminBase = await getAdminBaseUrl();
-            const params = new URLSearchParams({ user_name: authUser });
+            // Use preferred_username (stored in DB), not display name
+            const historyUserName = iam.user?.username || authUser;
+            const params = new URLSearchParams({ user_name: historyUserName });
             if (search) params.set('search', search);
             const res  = await fetch(`${adminBase}/api/user/conversations?${params}`);
             const resp = await res.json();

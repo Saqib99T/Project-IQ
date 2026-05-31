@@ -37,6 +37,18 @@ def delete_operator(operator_id):
 def operator_stats(operator_id):
     return _ao.operator_stats_endpoint(operator_id)
 
+@bp.route('/admin/client-users', methods=['GET'])
+def list_client_users():
+    return _ao.list_client_users()
+
+@bp.route('/admin/client-users', methods=['POST'])
+def create_client_user():
+    return _ao.create_client_user()
+
+@bp.route('/admin/client-users/<username>', methods=['PUT'])
+def update_client_user(username):
+    return _ao.update_client_user(username)
+
 
 # ── Handoff config ─────────────────────────────────────────────────────────────
 

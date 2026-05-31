@@ -175,13 +175,14 @@ async function selectInspConversation(senderId) {
             document.getElementById('insp-action-count').textContent = data.data.stats.actions_executed;
             document.getElementById('insp-intent-count').textContent = data.data.stats.unique_intents;
 
+            const _fmtP = t => { if (!t || !t.startsWith('/')) return t; const M={'/create_ticket':'Create a ticket','/list_tickets':'List my tickets','/check_status':'Check ticket status','/help':'Help','/request_human_agent':'Talk to a human agent','/confirm_gdpr_consent':'I agree to the terms','/deny_gdpr_consent':'I do not agree','/login':'Login','/logout':'Logout','/greet':'Hello','/hi':'Hello','/affirm':'Yes','/deny':'No','/restart':'Start over','/out_of_scope':'Other','/ask_knowledge':'Search Knowledge Base','/submit_ticket_form':'Ticket submitted','/show_ticket_graph':'View ticket graph','/show_chart':'View chart','/accept_ticket_fallback':'Create a support ticket','/confirm_handoff':'Wait in queue','/cancel_handoff':'Cancel handoff','/kb_not_helpful':'Not helpful','/kb_show_full_answer':'Show full answer','/kb_show_full_article':'Show full article','/feedback_positive':'Positive feedback','/feedback_negative':'Negative feedback','/inform':'Option selected','/inform_update':'Update ticket','/stop':'Cancel','/clear':'Clear session','/verify_resolution':'Mark as resolved','/update_ticket':'Update ticket','/list_attachments':'List attachments','/upload_file':'Upload file','/rating_1':'Rating: 1★','/rating_2':'Rating: 2★','/rating_3':'Rating: 3★','/rating_4':'Rating: 4★','/rating_5':'Rating: 5★'}; const k=t.split('{')[0].trim().toLowerCase(); return M[k]||(t.slice(1).replace(/_/g,' ').replace(/^\w/,c=>c.toUpperCase())); };
             const msgsHtml = data.data.messages.map(m => `
                 <div class="p-2 rounded text-sm ${m.sender === 'user' ? 'bg-blue-50 border-l-4 border-blue-400 ml-8' : 'bg-gray-50 border-l-4 border-gray-300 mr-8'}">
                     <div class="flex justify-between text-xs mb-1">
                         <b>${m.sender === 'user' ? '👤 User' : '🤖 Bot'}</b>
                         <span class="text-gray-400">${m.timestamp ? (() => { const d = new Date(m.timestamp); return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); })() : ''}</span>
                     </div>
-                    <div>${m.text || ''}</div>
+                    <div>${m.sender === 'user' ? _fmtP(m.text) : (m.text || '')}</div>
                     ${m.intent ? `<span class="inline-block mt-1 px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">🎯 ${m.intent}</span>` : ''}
                 </div>
             `).join('');
