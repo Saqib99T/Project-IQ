@@ -534,6 +534,48 @@ def admin_monitor_queue():
         return jsonify({'error': str(e)}), 500
 
 
+# ── Admin send notification ────────────────────────────────────────────────────
+
+def admin_send_notification():
+    """
+    Send a manual notification from the admin panel.
+    Body: { target: 'user'|'operator'|'all', user_id?: str, operator_id?: int,
+            title: str, body?: str, type?: str }
+    """
+    data     = request.get_json(silent=True) or {}
+    target   = data.get('target', 'user')
+    title    = (data.get('title') or '').strip()
+    body_txt = (data.get('body') or '').strip()
+    notif_type = data.get('type', 'admin_message')
+
+    if not title:
+        return jsonify({'error': 'title is required'}), 400
+
+    try:
+        from web.api.impl.notify import notify_user, notify_operator, notify_admins
+
+        if target == 'all':
+            notify_admins(type=notif_type, title=title, body=body_txt or None)
+            return jsonify({'success': True, 'sent_to': 'all operators/admins'})
+
+        if target == 'operator':
+            op_id = data.get('operator_id')
+            if not op_id:
+                return jsonify({'error': 'operator_id required'}), 400
+            notify_operator(int(op_id), type=notif_type, title=title, body=body_txt or None)
+            return jsonify({'success': True, 'sent_to': f'operator:{op_id}'})
+
+        # target == 'user'
+        user_id = (data.get('user_id') or '').strip()
+        if not user_id:
+            return jsonify({'error': 'user_id required for target=user'}), 400
+        notify_user(user_id=user_id, type=notif_type, title=title, body=body_txt or None)
+        return jsonify({'success': True, 'sent_to': user_id})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ── Client Users ───────────────────────────────────────────────────────────────
 
 def _fetch_glpi_users_sync():

@@ -104,16 +104,23 @@ def register_sio_events(sio) -> None:
 
     @sio.on('handoff_queued')
     def _sio_handoff_queued(data):
-        """Operator panel emits this after enqueue; we notify the user."""
+        """Notify user they joined the queue, and alert all available operators."""
         sender_id = (data or {}).get('sender_id', '')
         app_id    = (data or {}).get('app_id')
         if sender_id:
-            from web.api.impl.notify import notify_user
+            from web.api.impl.notify import notify_user, notify_admins
             notify_user(
                 user_id=sender_id, type='handoff_queued', app_id=app_id,
                 title='You\'re in the queue',
                 body='An agent will be with you shortly.',
                 payload={'sender_id': sender_id},
+            )
+            # Alert all operators that someone is waiting
+            notify_admins(
+                type='queue_new_user',
+                title='New user in queue',
+                body=f'A user is waiting for support{" (" + app_id + ")" if app_id else ""}.',
+                payload={'sender_id': sender_id, 'app_id': app_id},
             )
 
     @sio.on('handoff_assigned')
@@ -233,8 +240,26 @@ def register_sio_events(sio) -> None:
 
 # ── Background workers ────────────────────────────────────────────────────────
 
+def _ensure_sla_column():
+    """Add sla_alerted_at column to handoff_queue if it doesn't exist yet."""
+    try:
+        conn = _get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                ALTER TABLE handoff_queue
+                ADD COLUMN IF NOT EXISTS sla_alerted_at TIMESTAMPTZ
+            """)
+            conn.commit()
+        finally:
+            _release_connection(conn)
+    except Exception as e:
+        print(f"[SLA] column migration skipped: {e}")
+
+
 def _queue_timeout_worker():
     _time.sleep(10)
+    _ensure_sla_column()
     while True:
         try:
             from common.conversation_db import get_handoff_runtime_config
@@ -246,6 +271,37 @@ def _queue_timeout_worker():
             try:
                 from psycopg2.extras import RealDictCursor as _QTRC
                 cur = conn.cursor(cursor_factory=_QTRC)
+                # ── SLA alert threshold (default 20 mins) ─────────────────
+                sla_alert_mins = int(cfg.get('queue', {}).get('sla_alert_mins', 20))
+
+                cur.execute("""
+                    SELECT hq.id, hq.conversation_id, c.sender_id, c.app_id,
+                           EXTRACT(EPOCH FROM (NOW() - hq.queued_at)) / 60 AS wait_mins
+                    FROM handoff_queue hq
+                    JOIN conversations c ON c.id = hq.conversation_id
+                    WHERE hq.status = 'waiting'
+                      AND hq.queued_at IS NOT NULL
+                      AND hq.sla_alerted_at IS NULL
+                      AND EXTRACT(EPOCH FROM (NOW() - hq.queued_at)) / 60 >= %s
+                """, (sla_alert_mins,))
+                sla_rows = cur.fetchall() or []
+                for row in sla_rows:
+                    cur.execute(
+                        "UPDATE handoff_queue SET sla_alerted_at = NOW() WHERE id = %s",
+                        (row['id'],)
+                    )
+                    conn.commit()
+                    from web.api.impl.notify import notify_admins
+                    notify_admins(
+                        type='sla_breach',
+                        title=f'SLA Alert — user waiting {round(row["wait_mins"]):.0f} min',
+                        body=f'A user has been in the queue for {round(row["wait_mins"]):.0f} minutes with no agent assigned.',
+                        payload={'sender_id': row['sender_id'], 'app_id': row.get('app_id'),
+                                 'conversation_id': row['conversation_id'],
+                                 'wait_mins': round(row['wait_mins'], 1)},
+                    )
+
+                # ── Ask user if they want to keep waiting ─────────────────
                 cur.execute("""
                     SELECT hq.id, hq.conversation_id, c.sender_id,
                            EXTRACT(EPOCH FROM (NOW() - hq.queued_at)) / 60 AS wait_mins

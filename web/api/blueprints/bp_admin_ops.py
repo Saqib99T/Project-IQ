@@ -89,6 +89,13 @@ def handoff_analytics():
     return _ao.handoff_analytics()
 
 
+# ── Notification send ─────────────────────────────────────────────────────────
+
+@bp.route('/admin/notifications/send', methods=['POST'])
+def admin_send_notification():
+    return _ao.admin_send_notification()
+
+
 # ── Monitor ───────────────────────────────────────────────────────────────────
 
 @bp.route('/admin/monitor/queue', methods=['GET'])

@@ -37210,6 +37210,27 @@ if (typeof window !== "undefined" && !window.process) {
       ] })
     ] });
   };
+  const PAYLOAD_LABELS = {
+    "/create_ticket": "Create a ticket",
+    "/list_tickets": "List my tickets",
+    "/check_status": "Check ticket status",
+    "/help": "Help",
+    "/request_human_agent": "Talk to a human agent",
+    "/confirm_gdpr_consent": "I agree to the terms",
+    "/deny_gdpr_consent": "I do not agree",
+    "/login": "Login",
+    "/logout": "Logout",
+    "/greet": "Hello",
+    "/affirm": "Yes",
+    "/deny": "No",
+    "/restart": "Start over",
+    "/out_of_scope": "Other"
+  };
+  const formatUserMessage = (text2) => {
+    if (!text2 || !text2.startsWith("/")) return text2;
+    const key = text2.split("{")[0].trim().toLowerCase();
+    return PAYLOAD_LABELS[key] || text2.slice(1).replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  };
   const extractYouTubeInfo = (url2) => {
     if (!url2) return { id: "", start: 0 };
     const idPatterns = [
@@ -37410,7 +37431,7 @@ if (typeof window !== "undefined" && !window.process) {
                     },
                     index2
                   )) })
-                ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "whitespace-pre-wrap", children: (function(t){if(!t||!t.startsWith('/'))return t;var M={'/create_ticket':'Create a ticket','/list_tickets':'List my tickets','/check_status':'Check ticket status','/help':'Help','/request_human_agent':'Talk to a human agent','/confirm_gdpr_consent':'I agree to the terms','/deny_gdpr_consent':'I do not agree','/login':'Login','/logout':'Logout','/greet':'Hello','/hi':'Hello','/affirm':'Yes','/deny':'No','/restart':'Start over','/out_of_scope':'Other','/ask_knowledge':'Search Knowledge Base','/submit_ticket_form':'Ticket submitted','/show_ticket_graph':'View ticket graph','/show_chart':'View chart','/accept_ticket_fallback':'Create a support ticket','/confirm_handoff':'Wait in queue','/cancel_handoff':'Cancel handoff','/kb_not_helpful':'Not helpful','/kb_show_full_answer':'Show full answer','/kb_show_full_article':'Show full article','/feedback_positive':'Positive feedback','/feedback_negative':'Negative feedback','/inform':'Option selected','/inform_update':'Update ticket','/stop':'Cancel','/clear':'Clear session','/verify_resolution':'Mark as resolved','/update_ticket':'Update ticket','/list_attachments':'List attachments','/upload_file':'Upload file','/rating_1':'Rating: 1★','/rating_2':'Rating: 2★','/rating_3':'Rating: 3★','/rating_4':'Rating: 4★','/rating_5':'Rating: 5★'};var k=t.split('{')[0].trim().toLowerCase();return M[k]||(t.slice(1).replace(/_/g,' ').replace(/^\w/,function(c){return c.toUpperCase();}));})(message.text) })
+                ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "whitespace-pre-wrap", children: formatUserMessage(message.text) })
               }
             ),
             isBot && message.id !== "init" && !readonly && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center gap-0.5 mt-1.5 ml-1", children: [
@@ -40377,7 +40398,14 @@ if (typeof window !== "undefined" && !window.process) {
       welcomeBg: isDarkMode ? "#151e2e" : "#EEF2FA"
     };
     const [isListening, setIsListening] = reactExports.useState(false);
+    const [voiceError, setVoiceError] = reactExports.useState("");
     const recognitionRef = reactExports.useRef(null);
+    const voiceErrTimer = reactExports.useRef(null);
+    const _showVoiceErr = (msg) => {
+      setVoiceError(msg);
+      if (voiceErrTimer.current) clearTimeout(voiceErrTimer.current);
+      voiceErrTimer.current = setTimeout(() => setVoiceError(""), 4e3);
+    };
     const startVoice = reactExports.useCallback(() => {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SR) return;
@@ -40387,13 +40415,31 @@ if (typeof window !== "undefined" && !window.process) {
       }
       const rec = new SR();
       rec.lang = "en-US";
-      rec.interimResults = false;
-      rec.onresult = (e) => setInputText(e.results[0][0].transcript);
+      rec.interimResults = true;
+      rec.onresult = (e) => {
+        const transcript = Array.from(e.results).map((r) => r[0].transcript).join("");
+        setInputText(transcript);
+      };
       rec.onend = () => setIsListening(false);
-      rec.onerror = () => setIsListening(false);
+      rec.onerror = (e) => {
+        setIsListening(false);
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+          _showVoiceErr("Microphone access denied — check browser permissions.");
+        } else if (e.error === "no-speech") {
+          _showVoiceErr("No speech detected. Try again.");
+        } else if (e.error === "network") {
+          _showVoiceErr("Voice input requires an internet connection.");
+        } else {
+          _showVoiceErr("Microphone unavailable.");
+        }
+      };
       recognitionRef.current = rec;
-      rec.start();
-      setIsListening(true);
+      try {
+        rec.start();
+        setIsListening(true);
+      } catch (err) {
+        _showVoiceErr("Could not start microphone: " + (err.message || err));
+      }
     }, [isListening]);
     const [webUnreadCount, setWebUnreadCount] = reactExports.useState(0);
     const [historySearch, setHistorySearch] = reactExports.useState("");
@@ -42232,16 +42278,26 @@ Priority: ${data.priority}`;
                             children: /* @__PURE__ */ jsxRuntimeExports.jsx(Send, { size: 20 })
                           }
                         ),
-                        (window.SpeechRecognition || window.webkitSpeechRecognition) && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                          "button",
-                          {
-                            type: "button",
-                            onClick: startVoice,
-                            className: `transition-colors ml-1 ${isListening ? "text-red-500 animate-pulse" : "text-gray-400 hover:text-gray-600"}`,
-                            title: isListening ? "Stop listening" : "Speak",
-                            children: isListening ? /* @__PURE__ */ jsxRuntimeExports.jsx(MicOff, { size: 18 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Mic, { size: 18 })
-                          }
-                        )
+                        (window.SpeechRecognition || window.webkitSpeechRecognition) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx(
+                            "button",
+                            {
+                              type: "button",
+                              onClick: startVoice,
+                              className: `transition-colors ml-1 ${isListening ? "text-red-500 animate-pulse" : "text-gray-400 hover:text-gray-600"}`,
+                              title: isListening ? "Stop listening" : "Speak",
+                              children: isListening ? /* @__PURE__ */ jsxRuntimeExports.jsx(MicOff, { size: 18 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Mic, { size: 18 })
+                            }
+                          ),
+                          voiceError && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                            "div",
+                            {
+                              className: "absolute bottom-8 right-0 z-50 rounded-lg px-3 py-2 text-xs text-white shadow-lg whitespace-nowrap",
+                              style: { backgroundColor: "#ef4444", maxWidth: 260 },
+                              children: voiceError
+                            }
+                          )
+                        ] })
                       ]
                     }
                   )

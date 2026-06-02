@@ -153,7 +153,15 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     };
 
     const [isListening, setIsListening] = useState(false);
+    const [voiceError, setVoiceError]   = useState('');
     const recognitionRef = useRef(null);
+    const voiceErrTimer  = useRef(null);
+
+    const _showVoiceErr = (msg) => {
+        setVoiceError(msg);
+        if (voiceErrTimer.current) clearTimeout(voiceErrTimer.current);
+        voiceErrTimer.current = setTimeout(() => setVoiceError(''), 4000);
+    };
 
     const startVoice = useCallback(() => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -161,14 +169,34 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         if (isListening) { recognitionRef.current?.stop(); return; }
         const rec = new SR();
         rec.lang = 'en-US';
-        rec.interimResults = false;
-        rec.onresult  = (e) => setInputText(e.results[0][0].transcript);
-        rec.onend     = () => setIsListening(false);
-        rec.onerror   = () => setIsListening(false);
+        rec.interimResults = true;
+        rec.onresult = (e) => {
+            const transcript = Array.from(e.results)
+                .map(r => r[0].transcript)
+                .join('');
+            setInputText(transcript);
+        };
+        rec.onend   = () => setIsListening(false);
+        rec.onerror = (e) => {
+            setIsListening(false);
+            if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+                _showVoiceErr('Microphone access denied — check browser permissions.');
+            } else if (e.error === 'no-speech') {
+                _showVoiceErr('No speech detected. Try again.');
+            } else if (e.error === 'network') {
+                _showVoiceErr('Voice input requires an internet connection.');
+            } else {
+                _showVoiceErr('Microphone unavailable.');
+            }
+        };
         recognitionRef.current = rec;
-        rec.start();
-        setIsListening(true);
-    }, [isListening]);
+        try {
+            rec.start();
+            setIsListening(true);
+        } catch (err) {
+            _showVoiceErr('Could not start microphone: ' + (err.message || err));
+        }
+    }, [isListening]); // eslint-disable-line
     const [webUnreadCount, setWebUnreadCount] = useState(0);
     const [historySearch, setHistorySearch] = useState('');
 
@@ -2127,14 +2155,24 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                             </button>
                                             {/* Voice input — Web Speech API (Chrome/Edge/Safari) */}
                                             {(window.SpeechRecognition || window.webkitSpeechRecognition) && (
-                                                <button
-                                                    type="button"
-                                                    onClick={startVoice}
-                                                    className={`transition-colors ml-1 ${isListening ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gray-600'}`}
-                                                    title={isListening ? 'Stop listening' : 'Speak'}
-                                                >
-                                                    {isListening ? <MicOff size={18} /> : <Mic size={18} />}
-                                                </button>
+                                                <div className="relative">
+                                                    <button
+                                                        type="button"
+                                                        onClick={startVoice}
+                                                        className={`transition-colors ml-1 ${isListening ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gray-600'}`}
+                                                        title={isListening ? 'Stop listening' : 'Speak'}
+                                                    >
+                                                        {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                                                    </button>
+                                                    {voiceError && (
+                                                        <div
+                                                            className="absolute bottom-8 right-0 z-50 rounded-lg px-3 py-2 text-xs text-white shadow-lg whitespace-nowrap"
+                                                            style={{ backgroundColor: '#ef4444', maxWidth: 260 }}
+                                                        >
+                                                            {voiceError}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </form>
