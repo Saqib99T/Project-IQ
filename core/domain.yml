@@ -199,6 +199,31 @@ slots:
     influence_conversation: false
     mappings: []
 
+  iam_org_id:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  iam_org_name:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  support_org_id:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  channel:
+    type: text
+    influence_conversation: false
+    mappings: []
+
+  product_id:
+    type: text
+    influence_conversation: false
+    mappings: []
+
   glpi_user_id:
     type: float
     influence_conversation: false

@@ -18,6 +18,7 @@ from action_server.actions._shared import (
     check_user_login, glpi_service, logger,
     _call_admin_api, _get_handoff_runtime_cfg,
     get_iam_identity, is_iam_authenticated, require_iam_auth,
+    get_org_context,
 )
 
 
@@ -115,15 +116,20 @@ class ActionConfirmHandoff(Action):
             'last_message': tracker.latest_message.get('text', '')[:200]
         }
 
+        org_ctx = get_org_context(tracker)
         resp = _call_admin_api(
             '/internal/queue/enqueue',
             method='POST',
             data={
-                'sender_id': sender_id,
-                'app_id': app_id,
+                'sender_id':      sender_id,
+                'app_id':         app_id,
                 'trigger_reason': trigger_reason,
                 'trigger_detail': trigger_detail,
-                'consent_given': tracker.get_slot('consent_given') or False,
+                'consent_given':  tracker.get_slot('consent_given') or False,
+                'user_org_id':    org_ctx.get('org_id', ''),
+                'support_org_id': org_ctx.get('support_org_id', ''),
+                'product_id':     org_ctx.get('product_id', ''),
+                'channel':        org_ctx.get('channel', 'internal'),
             }
         )
 

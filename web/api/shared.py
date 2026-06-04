@@ -166,10 +166,76 @@ def require_iam_token(f):
             if not user:
                 return jsonify({'error': 'Missing Authorization header'}), 401
             g.iam_user = user
+            # Convenience shortcuts on g
+            g.org_id           = user.get('org_id', '')
+            g.org_name         = user.get('org_name', '')
+            g.is_platform_admin = user.get('is_platform_admin', False)
+            g.is_client_admin  = user.get('is_client_admin', False)
+            g.is_operator      = user.get('is_operator', False)
+            g.is_member        = user.get('is_member', False)
+            g.product_roles    = user.get('product_roles', [])
+            g.channel          = user.get('channel', 'internal')
         except IamTokenError as e:
             return jsonify({'error': str(e)}), 401
         return f(*args, **kwargs)
     return decorated
+
+
+# ── Multi-tenant scope helpers ────────────────────────────────────────────────
+
+def get_org_filter(override_org_id: str = None) -> tuple:
+    """
+    Return (sql_fragment, params_dict) for WHERE clause based on caller's role.
+    Platform admin can optionally filter to a specific org via override_org_id.
+    """
+    from flask import g
+    user = getattr(g, 'iam_user', None)
+    if not user:
+        return "1=0", {}   # no access if not authenticated
+
+    if user.get('is_platform_admin'):
+        if override_org_id:
+            return "org_id = %(org_id)s", {'org_id': override_org_id}
+        return "1=1", {}   # sees everything
+
+    if user.get('is_client_admin') or user.get('is_operator'):
+        org_id = user.get('org_id') or ''
+        return "org_id = %(org_id)s", {'org_id': org_id}
+
+    # Members only see their own data — caller must add sender_id filter too
+    return "org_id = %(org_id)s", {'org_id': user.get('org_id', '')}
+
+
+def get_operator_queue_filter() -> tuple:
+    """
+    Return (sql_fragment, params_dict) scoping handoff_queue to what
+    this operator is allowed to see.
+    """
+    from flask import g
+    from common.config_manager import get_platform_config
+
+    user = getattr(g, 'iam_user', None)
+    if not user:
+        return "1=0", {}
+
+    platform_org = get_platform_config().get('org_id', '')
+
+    # 99Tech Project IQ Operator → sees platform channel only
+    if user.get('org_id') == platform_org and platform_org:
+        sql = "support_org_id = %(support_org_id)s AND channel = 'platform'"
+        params = {'support_org_id': platform_org}
+    else:
+        # Client Operator → sees their org's internal queue
+        sql    = "user_org_id = %(org_id)s AND channel = 'internal'"
+        params = {'org_id': user.get('org_id', '')}
+
+    # Narrow to assigned products if operator has product-specific roles
+    product_roles = user.get('product_roles', [])
+    if product_roles:
+        sql += " AND product_id = ANY(%(products)s)"
+        params['products'] = product_roles
+
+    return sql, params
 
 
 def require_role(role: str):

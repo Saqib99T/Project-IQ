@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:widget": "vite build --config vite.widget.config.js --mode production",
+    "build:portal": "vite build --config vite.portal.config.js --mode production",
     "serve:widget": "npx -y http-server dist-widget -p 80 --cors -c-1",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -21,6 +22,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.16.0",
     "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.4.0",

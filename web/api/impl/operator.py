@@ -595,6 +595,10 @@ def internal_queue_enqueue():
         priority       = data.get('priority')
         consent_given  = data.get('consent_given', False)
         ip_hash        = data.get('ip_hash')
+        user_org_id    = data.get('user_org_id', '')
+        support_org_id = data.get('support_org_id', '')
+        product_id     = data.get('product_id', '')
+        channel        = data.get('channel', 'internal')
 
         if not sender_id:
             return jsonify({'error': 'sender_id required'}), 400
@@ -644,7 +648,11 @@ def internal_queue_enqueue():
             priority=priority,
             context_package=context_package,
             target_team=target_team,
-            required_skill=required_skill
+            required_skill=required_skill,
+            user_org_id=user_org_id,
+            support_org_id=support_org_id,
+            product_id=product_id,
+            channel=channel,
         )
 
         if entry is None:

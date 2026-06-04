@@ -143,7 +143,8 @@ def get_iam_sub_by_glpi_user_id(glpi_user_id: int) -> Optional[str]:
             _release_connection(conn)
 
 
-def store_ticket_sender(glpi_ticket_id: int, sender_id: str, app_id: str = None) -> None:
+def store_ticket_sender(glpi_ticket_id: int, sender_id: str, app_id: str = None,
+                        org_id: str = None, channel: str = None) -> None:
     """Record which sender_id created a GLPI ticket so webhook events can notify them."""
     from common.conversation_db import _get_connection, _release_connection
     conn = None
@@ -152,11 +153,11 @@ def store_ticket_sender(glpi_ticket_id: int, sender_id: str, app_id: str = None)
         cur  = conn.cursor()
         cur.execute(
             """
-            INSERT INTO ticket_senders (glpi_ticket_id, sender_id, app_id)
-            VALUES (%s, %s, %s)
+            INSERT INTO ticket_senders (glpi_ticket_id, sender_id, app_id, org_id, channel)
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (glpi_ticket_id) DO NOTHING
             """,
-            (glpi_ticket_id, sender_id, app_id),
+            (glpi_ticket_id, sender_id, app_id, org_id or '', channel or 'internal'),
         )
         conn.commit()
     except Exception as e:

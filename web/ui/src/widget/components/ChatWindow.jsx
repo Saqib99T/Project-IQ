@@ -87,6 +87,39 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         return h;
     }, [iam.token]);
 
+    // ── Selected product (entitlement-driven, Phase 8) ────────────────────────
+    // Null until IAM user picks a product from their apps list.
+    // Pre-selected if user only has one app, or if appId prop matches an entitlement.
+    const [selectedProductId, setSelectedProductId] = useState(() => appId || null);
+
+    // Auto-select when IAM loads: if only one app, use it; if appId matches one, use it
+    useEffect(() => {
+        if (!iamAuthenticated || !iam.user?.apps?.length) return;
+        const apps = iam.user.apps;
+        if (apps.length === 1) {
+            setSelectedProductId(apps[0]);
+        } else if (appId && apps.includes(appId)) {
+            setSelectedProductId(appId);
+        }
+        // else: leave null so the selector is shown
+    }, [iamAuthenticated, iam.user?.apps, appId]);
+
+    // ── Centralised metadata builder ──────────────────────────────────────────
+    const buildMetadata = useCallback((extra = {}) => ({
+        app_id:           selectedProductId || appId,
+        product_id:       selectedProductId || appId || undefined,
+        user_name:        authUser || undefined,
+        is_authenticated: !!(isAuthenticated || iamAuthenticated),
+        iam_sub:          iam.user?.sub,
+        iam_name:         iam.user?.name,
+        iam_email:        iam.user?.email,
+        iam_org_id:       iam.user?.organization_id || undefined,
+        iam_org_name:     iam.user?.organization_alias || undefined,
+        channel:          iam.user?.organization_id ? 'internal' : undefined,
+        session_token:    getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined,
+        ...extra,
+    }), [selectedProductId, appId, authUser, isAuthenticated, iamAuthenticated, iam.user]);
+
     // ── Login via IAM ─────────────────────────────────────────────────────────
     const handleIamLogin = useCallback(() => {
         iam.login({ redirectUri: window.location.href });
@@ -817,7 +850,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                     body: JSON.stringify({
                         sender: senderId,
                         message: payload,
-                        metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
+                        metadata: buildMetadata()
                     }),
                 });
 
@@ -886,7 +919,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 body: JSON.stringify({
                     sender: senderId,
                     message: intent,
-                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
+                    metadata: buildMetadata()
                 })
             });
             console.log(`Feedback ${feedbackType} sent for message ${messageId}`);
@@ -1001,7 +1034,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 body: JSON.stringify({
                     sender: senderId,
                     message: message,
-                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
+                    metadata: buildMetadata()
                 }),
             });
 
@@ -1084,9 +1117,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             return fetch(RASA_API_URL, {
                 method: 'POST', headers: getAuthHeaders(),
                 body: JSON.stringify({ sender: senderId, message: text,
-                    metadata: { app_id: appId, user_name: authUser || undefined,
-                        is_authenticated: isAuthenticated || iamAuthenticated,
-                        iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email } })
+                    metadata: buildMetadata() })
             }).then(r => r.json()).then(data => {
                 if (data?.length) setMessages(prev => [...prev, ...data.filter(m => m.text).map(m => ({ id: uuidv4(), sender: 'bot', text: m.text, buttons: m.buttons }))]);
             });
@@ -1145,11 +1176,11 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         try {
             const response = await fetch(RASA_API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     sender: senderId,
                     message: userMsg.text,
-                    metadata: { app_id: appId, user_name: authUser || undefined, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined }
+                    metadata: buildMetadata()
                 }),
             });
 
@@ -1419,6 +1450,47 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                     <div className="flex items-center gap-2 text-green-800 text-xs font-medium">
                                         <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></span>
                                         Connected to <strong>{operatorName || 'an agent'}</strong>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* ── Product selector (IAM entitlement-driven) ─────────────────── */}
+                        <AnimatePresence>
+                            {iamAuthenticated && !selectedProductId && (iam.user?.apps?.length > 1) && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="border-b px-4 py-3"
+                                    style={{ borderColor: c.border, backgroundColor: c.surfaceAlt }}
+                                >
+                                    <p className="text-xs font-medium mb-2" style={{ color: c.textMuted }}>
+                                        Which product do you need help with?
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {iam.user.apps.map(app => (
+                                            <button
+                                                key={app}
+                                                onClick={() => setSelectedProductId(app)}
+                                                className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                                                style={{
+                                                    borderColor: primaryColor,
+                                                    color: primaryColor,
+                                                    backgroundColor: 'transparent',
+                                                }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.backgroundColor = primaryColor;
+                                                    e.currentTarget.style.color = '#fff';
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                    e.currentTarget.style.color = primaryColor;
+                                                }}
+                                            >
+                                                {app.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                            </button>
+                                        ))}
                                     </div>
                                 </motion.div>
                             )}

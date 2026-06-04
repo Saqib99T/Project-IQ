@@ -203,6 +203,53 @@ def _init_database():
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 UNIQUE(user_id, token)
             )""",
+
+            # ── Multi-tenant tables ───────────────────────────────────────────
+            # org_id → GLPI entity_id cache (avoid API call on every ticket)
+            """CREATE TABLE IF NOT EXISTS glpi_org_entities (
+                org_id         TEXT PRIMARY KEY,
+                org_name       TEXT NOT NULL,
+                glpi_entity_id INT  NOT NULL,
+                created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+
+            # Which products each operator is assigned to handle (empty = all)
+            """CREATE TABLE IF NOT EXISTS operator_products (
+                operator_id  INT  NOT NULL REFERENCES operators(id) ON DELETE CASCADE,
+                product_id   TEXT NOT NULL,
+                PRIMARY KEY (operator_id, product_id)
+            )""",
+
+            # Org entitlement cache — synced from IAM on login
+            """CREATE TABLE IF NOT EXISTS org_product_access (
+                org_id      TEXT NOT NULL,
+                product_id  TEXT NOT NULL,
+                active      BOOLEAN NOT NULL DEFAULT TRUE,
+                synced_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (org_id, product_id)
+            )""",
+
+            # ── Multi-tenant column additions ─────────────────────────────────
+            # conversations
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS org_id     TEXT",
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS product_id TEXT",
+            "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS channel    TEXT NOT NULL DEFAULT 'internal'",
+
+            # handoff_queue — org scoping + channel routing
+            "ALTER TABLE handoff_queue ADD COLUMN IF NOT EXISTS user_org_id    TEXT",
+            "ALTER TABLE handoff_queue ADD COLUMN IF NOT EXISTS support_org_id TEXT",
+            "ALTER TABLE handoff_queue ADD COLUMN IF NOT EXISTS product_id     TEXT",
+            "ALTER TABLE handoff_queue ADD COLUMN IF NOT EXISTS channel        TEXT NOT NULL DEFAULT 'internal'",
+
+            # ticket_senders — full context for GLPI webhook reverse lookup
+            "ALTER TABLE ticket_senders ADD COLUMN IF NOT EXISTS org_id           TEXT",
+            "ALTER TABLE ticket_senders ADD COLUMN IF NOT EXISTS product_id       TEXT",
+            "ALTER TABLE ticket_senders ADD COLUMN IF NOT EXISTS requester_org_id TEXT",
+            "ALTER TABLE ticket_senders ADD COLUMN IF NOT EXISTS channel          TEXT NOT NULL DEFAULT 'internal'",
+
+            # operators — org membership + channel scope
+            "ALTER TABLE operators ADD COLUMN IF NOT EXISTS org_id  TEXT",
+            "ALTER TABLE operators ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'internal'",
         ]
         for stmt in migrations:
             try: cursor.execute(stmt)
@@ -232,7 +279,17 @@ def _init_database():
             "CREATE INDEX IF NOT EXISTS idx_om_conversation ON operator_messages(conversation_id)",
             "CREATE INDEX IF NOT EXISTS idx_om_operator     ON operator_messages(operator_id)",
             "CREATE INDEX IF NOT EXISTS idx_hsl_conv        ON handoff_state_log(conversation_id)",
-            "CREATE INDEX IF NOT EXISTS idx_operators_status ON operators(status)",
+            "CREATE INDEX IF NOT EXISTS idx_operators_status    ON operators(status)",
+            # Multi-tenant indexes
+            "CREATE INDEX IF NOT EXISTS idx_conv_org         ON conversations(org_id)",
+            "CREATE INDEX IF NOT EXISTS idx_conv_channel     ON conversations(channel)",
+            "CREATE INDEX IF NOT EXISTS idx_hq_user_org      ON handoff_queue(user_org_id)",
+            "CREATE INDEX IF NOT EXISTS idx_hq_support_org   ON handoff_queue(support_org_id)",
+            "CREATE INDEX IF NOT EXISTS idx_hq_channel       ON handoff_queue(channel)",
+            "CREATE INDEX IF NOT EXISTS idx_hq_product       ON handoff_queue(product_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ts_org           ON ticket_senders(org_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ops_org          ON operators(org_id)",
+            "CREATE INDEX IF NOT EXISTS idx_org_product      ON org_product_access(org_id)",
         ]
         for stmt in indexes:
             try: cursor.execute(stmt)

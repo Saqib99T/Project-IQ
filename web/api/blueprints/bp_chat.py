@@ -207,6 +207,32 @@ def chat_webhook_proxy():
                 print(f"[IAM] Token validation warning: {_iam_err}")
                 # Invalid token — treat as guest (don't block KB access)
 
+        # ── Org context ────────────────────────────────────────────────────────
+        # `context` comes from the widget embed attribute: 'internal' or 'platform'
+        _ctx_channel = metadata.get('context', 'internal')
+        _product_id  = metadata.get('product_id', '')
+        _org_id = _org_name = _support_org_id = ''
+        if iam_user:
+            _org_id   = iam_user.get('org_id', '')
+            _org_name = iam_user.get('org_name', '')
+            # IAM channel wins for authenticated users; override with widget context otherwise
+            _iam_channel = iam_user.get('channel', _ctx_channel)
+            if _ctx_channel == 'platform' or _iam_channel == 'platform':
+                _ctx_channel = 'platform'
+                try:
+                    from common.config_manager import get_platform_config
+                    _support_org_id = get_platform_config().get('org_id', '')
+                except Exception:
+                    _support_org_id = ''
+            else:
+                _ctx_channel    = 'internal'
+                _support_org_id = _org_id
+        metadata.setdefault('iam_org_id',     _org_id)
+        metadata.setdefault('iam_org_name',   _org_name)
+        metadata.setdefault('support_org_id', _support_org_id)
+        metadata.setdefault('channel',        _ctx_channel)
+        metadata.setdefault('product_id',     _product_id)
+
         # ── Member role gate ───────────────────────────────────────────────
         # Authenticated users must have the 'Member' project role to use the chatbot.
         # Guests (no token) fall through to KB-only / restricted action mode.
@@ -326,7 +352,11 @@ def chat_webhook_proxy():
                     # Store sender mapping so GLPI webhook can find this user later
                     try:
                         from common.db.iam_glpi_users import store_ticket_sender
-                        store_ticket_sender(tid, sender_id, app_id)
+                        store_ticket_sender(
+                            tid, sender_id, app_id,
+                            org_id=metadata.get('iam_org_id', ''),
+                            channel=metadata.get('channel', 'internal'),
+                        )
                     except Exception:
                         pass
                     break

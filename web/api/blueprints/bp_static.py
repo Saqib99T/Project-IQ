@@ -58,6 +58,24 @@ def serve_opt():
     return resp
 
 
+# ── Portal SPA ───────────────────────────────────────────────────────────────
+# Serves the React portal built by `npm run build:portal`.
+# All non-asset /portal/* paths serve portal.html (client-side routing).
+
+@bp.route('/portal')
+@bp.route('/portal/')
+def serve_portal_root():
+    return send_from_directory(os.path.join(_s.STATIC_DIR, 'portal'), 'portal.html')
+
+@bp.route('/portal/<path:path>')
+def serve_portal(path):
+    portal_dir = os.path.join(_s.STATIC_DIR, 'portal')
+    candidate  = os.path.join(portal_dir, path)
+    if os.path.isfile(candidate):
+        return send_from_directory(portal_dir, path)
+    return send_from_directory(portal_dir, 'portal.html')
+
+
 # ── Static asset fallback ─────────────────────────────────────────────────────
 # Serves: /web/js/*.js  /web/components/*.html  /operator/*
 #         /glpi-chat-widget.js  /modern-web-interface.css  /assets/*

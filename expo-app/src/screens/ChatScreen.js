@@ -118,11 +118,12 @@ const ChatScreen = ({ navigation }) => {
             setAuthUser(iam.user.name || iam.user.username || iam.user.email || '');
             storage.setItem(appIdRef.current, 'isAuthenticated', 'true').catch(() => {});
             storage.setItem(appIdRef.current, 'authUser', iam.user.username || '').catch(() => {});
-            // Set app_id from IAM apps[] if available
-            if (iam.user.apps?.length > 0) {
-                const firstApp = iam.user.apps[0];
-                appIdRef.current = firstApp;
-                setAppIdState(firstApp);
+            // Set app_id from IAM apps[] — show selector when multiple entitlements
+            if (iam.user.apps?.length === 1) {
+                appIdRef.current = iam.user.apps[0];
+                setAppIdState(iam.user.apps[0]);
+            } else if (iam.user.apps?.length > 1) {
+                setShowProductSelector(true);
             }
             // Register push token + fetch unread count
             _registerPushToken(iamSenderId);
@@ -164,6 +165,7 @@ const ChatScreen = ({ navigation }) => {
     const inactivityIntervalRef = useRef(null);
 
     // Modals
+    const [showProductSelector, setShowProductSelector] = useState(false);
     const [showLogin, setShowLogin] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [loginError, setLoginError] = useState('');
@@ -488,12 +490,17 @@ const ChatScreen = ({ navigation }) => {
         const meta = { app_id: currentAppId };
         if (authUser) meta.user_name = authUser;
         if (sessionTokenRef.current) meta.session_token = sessionTokenRef.current;
-        // Inject IAM identity into Rasa metadata
+        // Inject IAM identity + org context into Rasa metadata
         if (iam.user) {
-            meta.iam_sub   = iam.user.sub;
-            meta.iam_name  = iam.user.name;
-            meta.iam_email = iam.user.email;
+            meta.iam_sub      = iam.user.sub;
+            meta.iam_name     = iam.user.name;
+            meta.iam_email    = iam.user.email;
+            meta.iam_org_id   = iam.user.organization_id   || undefined;
+            meta.iam_org_name = iam.user.organization_alias || undefined;
+            meta.channel      = iam.user.organization_id ? 'internal' : undefined;
+            meta.product_id   = currentAppId || undefined;
         }
+        meta.is_authenticated = !!(isAuthenticatedRef.current || iam.user);
         const headers = { 'Content-Type': 'application/json' };
         if (iam.token) headers['Authorization'] = `Bearer ${iam.token}`;
         const response = await fetch(webhookUrl, {
@@ -1483,6 +1490,59 @@ const ChatScreen = ({ navigation }) => {
                         </TouchableOpacity>
                     </View>
                 </View>
+            </Modal>
+
+            {/* ── Product Selector (IAM entitlement-driven) ──────────────────── */}
+            <Modal
+                visible={showProductSelector}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowProductSelector(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setShowProductSelector(false)}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+                        <TouchableWithoutFeedback>
+                            <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 360 }}>
+                                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 4 }}>
+                                    Which product do you need help with?
+                                </Text>
+                                <Text style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
+                                    Your account has access to multiple products.
+                                </Text>
+                                {(iam.user?.apps || []).map(app => (
+                                    <TouchableOpacity
+                                        key={app}
+                                        onPress={() => {
+                                            appIdRef.current = app;
+                                            setAppIdState(app);
+                                            setShowProductSelector(false);
+                                        }}
+                                        style={{
+                                            borderWidth: 1,
+                                            borderColor: THEME.primary,
+                                            borderRadius: 10,
+                                            padding: 14,
+                                            marginBottom: 10,
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                        }}
+                                    >
+                                        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: THEME.primary, marginRight: 12 }} />
+                                        <Text style={{ fontSize: 14, fontWeight: '500', color: THEME.text }}>
+                                            {app.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                                <TouchableOpacity
+                                    onPress={() => setShowProductSelector(false)}
+                                    style={{ marginTop: 4, padding: 10, alignItems: 'center' }}
+                                >
+                                    <Text style={{ fontSize: 13, color: '#9ca3af' }}>Continue without selecting</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
             </Modal>
         </SafeAreaView>
     );

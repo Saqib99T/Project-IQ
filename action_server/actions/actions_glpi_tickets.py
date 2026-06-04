@@ -17,6 +17,7 @@ from action_server.actions._shared import (
     get_analytics_context, get_effective_session_token,
     check_user_login, glpi_service, logger,
     get_iam_identity, is_iam_authenticated, require_iam_auth,
+    get_org_context,
 )
 
 
@@ -59,29 +60,53 @@ class ActionCreateGlpiTicket(Action):
 
         urgency_map = {"Low": 1, "Medium": 3, "High": 5}
 
-        # Context-aware category mapping
+        # ── Org + product context ──────────────────────────────────────────────
+        org_ctx    = get_org_context(tracker)
+        org_id     = org_ctx["org_id"]
+        org_name   = org_ctx["org_name"]
+        channel    = org_ctx["channel"]
+        product_id = org_ctx["product_id"]
+
         app_id = tracker.get_slot("app_id")
         if not app_id:
             latest_msg = tracker.latest_message
             if isinstance(latest_msg, dict):
                 app_id = latest_msg.get("metadata", {}).get("app_id")
 
-        if app_id == "Accounting":
-            category_id_map = {"Hardware": 10, "Software": 11, "Network": 12, "Other": 2}
+        # ── Entity ID: org-aware via entity manager, fallback to legacy map ────
+        try:
+            from common.glpi_entity_manager import get_entity_id_sync, get_category_id
+            entity_id   = get_entity_id_sync(org_id, org_name) if org_id else 0
+            itil_cat_id = get_category_id(product_id) if product_id else 0
+        except Exception as _em_err:
+            logger.warning(f"[OrgCtx] entity/category lookup failed: {_em_err}")
+            entity_id   = 0
+            itil_cat_id = 0
+
+        if not entity_id:
+            entity_id = {"Root": 0, "IT": 1, "Accounting": 2}.get(app_id, 1)
+
+        # Fall back to legacy hardcoded category when config has no mapping yet
+        if not itil_cat_id:
+            if app_id == "Accounting":
+                itil_cat_id = {"Hardware": 10, "Software": 11, "Network": 12, "Other": 2}.get(issue_type, 2)
+            else:
+                itil_cat_id = {"Hardware": 4, "Software": 6, "Network": 8, "Other": 1}.get(issue_type, 1)
+
+        # In platform channel prefix title with org name so 99Tech operators see source org
+        if channel == "platform" and org_name:
+            title_prefix = f"[{org_name}] "
         else:
-            category_id_map = {"Hardware": 4, "Software": 6, "Network": 8, "Other": 1}
+            title_prefix = f"[{app_id or 'General'}] "
 
         ticket_data = {
-            "name":               f"[{app_id or 'General'}] {ticket_title}",
+            "name":               f"{title_prefix}{ticket_title}",
             "content":            ticket_content,
             "urgency":            urgency_map.get(urgency, 3),
-            "itilcategories_id":  category_id_map.get(issue_type, 1),
+            "itilcategories_id":  itil_cat_id,
         }
         if glpi_requester_id:
             ticket_data["_users_id_requester"] = glpi_requester_id
-
-        entity_id_map = {"Root": 0, "IT": 1, "Accounting": 2}
-        entity_id = entity_id_map.get(app_id, 1)
 
         new_ticket_id = await glpi_service.create_ticket(session_token, ticket_data, entity_id)
         

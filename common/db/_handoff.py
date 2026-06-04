@@ -278,7 +278,9 @@ def get_available_operators(app_id: str = None) -> List[Dict]:
 def enqueue_handoff(conversation_id: int, sender_id: str, app_id: str,
                     trigger_reason: str, trigger_detail: Dict = None,
                     priority: int = None, context_package: Dict = None,
-                    target_team: str = None, required_skill: str = None) -> Optional[Dict]:
+                    target_team: str = None, required_skill: str = None,
+                    user_org_id: str = None, support_org_id: str = None,
+                    product_id: str = None, channel: str = None) -> Optional[Dict]:
     conn = _get_connection()
     try:
         cfg = get_handoff_runtime_config()
@@ -296,12 +298,14 @@ def enqueue_handoff(conversation_id: int, sender_id: str, app_id: str,
         if cursor.fetchone()['depth'] >= cfg['queue']['max_queue_depth']: return None
         cursor.execute(
             "INSERT INTO handoff_queue (conversation_id, sender_id, app_id, priority, trigger_reason, "
-            "trigger_detail, target_team, required_skill, context_package) "
-            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+            "trigger_detail, target_team, required_skill, context_package, "
+            "user_org_id, support_org_id, product_id, channel) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
             (conversation_id, sender_id, app_id, priority, trigger_reason,
              json.dumps(trigger_detail) if trigger_detail else None,
              target_team, required_skill,
-             json.dumps(context_package) if context_package else None)
+             json.dumps(context_package) if context_package else None,
+             user_org_id or '', support_org_id or '', product_id or '', channel or 'internal')
         )
         row = dict(cursor.fetchone())
         cursor.execute(

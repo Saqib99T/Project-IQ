@@ -186,6 +186,40 @@ def register_sio_events(sio) -> None:
             leave_room(_s._room_operator(op_id))
             leave_room('queue_overview')
 
+    @sio.on('join_portal_operator')
+    def _sio_join_portal_operator(data):
+        """Portal SPA operators join their room using the Keycloak Bearer token."""
+        try:
+            from common.iam_service import verify_iam_token, IamTokenError
+            token = (data or {}).get('token', '')
+            if not token:
+                return
+            try:
+                claims = verify_iam_token(token)
+            except IamTokenError:
+                return
+            email = claims.get('email', '')
+            if not email:
+                return
+            # Resolve operators.id by email (username = email for IAM users)
+            from common.conversation_db import _get_connection, _release_connection
+            from psycopg2.extras import RealDictCursor as _PRDC
+            conn = _get_connection()
+            try:
+                cur = conn.cursor(cursor_factory=_PRDC)
+                cur.execute("SELECT id FROM operators WHERE username = %s", (email,))
+                row = cur.fetchone()
+            finally:
+                _release_connection(conn)
+            if not row:
+                return
+            op_id = row['id']
+            join_room(_s._room_operator(op_id))
+            join_room('queue_overview')
+            emit('joined_operator', {'operator_id': op_id, 'room': _s._room_operator(op_id)})
+        except Exception as _e:
+            print(f"[SIO join_portal_operator] error (non-fatal): {_e}")
+
     @sio.on('join_admin_live')
     def _sio_join_admin_live(data):
         join_room('admin_live')

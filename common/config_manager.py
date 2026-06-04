@@ -263,18 +263,56 @@ def get_iam_config() -> Dict[str, str]:
     """Get IAM / Keycloak configuration settings."""
     if _init_infisical() and _infisical_secrets:
         return {
-            'keycloak_url': _get_secret('IAM_KEYCLOAK_URL', 'https://id.dev.iam.99technologies.com'),
-            'realm':        _get_secret('IAM_REALM',        '99-iam'),
-            'client_id':    _get_secret('IAM_CLIENT_ID',    'project-iq'),
-            'api_url':      _get_secret('IAM_API_URL',      'https://api.dev.iam.99technologies.com'),
+            'keycloak_url':          _get_secret('IAM_KEYCLOAK_URL',         'https://id.dev.iam.99technologies.com'),
+            'realm':                 _get_secret('IAM_REALM',                 '99-iam'),
+            'client_id':             _get_secret('IAM_CLIENT_ID',             'project-iq'),
+            'api_url':               _get_secret('IAM_API_URL',               'https://api.dev.iam.99technologies.com'),
+            'backend_client_id':     _get_secret('IAM_BACKEND_CLIENT_ID',     'project-iq-backend'),
+            'backend_client_secret': _get_secret('IAM_BACKEND_CLIENT_SECRET', ''),
         }
     config = load_config()
     return {
-        'keycloak_url': config.get('IAM', 'keycloak_url', fallback='https://id.dev.iam.99technologies.com'),
-        'realm':        config.get('IAM', 'realm',        fallback='99-iam'),
-        'client_id':    config.get('IAM', 'client_id',    fallback='project-iq'),
-        'api_url':      config.get('IAM', 'api_url',      fallback='https://api.dev.iam.99technologies.com'),
+        'keycloak_url':          config.get('IAM', 'keycloak_url',           fallback='https://id.dev.iam.99technologies.com'),
+        'realm':                 config.get('IAM', 'realm',                   fallback='99-iam'),
+        'client_id':             config.get('IAM', 'client_id',               fallback='project-iq'),
+        'api_url':               config.get('IAM', 'api_url',                 fallback='https://api.dev.iam.99technologies.com'),
+        'backend_client_id':     config.get('IAM', 'backend_client_id',       fallback='project-iq-backend'),
+        'backend_client_secret': config.get('IAM', 'backend_client_secret',   fallback=''),
     }
+
+
+def get_platform_config() -> Dict[str, str]:
+    """Get 99Tech platform-level identifiers."""
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'org_id':         _get_secret('PLATFORM_ORG_ID',         ''),
+            'glpi_entity_id': _get_secret('PLATFORM_GLPI_ENTITY_ID', '0'),
+        }
+    config = load_config()
+    return {
+        'org_id':         config.get('PLATFORM', 'org_id',         fallback=''),
+        'glpi_entity_id': config.getint('PLATFORM', 'glpi_entity_id', fallback=0),
+    }
+
+
+def get_glpi_categories() -> Dict[str, int]:
+    """Map product_id → GLPI ITIL category id."""
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'accountwise-support': int(_get_secret('GLPI_CAT_ACCOUNTWISE', '0')),
+            'stockwise-support':   int(_get_secret('GLPI_CAT_STOCKWISE',   '0')),
+            'general-support':     int(_get_secret('GLPI_CAT_GENERAL',     '0')),
+            'hr-support':          int(_get_secret('GLPI_CAT_HR',          '0')),
+        }
+    config = load_config()
+    result = {}
+    if config.has_section('GLPI_CATEGORIES'):
+        for key, val in config.items('GLPI_CATEGORIES'):
+            try:
+                result[key] = int(val)
+            except (ValueError, TypeError):
+                result[key] = 0
+    return result
 
 
 def get_all_config() -> Dict[str, str]:

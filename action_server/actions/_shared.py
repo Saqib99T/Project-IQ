@@ -113,6 +113,29 @@ def get_iam_identity(tracker) -> dict:
     }
 
 
+def get_org_context(tracker) -> dict:
+    """
+    Return org context from slots or message metadata.
+    Keys: org_id, org_name, support_org_id, channel, product_id
+    """
+    meta = {}
+    if isinstance(tracker.latest_message, dict):
+        meta = tracker.latest_message.get("metadata", {}) or {}
+    if isinstance(meta, str):
+        try:
+            import json as _json
+            meta = _json.loads(meta)
+        except Exception:
+            meta = {}
+    return {
+        "org_id":         tracker.get_slot("iam_org_id")     or meta.get("iam_org_id",     ""),
+        "org_name":       tracker.get_slot("iam_org_name")   or meta.get("iam_org_name",   ""),
+        "support_org_id": tracker.get_slot("support_org_id") or meta.get("support_org_id", ""),
+        "channel":        tracker.get_slot("channel")        or meta.get("channel",        "internal"),
+        "product_id":     tracker.get_slot("product_id")     or meta.get("product_id",     ""),
+    }
+
+
 def is_iam_authenticated(tracker) -> bool:
     """Return True if an IAM sub is present (user authenticated via Keycloak)."""
     identity = get_iam_identity(tracker)
