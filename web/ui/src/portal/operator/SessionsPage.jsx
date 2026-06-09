@@ -22,24 +22,24 @@ function SessionCard({ session, onClick }) {
             </div>
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-gray-900 truncate">
+                    <span className="font-medium text-sm text-fg truncate">
                         {session.sender_id}
                     </span>
                     {session.channel === 'platform' && (
                         <span className="badge bg-purple-100 text-purple-700">platform</span>
                     )}
                     {session.product_id && (
-                        <span className="badge bg-gray-100 text-gray-600">{session.product_id}</span>
+                        <span className="badge bg-bg text-fgmuted">{session.product_id}</span>
                     )}
                 </div>
-                <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                <div className="flex items-center gap-3 mt-0.5 text-xs text-fgmuted">
                     <span>{session.app_id}</span>
                     {session.user_org_id && <><span>·</span><span>{session.user_org_id}</span></>}
                     <span>·</span>
                     <span>Claimed {timeAgo(session.assigned_at)}</span>
                 </div>
             </div>
-            <div className="shrink-0 text-xs text-blue-600 font-medium">Open →</div>
+            <div className="shrink-0 text-xs text-primary font-medium">Open →</div>
         </div>
     )
 }
@@ -80,8 +80,8 @@ export default function SessionsPage() {
         <div className="max-w-3xl mx-auto space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-semibold text-gray-900">My Sessions</h2>
-                    <p className="text-sm text-gray-500">
+                    <h2 className="text-xl font-semibold text-fg">My Sessions</h2>
+                    <p className="text-sm text-fgmuted">
                         {sessions.length} active conversation{sessions.length !== 1 ? 's' : ''}
                     </p>
                 </div>
@@ -90,16 +90,16 @@ export default function SessionsPage() {
 
             {loading && (
                 <div className="flex justify-center py-12">
-                    <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
             )}
 
             {error && (
-                <div className="card p-4 bg-red-50 border-red-200 text-red-700 text-sm">{error}</div>
+                <div className="card p-4 bg-danger/10 border-danger/30 text-danger text-sm">{error}</div>
             )}
 
             {!loading && !error && sessions.length === 0 && (
-                <div className="card p-12 text-center text-gray-400 space-y-2">
+                <div className="card p-12 text-center text-fgsubtle space-y-2">
                     <p className="text-3xl">📭</p>
                     <p className="font-medium">No active sessions</p>
                     <p className="text-sm">Accept a session from the Queue to start chatting</p>

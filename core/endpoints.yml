@@ -3,4 +3,4 @@ action_endpoint:
 
 tracker_store:
   type: custom_tracker_store.CustomTrackerStore
-  url: "postgresql://postgres:12345@localhost:5432/Chatbot"
+  url: "postgresql://itsm_user:itsm_pass@127.0.0.1:5433/Chatbot"

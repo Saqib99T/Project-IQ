@@ -400,6 +400,11 @@ def _queue_timeout_worker():
                         ),
                     })
                     emit_queue_overview()
+
+                # Always close the transaction — the SELECTs above leave one open
+                # even when no rows matched, which would otherwise leak an
+                # "idle in transaction" connection back to the pool.
+                conn.commit()
             finally:
                 _release_connection(conn)
         except Exception:
@@ -423,6 +428,9 @@ def _wait_refresh_worker():
                     WHERE hq.status = 'waiting'
                 """)
                 rows = cur.fetchall() or []
+                # Read-only, but psycopg2 still leaves a transaction open after
+                # the SELECT — close it before returning the connection to the pool.
+                conn.rollback()
             finally:
                 _release_connection(conn)
 
@@ -485,14 +493,13 @@ def _heartbeat_watchdog():
                     RETURNING id, display_name
                 """, (timeout_secs,))
                 gone_offline = cur.fetchall() or []
-                if gone_offline:
-                    conn.commit()
-                    for op in gone_offline:
-                        print(f"[Heartbeat watchdog] Operator {op['display_name']} set offline (missed heartbeat)")
-                        _s.sio.emit('capacity_update', {
-                            'operator_id': op['id'],
-                            'status': 'offline',
-                        }, room='queue_overview')
+                conn.commit()
+                for op in gone_offline:
+                    print(f"[Heartbeat watchdog] Operator {op['display_name']} set offline (missed heartbeat)")
+                    _s.sio.emit('capacity_update', {
+                        'operator_id': op['id'],
+                        'status': 'offline',
+                    }, room='queue_overview')
             finally:
                 _release_connection(conn)
         except Exception:

@@ -8,11 +8,11 @@ glpi_app_token = c2xAtAzqKzx5YXcleWDqB6rAirV5yoUIRsbxR9Dv
 glpi_user_token = BHht1jncO8wZEi6MDLtqinFU13jIPgXHu4VxpUwq
 
 [DATABASE]
-db_host = localhost
-db_port = 5432
+db_host = 127.0.0.1
+db_port = 5433
 db_name = Chatbot
-db_user = postgres
-db_password = 12345
+db_user = itsm_user
+db_password = itsm_pass
 
 [RASA]
 rasa_api_url = http://localhost:5005
@@ -92,3 +92,17 @@ redis_host    = localhost
 redis_port    = 6379
 redis_db      = 0
 redis_password =
+
+[ITSM]
+itsm_service_url = http://127.0.0.1:8000
+
+[IAM]
+keycloak_url          = https://id.dev.iam.99technologies.com
+realm                 = 99-iam
+client_id             = project-iq
+api_url               = https://api.dev.iam.99technologies.com
+backend_client_id     = project-iq-backend
+backend_client_secret = QPQPP0nc0CTDQ1MmZDhwseuIpCB5DZhK
+
+[PLATFORM]
+org_id = 7d35c7c9-dbd6-4f6b-8d0c-07178923d859

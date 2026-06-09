@@ -37285,6 +37285,7 @@ if (typeof window !== "undefined" && !window.process) {
       feedbackHover: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
       feedbackColor: isDark ? "#6b7280" : "#9ca3af"
     };
+    const hasTable = typeof message.text === "string" && /\|.*\|/.test(message.text) && /\|\s*:?-{2,}/.test(message.text);
     if (message.type === "warning" || message.type === "system") {
       const isSystem = message.type === "system";
       return /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -37330,7 +37331,7 @@ if (typeof window !== "undefined" && !window.process) {
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "div",
               {
-                className: `p-3 text-sm ${isBot || isOperator ? "" : "rounded-3xl rounded-tr-none px-5"}`,
+                className: `${hasTable ? "p-0" : "p-3"} text-sm ${isBot || isOperator ? "" : "rounded-3xl rounded-tr-none px-5"}`,
                 style: isOperator ? { backgroundColor: isDark ? "#1a2e20" : "#f0fdf4", border: `1px solid ${isDark ? "#166534" : "#bbf7d0"}`, borderRadius: "0 12px 12px 12px", color: isDark ? "#86efac" : "#166534" } : !isBot ? { backgroundColor: dm.userBubble, color: dm.userText } : { color: isDark ? "#e5e7eb" : "#1f2937" },
                 children: isOperator ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-gray-800 whitespace-pre-wrap leading-relaxed", children: message.text }) : isBot ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-table:my-2", children: [
                   message.text && /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -37338,6 +37339,16 @@ if (typeof window !== "undefined" && !window.process) {
                     {
                       remarkPlugins: [remarkGfm],
                       components: {
+                        // Image attachments render as clickable thumbnails
+                        img: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: props.src, target: "_blank", rel: "noopener noreferrer", className: "inline-block not-prose", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "img",
+                          {
+                            ...props,
+                            loading: "lazy",
+                            className: "rounded-lg my-1 cursor-pointer",
+                            style: { maxHeight: "120px", maxWidth: "100%", objectFit: "cover", border: `1px solid ${isDark ? "#2e3a4e" : "#e5e7eb"}` }
+                          }
+                        ) }),
                         table: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { overflowX: "auto", maxWidth: "100%", margin: "6px 0" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("table", { className: "divide-y rounded-md overflow-hidden", style: { border: `1px solid ${isDark ? "#2e3a4e" : "#e5e7eb"}` }, ...props }) }),
                         thead: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("thead", { style: { backgroundColor: isDark ? "#1e2533" : "#f9fafb" }, ...props }),
                         th: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left font-medium uppercase tracking-wider border-b", style: { fontSize: "11px", color: isDark ? "#9ca3af" : "#6b7280", borderColor: isDark ? "#2e3a4e" : "#e5e7eb" }, ...props }),
@@ -40108,6 +40119,12 @@ if (typeof window !== "undefined" && !window.process) {
         });
       }
       _initPromise.then((authenticated) => {
+        console.info(
+          "[IAM] check-sso result: authenticated =",
+          authenticated,
+          "| token present =",
+          !!kc.token
+        );
         if (authenticated) {
           setIsAuthenticated(true);
           setUser(parseUser(kc));
@@ -40115,7 +40132,7 @@ if (typeof window !== "undefined" && !window.process) {
           scheduleRefresh(kc);
         }
       }).catch((err) => {
-        console.warn("[IAM] init error", err);
+        console.error("[IAM] init/login-callback error — check Keycloak client redirect URIs & web origins for this origin", err);
       }).finally(() => setIsLoading(false));
       kc.onAuthRefreshSuccess = () => {
         setToken(kc.token);
@@ -40131,11 +40148,30 @@ if (typeof window !== "undefined" && !window.process) {
         if (refreshTimer.current) clearTimeout(refreshTimer.current);
       };
     }, [scheduleRefresh]);
-    const login = reactExports.useCallback((opts = {}) => {
-      getOrCreateKc().login(opts);
+    const login = reactExports.useCallback(async (opts = {}) => {
+      const kc = getOrCreateKc();
+      try {
+        if (_initPromise) await _initPromise;
+      } catch (e) {
+        console.warn("[IAM] init not ready before login", e);
+      }
+      try {
+        await kc.login({ redirectUri: window.location.href, ...opts });
+      } catch (e) {
+        console.error("[IAM] login failed — check Keycloak reachability and client redirect URIs/web origins", e);
+      }
     }, []);
-    const logout = reactExports.useCallback((opts = {}) => {
-      getOrCreateKc().logout(opts);
+    const logout = reactExports.useCallback(async (opts = {}) => {
+      const kc = getOrCreateKc();
+      try {
+        if (_initPromise) await _initPromise;
+      } catch {
+      }
+      try {
+        await kc.logout(opts);
+      } catch (e) {
+        console.error("[IAM] logout failed", e);
+      }
     }, []);
     return {
       isAuthenticated,
@@ -40343,6 +40379,16 @@ if (typeof window !== "undefined" && !window.process) {
       if (iam.token) h["Authorization"] = `Bearer ${iam.token}`;
       return h;
     }, [iam.token]);
+    const [selectedProductId, setSelectedProductId] = reactExports.useState(() => appId || null);
+    reactExports.useEffect(() => {
+      if (!iamAuthenticated || !iam.user?.apps?.length) return;
+      const apps = iam.user.apps;
+      if (apps.length === 1) {
+        setSelectedProductId(apps[0]);
+      } else if (appId && apps.includes(appId)) {
+        setSelectedProductId(appId);
+      }
+    }, [iamAuthenticated, iam.user?.apps, appId]);
     const handleIamLogin = reactExports.useCallback(() => {
       iam.login({ redirectUri: window.location.href });
     }, [iam]);
@@ -40369,10 +40415,6 @@ if (typeof window !== "undefined" && !window.process) {
     const [authUser, setAuthUser] = reactExports.useState(() => {
       return getCookie(getStorageKey(appId, "authUser")) || "";
     });
-    const [loginUsername, setLoginUsername] = reactExports.useState("");
-    const [loginPassword, setLoginPassword] = reactExports.useState("");
-    const [loginError, setLoginError] = reactExports.useState("");
-    const [isLoggingIn, setIsLoggingIn] = reactExports.useState(false);
     const [showLoginPrompt, setShowLoginPrompt] = reactExports.useState(false);
     const [showProfile, setShowProfile] = reactExports.useState(false);
     const [isDarkMode, setIsDarkMode] = reactExports.useState(() => localStorage.getItem("piq_dark") === "true");
@@ -40380,6 +40422,21 @@ if (typeof window !== "undefined" && !window.process) {
       localStorage.setItem("piq_dark", !v);
       return !v;
     });
+    const buildMetadata = reactExports.useCallback((extra = {}) => ({
+      app_id: selectedProductId || appId,
+      product_id: selectedProductId || appId || void 0,
+      user_name: authUser || void 0,
+      is_authenticated: !!(isAuthenticated || iamAuthenticated),
+      iam_sub: iam.user?.sub,
+      iam_name: iam.user?.name,
+      iam_email: iam.user?.email,
+      iam_org_id: iam.user?.organization_id || void 0,
+      iam_org_name: iam.user?.organization_alias || void 0,
+      channel: iam.user?.organization_id ? "internal" : void 0,
+      iam_token: iam.token || void 0,
+      session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0,
+      ...extra
+    }), [selectedProductId, appId, authUser, isAuthenticated, iamAuthenticated, iam.user]);
     const darkBg = "#111827";
     const darkText = "#f9fafb";
     const effectiveBg = isDarkMode ? darkBg : bgColor;
@@ -40754,90 +40811,6 @@ I'm here to help you with:
         }, 100);
       }
     }, [isOpen]);
-    const handleLogin = async (e) => {
-      e.preventDefault();
-      if (!loginUsername.trim() || !loginPassword.trim()) {
-        setLoginError("Please enter both username and password");
-        return;
-      }
-      setIsLoggingIn(true);
-      setLoginError("");
-      try {
-        const loginPayload = `/login{"glpi_username": "${loginUsername}", "glpi_password": "${loginPassword}"}`;
-        const response = await fetch(RASA_API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sender: senderId,
-            message: loginPayload,
-            metadata: { app_id: appId, user_name: loginUsername }
-          })
-        });
-        const data = await response.json();
-        let loginSuccess = false;
-        let errorMsg = "Login failed. Please check your credentials.";
-        for (const msg of data) {
-          if (msg.custom?.login_success) {
-            loginSuccess = true;
-            if (msg.custom?.session_token) {
-              setCookie(getStorageKey(appId, "glpiSessionToken"), msg.custom.session_token);
-            }
-            break;
-          }
-          if (msg.custom?.login_error) {
-            errorMsg = msg.custom.error || errorMsg;
-            break;
-          }
-          if (msg.text && msg.text.includes("Welcome")) {
-            loginSuccess = true;
-          }
-          if (msg.text && msg.text.includes("failed")) {
-            errorMsg = msg.text;
-          }
-        }
-        if (loginSuccess) {
-          setIsAuthenticated(true);
-          setIsGuest(false);
-          setShowLoginPrompt(false);
-          setAuthUser(loginUsername);
-          setCookie(getStorageKey(appId, "isAuthenticated"), "true");
-          setCookie(getStorageKey(appId, "authUser"), loginUsername);
-          deleteCookie(getStorageKey(appId, "privacyDismissed"));
-          setShowPrivacyPopup(true);
-          fetch(`${ADMIN_API_URL$1}/handoff/end`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sender_id: senderId })
-          }).catch(() => {
-          });
-          const sessionId = Date.now().toString(36);
-          const userScopedId = `user-${appId}-${loginUsername}-${sessionId}`;
-          setCookie(getStorageKey(appId, "senderId"), userScopedId);
-          setCookie(getStorageKey(appId, "chatUsername"), loginUsername);
-          setSenderId(userScopedId);
-          setHandoffState("bot_active");
-          setOperatorName("");
-          setQueuePosition(null);
-          setWaitMins(null);
-          const welcomeData = data.find((m) => m.text);
-          console.log("LOGIN DEBUG - welcomeData:", welcomeData);
-          console.log("LOGIN DEBUG - buttons:", welcomeData?.buttons);
-          const welcomeMsg = welcomeData?.text || `Welcome, ${loginUsername}! How can I help you?`;
-          const welcomeButtons = welcomeData?.buttons || [];
-          console.log("LOGIN DEBUG - welcomeButtons:", welcomeButtons);
-          setMessages([{ id: v4(), sender: "bot", text: welcomeMsg, buttons: welcomeButtons }]);
-          setLoginUsername("");
-          setLoginPassword("");
-        } else {
-          setLoginError(errorMsg);
-        }
-      } catch (error) {
-        console.error("Login error:", error);
-        setLoginError("Connection error. Please try again.");
-      } finally {
-        setIsLoggingIn(false);
-      }
-    };
     const fetchUserHistory = async (search2 = "") => {
       if (!authUser) return;
       setHistoryLoading(true);
@@ -40965,7 +40938,7 @@ I'm here to help you with:
             body: JSON.stringify({
               sender: senderId,
               message: payload,
-              metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
+              metadata: buildMetadata()
             })
           });
           const data = await response.json();
@@ -41019,7 +40992,7 @@ I'm here to help you with:
           body: JSON.stringify({
             sender: senderId,
             message: intent,
-            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
+            metadata: buildMetadata()
           })
         });
         console.log(`Feedback ${feedbackType} sent for message ${messageId}`);
@@ -41112,7 +41085,7 @@ Priority: ${data.priority}`;
           body: JSON.stringify({
             sender: senderId,
             message,
-            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
+            metadata: buildMetadata()
           })
         });
         const data = await response.json();
@@ -41192,14 +41165,7 @@ Priority: ${data.priority}`;
           body: JSON.stringify({
             sender: senderId,
             message: text2,
-            metadata: {
-              app_id: appId,
-              user_name: authUser || void 0,
-              is_authenticated: isAuthenticated || iamAuthenticated,
-              iam_sub: iam.user?.sub,
-              iam_name: iam.user?.name,
-              iam_email: iam.user?.email
-            }
+            metadata: buildMetadata()
           })
         }).then((r) => r.json()).then((data) => {
           if (data?.length) setMessages((prev) => [...prev, ...data.filter((m) => m.text).map((m) => ({ id: v4(), sender: "bot", text: m.text, buttons: m.buttons }))]);
@@ -41249,11 +41215,11 @@ Priority: ${data.priority}`;
       try {
         const response = await fetch(RASA_API_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             sender: senderId,
             message: userMsg.text,
-            metadata: { app_id: appId, user_name: authUser || void 0, is_authenticated: isAuthenticated || iamAuthenticated, iam_sub: iam.user?.sub, iam_name: iam.user?.name, iam_email: iam.user?.email, session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0 }
+            metadata: buildMetadata()
           })
         });
         const data = await response.json();
@@ -41525,6 +41491,41 @@ Priority: ${data.priority}`;
                 }
               )
             ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: iamAuthenticated && !selectedProductId && iam.user?.apps?.length > 1 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              motion.div,
+              {
+                initial: { opacity: 0, height: 0 },
+                animate: { opacity: 1, height: "auto" },
+                exit: { opacity: 0, height: 0 },
+                className: "border-b px-4 py-3",
+                style: { borderColor: c.border, backgroundColor: c.surfaceAlt },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-medium mb-2", style: { color: c.textMuted }, children: "Which product do you need help with?" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: iam.user.apps.map((app) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      onClick: () => setSelectedProductId(app),
+                      className: "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                      style: {
+                        borderColor: primaryColor,
+                        color: primaryColor,
+                        backgroundColor: "transparent"
+                      },
+                      onMouseEnter: (e) => {
+                        e.currentTarget.style.backgroundColor = primaryColor;
+                        e.currentTarget.style.color = "#fff";
+                      },
+                      onMouseLeave: (e) => {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                        e.currentTarget.style.color = primaryColor;
+                      },
+                      children: app.replace(/-/g, " ").replace(/\b\w/g, (c2) => c2.toUpperCase())
+                    },
+                    app
+                  )) })
+                ]
+              }
+            ) }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: timeoutChoice && /* @__PURE__ */ jsxRuntimeExports.jsxs(
               motion.div,
               {
@@ -41750,64 +41751,21 @@ Priority: ${data.priority}`;
                         /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setShowLoginPrompt(false), className: "text-white/70 hover:text-white p-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(CircleX, { size: 20 }) })
                       ] }),
                       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-5 flex flex-col gap-3", children: [
-                        iam.login && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                          /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                            "button",
-                            {
-                              onClick: () => {
-                                setShowLoginPrompt(false);
-                                handleIamLogin();
-                              },
-                              className: "w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-white transition-all hover:opacity-90",
-                              style: { backgroundColor: primaryColor },
-                              children: [
-                                /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "w-4 h-4", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" }) }),
-                                "Sign in with IAM"
-                              ]
-                            }
-                          ),
-                          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-                            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 h-px bg-gray-200" }),
-                            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-gray-400", children: "or" }),
-                            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 h-px bg-gray-200" })
-                          ] })
-                        ] }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { onSubmit: handleLogin, className: "flex flex-col gap-2", children: [
-                          /* @__PURE__ */ jsxRuntimeExports.jsx(
-                            "input",
-                            {
-                              type: "text",
-                              placeholder: "GLPI Username",
-                              value: loginUsername,
-                              onChange: (e) => setLoginUsername(e.target.value),
-                              className: "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2",
-                              style: { focusRingColor: primaryColor },
-                              autoComplete: "username"
-                            }
-                          ),
-                          /* @__PURE__ */ jsxRuntimeExports.jsx(
-                            "input",
-                            {
-                              type: "password",
-                              placeholder: "Password",
-                              value: loginPassword,
-                              onChange: (e) => setLoginPassword(e.target.value),
-                              className: "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2",
-                              autoComplete: "current-password"
-                            }
-                          ),
-                          loginError && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-red-500", children: loginError }),
-                          /* @__PURE__ */ jsxRuntimeExports.jsx(
-                            "button",
-                            {
-                              type: "submit",
-                              disabled: isLoggingIn,
-                              className: "w-full py-2.5 rounded-xl font-semibold text-white transition-all hover:opacity-90 disabled:opacity-60",
-                              style: { backgroundColor: "#374151" },
-                              children: isLoggingIn ? "Signing in…" : "Sign in with password"
-                            }
-                          )
-                        ] }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                          "button",
+                          {
+                            onClick: () => {
+                              setShowLoginPrompt(false);
+                              handleIamLogin();
+                            },
+                            className: "w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-white transition-all hover:opacity-90",
+                            style: { backgroundColor: primaryColor },
+                            children: [
+                              /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "w-4 h-4", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" }) }),
+                              "Sign in with IAM"
+                            ]
+                          }
+                        ),
                         /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setShowLoginPrompt(false), className: "text-xs text-gray-400 hover:text-gray-600 text-center", children: "Continue as guest" })
                       ] })
                     ]
@@ -42021,64 +41979,18 @@ Priority: ${data.priority}`;
                 /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-lg font-semibold", style: { color: c.text }, children: "Sign in to continue" }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm mt-1", style: { color: c.textMuted }, children: "Access full support features with your account." })
               ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-xs flex flex-col gap-3", children: [
-                iam.login && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                    "button",
-                    {
-                      onClick: handleIamLogin,
-                      className: "w-full flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl font-semibold text-white shadow-md hover:opacity-90 transition-all",
-                      style: { backgroundColor: primaryColor },
-                      children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "w-4 h-4", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" }) }),
-                        "Sign in with IAM"
-                      ]
-                    }
-                  ),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 h-px", style: { backgroundColor: c.borderLight } }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs", style: { color: c.textSub }, children: "or" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 h-px", style: { backgroundColor: c.borderLight } })
-                  ] })
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { onSubmit: handleLogin, className: "flex flex-col gap-2", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "input",
-                    {
-                      type: "text",
-                      placeholder: "GLPI Username",
-                      value: loginUsername,
-                      onChange: (e) => setLoginUsername(e.target.value),
-                      className: "w-full px-3 py-2 border rounded-lg text-sm outline-none",
-                      style: { backgroundColor: c.inputBg, color: c.text, borderColor: c.border },
-                      autoComplete: "username"
-                    }
-                  ),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "input",
-                    {
-                      type: "password",
-                      placeholder: "Password",
-                      value: loginPassword,
-                      onChange: (e) => setLoginPassword(e.target.value),
-                      className: "w-full px-3 py-2 border rounded-lg text-sm outline-none",
-                      style: { backgroundColor: c.inputBg, color: c.text, borderColor: c.border },
-                      autoComplete: "current-password"
-                    }
-                  ),
-                  loginError && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-red-500", children: loginError }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "button",
-                    {
-                      type: "submit",
-                      disabled: isLoggingIn,
-                      className: "w-full py-2.5 rounded-xl font-semibold text-white hover:opacity-90 transition-all disabled:opacity-60",
-                      style: { backgroundColor: "#374151" },
-                      children: isLoggingIn ? "Signing in…" : "Sign in with password"
-                    }
-                  )
-                ] })
-              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full max-w-xs flex flex-col gap-3", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "button",
+                {
+                  onClick: handleIamLogin,
+                  className: "w-full flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl font-semibold text-white shadow-md hover:opacity-90 transition-all",
+                  style: { backgroundColor: primaryColor },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "w-4 h-4", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" }) }),
+                    "Sign in with IAM"
+                  ]
+                }
+              ) }),
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
                 {

@@ -20,7 +20,22 @@ def _kb_cache():
 @bp.route('/admin/kb/status', methods=['GET'])
 def get_kb_status():
     try:
-        return jsonify({"success": True, "status": _kb_cache().get_status()})
+        status = dict(_kb_cache().get_status())
+        # Merge in semantic-search/model stats from the live search cache
+        # (KBCacheManager) — the admin browse cache doesn't track those.
+        try:
+            from web.api.kb_cache_manager import kb_cache as _search_cache
+            info = _search_cache.get_cache_info()
+            status['refresh_interval'] = info.get('refresh_interval')
+            status['model_info'] = {
+                'model_name': info.get('model_name'),
+                'embedding_dimension': info.get('embedding_dimension'),
+            }
+            status['cache_size_mb'] = info.get('cache_size_mb')
+            status['semantic_enabled'] = info.get('semantic_enabled')
+        except Exception:
+            pass
+        return jsonify({"success": True, "status": status})
     except Exception as e:
         return jsonify({"success": False, "error": str(e),
                         "status": {"article_count": 0, "last_refresh": None}}), 500
@@ -44,12 +59,13 @@ def refresh_kb_cache():
 @bp.route('/admin/kb/articles', methods=['GET'])
 def get_kb_articles():
     try:
-        result = _kb_cache().get_articles(
+        cache  = _kb_cache()
+        result = cache.get_articles(
             page=int(request.args.get('page', 1)),
             limit=int(request.args.get('limit', 50)),
             search_filter=request.args.get('filter', '')
         )
-        return jsonify({"success": True, **result, "source": "glpi"})
+        return jsonify({"success": True, **result, "source": getattr(cache, 'source', 'glpi')})
     except Exception as e:
         return jsonify({"success": False, "error": str(e), "articles": []}), 500
 
@@ -79,7 +95,7 @@ def test_kb_search():
         results = kb_cache.search_articles(query)
         formatted = [{
             "article": {k: r['article'].get(k) for k in
-                        ('id', 'title', 'category', 'source', 'glpi_id', 'is_faq', 'date_modified')},
+                        ('id', 'title', 'category', 'source', 'glpi_id', 'itsm_id', 'is_faq', 'date_modified')},
             "scores": {
                 "final_score":    round(r.get('score', 0), 3),
                 "semantic_score": round(r.get('semantic_score', 0), 3),

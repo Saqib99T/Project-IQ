@@ -229,6 +229,28 @@ def get_kb_config() -> Dict[str, Any]:
     }
 
 
+def get_kb_bot_config() -> Dict[str, str]:
+    """Service-account credentials KBCacheManager uses to call itsm-service.
+
+    The background refresh thread has no logged-in user to forward a JWT
+    from, so it authenticates as a dedicated Keycloak client (client_credentials
+    grant). That client's service-account user must carry IAM role "bot",
+    which itsm-service maps to tenant role "service_account" — see
+    common.iam_service.get_kb_bot_token for details. Leave both blank to
+    disable itsm-service KB sourcing (cache falls back to GLPI/JSON).
+    """
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'client_id': _get_secret('KB_BOT_CLIENT_ID', ''),
+            'client_secret': _get_secret('KB_BOT_CLIENT_SECRET', ''),
+        }
+    config = load_config()
+    return {
+        'client_id': config.get('KNOWLEDGE_BASE', 'kb_bot_client_id', fallback=''),
+        'client_secret': config.get('KNOWLEDGE_BASE', 'kb_bot_client_secret', fallback=''),
+    }
+
+
 def get_sla_config() -> Dict[str, int]:
     """Get SLA hours per priority."""
     if _init_infisical() and _infisical_secrets:
@@ -278,6 +300,18 @@ def get_iam_config() -> Dict[str, str]:
         'api_url':               config.get('IAM', 'api_url',                 fallback='https://api.dev.iam.99technologies.com'),
         'backend_client_id':     config.get('IAM', 'backend_client_id',       fallback='project-iq-backend'),
         'backend_client_secret': config.get('IAM', 'backend_client_secret',   fallback=''),
+    }
+
+
+def get_itsm_config() -> Dict[str, str]:
+    """Get itsm-service URL configuration."""
+    if _init_infisical() and _infisical_secrets:
+        return {
+            'service_url': _get_secret('ITSM_SERVICE_URL', 'http://localhost:8000'),
+        }
+    config = load_config()
+    return {
+        'service_url': config.get('ITSM', 'itsm_service_url', fallback='http://localhost:8000'),
     }
 
 

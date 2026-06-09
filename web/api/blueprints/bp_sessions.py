@@ -70,6 +70,7 @@ def active_sessions():
                     for k in ('started_at','last_activity','queued_at','assigned_at'):
                         r[k] = _fmt(r[k])
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True, 'sessions': rows, 'count': len(rows)})
     except Exception as e:
@@ -91,6 +92,7 @@ def active_session_messages(conv_id):
                 for m in msgs:
                     m['timestamp'] = _fmt(m['timestamp'])
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True, 'messages': msgs})
     except Exception as e:
@@ -159,6 +161,7 @@ def admin_transfer_session():
             except Exception:
                 pass
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True})
     except Exception as e:
@@ -190,6 +193,7 @@ def admin_end_session():
                 """, (conv_id,))
                 conn.commit()
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True})
     except Exception as e:
@@ -269,6 +273,7 @@ def session_history():
                               'assigned_at','resolved_at','abandoned_at'):
                         r[k] = _fmt(r[k])
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({
             'success': True, 'sessions': rows,
@@ -293,6 +298,7 @@ def history_messages(conv_id):
                 for m in msgs:
                     m['timestamp'] = _fmt(m['timestamp'])
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True, 'messages': msgs})
     except Exception as e:
@@ -320,6 +326,7 @@ def export_history():
                 """)
                 rows = cur.fetchall()
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         output = io.StringIO()
@@ -349,6 +356,7 @@ def sessions_operators():
                 cur.execute("SELECT id, display_name, status FROM operators WHERE is_active=TRUE AND username != 'admin' ORDER BY display_name")
                 ops = [dict(r) for r in cur.fetchall()]
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True, 'operators': ops})
     except Exception as e:

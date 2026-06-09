@@ -60,7 +60,9 @@ def user_get_conversations():
         import traceback; traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
-        if conn: _release_connection(conn)
+        if conn:
+            conn.rollback()
+            _release_connection(conn)
 
 
 @bp.route('/api/user/conversation/<sender_id>/messages', methods=['GET'])
@@ -86,7 +88,9 @@ def user_get_conversation_messages(sender_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
-        if conn: _release_connection(conn)
+        if conn:
+            conn.rollback()
+            _release_connection(conn)
 
 
 @bp.route('/api/user/session/feedback', methods=['POST'])

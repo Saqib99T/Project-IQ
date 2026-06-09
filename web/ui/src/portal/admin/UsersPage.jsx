@@ -4,9 +4,9 @@ import { useIam } from '../../widget/hooks/useIam'
 
 const ALL_ROLES   = ['Member', 'Operator', 'Admin']
 const ROLE_STYLE  = {
-    Admin:    'bg-amber-100 text-amber-700',
-    Operator: 'bg-blue-100  text-blue-700',
-    Member:   'bg-gray-100  text-gray-600',
+    Admin:    'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    Operator: 'bg-blue-100 dark:bg-blue-500/10  text-blue-700 dark:text-blue-400',
+    Member:   'bg-gray-100 dark:bg-slate-800  text-gray-600 dark:text-slate-400',
 }
 
 // ── Invite modal ──────────────────────────────────────────────────────────────
@@ -43,49 +43,49 @@ function InviteModal({ onClose, onInvited, isAdmin }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900">Invite user</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Invite user</h3>
+                    <button onClick={onClose} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 hover:dark:text-slate-400 text-xl">×</button>
                 </div>
 
                 {error && (
-                    <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
+                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm">{error}</div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Email *</label>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Email *</label>
                         <input
                             type="email" required
                             value={form.email}
                             onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                             placeholder="user@example.com"
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40"
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">First name</label>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">First name</label>
                             <input
                                 value={form.first_name}
                                 onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
                                 placeholder="Jane"
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full rounded-lg border border-gray-300 dark:border-slate-600 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Last name</label>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Last name</label>
                             <input
                                 value={form.last_name}
                                 onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
                                 placeholder="Smith"
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full rounded-lg border border-gray-300 dark:border-slate-600 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40"
                             />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-2">Roles</label>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-2">Roles</label>
                         <div className="flex gap-2 flex-wrap">
                             {ALL_ROLES.filter(r => r !== 'Admin' || isAdmin).map(role => (
                                 <button
@@ -95,7 +95,7 @@ function InviteModal({ onClose, onInvited, isAdmin }) {
                                     className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                                         form.roles.includes(role)
                                             ? 'bg-blue-600 text-white border-blue-600'
-                                            : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                                            : 'bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-400 border-gray-300 dark:border-slate-600 hover:border-blue-400'
                                     }`}
                                 >
                                     {role}
@@ -155,8 +155,8 @@ function RoleEditor({ user: u, onUpdated, isAdmin }) {
                     onClick={() => toggle(role)}
                     className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${
                         roles.includes(role)
-                            ? (ROLE_STYLE[role] || 'bg-gray-100') + ' border-transparent'
-                            : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                            ? (ROLE_STYLE[role] || 'bg-gray-100 dark:bg-slate-800') + ' border-transparent'
+                            : 'bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-500 border-gray-200 dark:border-slate-700 hover:border-gray-400 hover:dark:border-slate-500'
                     }`}
                 >
                     {role}
@@ -164,7 +164,7 @@ function RoleEditor({ user: u, onUpdated, isAdmin }) {
             ))}
             {changed && (
                 <button onClick={save} disabled={saving}
-                    className="ml-1 text-xs text-blue-600 hover:underline disabled:opacity-50">
+                    className="ml-1 text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50">
                     {saving ? '…' : 'Save'}
                 </button>
             )}
@@ -219,8 +219,8 @@ export default function UsersPage() {
         <div className="max-w-5xl space-y-5">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Users</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">{users.length} members in org</p>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Users</h2>
+                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">{users.length} members in org</p>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={fetchUsers} className="btn-ghost text-xs">↻ Refresh</button>
@@ -231,12 +231,12 @@ export default function UsersPage() {
             </div>
 
             {error && (
-                <div className="card p-4 bg-red-50 border-red-200 text-red-700 text-sm">{error}</div>
+                <div className="card p-4 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm">{error}</div>
             )}
 
             <div className="card overflow-hidden">
                 <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+                    <thead className="bg-gray-50 dark:bg-slate-800/60 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-wide">
                         <tr>
                             <th className="px-5 py-3 text-left">User</th>
                             <th className="px-5 py-3 text-left">Roles</th>
@@ -244,7 +244,7 @@ export default function UsersPage() {
                             <th className="px-5 py-3 text-right"></th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                         {loading && (
                             <tr>
                                 <td colSpan={4} className="px-5 py-10 text-center">
@@ -253,12 +253,12 @@ export default function UsersPage() {
                             </tr>
                         )}
                         {!loading && users.map(u => (
-                            <tr key={u.sub} className="hover:bg-gray-50">
+                            <tr key={u.sub} className="hover:bg-gray-50 hover:dark:bg-slate-800/60">
                                 <td className="px-5 py-3">
-                                    <div className="font-medium text-gray-900">
+                                    <div className="font-medium text-gray-900 dark:text-slate-100">
                                         {[u.first_name, u.last_name].filter(Boolean).join(' ') || u.username}
                                     </div>
-                                    <div className="text-xs text-gray-400">{u.email}</div>
+                                    <div className="text-xs text-gray-400 dark:text-slate-500">{u.email}</div>
                                 </td>
                                 <td className="px-5 py-3">
                                     <RoleEditor
@@ -269,10 +269,10 @@ export default function UsersPage() {
                                 </td>
                                 <td className="px-5 py-3">
                                     {u.email_verified
-                                        ? <span className="badge bg-green-100 text-green-700">Verified</span>
-                                        : <span className="badge bg-amber-100 text-amber-600">Pending invite</span>}
+                                        ? <span className="badge bg-green-100 dark:bg-emerald-500/10 text-green-700 dark:text-emerald-400">Verified</span>
+                                        : <span className="badge bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">Pending invite</span>}
                                     {!u.enabled && (
-                                        <span className="ml-1 badge bg-red-100 text-red-600">Disabled</span>
+                                        <span className="ml-1 badge bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400">Disabled</span>
                                     )}
                                 </td>
                                 <td className="px-5 py-3 text-right">
@@ -280,7 +280,7 @@ export default function UsersPage() {
                                         <button
                                             onClick={() => handleDelete(u)}
                                             disabled={deletingSub === u.sub}
-                                            className="text-xs text-red-500 hover:text-red-700 disabled:opacity-40"
+                                            className="text-xs text-red-500 hover:text-red-700 hover:dark:text-red-400 disabled:opacity-40"
                                         >
                                             {deletingSub === u.sub ? 'Deleting…' : 'Remove'}
                                         </button>
@@ -290,7 +290,7 @@ export default function UsersPage() {
                         ))}
                         {!loading && users.length === 0 && (
                             <tr>
-                                <td colSpan={4} className="px-5 py-12 text-center text-gray-400">
+                                <td colSpan={4} className="px-5 py-12 text-center text-gray-400 dark:text-slate-500">
                                     No users found — invite the first member
                                 </td>
                             </tr>

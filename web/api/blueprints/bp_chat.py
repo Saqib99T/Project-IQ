@@ -172,9 +172,11 @@ def chat_webhook_proxy():
     try:
         import requests
         import json
+        import time as _time
         from datetime import datetime as _dt
         from common.conversation_db import log_conversation_start, log_message
 
+        _t0 = _time.monotonic()
         data         = request.get_json()
         sender_id    = data.get('sender', 'unknown')
         message_text = data.get('message', '')
@@ -203,6 +205,11 @@ def chat_webhook_proxy():
                 metadata.setdefault('iam_name',  iam_user['name'])
                 metadata.setdefault('iam_email', iam_user['email'])
                 metadata.setdefault('app_id',    (iam_user['apps'] or ['General'])[0])
+                # Forward the verified access token so Rasa actions (ticket
+                # create/list/status) can call the ITSM/GLPI API as the user.
+                # Without this, get_iam_jwt(tracker) is empty → actions reply
+                # "❌ Authentication required." even for signed-in users.
+                metadata['iam_token'] = auth_header[7:]
             except Exception as _iam_err:
                 print(f"[IAM] Token validation warning: {_iam_err}")
                 # Invalid token — treat as guest (don't block KB access)
@@ -233,16 +240,24 @@ def chat_webhook_proxy():
         metadata.setdefault('channel',        _ctx_channel)
         metadata.setdefault('product_id',     _product_id)
 
-        # ── Member role gate ───────────────────────────────────────────────
-        # Authenticated users must have the 'Member' project role to use the chatbot.
-        # Guests (no token) fall through to KB-only / restricted action mode.
+        # ── Chatbot access role gate ───────────────────────────────────────
+        # Authenticated users need a User, Bot, or Member project role (staff
+        # roles also pass). Guests (no token) fall through to KB-only mode.
         if iam_user and not iam_user.get('is_member') \
+                and not iam_user.get('is_user') \
+                and not iam_user.get('is_bot') \
                 and not iam_user.get('is_admin') \
                 and not iam_user.get('is_operator') \
                 and not iam_user.get('is_super_admin'):
+            # Diagnostic: log exactly what roles the token carried so a denial
+            # can be traced to a stale/unmapped token vs a missing assignment.
+            print(f"[CHAT GATE DENY] email={iam_user.get('email')} "
+                  f"resource_access_clients={list((claims.get('resource_access') or {}).keys())} "
+                  f"client_roles(project-iq)={iam_user.get('client_roles')} "
+                  f"realm_roles={iam_user.get('realm_roles')}")
             return jsonify([{
                 'text': "Your account doesn't have access to this chatbot. "
-                        "Please contact your administrator to get the Member role assigned."
+                        "Please contact your administrator to get a User, Bot, or Member role assigned."
             }]), 403
 
         app_id    = metadata.get('app_id', 'General')
@@ -259,7 +274,8 @@ def chat_webhook_proxy():
             try:
                 cur = conn.cursor(cursor_factory=RealDictCursor)
                 cur.execute("SELECT id, handoff_state, assigned_operator_id "
-                            "FROM conversations WHERE sender_id = %s", (sender_id,))
+                            "FROM conversations WHERE sender_id = %s "
+                            "ORDER BY id DESC LIMIT 1", (sender_id,))
                 row = cur.fetchone()
                 if row:
                     handoff_state = row.get('handoff_state') or 'bot_active'
@@ -289,7 +305,8 @@ def chat_webhook_proxy():
                 conn2 = _get_connection()
                 try:
                     cur2 = conn2.cursor(cursor_factory=RealDictCursor)
-                    cur2.execute("SELECT id, assigned_operator_id FROM conversations WHERE sender_id = %s",
+                    cur2.execute("SELECT id, assigned_operator_id FROM conversations WHERE sender_id = %s "
+                                 "ORDER BY id DESC LIMIT 1",
                                  (sender_id,))
                     prow = cur2.fetchone()
                 finally:
@@ -308,11 +325,16 @@ def chat_webhook_proxy():
             return jsonify([]), 200
         # ── End gate ──────────────────────────────────────────────────────────
 
+        _t_iam = _time.monotonic()
         log_conversation_start(sender_id, app_id, user_id=user_id, user_name=user_name)
         log_message(sender_id, 'user', message_text, app_id=app_id,
                     user_id=user_id, ticket_id=ticket_id)
 
+        _t_db = _time.monotonic()
         rasa_resp = requests.post(f"{_s.RASA_URL}/webhooks/rest/webhook", json=data, timeout=30)
+        _t_rasa = _time.monotonic()
+        print(f"[CHAT TIMING] setup+iam={_t_iam-_t0:.2f}s db_log={_t_db-_t_iam:.2f}s "
+              f"rasa={_t_rasa-_t_db:.2f}s | msg={message_text[:40]!r} sender={sender_id}")
         bot_responses = rasa_resp.json() if rasa_resp.status_code == 200 else []
 
         # Strip spurious fallback appended by RulePolicy when real responses exist

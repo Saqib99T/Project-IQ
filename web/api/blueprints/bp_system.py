@@ -45,6 +45,7 @@ def health_database():
             cur.execute("SELECT 1")
             return jsonify({"status": "ok"})
         finally:
+            conn.rollback()
             _release_connection(conn)
     except Exception as e:
         return jsonify({"status": "down", "error": str(e)}), 503

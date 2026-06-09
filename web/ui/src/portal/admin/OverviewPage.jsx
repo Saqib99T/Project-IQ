@@ -3,11 +3,11 @@ import { useApi } from '../useApi'
 
 function StatCard({ label, value, sub, color = 'blue' }) {
     const colors = {
-        blue:   'bg-blue-50 text-blue-700 border-blue-200',
-        green:  'bg-green-50 text-green-700 border-green-200',
-        amber:  'bg-amber-50 text-amber-700 border-amber-200',
-        red:    'bg-red-50 text-red-700 border-red-200',
-        gray:   'bg-gray-50 text-gray-700 border-gray-200',
+        blue:   'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
+        green:  'bg-green-50 dark:bg-emerald-500/10 text-green-700 dark:text-emerald-400 border-green-200 dark:border-emerald-500/20',
+        amber:  'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20',
+        red:    'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/20',
+        gray:   'bg-gray-50 dark:bg-slate-800/60 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700',
     }
     return (
         <div className={`card p-5 border ${colors[color]}`}>
@@ -38,14 +38,14 @@ export default function OverviewPage() {
     )
 
     if (error) return (
-        <div className="card p-4 bg-red-50 border-red-200 text-red-700 text-sm">{error}</div>
+        <div className="card p-4 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm">{error}</div>
     )
 
     return (
         <div className="space-y-6 max-w-4xl">
             <div>
-                <h2 className="text-xl font-semibold text-gray-900">Overview</h2>
-                <p className="text-sm text-gray-500 mt-0.5">Live system snapshot</p>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Overview</h2>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Live system snapshot</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -57,23 +57,23 @@ export default function OverviewPage() {
 
             {stats?.orgs && stats.orgs.length > 0 && (
                 <div className="card overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-100">
-                        <h3 className="font-semibold text-gray-800">Active Organisations</h3>
+                    <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-800">
+                        <h3 className="font-semibold text-gray-800 dark:text-slate-200">Active Organisations</h3>
                     </div>
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+                        <thead className="bg-gray-50 dark:bg-slate-800/60 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-wide">
                             <tr>
                                 <th className="px-5 py-3 text-left">Org</th>
                                 <th className="px-5 py-3 text-right">Waiting</th>
                                 <th className="px-5 py-3 text-right">Assigned</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                             {stats.orgs.map(o => (
-                                <tr key={o.org_id} className="hover:bg-gray-50">
-                                    <td className="px-5 py-3 font-medium text-gray-900">{o.org_name || o.org_id}</td>
-                                    <td className="px-5 py-3 text-right text-amber-600">{o.waiting}</td>
-                                    <td className="px-5 py-3 text-right text-green-600">{o.assigned}</td>
+                                <tr key={o.org_id} className="hover:bg-gray-50 hover:dark:bg-slate-800/60">
+                                    <td className="px-5 py-3 font-medium text-gray-900 dark:text-slate-100">{o.org_name || o.org_id}</td>
+                                    <td className="px-5 py-3 text-right text-amber-600 dark:text-amber-400">{o.waiting}</td>
+                                    <td className="px-5 py-3 text-right text-green-600 dark:text-emerald-400">{o.assigned}</td>
                                 </tr>
                             ))}
                         </tbody>

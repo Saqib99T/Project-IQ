@@ -15,6 +15,22 @@ import OperatorsPage from './admin/OperatorsPage'
 import OrgsPage from './admin/OrgsPage'
 import HistoryPage from './admin/HistoryPage'
 import UsersPage from './admin/UsersPage'
+import ConfigPage from './admin/ConfigPage'
+import KnowledgeBasePage from './admin/KnowledgeBasePage'
+import StudioPage from './admin/StudioPage'
+import IntegrationPage from './admin/IntegrationPage'
+import ThemesPage from './admin/ThemesPage'
+import FirecrawlPage from './admin/FirecrawlPage'
+import ObservabilityPage from './admin/ObservabilityPage'
+import InspectorPage from './admin/InspectorPage'
+import RoutingRulesPage from './admin/RoutingRulesPage'
+import LiveMonitorPage from './admin/LiveMonitorPage'
+import ItsmLayout from './admin/itsm/ItsmLayout'
+import ItsmTicketsPage from './admin/itsm/ItsmTicketsPage'
+import ItsmTicketDetailPage from './admin/itsm/ItsmTicketDetailPage'
+import ItsmAssetsPage from './admin/itsm/ItsmAssetsPage'
+import ItsmKnowledgeBasePage from './admin/itsm/ItsmKnowledgeBasePage'
+import ItsmReportsPage from './admin/itsm/ItsmReportsPage'
 import MemberChatPage from './member/ChatPage'
 
 export default function App() {
@@ -49,17 +65,41 @@ export default function App() {
                         <AdminLayout />
                     </AuthGuard>
                 }>
+                    {/* All admins */}
                     <Route index                element={<OverviewPage />} />
                     <Route path="analytics"     element={<AnalyticsPage />} />
                     <Route path="operators"     element={<OperatorsPage />} />
                     <Route path="orgs"          element={<OrgsPage />} />
                     <Route path="history"       element={<HistoryPage />} />
                     <Route path="users"         element={<UsersPage />} />
+
+                    {/* ITSM — tenant-scoped for org admins, all-tenant for super_admin */}
+                    <Route path="itsm" element={<ItsmLayout />}>
+                        <Route index                    element={<ItsmTicketsPage />} />
+                        <Route path="tickets/:ticketId" element={<ItsmTicketDetailPage />} />
+                        <Route path="assets"            element={<ItsmAssetsPage />} />
+                        <Route path="kb"                element={<ItsmKnowledgeBasePage />} />
+                        <Route path="reports"           element={<ItsmReportsPage />} />
+                    </Route>
+
+                    {/* Shared admin + operator routes */}
+                    <Route path="monitor"       element={<AuthGuard roles={['Operator', 'Admin', 'super_admin']}><LiveMonitorPage /></AuthGuard>} />
+
+                    {/* Platform routes — super_admin only */}
+                    <Route path="config"        element={<AuthGuard roles={['super_admin']}><ConfigPage /></AuthGuard>} />
+                    <Route path="kb"            element={<AuthGuard roles={['super_admin']}><KnowledgeBasePage /></AuthGuard>} />
+                    <Route path="studio"        element={<AuthGuard roles={['super_admin']}><StudioPage /></AuthGuard>} />
+                    <Route path="integration"   element={<AuthGuard roles={['super_admin']}><IntegrationPage /></AuthGuard>} />
+                    <Route path="themes"        element={<AuthGuard roles={['super_admin']}><ThemesPage /></AuthGuard>} />
+                    <Route path="firecrawl"     element={<AuthGuard roles={['super_admin']}><FirecrawlPage /></AuthGuard>} />
+                    <Route path="observability" element={<AuthGuard roles={['super_admin']}><ObservabilityPage /></AuthGuard>} />
+                    <Route path="inspector"     element={<AuthGuard roles={['super_admin']}><InspectorPage /></AuthGuard>} />
+                    <Route path="routing"       element={<AuthGuard roles={['super_admin']}><RoutingRulesPage /></AuthGuard>} />
                 </Route>
 
-                {/* Member section */}
+                {/* Chatbot — Member, User and Bot roles get full access (plus staff). */}
                 <Route path="/chat" element={
-                    <AuthGuard roles={['Member', 'Operator', 'Admin', 'super_admin']}>
+                    <AuthGuard roles={['Member', 'User', 'Bot', 'Operator', 'Admin', 'super_admin']}>
                         <MemberChatPage />
                     </AuthGuard>
                 } />

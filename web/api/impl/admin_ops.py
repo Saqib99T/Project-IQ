@@ -166,6 +166,7 @@ def get_routing_rules():
                 if r.get('created_at'):
                     r['created_at'] = r['created_at'].isoformat()
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True, 'rules': rules, 'count': len(rules)})
     except Exception as e:
@@ -201,6 +202,7 @@ def create_routing_rule():
             new_id = cursor.fetchone()['id']
             conn.commit()
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True, 'rule_id': new_id}), 201
     except Exception as e:
@@ -227,6 +229,7 @@ def update_routing_rule(rule_id):
             if cursor.rowcount == 0:
                 return jsonify({'error': 'Rule not found'}), 404
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True})
     except Exception as e:
@@ -245,6 +248,7 @@ def delete_routing_rule(rule_id):
             if cursor.rowcount == 0:
                 return jsonify({'error': 'Rule not found'}), 404
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True})
     except Exception as e:
@@ -297,6 +301,7 @@ def admin_force_handoff():
             )
             row = cursor.fetchone()
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         if not row:
@@ -467,6 +472,7 @@ def handoff_analytics():
             csat_dist = [dict(r) for r in cur.fetchall()]
 
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         return jsonify({
@@ -646,6 +652,7 @@ def list_client_users():
             """)
             conv_stats = {r['user_name']: r for r in cur.fetchall()}
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         # ── 3. Fetch GLPI users ────────────────────────────────────────────

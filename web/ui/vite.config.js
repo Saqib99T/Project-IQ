@@ -18,5 +18,13 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    proxy: {
+      '/webhooks':     'http://127.0.0.1:8181',
+      '/api':          'http://127.0.0.1:8181',
+      '/handoff':      'http://127.0.0.1:8181',
+      '/notifications':'http://127.0.0.1:8181',
+      '/admin':        'http://127.0.0.1:8181',
+      '/socket.io':    { target: 'http://127.0.0.1:8181', ws: true },
+    },
   },
 })

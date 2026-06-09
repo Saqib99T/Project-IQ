@@ -1,0 +1,189 @@
+import { useState, useEffect } from 'react'
+import { useApi } from '../useApi'
+
+function JobRow({ job }) {
+    const statusColor = {
+        completed: 'bg-green-100 dark:bg-emerald-500/10 text-green-700 dark:text-emerald-400',
+        running:   'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400',
+        failed:    'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400',
+        pending:   'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    }
+    return (
+        <div className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 hover:dark:bg-slate-800/60">
+            <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-900 dark:text-slate-100 truncate">{job.url || job.base_url || '—'}</p>
+                <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+                    {job.started_at ? new Date(job.started_at).toLocaleString() : ''} · {job.pages_scraped ?? job.pages ?? '?'} pages
+                </p>
+            </div>
+            <span className={`badge ml-3 ${statusColor[job.status] || 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300'}`}>{job.status}</span>
+        </div>
+    )
+}
+
+export default function FirecrawlPage() {
+    const { call } = useApi()
+    const [config, setConfig]     = useState(null)
+    const [jobs, setJobs]         = useState([])
+    const [tab, setTab]           = useState('scrape') // 'scrape' | 'crawl' | 'batch' | 'config'
+    const [loading, setLoading]   = useState(true)
+    const [running, setRunning]   = useState(false)
+    const [result, setResult]     = useState(null)
+    const [error, setError]       = useState(null)
+
+    // Scrape
+    const [scrapeUrl, setScrapeUrl] = useState('')
+    // Crawl
+    const [crawlUrl, setCrawlUrl]   = useState('')
+    const [maxPages, setMaxPages]   = useState('20')
+    // Batch
+    const [batchUrls, setBatchUrls] = useState('')
+    // Config
+    const [configForm, setConfigForm] = useState({})
+
+    useEffect(() => {
+        Promise.all([
+            call('/admin/firecrawl/config').then(d => { setConfig(d); setConfigForm(d || {}) }),
+            call('/admin/firecrawl/crawl-jobs').then(d => setJobs(d?.jobs || d || [])),
+        ]).catch(e => setError(e.message))
+          .finally(() => setLoading(false))
+    }, [call])
+
+    const run = async (action, body) => {
+        setRunning(true); setResult(null); setError(null)
+        try {
+            const d = await call(action, { method: 'POST', body: JSON.stringify(body) })
+            setResult(d)
+            const fresh = await call('/admin/firecrawl/crawl-jobs')
+            setJobs(fresh?.jobs || fresh || [])
+        } catch (e) {
+            setError(e.message)
+        } finally {
+            setRunning(false)
+        }
+    }
+
+    const saveConfig = async () => {
+        setRunning(true)
+        try {
+            await call('/admin/firecrawl/config', { method: 'POST', body: JSON.stringify(configForm) })
+            setResult({ message: 'Config saved' })
+        } catch (e) {
+            setError(e.message)
+        } finally {
+            setRunning(false)
+        }
+    }
+
+    if (loading) return (
+        <div className="flex justify-center py-16">
+            <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+    )
+
+    const tabs = ['scrape', 'crawl', 'batch', 'config']
+
+    return (
+        <div className="max-w-4xl space-y-6">
+            <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Firecrawl</h2>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Scrape and crawl web pages to add to the knowledge base</p>
+            </div>
+
+            {error  && <div className="card p-4 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm">{error}</div>}
+            {result && <div className="card p-4 bg-green-50 dark:bg-emerald-500/10 border-green-200 dark:border-emerald-500/20 text-green-700 dark:text-emerald-400 text-sm">{result.message || JSON.stringify(result)}</div>}
+
+            <div className="flex gap-3 border-b border-gray-200 dark:border-slate-700">
+                {tabs.map(t => (
+                    <button key={t} onClick={() => setTab(t)}
+                        className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors capitalize ${
+                            tab === t ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 hover:dark:text-slate-300'
+                        }`}>
+                        {t}
+                    </button>
+                ))}
+            </div>
+
+            {tab === 'scrape' && (
+                <div className="card p-5 space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Scrape single URL</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">Scrape one page and ingest its content into the KB.</p>
+                    <div className="flex gap-2">
+                        <input value={scrapeUrl} onChange={e => setScrapeUrl(e.target.value)}
+                            placeholder="https://docs.example.com/article"
+                            className="flex-1 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40" />
+                        <button onClick={() => run('/admin/kb/ingest-url', { url: scrapeUrl })} disabled={running || !scrapeUrl}
+                            className="btn-primary">
+                            {running ? '…' : 'Scrape'}
+                        </button>
+                    </div>
+                    <button onClick={() => run('/admin/firecrawl/test', { url: scrapeUrl })} disabled={running || !scrapeUrl}
+                        className="btn-ghost border border-gray-200 dark:border-slate-700 text-xs">
+                        Test connection only
+                    </button>
+                </div>
+            )}
+
+            {tab === 'crawl' && (
+                <div className="card p-5 space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Crawl site</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">Crawl an entire site starting from a base URL and ingest all pages.</p>
+                    <div className="flex gap-2">
+                        <input value={crawlUrl} onChange={e => setCrawlUrl(e.target.value)}
+                            placeholder="https://docs.example.com"
+                            className="flex-1 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40" />
+                        <input value={maxPages} onChange={e => setMaxPages(e.target.value)}
+                            placeholder="Max pages" type="number"
+                            className="w-24 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40" />
+                        <button onClick={() => run('/admin/kb/crawl-site', { url: crawlUrl, max_pages: parseInt(maxPages) })}
+                            disabled={running || !crawlUrl} className="btn-primary">
+                            {running ? '…' : 'Crawl'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {tab === 'batch' && (
+                <div className="card p-5 space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Batch URLs</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">Enter one URL per line to ingest multiple pages at once.</p>
+                    <textarea value={batchUrls} onChange={e => setBatchUrls(e.target.value)}
+                        placeholder="https://docs.example.com/page-1&#10;https://docs.example.com/page-2"
+                        className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 resize-none h-36" />
+                    <button onClick={() => run('/admin/kb/ingest-urls', { urls: batchUrls.split('\n').map(u => u.trim()).filter(Boolean) })}
+                        disabled={running || !batchUrls.trim()} className="btn-primary">
+                        {running ? '…' : 'Ingest all'}
+                    </button>
+                </div>
+            )}
+
+            {tab === 'config' && (
+                <div className="card p-5 space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Firecrawl settings</h3>
+                    {Object.keys(configForm).map(k => (
+                        <div key={k}>
+                            <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1 font-mono">{k}</label>
+                            <input value={configForm[k] ?? ''} onChange={e => setConfigForm(p => ({ ...p, [k]: e.target.value }))}
+                                className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40" />
+                        </div>
+                    ))}
+                    <button onClick={saveConfig} disabled={running} className="btn-primary">
+                        {running ? 'Saving…' : 'Save config'}
+                    </button>
+                </div>
+            )}
+
+            {/* Job history */}
+            {jobs.length > 0 && (
+                <div className="card overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-800">
+                        <h3 className="font-semibold text-gray-800 dark:text-slate-200">Crawl job history</h3>
+                    </div>
+                    <div className="divide-y divide-gray-100 dark:divide-slate-800 max-h-72 overflow-y-auto">
+                        {jobs.map((j, i) => <JobRow key={i} job={j} />)}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}

@@ -116,12 +116,32 @@ def extract_iam_user(claims: dict) -> dict:
         _platform_org_id = ""
 
     is_super_admin    = "super_admin" in realm_roles
-    is_admin          = "Admin"       in client_roles
+    is_org_admin      = "org_admin"   in realm_roles
+    _client_admin     = "Admin"       in client_roles
+    # org_admin and super_admin are treated as full admins (alongside the
+    # client "Admin" role).
+    is_admin          = _client_admin or is_org_admin or is_super_admin
     is_operator       = "Operator"    in client_roles
-    is_member         = "Member"      in client_roles
+    # Member / User / Bot grant chatbot access. These low-privilege access
+    # roles may be assigned as a realm role OR on any client (not just
+    # project-iq), and casing varies between environments — so match
+    # case-insensitively across every role the token carries, rather than
+    # requiring an exact-case "Bot" on the project-iq client.
+    _access_role_names = {r.lower() for r in realm_roles}
+    for _cid, _v in resource_access.items():
+        if isinstance(_v, dict):
+            _access_role_names.update(r.lower() for r in _v.get("roles", []))
+    is_member         = "member" in _access_role_names
+    # User and Bot roles also get full chatbot access (alongside Member).
+    is_user           = "user"   in _access_role_names
+    is_bot            = "bot"     in _access_role_names
 
-    # is_platform_admin: 99Tech staff with super_admin OR Admin in the platform org
-    is_platform_admin = is_super_admin or (is_admin and org_id == _platform_org_id and bool(_platform_org_id))
+    # is_platform_admin: 99Tech staff — super_admin anywhere, or admin/org_admin
+    # within the platform org. (A customer-org admin/org_admin is a tenant admin,
+    # NOT a cross-tenant platform admin.)
+    is_platform_admin = is_super_admin or (
+        (_client_admin or is_org_admin) and org_id == _platform_org_id and bool(_platform_org_id)
+    )
     is_client_admin   = is_admin and not is_platform_admin
 
     # Product-specific operator roles e.g. "AccountWise-Operator" → "accountwise-support"
@@ -149,6 +169,8 @@ def extract_iam_user(claims: dict) -> dict:
         "is_admin":           is_admin,
         "is_operator":        is_operator,
         "is_member":          is_member,
+        "is_user":            is_user,
+        "is_bot":             is_bot,
         "is_super_admin":     is_super_admin,
         "is_org_admin":       "org_admin" in realm_roles,
         "is_platform_admin":  is_platform_admin,
@@ -213,6 +235,59 @@ def _get_admin_token() -> str:
         _admin_tok['token'] = tok['access_token']
         _admin_tok['exp']   = now + tok.get('expires_in', 300)
         return _admin_tok['token']
+
+
+# ── KB bot / service-account token ────────────────────────────────────────────
+# Lets background processes (e.g. KBCacheManager's refresh thread, which has
+# no logged-in user to forward a JWT from) call itsm-service as a tenant user.
+#
+# Requires a dedicated Keycloak client (client_credentials grant) whose
+# service-account user has IAM role "bot" — itsm-service maps that to the
+# tenant role "service_account" (see app/auth/dependencies.py
+# _IAM_TO_TENANT_ROLE) and resolves the tenant from the token's org_id claim.
+# Configure via KB_BOT_CLIENT_ID / KB_BOT_CLIENT_SECRET (see get_kb_bot_config).
+
+_kb_bot_tok: dict = {'token': None, 'exp': 0.0}
+_kb_bot_tok_lock  = threading.Lock()
+
+
+def get_kb_bot_token() -> Optional[str]:
+    """Return a cached itsm-service access token for the KB bot service account.
+
+    Returns None (never raises) when the bot client isn't configured or the
+    token request fails — callers should treat that as "itsm-service KB
+    sourcing unavailable" and fall back gracefully.
+    """
+    import requests as _req
+    from common.config_manager import get_kb_bot_config
+
+    bot_cfg = get_kb_bot_config()
+    if not bot_cfg.get('client_id') or not bot_cfg.get('client_secret'):
+        return None
+
+    now = time.time()
+    with _kb_bot_tok_lock:
+        if _kb_bot_tok['token'] and now < _kb_bot_tok['exp'] - 30:
+            return _kb_bot_tok['token']
+        try:
+            cfg = _get_iam_cfg()
+            resp = _req.post(
+                f"{cfg['keycloak_url']}/realms/{cfg['realm']}/protocol/openid-connect/token",
+                data={
+                    'grant_type':    'client_credentials',
+                    'client_id':     bot_cfg['client_id'],
+                    'client_secret': bot_cfg['client_secret'],
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            tok = resp.json()
+            _kb_bot_tok['token'] = tok['access_token']
+            _kb_bot_tok['exp']   = now + tok.get('expires_in', 300)
+            return _kb_bot_tok['token']
+        except Exception as e:
+            logger.warning(f"KB bot token request failed: {e}")
+            return None
 
 
 def _iam_admin(method: str, path: str, json=None, params=None, expected_status=None):

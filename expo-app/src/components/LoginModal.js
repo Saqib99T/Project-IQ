@@ -1,21 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME, APP_TITLE } from '../config';
 
-const LoginModal = ({ visible, onClose, onLogin, onIamLogin, isLoading, error }) => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-
-    const handleSubmit = () => {
-        if (username.trim() && password.trim()) {
-            onLogin(username.trim(), password.trim());
-        }
-    };
-
+const LoginModal = ({ visible, onClose, onIamLogin }) => {
     const handleClose = () => {
-        setUsername('');
-        setPassword('');
         onClose();
     };
 
@@ -26,76 +15,24 @@ const LoginModal = ({ visible, onClose, onLogin, onIamLogin, isLoading, error })
                     <View style={styles.card}>
                     {/* Header */}
                     <View style={styles.header}>
-                        <Text style={styles.headerText}>🔐 Login to {APP_TITLE}</Text>
+                        <Text style={styles.headerText}>🔐 Sign in to {APP_TITLE}</Text>
                         <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
                             <Ionicons name="close-circle" size={24} color="rgba(255,255,255,0.7)" />
                         </TouchableOpacity>
                     </View>
 
-                    {/* Form */}
+                    {/* Single sign-on only — no passwords stored or handled here */}
                     <View style={styles.form}>
+                        <Text style={styles.subtitle}>Use your Project IQ account to continue.</Text>
                         {onIamLogin && (
-                            <>
-                                <TouchableOpacity style={styles.iamBtn} onPress={() => { handleClose(); onIamLogin(); }}>
-                                    <Ionicons name="key-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-                                    <Text style={styles.iamText}>Sign in with IAM</Text>
-                                </TouchableOpacity>
-                                <View style={styles.dividerRow}>
-                                    <View style={styles.dividerLine} />
-                                    <Text style={styles.dividerLabel}>or</Text>
-                                    <View style={styles.dividerLine} />
-                                </View>
-                            </>
+                            <TouchableOpacity style={styles.iamBtn} onPress={() => { handleClose(); onIamLogin(); }}>
+                                <Ionicons name="key-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                                <Text style={styles.iamText}>Sign in with IAM</Text>
+                            </TouchableOpacity>
                         )}
-                        <Text style={styles.label}>Username</Text>
-                        <View style={styles.inputRow}>
-                            <Ionicons name="person-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                value={username}
-                                onChangeText={setUsername}
-                                placeholder="Username"
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                                editable={!isLoading}
-                            />
-                        </View>
-
-                        <Text style={[styles.label, { marginTop: 16 }]}>Password</Text>
-                        <View style={styles.inputRow}>
-                            <Ionicons name="lock-closed-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                value={password}
-                                onChangeText={setPassword}
-                                placeholder="Password"
-                                secureTextEntry
-                                editable={!isLoading}
-                            />
-                        </View>
-
-                        {error ? (
-                            <View style={styles.errorBox}>
-                                <Text style={styles.errorText}>❌ {error}</Text>
-                            </View>
-                        ) : null}
-
-                        <View style={styles.btnRow}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={handleClose}>
-                                <Text style={styles.cancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.loginBtn, isLoading && styles.disabledBtn]}
-                                onPress={handleSubmit}
-                                disabled={isLoading}
-                            >
-                                {isLoading ? (
-                                    <ActivityIndicator color="#fff" size="small" />
-                                ) : (
-                                    <Text style={styles.loginText}>Login</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity style={styles.cancelBtn} onPress={handleClose}>
+                            <Text style={styles.cancelText}>Cancel</Text>
+                        </TouchableOpacity>
                         </View>
                     </View>
                 </ScrollView>
@@ -133,6 +70,7 @@ const styles = StyleSheet.create({
     headerText: { color: '#ffffff', fontSize: 17, fontWeight: '700' },
     closeBtn: { padding: 4 },
     form: { padding: 20 },
+    subtitle: { fontSize: 14, color: '#6b7280', marginBottom: 16, textAlign: 'center' },
     label: { fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 6 },
     inputRow: {
         flexDirection: 'row',
@@ -161,7 +99,7 @@ const styles = StyleSheet.create({
     errorText: { color: '#dc2626', fontSize: 14 },
     btnRow: { flexDirection: 'row', gap: 12, marginTop: 20 },
     cancelBtn: {
-        flex: 1,
+        marginTop: 12,
         paddingVertical: 14,
         backgroundColor: '#f3f4f6',
         borderRadius: 12,

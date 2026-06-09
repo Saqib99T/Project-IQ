@@ -78,6 +78,7 @@ def portal_queue(**kwargs):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)
 
 
@@ -370,6 +371,7 @@ def portal_sessions(**kwargs):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)
 
 
@@ -436,10 +438,39 @@ def portal_conversation(conversation_id, **kwargs):
         except Exception:
             pass  # operator_messages table may not exist in all envs
 
-        return jsonify({'messages': msgs, 'conversation_id': conversation_id})
+        # Context & Info meta for the right-hand panel (Context, AI Summary, etc.)
+        meta = None
+        try:
+            cur.execute(
+                """
+                SELECT hq.id AS queue_id, hq.sender_id, hq.app_id, hq.priority,
+                       hq.trigger_reason, hq.status, hq.queued_at, hq.assigned_at,
+                       hq.user_org_id, hq.support_org_id, hq.product_id, hq.channel,
+                       hq.context_package,
+                       EXTRACT(EPOCH FROM (NOW() - hq.queued_at))::INT AS waiting_secs
+                FROM handoff_queue hq
+                WHERE hq.conversation_id = %s
+                ORDER BY hq.id DESC LIMIT 1
+                """,
+                (conversation_id,),
+            )
+            mrow = cur.fetchone()
+            if mrow:
+                m = dict(mrow)
+                ctx = m.pop('context_package', None) or {}
+                m['ai_summary'] = ctx.get('ai_summary') if isinstance(ctx, dict) else None
+                for k in ('queued_at', 'assigned_at'):
+                    if m.get(k):
+                        m[k] = m[k].isoformat()
+                meta = m
+        except Exception:
+            meta = None
+
+        return jsonify({'messages': msgs, 'meta': meta, 'conversation_id': conversation_id})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)
 
 
@@ -527,6 +558,306 @@ def portal_chat_send(**kwargs):
         _release_connection(conn)
 
 
+# ── Operator: AI draft (Suggest reply) ────────────────────────────────────────
+
+@bp.route('/ai-draft', methods=['POST'])
+@_s.require_iam_token
+def portal_ai_draft(**kwargs):
+    """Generate a suggested reply by asking the bot the user's last message."""
+    import requests as _req
+    from common.conversation_db import _get_connection, _release_connection
+    from psycopg2.extras import RealDictCursor
+
+    user  = g.iam_user
+    op_id = _get_or_create_portal_operator(
+        iam_sub=user.get('sub', ''), name=user.get('name', ''),
+        email=user.get('email', ''), org_id=user.get('org_id', ''),
+    )
+
+    data            = request.get_json(silent=True) or {}
+    conversation_id = data.get('conversation_id')
+    if not conversation_id:
+        return jsonify({'error': 'conversation_id required'}), 400
+
+    conn = _get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        if not (g.is_platform_admin or g.is_client_admin):
+            cur.execute(
+                "SELECT id FROM handoff_queue "
+                "WHERE conversation_id = %s AND operator_id = %s AND status = 'assigned'",
+                (conversation_id, op_id),
+            )
+            if not cur.fetchone():
+                return jsonify({'error': 'Not assigned to this conversation'}), 403
+
+        cur.execute(
+            "SELECT m.text, c.sender_id FROM messages m "
+            "JOIN conversations c ON c.id = m.conversation_id "
+            "WHERE m.conversation_id = %s AND m.sender = 'user' "
+            "ORDER BY m.timestamp DESC LIMIT 1",
+            (conversation_id,),
+        )
+        row = cur.fetchone()
+    finally:
+        conn.rollback()
+        _release_connection(conn)
+
+    if not row or not row['text']:
+        return jsonify({'draft': '', 'no_message': True})
+
+    last_user_msg = row['text']
+    sender_id     = row['sender_id']
+
+    user_session_token = None
+    try:
+        tr = _req.get(f"{_s.RASA_URL}/conversations/{sender_id}/tracker", timeout=3)
+        if tr.ok:
+            td = tr.json()
+            user_session_token = td.get('slots', {}).get('session_token')
+            if not user_session_token:
+                meta = (td.get('latest_message') or {}).get('metadata') or {}
+                user_session_token = meta.get('session_token')
+    except Exception:
+        pass
+
+    draft_sender = f"__draft__{conversation_id}"
+    try:
+        resp = _req.post(
+            f"{_s.RASA_URL}/webhooks/rest/webhook",
+            json={'sender': draft_sender, 'message': last_user_msg,
+                  'metadata': {'session_token': user_session_token} if user_session_token else {}},
+            timeout=8,
+        )
+        resp.raise_for_status()
+        _skip = ("I'm not sure I understand", "I didn't quite get that", "Login Required",
+                 "🔐", "please login", "log in", "To perform ticket")
+        filtered = []
+        for r in resp.json():
+            txt = (r.get('text') or '').strip()
+            if not txt or any(s.lower() in txt.lower() for s in _skip):
+                continue
+            filtered.append(txt)
+        draft_text = ' '.join(filtered).strip()
+    except Exception:
+        draft_text = ''
+
+    return jsonify({'draft': draft_text, 'source_message': last_user_msg})
+
+
+# ── Operator: user interaction history ─────────────────────────────────────────
+
+@bp.route('/user-history/<path:sender_id>', methods=['GET'])
+@_s.require_iam_token
+def portal_user_history(sender_id, **kwargs):
+    """Past handoff sessions for this user (Interaction History panel)."""
+    import re
+    from common.conversation_db import _get_connection, _release_connection
+    from psycopg2.extras import RealDictCursor
+
+    limit = min(int(request.args.get('limit', 11)), 25)
+
+    parts = sender_id.split('-')
+    if len(parts) >= 3 and parts[0] == 'user':
+        app_id_part = parts[1]
+        remaining   = parts[2:]
+        if len(remaining) > 1 and re.match(r'^[0-9a-z]{6,12}$', remaining[-1]):
+            username_parts = remaining[:-1]
+        else:
+            username_parts = remaining
+        sender_pattern = f"user-{app_id_part}-{'-'.join(username_parts)}%"
+        use_pattern    = True
+    else:
+        sender_pattern = sender_id
+        use_pattern    = False
+
+    conn = _get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        where_clause = "c.sender_id LIKE %s" if use_pattern else "c.sender_id = %s"
+        cur.execute(
+            f"""
+            SELECT hq.id AS queue_id, hq.conversation_id, hq.status AS handoff_status,
+                   hq.queued_at, hq.resolved_at, hq.abandoned_at, hq.trigger_reason,
+                   hq.closing_note, c.app_id, c.sender_id,
+                   (SELECT text FROM messages
+                     WHERE conversation_id = c.id AND sender = 'user'
+                       AND timestamp >= hq.queued_at
+                     ORDER BY timestamp ASC LIMIT 1) AS first_user_msg
+            FROM handoff_queue hq
+            JOIN conversations c ON c.id = hq.conversation_id
+            WHERE {where_clause}
+            ORDER BY hq.queued_at DESC NULLS LAST
+            LIMIT %s
+            """,
+            (sender_pattern, limit),
+        )
+        rows = cur.fetchall()
+    finally:
+        conn.rollback()
+        _release_connection(conn)
+
+    history = []
+    for r in rows:
+        history.append({
+            'queue_id':        r['queue_id'],
+            'conversation_id': r['conversation_id'],
+            'app_id':          r['app_id'] or 'General',
+            'handoff_status':  r['handoff_status'],
+            'queued_at':       r['queued_at'].isoformat() if r['queued_at'] else None,
+            'resolved_at':     r['resolved_at'].isoformat() if r['resolved_at'] else None,
+            'trigger_reason':  r['trigger_reason'],
+            'closing_note':    r['closing_note'],
+            'first_user_msg':  (r['first_user_msg'] or '')[:120],
+        })
+    return jsonify({'history': history, 'count': len(history)})
+
+
+# ── Operator: transfer ─────────────────────────────────────────────────────────
+
+@bp.route('/operators/online', methods=['GET'])
+@_s.require_iam_token
+def portal_operators_online(**kwargs):
+    """Online operators (excluding self) for the transfer picker."""
+    from common.conversation_db import _get_connection, _release_connection
+    from psycopg2.extras import RealDictCursor
+
+    user  = g.iam_user
+    op_id = _get_or_create_portal_operator(
+        iam_sub=user.get('sub', ''), name=user.get('name', ''),
+        email=user.get('email', ''), org_id=user.get('org_id', ''),
+    )
+    conn = _get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(
+            """
+            SELECT id, display_name, status,
+                   (SELECT COUNT(*) FROM handoff_queue hq
+                    WHERE hq.operator_id = o.id AND hq.status = 'assigned') AS current_load,
+                   max_concurrent
+            FROM operators o
+            WHERE is_active = TRUE AND status != 'offline'
+              AND (last_seen IS NULL OR EXTRACT(EPOCH FROM (NOW() - last_seen)) < 300)
+              AND id != %s
+            ORDER BY display_name
+            """,
+            (op_id,),
+        )
+        ops = [dict(r) for r in cur.fetchall()]
+        for o in ops:
+            if o.get('last_seen'):
+                o['last_seen'] = o['last_seen'].isoformat()
+        return jsonify({'operators': ops})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.rollback()
+        _release_connection(conn)
+
+
+@bp.route('/queue/transfer', methods=['POST'])
+@_s.require_iam_token
+def portal_queue_transfer(**kwargs):
+    """Transfer an assigned session to another online operator."""
+    from common.conversation_db import _get_connection, _release_connection
+    from psycopg2.extras import RealDictCursor
+
+    user  = g.iam_user
+    op_id = _get_or_create_portal_operator(
+        iam_sub=user.get('sub', ''), name=user.get('name', ''),
+        email=user.get('email', ''), org_id=user.get('org_id', ''),
+    )
+
+    data            = request.get_json(silent=True) or {}
+    conversation_id = data.get('conversation_id')
+    target_op_id    = data.get('target_operator_id')
+    if not conversation_id or not target_op_id:
+        return jsonify({'error': 'conversation_id and target_operator_id required'}), 400
+
+    conn = _get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        # Reassign directly (portal transfer is immediate, not request/accept).
+        cur.execute(
+            """
+            UPDATE handoff_queue
+               SET operator_id = %s, assigned_at = NOW()
+             WHERE conversation_id = %s AND operator_id = %s AND status = 'assigned'
+            RETURNING id AS queue_id, conversation_id, sender_id
+            """,
+            (target_op_id, conversation_id, op_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            return jsonify({'error': 'Not found or not assigned to you'}), 409
+        cur.execute(
+            "UPDATE conversations SET assigned_operator_id = %s WHERE id = %s",
+            (target_op_id, conversation_id),
+        )
+        cur.execute(
+            "INSERT INTO handoff_state_log "
+            "(conversation_id, from_state, to_state, triggered_by, triggered_by_id, note) "
+            "VALUES (%s, 'assigned', 'assigned', 'operator', %s, %s)",
+            (conversation_id, str(op_id), f'Transferred from operator {op_id}'),
+        )
+        cur.execute("SELECT display_name FROM operators WHERE id = %s", (target_op_id,))
+        tgt = cur.fetchone()
+        conn.commit()
+
+        target_name = (tgt or {}).get('display_name', 'an agent')
+        _s.emit_to_operator(target_op_id, 'session_assigned', {
+            'conversation_id': row['conversation_id'], 'queue_id': row['queue_id'],
+            'sender_id': row['sender_id'],
+        })
+        _s.emit_to_user(row['sender_id'], 'handoff_assigned', {
+            'conversation_id': row['conversation_id'],
+            'operator_name': target_name,
+            'message': f'✅ You have been transferred to {target_name}.',
+        })
+        _s.sio.emit('queue_item_updated',
+                    {'queue_id': row['queue_id'], 'status': 'assigned'}, room='queue_overview')
+        _s.emit_queue_overview()
+        return jsonify({'success': True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        _release_connection(conn)
+
+
+# ── Operator: presence heartbeat ───────────────────────────────────────────────
+
+@bp.route('/heartbeat', methods=['POST'])
+@_s.require_iam_token
+def portal_heartbeat(**kwargs):
+    """Keep the calling operator's last_seen fresh so they stay routable."""
+    from common.conversation_db import _get_connection, _release_connection
+    from psycopg2.extras import RealDictCursor
+
+    user  = g.iam_user
+    op_id = _get_or_create_portal_operator(
+        iam_sub=user.get('sub', ''), name=user.get('name', ''),
+        email=user.get('email', ''), org_id=user.get('org_id', ''),
+    )
+    conn = _get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(
+            "UPDATE operators SET last_seen = NOW(), "
+            "status = CASE WHEN status = 'away' THEN 'away' ELSE 'available' END "
+            "WHERE id = %s",
+            (op_id,),
+        )
+        conn.commit()
+        return jsonify({'success': True, 'op_id': op_id})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        _release_connection(conn)
+
+
 # ── Stats (admin) ─────────────────────────────────────────────────────────────
 
 @bp.route('/stats', methods=['GET'])
@@ -587,6 +918,7 @@ def portal_stats(**kwargs):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)
 
 
@@ -659,6 +991,7 @@ def portal_admin_analytics(**kwargs):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)
 
 
@@ -710,6 +1043,7 @@ def portal_admin_operators(**kwargs):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)
 
 
@@ -773,6 +1107,7 @@ def portal_admin_orgs(**kwargs):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)
 
 
@@ -850,12 +1185,15 @@ def portal_admin_history(**kwargs):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)
 
 
 # ── Admin: User management (IAM) ─────────────────────────────────────────────
 
-ALLOWED_CLIENT_ROLES = {'Member', 'Operator', 'Admin'}
+# Assignable project-iq client roles. User/Bot grant chatbot access (see the
+# chatbot access gate); Member/Operator/Admin are the portal/ITSM roles.
+ALLOWED_CLIENT_ROLES = {'Member', 'User', 'Bot', 'Operator', 'Admin'}
 
 
 def _check_admin_or_403():

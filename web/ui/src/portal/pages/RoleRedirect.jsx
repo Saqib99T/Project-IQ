@@ -11,7 +11,8 @@ export default function RoleRedirect() {
 
     if (realm.includes('super_admin') || r.includes('Admin')) return <Navigate to="/admin" replace />
     if (r.includes('Operator'))                                  return <Navigate to="/operator" replace />
-    if (r.includes('Member'))                                    return <Navigate to="/chat" replace />
+    // Member, User and Bot roles all get full chatbot access.
+    if (r.includes('Member') || r.includes('User') || r.includes('Bot')) return <Navigate to="/chat" replace />
 
     // No recognised portal role — show access denied
     return <Navigate to="/no-access" replace />

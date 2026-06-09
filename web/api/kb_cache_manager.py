@@ -144,7 +144,50 @@ class KBCacheManager:
                 self.refresh_cache()
 
     async def refresh_cache_async(self) -> bool:
-        """Fetch KB articles from GLPI and update cache (Async)."""
+        """Fetch KB articles and rebuild the cache (Async).
+
+        Source priority:
+          1. itsm-service — the new KB backend (requires the KB bot service
+             account to be configured; see common.iam_service.get_kb_bot_token)
+          2. GLPI — legacy source, used as a transitional fallback until the
+             bot client is provisioned
+          3. JSON/DB fallback (existing behaviour, unchanged)
+        """
+        try:
+            itsm_articles = None
+            try:
+                itsm_articles = await self._fetch_from_itsm_service()
+            except Exception as e:
+                logger.warning(f"itsm-service KB fetch failed, will try GLPI: {e}")
+
+            if itsm_articles is not None:
+                if not itsm_articles:
+                    logger.warning("itsm-service returned no KB articles")
+                    if not self._cache and self.fallback_to_json:
+                        logger.info("Cache empty, falling back to JSON")
+                        self._load_json_fallback()
+                    return False
+
+                transformed = self._transform_itsm_articles(itsm_articles)
+                self._apply_transformed_cache(transformed)
+                logger.info(f"KB cache refreshed from itsm-service: {len(transformed)} articles loaded")
+                return True
+
+            logger.info("KB bot service account not configured — sourcing KB from GLPI")
+            return await self._refresh_from_glpi_async()
+
+        except Exception as e:
+            logger.error(f"KB cache refresh failed: {e}")
+
+            # Fallback to JSON if cache is empty
+            if self.fallback_to_json and not self._cache:
+                logger.warning("Falling back to JSON KB files")
+                self._load_json_fallback()
+
+            return False
+
+    async def _refresh_from_glpi_async(self) -> bool:
+        """Fetch KB articles from GLPI and update cache (legacy/transitional source)."""
         try:
             logger.info("Refreshing KB cache from GLPI...")
 
@@ -177,46 +220,15 @@ class KBCacheManager:
 
                 # Transform to unified format
                 transformed = self._transform_articles(articles)
-
-                # Generate embeddings if semantic search enabled
-                if self.semantic_enabled and transformed:
-                    self._load_sentence_transformer()
-                    self._generate_embeddings(transformed)
-
-                # Build section cache and embeddings (optional)
-                if self.section_search_enabled and transformed:
-                    if self._model is None:
-                        self._load_sentence_transformer()
-                    self._build_section_cache(transformed)
-
-                # Build QA cache and embeddings (optional)
-                if self.qa_search_enabled and transformed:
-                    if self._model is None:
-                        self._load_sentence_transformer()
-                    self._build_qa_cache(transformed)
-
-                # Update cache atomically
-                with self._cache_lock:
-                    self._cache = transformed
-                    self._last_refresh = datetime.now()
-                    # Keep section cache aligned with article cache
-                    if self.section_search_enabled:
-                        self._section_cache = self._section_cache or []
-                    if self.qa_search_enabled:
-                        self._qa_cache = self._qa_cache or []
-
-                # Save embeddings cache for faster next startup
-                if self.semantic_enabled and self._embeddings is not None:
-                    self._save_embeddings_cache()
-
-                logger.info(f"KB cache refreshed: {len(transformed)} articles loaded")
+                self._apply_transformed_cache(transformed)
+                logger.info(f"KB cache refreshed from GLPI: {len(transformed)} articles loaded")
                 return True
 
             finally:
                 await glpi_service.kill_session(session_token)
 
         except Exception as e:
-            logger.error(f"KB cache refresh failed: {e}")
+            logger.error(f"GLPI KB cache refresh failed: {e}")
 
             # Fallback to JSON if cache is empty
             if self.fallback_to_json and not self._cache:
@@ -224,7 +236,125 @@ class KBCacheManager:
                 self._load_json_fallback()
 
             return False
-    
+
+    def _apply_transformed_cache(self, transformed: List[Dict]) -> None:
+        """Generate embeddings/sections/QA caches and swap the cache in atomically."""
+        # Generate embeddings if semantic search enabled
+        if self.semantic_enabled and transformed:
+            self._load_sentence_transformer()
+            self._generate_embeddings(transformed)
+
+        # Build section cache and embeddings (optional)
+        if self.section_search_enabled and transformed:
+            if self._model is None:
+                self._load_sentence_transformer()
+            self._build_section_cache(transformed)
+
+        # Build QA cache and embeddings (optional)
+        if self.qa_search_enabled and transformed:
+            if self._model is None:
+                self._load_sentence_transformer()
+            self._build_qa_cache(transformed)
+
+        # Update cache atomically
+        with self._cache_lock:
+            self._cache = transformed
+            self._last_refresh = datetime.now()
+            # Keep section cache aligned with article cache
+            if self.section_search_enabled:
+                self._section_cache = self._section_cache or []
+            if self.qa_search_enabled:
+                self._qa_cache = self._qa_cache or []
+
+        # Save embeddings cache for faster next startup
+        if self.semantic_enabled and self._embeddings is not None:
+            self._save_embeddings_cache()
+
+    async def _fetch_from_itsm_service(self) -> Optional[List[Dict]]:
+        """Fetch all published KB articles from itsm-service as the KB bot.
+
+        Returns None when the bot service account isn't configured (callers
+        should fall back to another source), or a (possibly empty) list of
+        raw itsm-service article dicts on success.
+        """
+        from common.iam_service import get_kb_bot_token
+        from common.config_manager import get_itsm_config
+        from action_server.actions.itsm_service import ITSMService
+
+        token = get_kb_bot_token()
+        if not token:
+            return None
+
+        itsm = ITSMService(get_itsm_config()['service_url'])
+
+        spaces = await itsm.list_kb_spaces(token)
+        if not spaces:
+            return []
+
+        articles: List[Dict] = []
+        seen_ids = set()
+        for space in spaces:
+            slug = space.get('slug')
+            if not slug:
+                continue
+            cursor = None
+            while True:
+                params = [("limit", "100"), ("status", "published")]
+                if cursor:
+                    params.append(("cursor", cursor))
+                result = await itsm._request(
+                    "GET", f"/api/v1/kb/spaces/{slug}/articles", token, params=params
+                )
+                if not result:
+                    break
+                items = result.get("items", []) if isinstance(result, dict) else result
+                for article in items:
+                    if article.get("id") in seen_ids:
+                        continue
+                    seen_ids.add(article.get("id"))
+                    articles.append(article)
+                cursor = result.get("next_cursor") if isinstance(result, dict) else None
+                if not cursor or not items:
+                    break
+
+        return articles
+
+    def _transform_itsm_articles(self, itsm_articles: List[Dict]) -> List[Dict]:
+        """Transform itsm-service KBArticleResponse dicts to the unified KB cache format."""
+        transformed = []
+
+        for article in itsm_articles:
+            try:
+                title = article.get('title') or 'Untitled'
+                body = article.get('body') or ''
+                excerpt = article.get('excerpt') or ''
+                keywords = self._extract_keywords(title, body, excerpt)
+
+                transformed.append({
+                    'id': f"itsm_{article['id']}",
+                    'title': title,
+                    'category': 'general',
+                    'keywords': keywords,
+                    'question': excerpt,
+                    'content': body,
+                    'video': None,
+                    'related': [],
+                    'source': 'itsm',
+                    # Not a GLPI article — no GLPI deep link applies. itsm-service
+                    # doesn't expose internal metadata (e.g. a migrated glpi_id)
+                    # via its public article responses.
+                    'glpi_id': None,
+                    'itsm_id': article.get('id'),
+                    'is_faq': False,
+                    'date_modified': article.get('updated_at', ''),
+                })
+            except Exception as e:
+                logger.error(f"Error transforming itsm article {article.get('id')}: {e}")
+                continue
+
+        return transformed
+
+
     def refresh_cache(self) -> bool:
         """Synchronous wrapper for refresh_cache_async."""
         try:

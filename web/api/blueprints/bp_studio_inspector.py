@@ -376,7 +376,9 @@ def inspector_list_conversations():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
-        if conn: _release_connection(conn)
+        if conn:
+            conn.rollback()
+            _release_connection(conn)
 
 
 def _get_existing_tables(cur):
@@ -487,7 +489,9 @@ def inspector_get_conversation_detail(sender_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
-        if conn: _release_connection(conn)
+        if conn:
+            conn.rollback()
+            _release_connection(conn)
 
 
 @bp.route('/inspector/flows', methods=['GET'])
@@ -524,7 +528,9 @@ def inspector_get_intent_stats():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
-        if conn: _release_connection(conn)
+        if conn:
+            conn.rollback()
+            _release_connection(conn)
 
 
 @bp.route('/inspector/actions', methods=['GET'])
@@ -541,7 +547,9 @@ def inspector_get_action_stats():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
-        if conn: _release_connection(conn)
+        if conn:
+            conn.rollback()
+            _release_connection(conn)
 
 
 @bp.route('/inspector/domain', methods=['GET'])
@@ -574,7 +582,9 @@ def inspector_get_operators():
     except Exception as e:
         return jsonify({"success": True, "operators": []})
     finally:
-        if conn: _release_connection(conn)
+        if conn:
+            conn.rollback()
+            _release_connection(conn)
 
 
 @bp.route('/inspector/health', methods=['GET'])

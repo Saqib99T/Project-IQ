@@ -134,18 +134,105 @@ def _room_admin_watch(conv_id) -> str:
 
 # Simple KB cache for admin panel
 class AdminKBCache:
-    """Lightweight KB cache for admin panel - loads GLPI articles at startup."""
+    """Lightweight KB cache for admin panel - loads articles at startup.
+
+    Sources from itsm-service (via the KB bot service account) when configured,
+    falling back to the legacy GLPI KB otherwise.
+    """
     def __init__(self):
         self.articles = []
         self.last_update = None
         self.is_loading = False
+        self.source = "glpi"
 
     def load_articles(self):
-        """Load articles from GLPI KB."""
+        """Load articles, preferring itsm-service over the legacy GLPI KB."""
         if self.is_loading:
             return False
 
         self.is_loading = True
+        try:
+            if self._load_from_itsm():
+                return True
+            return self._load_from_glpi()
+        finally:
+            self.is_loading = False
+
+    def _load_from_itsm(self):
+        """Load articles from itsm-service as the KB bot. Returns False to fall back."""
+        try:
+            from common.iam_service import get_kb_bot_token
+            from common.config_manager import get_itsm_config
+            from action_server.actions.itsm_service import ITSMService
+            from datetime import datetime
+
+            token = get_kb_bot_token()
+            if not token:
+                return False
+
+            async def _fetch_articles():
+                itsm = ITSMService(get_itsm_config()['service_url'])
+                spaces = await itsm.list_kb_spaces(token)
+                if not spaces:
+                    return []
+                articles = []
+                seen_ids = set()
+                for space in spaces:
+                    slug = space.get('slug')
+                    if not slug:
+                        continue
+                    cursor = None
+                    while True:
+                        params = [("limit", "100"), ("status", "published")]
+                        if cursor:
+                            params.append(("cursor", cursor))
+                        result = await itsm._request(
+                            "GET", f"/api/v1/kb/spaces/{slug}/articles", token, params=params
+                        )
+                        if not result:
+                            break
+                        items = result.get("items", []) if isinstance(result, dict) else result
+                        for article in items:
+                            if article.get("id") in seen_ids:
+                                continue
+                            seen_ids.add(article.get("id"))
+                            articles.append(article)
+                        cursor = result.get("next_cursor") if isinstance(result, dict) else None
+                        if not cursor or not items:
+                            break
+                return articles
+
+            itsm_articles = eventlet.tpool.execute(asyncio.run, _fetch_articles())
+            if not itsm_articles:
+                return False
+
+            transformed = []
+            for article in itsm_articles:
+                body = article.get('body') or ''
+                transformed.append({
+                    "id": f"itsm_{article['id']}",
+                    "title": article.get('title', 'Untitled'),
+                    "category": "general",
+                    "source": "itsm",
+                    "glpi_id": None,
+                    "itsm_id": article.get('id'),
+                    "is_faq": False,
+                    "date_modified": article.get('updated_at', ''),
+                    "question": article.get('excerpt', ''),
+                    "answer": body[:200] + '...' if body else ''
+                })
+
+            self.articles = transformed
+            self.last_update = datetime.now().isoformat()
+            self.source = "itsm"
+            print(f"[Admin KB Cache] Loaded {len(transformed)} articles from itsm-service")
+            return True
+        except Exception as e:
+            print(f"[Admin KB Cache] itsm-service load failed, falling back to GLPI: {e}")
+            return False
+
+    def _load_from_glpi(self):
+        """Load articles from the legacy GLPI KB."""
         try:
             from action_server.actions.glpi_service import GlpiService
             from common.config_manager import get_glpi_config
@@ -163,7 +250,7 @@ class AdminKBCache:
                 if not session_token:
                     print("[Admin KB Cache] Failed to connect to Project IQ")
                     return None
-                
+
                 try:
                     return await glpi_service.get_all_knowbase_items(session_token)
                 finally:
@@ -190,10 +277,9 @@ class AdminKBCache:
 
             self.articles = transformed
             self.last_update = datetime.now().isoformat()
+            self.source = "glpi"
             print(f"[Admin KB Cache] Loaded {len(transformed)} articles from Project IQ")
             return True
-
-
 
         except Exception as e:
             log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Log')
@@ -205,15 +291,13 @@ class AdminKBCache:
                 f.write(traceback.format_exc())
             print(f"[Admin KB Cache] Error loading articles: {e}")
             return False
-        finally:
-            self.is_loading = False
 
     def get_status(self):
         """Get cache status."""
         return {
             "article_count": len(self.articles),
             "last_refresh": self.last_update,
-            "source": "glpi",
+            "source": self.source,
             "glpi_connected": True
         }
 

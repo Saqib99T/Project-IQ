@@ -213,13 +213,16 @@ def system_status():
     try:
         from common.conversation_db import _get_connection, _release_connection
         conn = _get_connection()
-        cur = conn.cursor()
-        cur.execute('SELECT COUNT(*) FROM conversations')
-        conv_count = cur.fetchone()[0]
-        cur.execute('SELECT COUNT(*) FROM operators')
-        ops_count = cur.fetchone()[0]
-        cur.close()
-        _release_connection(conn)
+        try:
+            cur = conn.cursor()
+            cur.execute('SELECT COUNT(*) FROM conversations')
+            conv_count = cur.fetchone()[0]
+            cur.execute('SELECT COUNT(*) FROM operators')
+            ops_count = cur.fetchone()[0]
+            cur.close()
+        finally:
+            conn.rollback()
+            _release_connection(conn)
         pg_ok, pg_detail = True, f'{conv_count} conversations, {ops_count} operators'
     except Exception as e:
         pg_detail = str(e)[:80]
@@ -575,6 +578,7 @@ def get_system_metrics():
             error_rate = 0
         finally:
             if conn:
+                conn.rollback()
                 _release_connection(conn)
                 conn = None
 
@@ -602,6 +606,7 @@ def get_system_metrics():
     finally:
         if conn:
             try:
+                conn.rollback()
                 _release_connection(conn)
             except:
                 pass
@@ -686,6 +691,7 @@ def get_db_stats():
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
         if conn:
+            conn.rollback()
             _release_connection(conn)
 
 
@@ -836,6 +842,7 @@ def observability_metrics():
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
         if conn:
+            conn.rollback()
             _release_connection(conn)
 
 
@@ -985,52 +992,56 @@ def observability_database_stats():
                 "success": False,
                 "error": "Could not connect to database"
             })
-        
-        cursor = conn.cursor()
-        
-        # Get table sizes
-        tables = {}
-        for table in ['conversations', 'messages', 'feedback', 'actions', 'themes', 'apps']:
-            try:
-                cursor.execute(f"SELECT COUNT(*) FROM {table}")
-                tables[table] = cursor.fetchone()[0]
-            except:
-                tables[table] = 0
-        
-        # Get recent activity
-        cursor.execute("""
-            SELECT COUNT(*) FROM messages 
-            WHERE created_at > NOW() - INTERVAL '1 hour'
-        """)
-        messages_last_hour = cursor.fetchone()[0]
-        
-        cursor.execute("""
-            SELECT COUNT(*) FROM conversations 
-            WHERE created_at > NOW() - INTERVAL '24 hours'
-        """)
-        conversations_today = cursor.fetchone()[0]
-        
-        # Get average response time (from message pairs)
-        cursor.execute("""
-            WITH user_messages AS (
-                SELECT sender_id, created_at, ROW_NUMBER() OVER (PARTITION BY sender_id ORDER BY created_at) as rn
-                FROM messages WHERE role = 'user'
-            ),
-            bot_messages AS (
-                SELECT sender_id, created_at, ROW_NUMBER() OVER (PARTITION BY sender_id ORDER BY created_at) as rn
-                FROM messages WHERE role = 'assistant'
-            )
-            SELECT AVG(EXTRACT(EPOCH FROM (b.created_at - u.created_at)) * 1000)::INT as avg_ms
-            FROM user_messages u
-            JOIN bot_messages b ON u.sender_id = b.sender_id AND u.rn = b.rn
-            WHERE b.created_at > u.created_at
-            AND b.created_at - u.created_at < INTERVAL '1 minute'
-        """)
-        result = cursor.fetchone()
-        avg_response_ms = result[0] if result and result[0] else 0
-        
-        cursor.close()
-        _release_connection(conn)
+
+        try:
+            cursor = conn.cursor()
+
+            # Get table sizes
+            tables = {}
+            for table in ['conversations', 'messages', 'feedback', 'actions', 'themes', 'apps']:
+                try:
+                    cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                    tables[table] = cursor.fetchone()[0]
+                except:
+                    conn.rollback()
+                    tables[table] = 0
+
+            # Get recent activity
+            cursor.execute("""
+                SELECT COUNT(*) FROM messages
+                WHERE created_at > NOW() - INTERVAL '1 hour'
+            """)
+            messages_last_hour = cursor.fetchone()[0]
+
+            cursor.execute("""
+                SELECT COUNT(*) FROM conversations
+                WHERE created_at > NOW() - INTERVAL '24 hours'
+            """)
+            conversations_today = cursor.fetchone()[0]
+
+            # Get average response time (from message pairs)
+            cursor.execute("""
+                WITH user_messages AS (
+                    SELECT sender_id, created_at, ROW_NUMBER() OVER (PARTITION BY sender_id ORDER BY created_at) as rn
+                    FROM messages WHERE role = 'user'
+                ),
+                bot_messages AS (
+                    SELECT sender_id, created_at, ROW_NUMBER() OVER (PARTITION BY sender_id ORDER BY created_at) as rn
+                    FROM messages WHERE role = 'assistant'
+                )
+                SELECT AVG(EXTRACT(EPOCH FROM (b.created_at - u.created_at)) * 1000)::INT as avg_ms
+                FROM user_messages u
+                JOIN bot_messages b ON u.sender_id = b.sender_id AND u.rn = b.rn
+                WHERE b.created_at > u.created_at
+                AND b.created_at - u.created_at < INTERVAL '1 minute'
+            """)
+            result = cursor.fetchone()
+            avg_response_ms = result[0] if result and result[0] else 0
+
+            cursor.close()
+        finally:
+            conn.rollback()
+            _release_connection(conn)
 
         return jsonify({
             "success": True,

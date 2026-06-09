@@ -19,7 +19,7 @@ function App() {
         </p>
       </div>
 
-      <ChatWindow />
+      <ChatWindow theme={{ primaryColor: '#2563eb' }} />
     </div>
   );
 }

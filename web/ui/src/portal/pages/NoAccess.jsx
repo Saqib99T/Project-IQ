@@ -15,8 +15,8 @@ export default function NoAccess() {
                         Your account <strong>{user?.email}</strong> does not have a portal role assigned.
                     </p>
                     <p className="text-xs text-gray-400 mt-2">
-                        Contact your administrator to be assigned a Member, Operator, or Admin role
-                        on the <code className="bg-gray-100 px-1 rounded">project-iq</code> client in Keycloak.
+                        Contact your administrator to be assigned a User, Bot, Member, Operator, or Admin
+                        role on the <code className="bg-gray-100 px-1 rounded">project-iq</code> client in Keycloak.
                     </p>
                 </div>
                 <button

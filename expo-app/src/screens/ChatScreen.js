@@ -168,8 +168,6 @@ const ChatScreen = ({ navigation }) => {
     const [showProductSelector, setShowProductSelector] = useState(false);
     const [showLogin, setShowLogin] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
-    const [loginError, setLoginError] = useState('');
-    const [loginLoading, setLoginLoading] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
     const [showTicketId, setShowTicketId] = useState(false);
     const [showTicketForm, setShowTicketForm] = useState(false);
@@ -499,6 +497,7 @@ const ChatScreen = ({ navigation }) => {
             meta.iam_org_name = iam.user.organization_alias || undefined;
             meta.channel      = iam.user.organization_id ? 'internal' : undefined;
             meta.product_id   = currentAppId || undefined;
+            meta.iam_token    = iam.token || undefined;
         }
         meta.is_authenticated = !!(isAuthenticatedRef.current || iam.user);
         const headers = { 'Content-Type': 'application/json' };
@@ -678,58 +677,7 @@ const ChatScreen = ({ navigation }) => {
         }
     };
 
-    // Login
-    const handleLogin = async (username, password) => {
-        setLoginLoading(true);
-        setLoginError('');
-        try {
-            const loginPayload = `/login{"glpi_username": "${username}", "glpi_password": "${password}"}`;
-            const data = await sendToRasa(loginPayload);
-            let success = false;
-            let errMsg = 'Login failed. Please check your credentials.';
-            let sessionToken = null;
-            for (const msg of data) {
-                if (msg.custom?.login_success) { success = true; sessionToken = msg.custom.session_token || null; break; }
-                if (msg.custom?.login_error) { errMsg = msg.custom.error || errMsg; break; }
-                if (msg.text?.includes('Welcome')) success = true;
-                if (msg.text?.includes('failed')) errMsg = msg.text;
-            }
-            if (success) {
-                sessionTokenRef.current = sessionToken;
-                setIsAuthenticated(true);
-                setIsGuest(false);
-                setAuthUser(username);
-                setShowLogin(false);
-                await storage.setItem(appIdRef.current, 'isAuthenticated', 'true');
-                await storage.setItem(appIdRef.current, 'authUser', username);
-                // End any active handoff under the OLD senderId before switching
-                try {
-                    const adminBase = await getAdminBaseUrl();
-                    await fetch(`${adminBase}/handoff/end`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sender_id: senderId, user_name: username }),
-                    });
-                } catch (_) {}
-                // Add base36 timestamp suffix so each login creates a new conversation row
-                const sessionId = Date.now().toString(36);
-                const userScopedId = `user-${appIdRef.current}-${username}-${sessionId}`;
-                await storage.setItem(appIdRef.current, 'senderId', userScopedId);
-                setSenderId(userScopedId);
-                setHandoffState('bot_active');
-                const dismissed = await storage.getItem(appIdRef.current, 'privacyDismissed');
-                if (!dismissed) setShowPrivacyConsent(true);
-                const welcomeData = data.find(m => m.text);
-                setMessages([{ id: uuidv4(), sender: 'bot', text: welcomeData?.text || `Welcome, ${username}!`, buttons: welcomeData?.buttons || [] }]);
-            } else {
-                setLoginError(errMsg);
-            }
-        } catch (err) {
-            setLoginError('Connection error. Check your API URL in Settings.');
-        } finally {
-            setLoginLoading(false);
-        }
-    };
+    // Authentication is IAM single sign-on only — no username/password handled here.
 
     // Logout
     const handleLogout = async () => {
@@ -1239,11 +1187,8 @@ const ChatScreen = ({ navigation }) => {
             {/* Modals */}
             <LoginModal
                 visible={showLogin}
-                onClose={() => { setShowLogin(false); setLoginError(''); }}
-                onLogin={handleLogin}
+                onClose={() => setShowLogin(false)}
                 onIamLogin={iam.login ? () => { setShowLogin(false); iam.login(); } : null}
-                isLoading={loginLoading}
-                error={loginError}
             />
             <TicketFilterModal
                 visible={showFilter}

@@ -21,8 +21,9 @@ from rasa_sdk.events import SlotSet, AllSlotsReset, Restarted, ActiveLoop, UserU
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
 from action_server.actions.glpi_service import GlpiService
+from action_server.actions.itsm_service import ITSMService
 from common import analytics_store
-from common.config_manager import get_glpi_config
+from common.config_manager import get_glpi_config, get_itsm_config
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,30 @@ def get_glpi_service() -> GlpiService:
         config['app_token'],
         config['user_token']
     )
+
+
+def get_itsm_service() -> ITSMService:
+    """Get ITSM service client with URL from config."""
+    config = get_itsm_config()
+    return ITSMService(config['service_url'])
+
+
+def get_iam_jwt(tracker) -> Optional[str]:
+    """Extract the Keycloak access token forwarded by the frontend.
+
+    Returns None when the user is unauthenticated or the frontend did not
+    include the token in message metadata.  Never logs the token value.
+    """
+    meta = {}
+    if isinstance(tracker.latest_message, dict):
+        meta = tracker.latest_message.get("metadata", {}) or {}
+    if isinstance(meta, str):
+        try:
+            import json as _json
+            meta = _json.loads(meta)
+        except Exception:
+            meta = {}
+    return meta.get("iam_token") or tracker.get_slot("iam_token")
 
 
 def get_glpi_base_url() -> str:
@@ -245,8 +270,9 @@ async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -
     return False
 
 
-# Legacy global reference (for backward compatibility)
+# Module-level singletons
 glpi_service = get_glpi_service()
+itsm_service = get_itsm_service()
 
 
 def _get_handoff_runtime_cfg() -> dict:

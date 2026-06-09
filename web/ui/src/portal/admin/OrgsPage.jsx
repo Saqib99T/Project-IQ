@@ -26,8 +26,8 @@ export default function OrgsPage() {
     return (
         <div className="max-w-4xl space-y-6">
             <div>
-                <h2 className="text-xl font-semibold text-gray-900">Organisations</h2>
-                <p className="text-sm text-gray-500 mt-0.5">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Organisations</h2>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">
                     Client orgs active in the platform — {orgs.length} found
                 </p>
             </div>
@@ -39,13 +39,13 @@ export default function OrgsPage() {
             )}
 
             {error && (
-                <div className="card p-4 bg-red-50 border-red-200 text-red-700 text-sm">{error}</div>
+                <div className="card p-4 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm">{error}</div>
             )}
 
             {!loading && !error && (
                 <div className="card overflow-hidden">
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+                        <thead className="bg-gray-50 dark:bg-slate-800/60 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-wide">
                             <tr>
                                 <th className="px-5 py-3 text-left">Org ID</th>
                                 <th className="px-5 py-3 text-right">Waiting</th>
@@ -55,29 +55,29 @@ export default function OrgsPage() {
                                 <th className="px-5 py-3 text-left">Last activity</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                             {orgs.map(o => (
-                                <tr key={o.org_id} className="hover:bg-gray-50">
-                                    <td className="px-5 py-3 font-medium text-gray-900">{o.org_id}</td>
+                                <tr key={o.org_id} className="hover:bg-gray-50 hover:dark:bg-slate-800/60">
+                                    <td className="px-5 py-3 font-medium text-gray-900 dark:text-slate-100">{o.org_id}</td>
                                     <td className="px-5 py-3 text-right">
                                         {o.waiting > 0
-                                            ? <span className="text-amber-600 font-medium">{o.waiting}</span>
-                                            : <span className="text-gray-400">0</span>}
+                                            ? <span className="text-amber-600 dark:text-amber-400 font-medium">{o.waiting}</span>
+                                            : <span className="text-gray-400 dark:text-slate-500">0</span>}
                                     </td>
                                     <td className="px-5 py-3 text-right">
                                         {o.assigned > 0
-                                            ? <span className="text-green-600 font-medium">{o.assigned}</span>
-                                            : <span className="text-gray-400">0</span>}
+                                            ? <span className="text-green-600 dark:text-emerald-400 font-medium">{o.assigned}</span>
+                                            : <span className="text-gray-400 dark:text-slate-500">0</span>}
                                     </td>
-                                    <td className="px-5 py-3 text-right text-blue-600">{o.resolved_7d ?? 0}</td>
-                                    <td className="px-5 py-3 text-right text-gray-500">{o.resolved_total ?? 0}</td>
-                                    <td className="px-5 py-3 text-xs text-gray-400">{timeAgo(o.last_activity)}</td>
+                                    <td className="px-5 py-3 text-right text-blue-600 dark:text-blue-400">{o.resolved_7d ?? 0}</td>
+                                    <td className="px-5 py-3 text-right text-gray-500 dark:text-slate-400">{o.resolved_total ?? 0}</td>
+                                    <td className="px-5 py-3 text-xs text-gray-400 dark:text-slate-500">{timeAgo(o.last_activity)}</td>
                                 </tr>
                             ))}
 
                             {orgs.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-5 py-12 text-center text-gray-400">
+                                    <td colSpan={6} className="px-5 py-12 text-center text-gray-400 dark:text-slate-500">
                                         No organisation data yet
                                     </td>
                                 </tr>

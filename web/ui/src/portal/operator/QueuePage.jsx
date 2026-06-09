@@ -19,15 +19,15 @@ function QueueItem({ item, onClaim }) {
             </div>
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-gray-900 truncate">{item.sender_id}</span>
+                    <span className="font-medium text-sm text-fg truncate">{item.sender_id}</span>
                     {item.channel === 'platform' && (
                         <span className="badge bg-purple-100 text-purple-700">platform</span>
                     )}
                     {item.product_id && (
-                        <span className="badge bg-gray-100 text-gray-600">{item.product_id}</span>
+                        <span className="badge bg-bg text-fgmuted">{item.product_id}</span>
                     )}
                 </div>
-                <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                <div className="flex items-center gap-3 mt-0.5 text-xs text-fgmuted">
                     <span>{TRIGGER_ICON[item.trigger_reason] || '💬'} {item.trigger_reason?.replace(/_/g, ' ')}</span>
                     <span>·</span>
                     <span>{item.app_id}</span>
@@ -40,7 +40,7 @@ function QueueItem({ item, onClaim }) {
                 <span className={`badge ${
                     item.priority >= 7 ? 'bg-red-100 text-red-700'
                     : item.priority >= 5 ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-gray-100 text-gray-600'
+                    : 'bg-bg text-fgmuted'
                 }`}>
                     {PRIORITY_LABEL[item.priority] || `P${item.priority}`}
                 </span>
@@ -96,24 +96,24 @@ export default function QueuePage() {
         <div className="max-w-3xl mx-auto space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Handoff Queue</h2>
-                    <p className="text-sm text-gray-500">{items.length} user{items.length !== 1 ? 's' : ''} waiting</p>
+                    <h2 className="text-xl font-semibold text-fg">Handoff Queue</h2>
+                    <p className="text-sm text-fgmuted">{items.length} user{items.length !== 1 ? 's' : ''} waiting</p>
                 </div>
                 <button onClick={fetchQueue} className="btn-ghost text-xs">↻ Refresh</button>
             </div>
 
             {loading && (
                 <div className="flex justify-center py-12">
-                    <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
             )}
 
             {error && (
-                <div className="card p-4 bg-red-50 border-red-200 text-red-700 text-sm">{error}</div>
+                <div className="card p-4 bg-danger/10 border-danger/30 text-danger text-sm">{error}</div>
             )}
 
             {!loading && !error && items.length === 0 && (
-                <div className="card p-12 text-center text-gray-400 space-y-2">
+                <div className="card p-12 text-center text-fgsubtle space-y-2">
                     <p className="text-3xl">✅</p>
                     <p className="font-medium">Queue is empty</p>
                     <p className="text-sm">No users waiting for support</p>

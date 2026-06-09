@@ -156,6 +156,7 @@ def _dispatch_operator(operator_id, type, title, body, payload):
                 if row and row[0]:
                     user_id = f"iam-{row[0]}"
             finally:
+                conn.rollback()
                 _release_connection(conn)
         except Exception as e:
             logger.warning(f"[Notify] operator iam_sub lookup failed: {e}")
@@ -197,6 +198,7 @@ def _dispatch_admins(type, title, body, payload):
             cur.execute("SELECT id, iam_sub FROM operators WHERE is_active = TRUE")
             ops = cur.fetchall()
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         for op_id, iam_sub in (ops or []):

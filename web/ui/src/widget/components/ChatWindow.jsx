@@ -104,22 +104,6 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         // else: leave null so the selector is shown
     }, [iamAuthenticated, iam.user?.apps, appId]);
 
-    // ── Centralised metadata builder ──────────────────────────────────────────
-    const buildMetadata = useCallback((extra = {}) => ({
-        app_id:           selectedProductId || appId,
-        product_id:       selectedProductId || appId || undefined,
-        user_name:        authUser || undefined,
-        is_authenticated: !!(isAuthenticated || iamAuthenticated),
-        iam_sub:          iam.user?.sub,
-        iam_name:         iam.user?.name,
-        iam_email:        iam.user?.email,
-        iam_org_id:       iam.user?.organization_id || undefined,
-        iam_org_name:     iam.user?.organization_alias || undefined,
-        channel:          iam.user?.organization_id ? 'internal' : undefined,
-        session_token:    getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined,
-        ...extra,
-    }), [selectedProductId, appId, authUser, isAuthenticated, iamAuthenticated, iam.user]);
-
     // ── Login via IAM ─────────────────────────────────────────────────────────
     const handleIamLogin = useCallback(() => {
         iam.login({ redirectUri: window.location.href });
@@ -155,14 +139,27 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const [authUser, setAuthUser] = useState(() => {
         return getCookie(getStorageKey(appId, 'authUser')) || '';
     });
-    const [loginUsername, setLoginUsername] = useState('');
-    const [loginPassword, setLoginPassword] = useState('');
-    const [loginError, setLoginError] = useState('');
-    const [isLoggingIn, setIsLoggingIn] = useState(false);
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('piq_dark') === 'true');
     const toggleDark = () => setIsDarkMode(v => { localStorage.setItem('piq_dark', !v); return !v; });
+
+    // ── Centralised metadata builder ──────────────────────────────────────────
+    const buildMetadata = useCallback((extra = {}) => ({
+        app_id:           selectedProductId || appId,
+        product_id:       selectedProductId || appId || undefined,
+        user_name:        authUser || undefined,
+        is_authenticated: !!(isAuthenticated || iamAuthenticated),
+        iam_sub:          iam.user?.sub,
+        iam_name:         iam.user?.name,
+        iam_email:        iam.user?.email,
+        iam_org_id:       iam.user?.organization_id || undefined,
+        iam_org_name:     iam.user?.organization_alias || undefined,
+        channel:          iam.user?.organization_id ? 'internal' : undefined,
+        iam_token:        iam.token || undefined,
+        session_token:    getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined,
+        ...extra,
+    }), [selectedProductId, appId, authUser, isAuthenticated, iamAuthenticated, iam.user]);
 
     const darkBg      = '#111827';
     const darkText    = '#f9fafb';
@@ -611,113 +608,6 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             }, 100);
         }
     }, [isOpen]);
-
-    // Handle Login
-    const handleLogin = async (e) => {
-        e.preventDefault();
-        if (!loginUsername.trim() || !loginPassword.trim()) {
-            setLoginError('Please enter both username and password');
-            return;
-        }
-
-        setIsLoggingIn(true);
-        setLoginError('');
-
-        try {
-            // Send login intent to Rasa with credentials as entities
-            const loginPayload = `/login{"glpi_username": "${loginUsername}", "glpi_password": "${loginPassword}"}`;
-
-            const response = await fetch(RASA_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sender: senderId,
-                    message: loginPayload,
-                    metadata: { app_id: appId, user_name: loginUsername }
-                }),
-            });
-
-            const data = await response.json();
-
-            // Check response for login success/failure
-            let loginSuccess = false;
-            let errorMsg = 'Login failed. Please check your credentials.';
-
-            for (const msg of data) {
-                // Check for JSON message with login result
-                if (msg.custom?.login_success) {
-                    loginSuccess = true;
-                    if (msg.custom?.session_token) {
-                        setCookie(getStorageKey(appId, 'glpiSessionToken'), msg.custom.session_token);
-                    }
-                    break;
-                }
-                if (msg.custom?.login_error) {
-                    errorMsg = msg.custom.error || errorMsg;
-                    break;
-                }
-                // Also check text for success indicator
-                if (msg.text && msg.text.includes('Welcome')) {
-                    loginSuccess = true;
-                }
-                if (msg.text && msg.text.includes('failed')) {
-                    errorMsg = msg.text;
-                }
-            }
-
-            if (loginSuccess) {
-                // Login successful - persist state
-                setIsAuthenticated(true);
-                setIsGuest(false);  // No longer a guest
-                setShowLoginPrompt(false);  // Hide login prompt if shown
-                setAuthUser(loginUsername);
-                setCookie(getStorageKey(appId, 'isAuthenticated'), 'true');
-                setCookie(getStorageKey(appId, 'authUser'), loginUsername);
-                deleteCookie(getStorageKey(appId, 'privacyDismissed')); // Reset dismissal on new login
-                setShowPrivacyPopup(true); // Show privacy popup
-
-                // End any active handoff under the OLD senderId before switching
-                fetch(`${ADMIN_API_URL}/handoff/end`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sender_id: senderId }),
-                }).catch(() => {});
-
-                // Each login gets a unique session ID so a fresh conversation
-                // row is created in the DB. History is looked up by username.
-                const sessionId = Date.now().toString(36);
-                const userScopedId = `user-${appId}-${loginUsername}-${sessionId}`;
-                setCookie(getStorageKey(appId, 'senderId'), userScopedId);
-                // Also store plain username for history lookup
-                setCookie(getStorageKey(appId, 'chatUsername'), loginUsername);
-                setSenderId(userScopedId);
-                setHandoffState('bot_active');
-                setOperatorName('');
-                setQueuePosition(null);
-                setWaitMins(null);
-
-                // Add welcome message to chat with buttons
-                const welcomeData = data.find(m => m.text);
-                console.log('LOGIN DEBUG - welcomeData:', welcomeData);
-                console.log('LOGIN DEBUG - buttons:', welcomeData?.buttons);
-                const welcomeMsg = welcomeData?.text || `Welcome, ${loginUsername}! How can I help you?`;
-                const welcomeButtons = welcomeData?.buttons || [];
-                console.log('LOGIN DEBUG - welcomeButtons:', welcomeButtons);
-                setMessages([{ id: uuidv4(), sender: 'bot', text: welcomeMsg, buttons: welcomeButtons }]);
-
-                // Clear form
-                setLoginUsername('');
-                setLoginPassword('');
-            } else {
-                setLoginError(errorMsg);
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            setLoginError('Connection error. Please try again.');
-        } finally {
-            setIsLoggingIn(false);
-        }
-    };
 
     // Fetch conversation history list from DB
     const fetchUserHistory = async (search = '') => {
@@ -1733,53 +1623,16 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                             </button>
                                         </div>
                                         <div className="p-5 flex flex-col gap-3">
-                                            {iam.login && (
-                                                <>
-                                                    <button
-                                                        onClick={() => { setShowLoginPrompt(false); handleIamLogin(); }}
-                                                        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-white transition-all hover:opacity-90"
-                                                        style={{ backgroundColor: primaryColor }}
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                                        </svg>
-                                                        Sign in with IAM
-                                                    </button>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="flex-1 h-px bg-gray-200" />
-                                                        <span className="text-xs text-gray-400">or</span>
-                                                        <div className="flex-1 h-px bg-gray-200" />
-                                                    </div>
-                                                </>
-                                            )}
-                                            <form onSubmit={handleLogin} className="flex flex-col gap-2">
-                                                <input
-                                                    type="text"
-                                                    placeholder="GLPI Username"
-                                                    value={loginUsername}
-                                                    onChange={e => setLoginUsername(e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2"
-                                                    style={{ focusRingColor: primaryColor }}
-                                                    autoComplete="username"
-                                                />
-                                                <input
-                                                    type="password"
-                                                    placeholder="Password"
-                                                    value={loginPassword}
-                                                    onChange={e => setLoginPassword(e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2"
-                                                    autoComplete="current-password"
-                                                />
-                                                {loginError && <p className="text-xs text-red-500">{loginError}</p>}
-                                                <button
-                                                    type="submit"
-                                                    disabled={isLoggingIn}
-                                                    className="w-full py-2.5 rounded-xl font-semibold text-white transition-all hover:opacity-90 disabled:opacity-60"
-                                                    style={{ backgroundColor: '#374151' }}
-                                                >
-                                                    {isLoggingIn ? 'Signing in…' : 'Sign in with password'}
-                                                </button>
-                                            </form>
+                                            <button
+                                                onClick={() => { setShowLoginPrompt(false); handleIamLogin(); }}
+                                                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-white transition-all hover:opacity-90"
+                                                style={{ backgroundColor: primaryColor }}
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                                </svg>
+                                                Sign in with IAM
+                                            </button>
                                             <button onClick={() => setShowLoginPrompt(false)} className="text-xs text-gray-400 hover:text-gray-600 text-center">
                                                 Continue as guest
                                             </button>
@@ -1999,54 +1852,16 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                     <p className="text-sm mt-1" style={{ color: c.textMuted }}>Access full support features with your account.</p>
                                 </div>
                                 <div className="w-full max-w-xs flex flex-col gap-3">
-                                    {iam.login && (
-                                        <>
-                                            <button
-                                                onClick={handleIamLogin}
-                                                className="w-full flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl font-semibold text-white shadow-md hover:opacity-90 transition-all"
-                                                style={{ backgroundColor: primaryColor }}
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                                </svg>
-                                                Sign in with IAM
-                                            </button>
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1 h-px" style={{ backgroundColor: c.borderLight }} />
-                                                <span className="text-xs" style={{ color: c.textSub }}>or</span>
-                                                <div className="flex-1 h-px" style={{ backgroundColor: c.borderLight }} />
-                                            </div>
-                                        </>
-                                    )}
-                                    <form onSubmit={handleLogin} className="flex flex-col gap-2">
-                                        <input
-                                            type="text"
-                                            placeholder="GLPI Username"
-                                            value={loginUsername}
-                                            onChange={e => setLoginUsername(e.target.value)}
-                                            className="w-full px-3 py-2 border rounded-lg text-sm outline-none"
-                                            style={{ backgroundColor: c.inputBg, color: c.text, borderColor: c.border }}
-                                            autoComplete="username"
-                                        />
-                                        <input
-                                            type="password"
-                                            placeholder="Password"
-                                            value={loginPassword}
-                                            onChange={e => setLoginPassword(e.target.value)}
-                                            className="w-full px-3 py-2 border rounded-lg text-sm outline-none"
-                                            style={{ backgroundColor: c.inputBg, color: c.text, borderColor: c.border }}
-                                            autoComplete="current-password"
-                                        />
-                                        {loginError && <p className="text-xs text-red-500">{loginError}</p>}
-                                        <button
-                                            type="submit"
-                                            disabled={isLoggingIn}
-                                            className="w-full py-2.5 rounded-xl font-semibold text-white hover:opacity-90 transition-all disabled:opacity-60"
-                                            style={{ backgroundColor: '#374151' }}
-                                        >
-                                            {isLoggingIn ? 'Signing in…' : 'Sign in with password'}
-                                        </button>
-                                    </form>
+                                    <button
+                                        onClick={handleIamLogin}
+                                        className="w-full flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl font-semibold text-white shadow-md hover:opacity-90 transition-all"
+                                        style={{ backgroundColor: primaryColor }}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                        </svg>
+                                        Sign in with IAM
+                                    </button>
                                 </div>
                                 <button onClick={() => setIsGuest(true)} className="text-xs transition-colors" style={{ color: c.textSub }}
                                     onMouseEnter={e => e.currentTarget.style.color = c.textMuted}

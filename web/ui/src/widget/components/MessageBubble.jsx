@@ -102,6 +102,11 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
         feedbackColor:isDark ? '#6b7280' : '#9ca3af',
     };
 
+    // Messages containing a markdown table (e.g. "Your Open Tickets") drop the
+    // bubble padding so the table can use the full width.
+    const hasTable = typeof message.text === 'string'
+        && /\|.*\|/.test(message.text) && /\|\s*:?-{2,}/.test(message.text);
+
     // Warning/system messages render as a centered banner
     if (message.type === 'warning' || message.type === 'system') {
         const isSystem = message.type === 'system';
@@ -155,7 +160,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                     )}
                     {/* Bubble */}
                     <div
-                        className={`p-3 text-sm ${(isBot || isOperator) ? '' : 'rounded-3xl rounded-tr-none px-5'}`}
+                        className={`${hasTable ? 'p-0' : 'p-3'} text-sm ${(isBot || isOperator) ? '' : 'rounded-3xl rounded-tr-none px-5'}`}
                         style={isOperator
                             ? { backgroundColor: isDark ? '#1a2e20' : '#f0fdf4', border: `1px solid ${isDark ? '#166534' : '#bbf7d0'}`, borderRadius: '0 12px 12px 12px', color: isDark ? '#86efac' : '#166534' }
                             : (!isBot ? { backgroundColor: dm.userBubble, color: dm.userText } : { color: isDark ? '#e5e7eb' : '#1f2937' })}
@@ -169,6 +174,13 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         components={{
+                                            // Image attachments render as clickable thumbnails
+                                            img: ({ node, ...props }) => (
+                                                <a href={props.src} target="_blank" rel="noopener noreferrer" className="inline-block not-prose">
+                                                    <img {...props} loading="lazy" className="rounded-lg my-1 cursor-pointer"
+                                                         style={{ maxHeight: '120px', maxWidth: '100%', objectFit: 'cover', border: `1px solid ${isDark ? '#2e3a4e' : '#e5e7eb'}` }} />
+                                                </a>
+                                            ),
                                             table: ({ node, ...props }) => <div style={{ overflowX: 'auto', maxWidth: '100%', margin: '6px 0' }}><table className="divide-y rounded-md overflow-hidden" style={{ border: `1px solid ${isDark ? '#2e3a4e' : '#e5e7eb'}` }} {...props} /></div>,
                                             thead: ({ node, ...props }) => <thead style={{ backgroundColor: isDark ? '#1e2533' : '#f9fafb' }} {...props} />,
                                             th: ({ node, ...props }) => <th className="px-3 py-2 text-left font-medium uppercase tracking-wider border-b" style={{ fontSize: '11px', color: isDark ? '#9ca3af' : '#6b7280', borderColor: isDark ? '#2e3a4e' : '#e5e7eb' }} {...props} />,

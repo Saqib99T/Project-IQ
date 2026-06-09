@@ -88,6 +88,7 @@ def _get_avg_handle_time(app_id: str = None) -> Optional[int]:
             val = row['avg_handle'] if row and row['avg_handle'] else None
             return int(val) if val else None
         finally:
+            conn.rollback()
             _release_connection(conn)
     except Exception:
         return None
@@ -106,6 +107,7 @@ def _apply_routing_rules(app_id: str, trigger_detail: dict) -> tuple:
             )
             rules = cursor.fetchall()
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         intent   = trigger_detail.get('intent', '')
@@ -177,6 +179,7 @@ def _build_context_package(sender_id: str, conversation_id: int,
             )
             messages = cursor.fetchall()
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         masked_transcript = []
@@ -409,6 +412,7 @@ def operator_logout(**kwargs):
             )
             conn.commit()
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True})
     except Exception as e:
@@ -518,6 +522,7 @@ def internal_reset_operator_status():
             updated = cursor.rowcount
             conn.commit()
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True, 'updated': updated})
     except Exception as e:
@@ -547,6 +552,7 @@ def internal_operators_available():
                     if o.get('last_seen'): o['last_seen'] = o['last_seen'].isoformat()
                     if o.get('db_now'):    o['db_now']    = o['db_now'].isoformat()
             finally:
+                _dc.rollback()
                 _release_connection(_dc)
             return jsonify({'eligible': eligible, 'all_operators': all_ops,
                             'filter_app_id': app_id})
@@ -622,6 +628,7 @@ def internal_queue_enqueue():
                 row = cursor.fetchone()
                 conn.commit()
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         conversation_id = row['id']
@@ -808,6 +815,7 @@ def operator_claim(**kwargs):
                     )
                     _claim_cr = _claim_cur.fetchone()
                 finally:
+                    _claim_conn.rollback()
                     _release_connection(_claim_conn)
                 if _claim_cr:
                     _row_dict['sender_id'] = _claim_cr['sender_id']
@@ -831,6 +839,7 @@ def operator_claim(**kwargs):
 
             return jsonify({'success': True, 'queue_item': _row_dict})
         finally:
+            conn.rollback()
             _release_connection(conn)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -899,6 +908,7 @@ def operator_resolve(**kwargs):
                     )
                     _res_cr = _res_cur.fetchone()
                 finally:
+                    _res_conn.rollback()
                     _release_connection(_res_conn)
                 if _res_cr:
                     op_name = op.get('display_name', 'The agent') if op else 'The agent'
@@ -930,6 +940,7 @@ def operator_resolve(**kwargs):
 
             return jsonify({'success': True, 'return_to_bot': return_to_bot})
         finally:
+            conn.rollback()
             _release_connection(conn)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -987,6 +998,7 @@ def operator_release(**kwargs):
                     )
                     _rel_cr = _rel_cur.fetchone()
                 finally:
+                    _rel_conn.rollback()
                     _release_connection(_rel_conn)
                 if _rel_cr:
                     emit_to_user(_rel_cr['sender_id'], 'handoff_queued', {
@@ -1000,6 +1012,7 @@ def operator_release(**kwargs):
                         room='queue_overview')
             emit_queue_overview()
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True})
     except Exception as e:
@@ -1029,6 +1042,7 @@ def operator_rate_context(**kwargs):
             if cursor.rowcount == 0:
                 return jsonify({'error': 'Queue item not found or not yours'}), 404
         finally:
+            conn.rollback()
             _release_connection(conn)
         return jsonify({'success': True})
     except Exception as e:
@@ -1103,6 +1117,7 @@ def operator_get_conversation(conversation_id, **kwargs):
                 for m in cursor.fetchall()
             ]
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         all_msgs = sorted(bot_msgs + op_msgs, key=lambda x: x.get('timestamp') or '')
@@ -1157,6 +1172,7 @@ def operator_send_message(**kwargs):
             _om_cr = cursor.fetchone()
             conn.commit()
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         if _om_cr:
@@ -1211,6 +1227,7 @@ def operator_ai_draft(**kwargs):
             )
             row = cursor.fetchone()
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         if not row or not row['text']:
@@ -1335,6 +1352,7 @@ def operator_user_history(sender_id, **kwargs):
             )
             rows = cursor.fetchall()
         finally:
+            conn.rollback()
             _release_connection(conn)
 
         history = []
@@ -1384,6 +1402,7 @@ def operator_online_list(**kwargs):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)
 
 
@@ -1428,6 +1447,7 @@ def operator_transfer_initiate(**kwargs):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)
 
 
@@ -1500,4 +1520,5 @@ def operator_transfer_respond(**kwargs):
         conn.rollback()
         return jsonify({'error': str(e)}), 500
     finally:
+        conn.rollback()
         _release_connection(conn)

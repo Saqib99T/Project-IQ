@@ -210,10 +210,10 @@ def operator_iam_callback():
             op_id = create_operator(
                 iam_sub=user['sub'], username=user['username'] or user.get('email', user['sub']),
                 display_name=user['name'] or user['username'], password_hash='iam-managed',
-                email=user.get('email'), team='Support', app_ids=user['apps'] or ['IT'], max_concurrent=3,
+                email=user.get('email'), team='Support', app_ids=[], max_concurrent=3,
             )
             op = {'id': op_id, 'username': user['username'], 'display_name': user['name'],
-                  'team': 'Support', 'app_ids': user['apps'] or ['IT'], 'max_concurrent': 3}
+                  'team': 'Support', 'app_ids': [], 'max_concurrent': 3}
         else:
             update_operator_last_seen(op['id'])
         update_operator(op['id'], status='online', is_admin=user['is_admin'])
@@ -386,11 +386,12 @@ def operator_iam_login():
                 password_hash= 'iam-managed',
                 email        = user.get('email'),
                 team         = 'Support',
-                app_ids      = user['apps'] or ['IT'],
+                # cover all queues — IAM 'apps' is the client id, not the user-facing app taxonomy
+                app_ids      = [],
                 max_concurrent = 3,
             )
             op = {'id': op_id, 'username': user['username'], 'display_name': user['name'],
-                  'team': 'Support', 'app_ids': user['apps'] or ['IT'], 'max_concurrent': 3}
+                  'team': 'Support', 'app_ids': [], 'max_concurrent': 3}
         else:
             update_operator_last_seen(op['id'])
 

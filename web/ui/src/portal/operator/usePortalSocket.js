@@ -37,6 +37,7 @@ export function usePortalSocket({ onEvent } = {}) {
             'queue_item_removed',
             'operator_message',
             'live_message',
+            'user_message',
             'user_typing',
             'user_left',
             'handoff_resolved',

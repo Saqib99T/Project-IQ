@@ -1,33 +1,164 @@
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Barlow:wght@500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body { @apply bg-gray-100 text-gray-900 h-full; }
-  html { @apply h-full; }
-  #root { @apply h-full; }
+/* ============================================================================
+   Brand themes — runtime-switchable via <html data-theme="iq" | "99t">, each
+   with light + dark (the existing .dark class). Colors are R G B triplets so
+   Tailwind's <alpha-value> works (bg-primary/10 etc.). Tokens are consumed by
+   the semantic Tailwind colors in tailwind.config.js.
+   ============================================================================ */
+:root,
+[data-theme="iq"] {
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-heading: var(--font-sans);
+    --c-primary: 79 70 229;        /* indigo-600 */
+    --c-primary-fg: 255 255 255;
+    --c-accent-from: 99 102 241;   /* indigo-500 */
+    --c-accent-to: 59 130 246;     /* blue-500 */
+    --c-bg: 241 245 249;           /* slate-100 */
+    --c-surface: 255 255 255;
+    --c-surface-2: 248 250 252;    /* slate-50 */
+    --c-fg: 15 23 42;              /* slate-900 */
+    --c-fg-muted: 71 85 105;       /* slate-600 */
+    --c-fg-subtle: 148 163 184;    /* slate-400 */
+    --c-border: 226 232 240;       /* slate-200 */
+    --c-border-strong: 203 213 225;/* slate-300 */
+    --c-sidebar: 15 23 42;         /* slate-900 */
+    --c-sidebar-fg: 255 255 255;   /* light text on dark sidebar */
+    --c-info: 59 130 246;
+    --c-success: 34 197 94;
+    --c-warning: 245 158 11;
+    --c-danger: 239 68 68;
+}
+[data-theme="iq"].dark {
+    --c-primary: 129 140 248;      /* indigo-400 */
+    --c-accent-from: 99 102 241;
+    --c-accent-to: 59 130 246;
+    --c-bg: 2 6 23;               /* slate-950 */
+    --c-surface: 15 23 42;         /* slate-900 */
+    --c-surface-2: 30 41 59;       /* slate-800 */
+    --c-fg: 241 245 249;           /* slate-100 */
+    --c-fg-muted: 148 163 184;     /* slate-400 */
+    --c-fg-subtle: 100 116 139;    /* slate-500 */
+    --c-border: 30 41 59;          /* slate-800 */
+    --c-border-strong: 51 65 85;   /* slate-700 */
+    --c-sidebar: 2 6 23;
 }
 
+/* 99 Technologies — Minimal UI palette (green #00A76F, Public Sans / Barlow) */
+[data-theme="99t"] {
+    --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-heading: "Barlow", "Public Sans", sans-serif;
+    --c-primary: 0 167 111;        /* #00A76F */
+    --c-primary-fg: 255 255 255;
+    --c-accent-from: 0 167 111;    /* #00A76F */
+    --c-accent-to: 0 120 103;      /* #007867 */
+    --c-bg: 244 246 248;           /* #F4F6F8 */
+    --c-surface: 255 255 255;
+    --c-surface-2: 249 250 251;    /* #F9FAFB */
+    --c-fg: 28 37 46;              /* #1C252E */
+    --c-fg-muted: 99 115 129;      /* #637381 */
+    --c-fg-subtle: 145 158 171;    /* #919EAB */
+    --c-border: 223 227 232;       /* #DFE3E8 */
+    --c-border-strong: 196 205 213;/* #C4CDD5 */
+    --c-sidebar: 255 255 255;      /* light sidebar (AccessWise style) */
+    --c-sidebar-fg: 28 37 46;      /* dark text on light sidebar */
+    --c-info: 0 184 217;           /* #00B8D9 */
+    --c-success: 34 197 94;        /* #22C55E */
+    --c-warning: 255 171 0;        /* #FFAB00 */
+    --c-danger: 255 86 48;         /* #FF5630 */
+}
+[data-theme="99t"].dark {
+    --c-primary: 0 167 111;
+    --c-bg: 20 26 33;             /* #141A21 */
+    --c-surface: 28 37 46;         /* #1C252E */
+    --c-surface-2: 33 43 54;       /* #212B36 */
+    --c-fg: 255 255 255;
+    --c-fg-muted: 145 158 171;
+    --c-fg-subtle: 99 115 129;
+    --c-border: 40 50 60;
+    --c-border-strong: 69 79 91;   /* #454F5B */
+    --c-sidebar: 22 28 36;
+    --c-sidebar-fg: 255 255 255;   /* light text on dark sidebar (99T dark mode) */
+}
+
+@layer base {
+    html { @apply h-full; }
+    body {
+        @apply h-full font-sans bg-bg text-fg transition-colors duration-200;
+    }
+    #root { @apply h-full; }
+    h1, h2, h3, h4 { font-family: var(--font-heading); }
+}
+
+/* Design-system animations (Drawer, Toast, ConfirmDialog in ui.jsx) */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+
 @layer components {
-  .sidebar-link {
-    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium
-           text-gray-300 hover:bg-gray-700 hover:text-white transition-colors;
-  }
-  .sidebar-link.active {
-    @apply bg-blue-600 text-white;
-  }
-  .card {
-    @apply bg-white rounded-xl border border-gray-200 shadow-sm;
-  }
-  .btn-primary {
-    @apply px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
-           hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  .btn-ghost {
-    @apply px-4 py-2 text-gray-600 rounded-lg text-sm font-medium
-           hover:bg-gray-100 transition-colors;
-  }
-  .badge {
-    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
-  }
+    /* Sidebar navigation — foreground adapts per theme via --c-sidebar-fg
+       (white on IQ's dark sidebar / dark on 99T's light sidebar). */
+    .sidebar-link {
+        @apply flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium
+               text-sidebarfg/60 hover:bg-sidebarfg/5 hover:text-sidebarfg transition-colors;
+    }
+    .sidebar-link.active {
+        @apply bg-gradient-to-r from-accentfrom to-accentto text-white shadow-lg;
+    }
+    /* 99T (AccessWise) active item = pale-green tint + green text, no gradient pill */
+    [data-theme="99t"] .sidebar-link.active {
+        @apply bg-none from-transparent to-transparent bg-primary/10 text-primary shadow-none;
+    }
+
+    /* Cards */
+    .card {
+        @apply bg-surface rounded-2xl border border-bordc shadow-sm transition-colors;
+    }
+    .card-header {
+        @apply px-5 py-4 border-b border-bordc;
+    }
+
+    /* Buttons */
+    .btn-primary {
+        @apply px-4 py-2 bg-gradient-to-r from-accentfrom to-accentto text-primary-fg rounded-xl text-sm font-medium
+               shadow-sm hover:shadow-md hover:brightness-105
+               transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none;
+    }
+    .btn-ghost {
+        @apply px-4 py-2 text-fgmuted rounded-xl text-sm font-medium
+               hover:bg-surface2 transition-colors;
+    }
+
+    /* Badges */
+    .badge {
+        @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium;
+    }
+
+    /* Form controls */
+    .input {
+        @apply w-full px-3.5 py-2 text-sm rounded-xl border border-bordc bg-surface text-fg
+               placeholder:text-fgsubtle focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
+               transition-colors;
+    }
+    .select {
+        @apply input appearance-none pr-8;
+    }
+
+    /* Tables */
+    .table-base {
+        @apply w-full text-sm text-left;
+    }
+    .table-base thead th {
+        @apply px-4 py-3 text-xs font-semibold uppercase tracking-wider text-fgsubtle
+               border-b border-bordc;
+    }
+    .table-base tbody td {
+        @apply px-4 py-3 border-b border-bordc text-fgmuted;
+    }
+    .table-base tbody tr:hover {
+        @apply bg-surface2;
+    }
 }

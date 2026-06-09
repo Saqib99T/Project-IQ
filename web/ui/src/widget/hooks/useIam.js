@@ -112,6 +112,8 @@ export function useIam() {
 
         _initPromise
             .then((authenticated) => {
+                console.info('[IAM] check-sso result: authenticated =', authenticated,
+                             '| token present =', !!kc.token);
                 if (authenticated) {
                     setIsAuthenticated(true);
                     setUser(parseUser(kc));
@@ -120,7 +122,10 @@ export function useIam() {
                 }
             })
             .catch((err) => {
-                console.warn('[IAM] init error', err);
+                // Surfaces the real cause of a login loop: code-exchange/CORS
+                // failure, redirect_uri not registered on the Keycloak client, etc.
+                console.error('[IAM] init/login-callback error — check Keycloak client '
+                    + 'redirect URIs & web origins for this origin', err);
             })
             .finally(() => setIsLoading(false));
 
@@ -140,12 +145,24 @@ export function useIam() {
         };
     }, [scheduleRefresh]);
 
-    const login = useCallback((opts = {}) => {
-        getOrCreateKc().login(opts);
+    const login = useCallback(async (opts = {}) => {
+        const kc = getOrCreateKc();
+        // keycloak-js needs init() to have loaded the OIDC endpoints before
+        // login() can build the auth URL — otherwise the click silently no-ops.
+        try { if (_initPromise) await _initPromise; } catch (e) { console.warn('[IAM] init not ready before login', e); }
+        try {
+            await kc.login({ redirectUri: window.location.href, ...opts });
+        } catch (e) {
+            // Most common causes: Keycloak unreachable / CORS, or the current
+            // origin is not in the client's Valid Redirect URIs / Web Origins.
+            console.error('[IAM] login failed — check Keycloak reachability and client redirect URIs/web origins', e);
+        }
     }, []);
 
-    const logout = useCallback((opts = {}) => {
-        getOrCreateKc().logout(opts);
+    const logout = useCallback(async (opts = {}) => {
+        const kc = getOrCreateKc();
+        try { if (_initPromise) await _initPromise; } catch { /* ignore */ }
+        try { await kc.logout(opts); } catch (e) { console.error('[IAM] logout failed', e); }
     }, []);
 
     return {
