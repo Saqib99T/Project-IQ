@@ -20,22 +20,11 @@ from rasa_sdk import Action, Tracker
 from rasa_sdk.events import SlotSet, AllSlotsReset, Restarted, ActiveLoop, UserUttered, FollowupAction
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
-from action_server.actions.glpi_service import GlpiService
 from action_server.actions.itsm_service import ITSMService
 from common import analytics_store
-from common.config_manager import get_glpi_config, get_itsm_config
+from common.config_manager import get_itsm_config
 
 logger = logging.getLogger(__name__)
-
-
-def get_glpi_service() -> GlpiService:
-    """Get GLPI service instance with current config settings."""
-    config = get_glpi_config()
-    return GlpiService(
-        config['api_url'],
-        config['app_token'],
-        config['user_token']
-    )
 
 
 def get_itsm_service() -> ITSMService:
@@ -60,12 +49,6 @@ def get_iam_jwt(tracker) -> Optional[str]:
         except Exception:
             meta = {}
     return meta.get("iam_token") or tracker.get_slot("iam_token")
-
-
-def get_glpi_base_url() -> str:
-    """Derive GLPI web base URL from config (strips /apirest.php)."""
-    api_url = get_glpi_config().get('api_url', 'http://127.0.0.1:8083/apirest.php')
-    return api_url.replace('/apirest.php', '').rstrip('/')
 
 
 def log_bot_response(tracker: Tracker, text: str):
@@ -93,8 +76,8 @@ def get_analytics_context(tracker: Tracker) -> Dict[str, str]:
     app_id = metadata.get("app_id") if isinstance(metadata, dict) else None
     app_id = app_id or tracker.get_slot("app_id") or "General"
 
-    # Get user_id from slot (set after GLPI login)
-    user_id = tracker.get_slot("glpi_user_name") or tracker.get_slot("glpi_user_id")
+    # Get user_id from slot (set after ITSM login)
+    user_id = tracker.get_slot("itsm_user_name") or tracker.get_slot("itsm_user_id")
 
     # Get ticket_id from slot if available (set during ticket operations)
     # This persists across the conversation session after a ticket is created/viewed
@@ -182,7 +165,7 @@ def require_iam_auth(dispatcher: CollectingDispatcher) -> bool:
 async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -> bool:
     """Check if user is logged in. Returns True if authenticated.
 
-    Accepts IAM (Keycloak) authentication OR legacy GLPI session token.
+    Accepts IAM (Keycloak) authentication OR legacy ITSM session token.
     Draft senders (operator AI-draft requests) bypass auth entirely.
     """
     # ── IAM fast path ────────────────────────────────────────────────────────
@@ -215,22 +198,10 @@ async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -
         logger.info("LOGIN CHECK PASSED (slot)")
         return True
 
-    # Token present but is_authenticated not yet set — verify live with GLPI
-    if session_token:
-        service = get_glpi_service()
-        user_info = await service._get_current_user(session_token)
-        logger.info(f"LOGIN CHECK: _get_current_user returned {user_info}")
-        if user_info and user_info.get("id"):
-            logger.info(f"LOGIN CHECK PASSED (token verified, user={user_info.get('name')})")
-            return True
-        logger.info("LOGIN CHECK - user token invalid/expired, trying service account")
-
-    # User token is absent or expired — fall back to service account session so
-    # the conversation continues without forcing re-login.  The user is still
-    # considered authenticated if they previously set is_authenticated=True OR
-    # if they have a glpi_user_id slot (set after successful login) OR
-    # if the frontend metadata says is_authenticated=True (persisted in cookie,
-    # sent on every message — covers page-refresh where Rasa slots are lost).
+    # Authentication is via IAM SSO — no ITSM verification. Treat the user as
+    # signed in when any IAM/session signal is present (IAM JWT, an existing
+    # session token, a prior-login cookie, an itsm user id, or the frontend's
+    # is_authenticated flag — which survives page-refresh / Rasa restart).
     meta = tracker.latest_message.get("metadata", {}) or {}
     if isinstance(meta, str):
         try:
@@ -238,26 +209,13 @@ async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -
         except Exception:
             meta = {}
     meta_is_authenticated = meta.get("is_authenticated") is True
-    # A session token cookie proves a prior login even when the token is now expired.
-    # This handles page-refresh after Rasa restart regardless of is_authenticated state.
     has_prior_token = bool(meta_token or slot_token)
-    glpi_user_id = tracker.get_slot("glpi_user_id") or tracker.get_slot("glpi_user_name")
-    if is_authenticated or glpi_user_id or meta_is_authenticated or has_prior_token:
-        try:
-            service = get_glpi_service()
-            svc_token = await service.init_session()
-            if svc_token:
-                logger.info(f"LOGIN CHECK PASSED (service account fallback, glpi_user={glpi_user_id})")
-                # Patch the effective token so callers get a working session
-                # Store in mutable dict so get_effective_session_token can pick it up
-                if not hasattr(tracker, '_fallback_session_token'):
-                    try:
-                        object.__setattr__(tracker, '_fallback_session_token', svc_token)
-                    except Exception:
-                        pass
-                return True
-        except Exception as e:
-            logger.warning(f"LOGIN CHECK - service account fallback failed: {e}")
+    has_iam = bool(get_iam_jwt(tracker))
+    itsm_user_id = tracker.get_slot("itsm_user_id") or tracker.get_slot("itsm_user_name")
+    if (is_authenticated or session_token or itsm_user_id
+            or meta_is_authenticated or has_prior_token or has_iam):
+        logger.info("LOGIN CHECK PASSED (IAM/session signal)")
+        return True
 
     logger.info("LOGIN CHECK FAILED")
     dispatcher.utter_message(
@@ -271,7 +229,6 @@ async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -
 
 
 # Module-level singletons
-glpi_service = get_glpi_service()
 itsm_service = get_itsm_service()
 
 
@@ -335,4 +292,4 @@ def _call_admin_api(path: str, method: str = "GET", data: dict = None) -> Option
         return None
 
 
-# --- GLPI User Login Action ---
+# --- ITSM User Login Action ---

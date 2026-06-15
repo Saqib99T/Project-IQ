@@ -9,13 +9,11 @@ from rasa_sdk import Action, Tracker
 from rasa_sdk.events import SlotSet, AllSlotsReset, Restarted, ActiveLoop, UserUttered, FollowupAction
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
-from action_server.actions.glpi_service import GlpiService
 from common import analytics_store
-from common.config_manager import get_glpi_config
 from action_server.actions._shared import (
-    get_glpi_service, get_glpi_base_url, log_bot_response,
+    log_bot_response,
     get_analytics_context, get_effective_session_token,
-    check_user_login, glpi_service, logger,
+    check_user_login, logger,
     _get_handoff_runtime_cfg, _score_frustration,
 )
 

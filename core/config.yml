@@ -2,7 +2,7 @@
 
 recipe: default.v1
 language: en
-assistant_id: "glpi_support_assistant" 
+assistant_id: "itsm_support_assistant" 
 
 pipeline:
   - name: WhitespaceTokenizer

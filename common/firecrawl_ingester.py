@@ -295,7 +295,7 @@ def ingest_url_to_kb(url: str, category: str = None) -> Dict:
     if not success:
         raise RuntimeError(f"Failed to save article to database for {url}")
 
-    _save_article_to_glpi(article['title'], article['content'], article.get('category', ''))
+    _save_article_to_kb(article['title'], article['content'], article.get('category', ''))
     log_data_source('firecrawl_url', {'url': url, 'category': category or ''}, 1)
     _rebuild_embeddings()
 
@@ -334,7 +334,7 @@ def ingest_crawl_to_kb(url: str, limit: int = 50, category: str = None) -> Dict:
 
     if saved > 0:
         for article in articles:
-            _save_article_to_glpi(article['title'], article['content'], article.get('category', ''))
+            _save_article_to_kb(article['title'], article['content'], article.get('category', ''))
         log_data_source('firecrawl_crawl', {'url': url, 'limit': limit, 'category': category or ''}, saved)
         _rebuild_embeddings()
 
@@ -372,7 +372,7 @@ def ingest_batch_to_kb(urls: List[str], category: str = None) -> Dict:
 
     if saved > 0:
         for article in articles:
-            _save_article_to_glpi(article['title'], article['content'], article.get('category', ''))
+            _save_article_to_kb(article['title'], article['content'], article.get('category', ''))
         log_data_source('firecrawl_batch', {'urls': urls[:5], 'category': category or ''}, saved)
         _rebuild_embeddings()
 
@@ -385,31 +385,28 @@ def ingest_batch_to_kb(urls: List[str], category: str = None) -> Dict:
     }
 
 
-def _save_article_to_glpi(title: str, content: str, category: str = '') -> bool:
-    """Save a scraped article to ITSM KB using synchronous requests (no asyncio)."""
+def _save_article_to_kb(title: str, content: str, category: str = '') -> bool:
+    """Persist a scraped article into the bot's local KB store (kb_articles), so it's
+    searchable via the vector index. The canonical KB lives in itsm-service; the next
+    KB sync mirrors itsm and will overwrite this local store, so durable articles
+    should be authored in the ITSM portal. (GLPI ingestion has been removed.)"""
     try:
-        import requests as _req
-        from common.config_manager import load_config
-        config = load_config()
-        api_uri   = config.get('GLPI', 'GLPI_API_URL',   fallback='').rstrip('/')
-        app_token = config.get('GLPI', 'GLPI_APP_TOKEN',  fallback='')
-        user_token = config.get('GLPI', 'GLPI_USER_TOKEN', fallback='')
-        if not api_uri or not app_token or not user_token:
-            return False
-        headers_init = {'App-Token': app_token, 'Authorization': f'user_token {user_token}'}
-        r = _req.get(f"{api_uri}/initSession", headers=headers_init, timeout=10)
-        if r.status_code != 200:
-            return False
-        session_token = r.json().get('session_token')
-        if not session_token:
-            return False
-        headers_exec = {'App-Token': app_token, 'Session-Token': session_token, 'Content-Type': 'application/json'}
-        _req.post(f"{api_uri}/KnowbaseItem", json={"input": {"name": title, "answer": content}},
-                  headers=headers_exec, timeout=15)
-        _req.get(f"{api_uri}/killSession", headers=headers_exec, timeout=5)
+        import uuid as _uuid
+        from common.db._connection import _get_connection, _release_connection
+        conn = _get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO kb_articles (id, title, category, keywords, question, content, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())",
+                (str(_uuid.uuid4()), title, category or 'General', None, None, content),
+            )
+            conn.commit()
+        finally:
+            _release_connection(conn)
         return True
     except Exception as e:
-        logger.warning(f"Could not save article to ITSM KB: {e}")
+        logger.warning(f"Could not save article to KB: {e}")
         return False
 
 

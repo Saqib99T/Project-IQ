@@ -3,7 +3,7 @@
 # from rasa_sdk import Action
 
 # # Add your actions here
-# class ActionCreateGLPITicket(Action):
+# class ActionCreateITSMTicket(Action):
 #     pass  # Placeholder; full impl above
 
 # class ActionCheckTicketStatus(Action):

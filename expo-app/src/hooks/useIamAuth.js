@@ -39,9 +39,20 @@ function parseUser(tokenPayload, clientId = 'project-iq') {
             : tokenPayload;
         const resourceAccess = t.resource_access || {};
         const clientRoles = resourceAccess[clientId]?.roles || [];
+        const products = Array.isArray(t.products) ? t.products : [];
+        const _subRaw = t.subscriptions;
+        const subscriptions = Array.isArray(_subRaw)
+            ? _subRaw.map(s => {
+                if (typeof s === 'string') return s;
+                if (s && (s.status === undefined || String(s.status).toLowerCase() === 'active')) {
+                    return s.app || s.name || s.applicationName || s.appName || null;
+                }
+                return null;
+            }).filter(Boolean)
+            : [];
+        const _SYS_CLIENTS = ['account', 'account-console', 'broker', 'realm-management', 'security-admin-console'];
         const apps = t.apps || Object.keys(resourceAccess).filter(
-            k => !['account', 'account-console', 'broker'].includes(k) &&
-                 resourceAccess[k]?.roles?.length > 0
+            k => !_SYS_CLIENTS.includes(k) && resourceAccess[k]?.roles?.length > 0
         );
         const _orgRaw = t.organization;
         const org = Array.isArray(_orgRaw) ? (_orgRaw[0] || {}) : (_orgRaw || {});
@@ -54,6 +65,8 @@ function parseUser(tokenPayload, clientId = 'project-iq') {
             given_name:      t.given_name || '',
             family_name:     t.family_name || '',
             apps,
+            products,
+            subscriptions,
             realm_roles:     realmRoles,
             client_roles:    clientRoles,
             // Project IQ client roles

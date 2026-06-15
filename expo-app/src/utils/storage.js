@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const PREFIX = 'glpi-chat-';
+// AsyncStorage key namespace. (Renamed during the ITSM cleanup; on first launch
+// after this change, prior local data under the old prefix is ignored and the
+// user simply re-authenticates.)
+const PREFIX = 'itsm-chat-';
 
 const key = (appId, name) => `${PREFIX}${appId}-${name}`;
 

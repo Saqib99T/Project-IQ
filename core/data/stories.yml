@@ -10,11 +10,11 @@ stories:
   steps:
     - intent: check_status
       entities:
-        - ticket_id: "GLPI-123"
+        - ticket_id: "ITSM-123"
     - slot_was_set:
-      - ticket_id: "GLPI-123"
-    - action: action_init_glpi_session
-    - action: action_check_glpi_status
+      - ticket_id: "ITSM-123"
+    - action: action_init_itsm_session
+    - action: action_check_itsm_status
     - action: utter_ask_anything_else
 
 # ======================
@@ -26,7 +26,7 @@ stories:
     - intent: create_ticket
     - action: action_search_kb_before_ticket
     - intent: kb_not_helpful
-    - action: action_init_glpi_session
+    - action: action_init_itsm_session
     - action: utter_ticket_form
     - intent: submit_ticket_form
     - action: action_create_ticket_from_form
@@ -35,7 +35,7 @@ stories:
   steps:
     - intent: create_ticket
     - action: action_search_kb_before_ticket
-    - action: action_init_glpi_session
+    - action: action_init_itsm_session
     - action: utter_ticket_form
     - intent: submit_ticket_form
     - action: action_create_ticket_from_form
@@ -47,23 +47,23 @@ stories:
   steps:
     - intent: verify_resolution
       entities:
-        - ticket_id: "GLPI-999"
-    - action: action_init_glpi_session
-    - action: action_verify_glpi_resolution # Asks for confirmation
+        - ticket_id: "ITSM-999"
+    - action: action_init_itsm_session
+    - action: action_verify_itsm_resolution # Asks for confirmation
     - slot_was_set:
       - ticket_status: "Pending"
     - intent: inform_update
       entities:
         - target_status: "Closed"
-    - action: action_verify_glpi_resolution # Closes ticket
+    - action: action_verify_itsm_resolution # Closes ticket
     - slot_was_set:
       - ticket_status: "Closed"
 
 - story: Verify resolution denied
   steps:
     - intent: verify_resolution
-    - action: action_init_glpi_session
-    - action: action_verify_glpi_resolution
+    - action: action_init_itsm_session
+    - action: action_verify_itsm_resolution
     - intent: deny
     - action: utter_ask_anything_else
 
@@ -71,11 +71,11 @@ stories:
   steps:
     - intent: view_comments
       entities:
-        - ticket_id: "GLPI-999"
+        - ticket_id: "ITSM-999"
     - slot_was_set:
-        - ticket_id: "GLPI-999"
-    - action: action_init_glpi_session
-    - action: action_init_glpi_session
+        - ticket_id: "ITSM-999"
+    - action: action_init_itsm_session
+    - action: action_init_itsm_session
     - action: action_view_ticket_comments
     - action: utter_ask_anything_else
 
@@ -86,17 +86,17 @@ stories:
   steps:
     - intent: list_attachments
       entities:
-        - ticket_id: "GLPI-555"
+        - ticket_id: "ITSM-555"
     - slot_was_set:
-      - ticket_id: "GLPI-555"
-    - action: action_init_glpi_session
+      - ticket_id: "ITSM-555"
+    - action: action_init_itsm_session
     - action: action_list_attachments
     - action: utter_ask_anything_else
 
 - story: List attachments with invalid/missing ID fallback
   steps:
     - intent: list_attachments
-    - action: action_init_glpi_session
+    - action: action_init_itsm_session
     - action: utter_ask_ticket_id
     - intent: inform
       entities:
@@ -118,7 +118,7 @@ stories:
 - story: User changes mind mid-conversation
   steps:
     - intent: create_ticket
-    - action: action_init_glpi_session
+    - action: action_init_itsm_session
     - action: ticket_form
     - active_loop: ticket_form
     - intent: stop
@@ -133,7 +133,7 @@ stories:
       entities:
         - issue_type: "hardware"
         - urgency: "high"
-    - action: action_init_glpi_session
+    - action: action_init_itsm_session
     - action: ticket_form
     - active_loop: ticket_form
     - intent: inform
@@ -143,7 +143,7 @@ stories:
     - active_loop: null
     - action: utter_ask_confirm_ticket
     - intent: affirm
-    - action: action_create_glpi_ticket
+    - action: action_create_itsm_ticket
 
 # ======================
 # Edge Cases
@@ -157,7 +157,7 @@ stories:
         - urgency: "high"
     - action: action_search_kb_before_ticket
     - intent: kb_not_helpful
-    - action: action_init_glpi_session
+    - action: action_init_itsm_session
     - action: utter_ticket_form
     - intent: submit_ticket_form
     - action: action_create_ticket_from_form
@@ -171,7 +171,7 @@ stories:
         - urgency: "high"
     - action: action_search_kb_before_ticket
     - intent: kb_not_helpful
-    - action: action_init_glpi_session
+    - action: action_init_itsm_session
     - action: utter_ticket_form
     - intent: submit_ticket_form
     - action: action_create_ticket_from_form
@@ -192,7 +192,7 @@ stories:
 - story: Cancel ticket creation
   steps:
     - intent: create_ticket
-    - action: action_init_glpi_session
+    - action: action_init_itsm_session
     - action: ticket_form
     - active_loop: ticket_form
     - active_loop: null

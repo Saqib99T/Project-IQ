@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Send, Paperclip, Minimize2, X, User, Lock, XCircle, Sparkles, History, ChevronLeft, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
@@ -87,22 +87,56 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         return h;
     }, [iam.token]);
 
-    // ── Selected product (entitlement-driven, Phase 8) ────────────────────────
-    // Null until IAM user picks a product from their apps list.
-    // Pre-selected if user only has one app, or if appId prop matches an entitlement.
-    const [selectedProductId, setSelectedProductId] = useState(() => appId || null);
+    // ── Selected product (IAM subscription-driven) ────────────────────────────
+    // Sessions are product-scoped: sender_id = iam-{sub}-{product}. The user must
+    // pick a product before chatting; the choice is persisted per-device and
+    // auto-restored next time. Products come from the IAM `products` claim
+    // (subscribed/active products); `apps` is only a fallback.
+    const [selectedProductId, setSelectedProductId] = useState(
+        () => getCookie(getStorageKey(appId, 'selectedProduct')) || null
+    );
 
-    // Auto-select when IAM loads: if only one app, use it; if appId matches one, use it
+    // The product list for this user. Priority:
+    //  1. `subscriptions` — org's active subscribed apps (when IAM emits it on the token)
+    //  2. `apps` — the apps the USER holds application roles in (resource_access) ← workaround
+    //  3. `products` — last resort (currently just ["itsm"])
+    const productList = useMemo(() => {
+        const subs = iam.user?.subscriptions;
+        if (Array.isArray(subs) && subs.length) return subs;
+        const a = iam.user?.apps;
+        if (Array.isArray(a) && a.length) return a;
+        return iam.user?.products || [];
+    }, [iam.user?.subscriptions, iam.user?.apps, iam.user?.products]);
+
+    const PRODUCT_LABELS = { IT: 'IT Support', Accounting: 'Accounting', shipnest: 'ShipNest',
+        greenloop: 'GreenLoop', 'account-wise': 'AccountWise', accountwise: 'AccountWise',
+        'stock-wise': 'StockWise', 'stock-wise-app': 'StockWise App', 'project-iq': 'Project IQ',
+        'brain-box': 'BrainBox', 'e-manifest_app': 'e-Manifest', 'app-1': 'App 1',
+        'clear-portal': 'Clear Portal', General: 'General' };
+    const productLabel = (id) => PRODUCT_LABELS[id]
+        || String(id).replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+    // Resolve the active product once IAM loads: keep a valid current/persisted
+    // choice, else auto-select when there's only one, else leave null (→ picker).
     useEffect(() => {
-        if (!iamAuthenticated || !iam.user?.apps?.length) return;
-        const apps = iam.user.apps;
-        if (apps.length === 1) {
-            setSelectedProductId(apps[0]);
-        } else if (appId && apps.includes(appId)) {
-            setSelectedProductId(appId);
-        }
-        // else: leave null so the selector is shown
-    }, [iamAuthenticated, iam.user?.apps, appId]);
+        if (!iamAuthenticated || !productList.length) return;
+        setSelectedProductId(prev => {
+            if (prev && productList.includes(prev)) return prev;
+            const stored = getCookie(getStorageKey(appId, 'selectedProduct'));
+            if (stored && productList.includes(stored)) return stored;
+            if (productList.length === 1) return productList[0];
+            if (appId && productList.includes(appId)) return appId;
+            return null;
+        });
+    }, [iamAuthenticated, productList, appId]);
+
+    // Persist the selection so it auto-selects next visit.
+    useEffect(() => {
+        if (selectedProductId) setCookie(getStorageKey(appId, 'selectedProduct'), selectedProductId);
+    }, [selectedProductId, appId]);
+
+    // Chat is gated for authenticated users until a product is chosen.
+    const productGateActive = iamAuthenticated && !selectedProductId;
 
     // ── Login via IAM ─────────────────────────────────────────────────────────
     const handleIamLogin = useCallback(() => {
@@ -110,9 +144,12 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     }, [iam]);
 
     // ── Sync IAM → local auth state ───────────────────────────────────────────
+    // senderId is product-scoped (iam-{sub}-{product}) and MUST match what the
+    // chat proxy computes server-side, so socket rooms / handoff status line up.
     useEffect(() => {
         if (iamAuthenticated && iam.user) {
-            const iamSenderId = `iam-${iam.user.sub}`;
+            const base = `iam-${iam.user.sub}`;
+            const iamSenderId = selectedProductId ? `${base}-${selectedProductId}` : base;
             setSenderId(iamSenderId);
             setCookie(getStorageKey(appId, 'senderId'), iamSenderId);
             setIsAuthenticated(true);
@@ -121,7 +158,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             setCookie(getStorageKey(appId, 'isAuthenticated'), 'true');
             setCookie(getStorageKey(appId, 'authUser'), iam.user.username || '');
         }
-    }, [iamAuthenticated, iam.user, appId]);
+    }, [iamAuthenticated, iam.user, appId, selectedProductId]);
 
     // Authentication state - check cookies for persisted login.
     // If this browser has an active operator session (op_token in localStorage),
@@ -289,7 +326,25 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     }, [showPrivacyPopup, isAuthenticated]);
 
     const [sessionEnded, setSessionEnded] = useState(false);
-    const isWelcomeState = messages.length === 1 && messages[0]?.id === 'init' && !isAuthenticated;
+    // Welcome state = a fresh conversation (only the init message). Shows the
+    // "Where should we start?" screen with quick-action buttons — for BOTH guests
+    // and signed-in users (the screen has an authenticated button set).
+    const isWelcomeState = messages.length === 1 && messages[0]?.id === 'init' && !sessionEnded;
+
+    // After IAM sign-in, replace any stale single init message (e.g. the leftover
+    // "You've been signed out" guest message restored from localStorage) with a
+    // proper signed-in welcome, so the user never sees the logout text post-login.
+    useEffect(() => {
+        if (!iamAuthenticated || !iam.user) return;
+        setMessages(prev => {
+            if (prev.length === 1 && prev[0]?.id === 'init') {
+                const name = iam.user.name || iam.user.username || authUser || 'there';
+                return [{ id: 'init', sender: 'bot',
+                    text: `**Hi ${name}!** 👋\n\nWelcome back. How can I help you today?` }];
+            }
+            return prev;
+        });
+    }, [iamAuthenticated, iam.user, authUser]);
 
     // Inactivity timeout
     const [timeoutMinutes, setTimeoutMinutes] = useState(10);
@@ -710,6 +765,33 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             ? `**Hi ${authUser}!**\n\nWelcome back. How can I help you today?`
             : `**Hi, I'm ${title}** 👋\n\nI'm here to help you with:\n\n*   **Finding answers** in our knowledge base\n*   **Answering** general IT questions\n*   **Managing** your support tickets\n\n*Log in to unlock full ticket management features.*`;
         setMessages([{ id: 'init', sender: 'bot', text: welcomeMsg }]);
+    };
+
+    // ── Switch product → end current session everywhere, start a fresh one ────
+    const switchProduct = (newPid) => {
+        setShowUserMenu(false);
+        if (!newPid || newPid === selectedProductId) return;
+        // End the OLD product's session everywhere (bot + assigned operator).
+        emitUserEndSession();
+        fetch(`${ADMIN_API_URL}/handoff/end`, {
+            method: 'POST', headers: getAuthHeaders(),
+            body: JSON.stringify({ sender_id: senderId }),
+        }).catch(() => {});
+        // Switch → the senderId effect recomputes to iam-{sub}-{newPid}: a brand
+        // new session on both bot and operator.
+        setSelectedProductId(newPid);
+        setCookie(getStorageKey(appId, 'selectedProduct'), newPid);
+        // Reset the conversation UI for the new product.
+        setHandoffState('bot_active');
+        setOperatorName('');
+        setQueuePosition(null);
+        setWaitMins(null);
+        sessionEndedRef.current = false;
+        setSessionEnded(false);
+        lastActivityRef.current = Date.now();
+        localStorage.removeItem(getStorageKey(appId, 'messages'));
+        setMessages([{ id: 'init', sender: 'bot',
+            text: `**Switched to ${productLabel(newPid)}.**\n\nHow can I help you with ${productLabel(newPid)} today?` }]);
     };
 
     const handleFileSelect = (e) => {
@@ -1270,6 +1352,28 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                     >
                                                         My Profile
                                                     </button>
+                                                    {/* Product switcher — switching ends the current session and starts a new one */}
+                                                    {productList.length > 0 && (
+                                                        <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+                                                            <div className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Product</div>
+                                                            <div className="flex flex-col gap-0.5">
+                                                                {productList.map(pid => (
+                                                                    <button
+                                                                        key={pid}
+                                                                        onClick={() => switchProduct(pid)}
+                                                                        className="w-full text-left px-2 py-1.5 rounded-md text-sm flex items-center justify-between transition-colors"
+                                                                        style={{ color: pid === selectedProductId ? primaryColor : '#4b5563',
+                                                                                 backgroundColor: pid === selectedProductId ? 'rgba(0,0,0,0.04)' : 'transparent' }}
+                                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
+                                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = pid === selectedProductId ? 'rgba(0,0,0,0.04)' : 'transparent'}
+                                                                    >
+                                                                        <span>{productLabel(pid)}</span>
+                                                                        {pid === selectedProductId && <span style={{ color: primaryColor }}>✓</span>}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     {!isWelcomeState && !sessionEnded && (
                                                         <button
                                                             className="w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors"
@@ -1345,9 +1449,9 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             )}
                         </AnimatePresence>
 
-                        {/* ── Product selector (IAM entitlement-driven) ─────────────────── */}
+                        {/* ── Product selector (IAM subscription-driven) ────────────────── */}
                         <AnimatePresence>
-                            {iamAuthenticated && !selectedProductId && (iam.user?.apps?.length > 1) && (
+                            {productGateActive && productList.length > 0 && (
                                 <motion.div
                                     initial={{ opacity: 0, height: 0 }}
                                     animate={{ opacity: 1, height: 'auto' }}
@@ -1359,10 +1463,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                         Which product do you need help with?
                                     </p>
                                     <div className="flex flex-wrap gap-2">
-                                        {iam.user.apps.map(app => (
+                                        {productList.map(pid => (
                                             <button
-                                                key={app}
-                                                onClick={() => setSelectedProductId(app)}
+                                                key={pid}
+                                                onClick={() => setSelectedProductId(pid)}
                                                 className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
                                                 style={{
                                                     borderColor: primaryColor,
@@ -1378,7 +1482,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                     e.currentTarget.style.color = primaryColor;
                                                 }}
                                             >
-                                                {app.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                                {productLabel(pid)}
                                             </button>
                                         ))}
                                     </div>
@@ -2012,11 +2116,11 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() => handoffState === 'bot_active' && fileInputRef.current?.click()}
-                                                disabled={handoffState !== 'bot_active'}
+                                                onClick={() => handoffState === 'bot_active' && !productGateActive && fileInputRef.current?.click()}
+                                                disabled={handoffState !== 'bot_active' || productGateActive}
                                                 className="transition-colors mr-2 disabled:opacity-30 disabled:cursor-not-allowed"
                                                 style={{ color: c.textMuted }}
-                                                onMouseEnter={(e) => handoffState === 'bot_active' && (e.target.style.color = primaryColor)}
+                                                onMouseEnter={(e) => handoffState === 'bot_active' && !productGateActive && (e.target.style.color = primaryColor)}
                                                 onMouseLeave={(e) => e.target.style.color = c.textMuted}
                                                 title={handoffState === 'bot_active' ? 'Attach File' : 'Unavailable during handoff'}
                                             >
@@ -2026,14 +2130,14 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                 type="text"
                                                 value={inputText}
                                                 onChange={(e) => { setInputText(e.target.value); handleInputTyping(); }}
-                                                placeholder={handoffState === 'assigned' ? 'Reply to agent…' : 'Message Project IQ…'}
-                                                disabled={handoffState === 'queued'}
+                                                placeholder={productGateActive ? 'Select a product above to start…' : handoffState === 'assigned' ? 'Reply to agent…' : 'Message Project IQ…'}
+                                                disabled={handoffState === 'queued' || productGateActive}
                                                 className="flex-1 bg-transparent focus:outline-none font-light py-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 style={{ fontSize: `${inputFontSize}px`, color: c.text }}
                                             />
                                             <button
                                                 type="submit"
-                                                disabled={!inputText.trim() || isLoading || handoffState === 'queued'}
+                                                disabled={!inputText.trim() || isLoading || handoffState === 'queued' || productGateActive}
                                                 className="text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2"
                                                 onMouseEnter={(e) => !e.target.disabled && (e.target.style.color = primaryColor)}
                                                 onMouseLeave={(e) => !e.target.disabled && (e.target.style.color = '#9ca3af')}

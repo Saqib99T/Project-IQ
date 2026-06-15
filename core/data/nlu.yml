@@ -189,10 +189,10 @@ nlu:
     - I have credentials
     - enter credentials
     - input credentials
-    - my username is [john](glpi_username)
-    - username [admin](glpi_username)
-    - login as [user1](glpi_username)
-    - sign in as [tech](glpi_username)
+    - my username is [john](itsm_username)
+    - username [admin](itsm_username)
+    - login as [user1](itsm_username)
+    - sign in as [tech](itsm_username)
 
 # GOODBYE
 - intent: goodbye
@@ -346,7 +346,7 @@ nlu:
     - I want to report a general IT issue.
     - Help! My machine keeps crashing.
     - Start the process to create a new service request.
-    - Please document this issue in GLPI.
+    - Please document this issue in ITSM.
     - I want to submit a request for the IT team.
     - My application isn't loading, I need help.
     - Create an incident report for a malfunction.
@@ -758,12 +758,12 @@ nlu:
   examples: |
     - I want to add a comment to my ticket
     - update my ticket
-    - I have more information for ticket [GLPI-123](ticket_id)
+    - I have more information for ticket [ITSM-123](ticket_id)
     - add a note to the ticket
     - I need to update the details
     - append some info to my request
     - I forgot to mention something in the ticket
-    - add follow-up to [GLPI-555](ticket_id)
+    - add follow-up to [ITSM-555](ticket_id)
     - update ticket [1029](ticket_id)
     - here is the log file you asked for
     - posting an update to my issue
@@ -808,12 +808,12 @@ nlu:
     - update request [54321](ticket_id)
     - edit issue [999](ticket_id)
     - modify case [111](ticket_id)
-    - append to [GLPI-777](ticket_id)
-    - comment on [GLPI-888](ticket_id)
-    - reply to [GLPI-222](ticket_id)
-    - note on [GLPI-333](ticket_id)
-    - info for [GLPI-444](ticket_id)
-    - details for [GLPI-555](ticket_id)
+    - append to [ITSM-777](ticket_id)
+    - comment on [ITSM-888](ticket_id)
+    - reply to [ITSM-222](ticket_id)
+    - note on [ITSM-333](ticket_id)
+    - info for [ITSM-444](ticket_id)
+    - details for [ITSM-555](ticket_id)
     - new info for ticket
     - new details for ticket
     - new update for ticket
@@ -917,10 +917,10 @@ nlu:
     - The issue is fixed
     - My problem is solved
     - Close the ticket
-    - verify resolution for [GLPI-123](ticket_id)
+    - verify resolution for [ITSM-123](ticket_id)
     - it works now, thanks
     - you can close this request
-    - ticket [GLPI-999](ticket_id) is resolved
+    - ticket [ITSM-999](ticket_id) is resolved
     - mark as solved
     - confirm resolution
     - the printer is working again
@@ -1208,24 +1208,24 @@ nlu:
 - intent: check_status
   examples: |
     - What is the current status of my ticket?
-    - Check the status for [GLPI-12345](ticket_id)
+    - Check the status for [ITSM-12345](ticket_id)
     - Is my request [1099](ticket_id) resolved yet?
     - Can you give me an update on my ticket?
     - What's happening with the issue I reported?
     - Has ticket number [9876](ticket_id) been assigned?
     - Tell me the progress on my incident.
     - Status of [555](ticket_id) please.
-    - Can I get an update on ticket [GLPI-900](ticket_id)?
-    - Check the progress for ticket [GLPI-1122](ticket_id).
+    - Can I get an update on ticket [ITSM-900](ticket_id)?
+    - Check the progress for ticket [ITSM-1122](ticket_id).
     - Where is my current ticket in the workflow?
     - I want to know about the status of my old request.
     - What's the latest on ticket [3333](ticket_id)?
-    - Update on case [GLPI-444](ticket_id)?
+    - Update on case [ITSM-444](ticket_id)?
     - Is my issue closed?
     - Please look up the status for ID [123](ticket_id).
     - Can you verify the status of my support case?
     - I need to know if ticket [789](ticket_id) is done.
-    - Is ticket [GLPI-600](ticket_id) still open?
+    - Is ticket [ITSM-600](ticket_id) still open?
     - What's the status update for [ticket number]?
     - Can you check if my support request has been addressed?
     - Has there been any progress on my reported issue?
@@ -1434,7 +1434,7 @@ nlu:
     # Ticket ID (varied formats)
     - The ID is [5002](ticket_id)
     - The number is [8080](ticket_id).
-    - The ID is [GLPI-2468](ticket_id).
+    - The ID is [ITSM-2468](ticket_id).
     - Try ticket number [100](ticket_id).
     - [1234](ticket_id) is the reference number.
 
@@ -1548,14 +1548,14 @@ nlu:
 # VIEW COMMENTS
 - intent: view_comments
   examples: |
-    - Show comments for ticket [GLPI-123](ticket_id)
-    - View comments for [GLPI-456](ticket_id)
-    - What are the updates on [GLPI-789](ticket_id)?
-    - List followups for ticket [GLPI-111](ticket_id)
-    - Show me the history of [GLPI-222](ticket_id)
+    - Show comments for ticket [ITSM-123](ticket_id)
+    - View comments for [ITSM-456](ticket_id)
+    - What are the updates on [ITSM-789](ticket_id)?
+    - List followups for ticket [ITSM-111](ticket_id)
+    - Show me the history of [ITSM-222](ticket_id)
     - Read comments for this ticket
     - Read comments for this ticket
-    - check comments on [GLPI-123](ticket_id)
+    - check comments on [ITSM-123](ticket_id)
     - show notes
     - view notes
     - read notes
@@ -2285,26 +2285,26 @@ nlu:
     - what files are on this ticket?
     - any attachments?
     - view documents
-    - show me the files linked to [GLPI-123](ticket_id)
-    - show ticket [GLPI-123](ticket_id) files
+    - show me the files linked to [ITSM-123](ticket_id)
+    - show ticket [ITSM-123](ticket_id) files
     - check attachments
     - show uploads
     - list files for ticket [9](ticket_id)
     - show files on [23](ticket_id)
-    - attachments for [GLPI-555](ticket_id)
+    - attachments for [ITSM-555](ticket_id)
     - get files for [1234](ticket_id)
     - what files are on [99](ticket_id)?
     - list attachments for ticket [101](ticket_id)
     - list of attachments for [17](ticket_id)
     - list of attachments [17](ticket_id)
-    - show list of attachments for [GLPI-123](ticket_id)
+    - show list of attachments for [ITSM-123](ticket_id)
     - get list of attachments for [456](ticket_id)
     - view list of attachments for [789](ticket_id)
     - list of files for ticket [101](ticket_id)
 
 - regex: ticket_id
   examples: |
-    - ^GLPI-\d+$
+    - ^ITSM-\d+$
     - ^\d+$
 
 # OUT OF SCOPE - Unrelated queries
@@ -2783,9 +2783,9 @@ nlu:
     - I want to upload a document
     - add attachment
     - upload file for [11](ticket_id)
-    - upload file for ticket [GLPI-123](ticket_id)
+    - upload file for ticket [ITSM-123](ticket_id)
     - attach image to ticket [456](ticket_id)
-    - add screenshot to [GLPI-789](ticket_id)
+    - add screenshot to [ITSM-789](ticket_id)
     - please attach a file
     - send file
 

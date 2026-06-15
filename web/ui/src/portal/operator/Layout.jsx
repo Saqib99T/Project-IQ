@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useIam } from '../../widget/hooks/useIam'
 import { useApi } from '../useApi'
 import { usePortalSocket } from './usePortalSocket'
@@ -27,13 +27,64 @@ function GroupHeader({ to, icon, label, count }) {
     )
 }
 
+const STATUS_META = {
+    available: { dot: 'bg-green-500', label: 'Available' },
+    away:      { dot: 'bg-amber-500', label: 'Away' },
+    busy:      { dot: 'bg-red-500',   label: 'Busy' },
+    offline:   { dot: 'bg-gray-400',  label: 'Offline' },
+}
+
+function StatusControl({ status, onSet }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef(null)
+    useEffect(() => {
+        const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+        document.addEventListener('click', h)
+        return () => document.removeEventListener('click', h)
+    }, [])
+    const meta = STATUS_META[status] || STATUS_META.offline
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                onClick={() => setOpen(o => !o)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border border-bordc bg-surface text-fgmuted hover:bg-bg transition-colors"
+            >
+                <span className={`w-2 h-2 rounded-full ${meta.dot}`}></span>
+                {meta.label}
+                <span className="text-xs">▾</span>
+            </button>
+            {open && (
+                <div className="absolute right-0 mt-1 w-36 bg-surface border border-bordc rounded-lg shadow-lg z-30 py-1">
+                    {['available', 'away'].map(s => (
+                        <button
+                            key={s}
+                            onClick={() => { setOpen(false); onSet(s) }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-bg flex items-center gap-2 text-fg"
+                        >
+                            <span className={`w-2 h-2 rounded-full ${STATUS_META[s].dot}`}></span>
+                            {STATUS_META[s].label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
 export default function OperatorLayout() {
     const { user, logout } = useIam()
     const navigate = useNavigate()
-    const { call } = useApi()
+    const location = useLocation()
+    const { call }   = useApi()
 
     const [queue, setQueue]       = useState([])
     const [sessions, setSessions] = useState([])
+    const [status, setStatus]     = useState('available')
+    const [unread, setUnread]     = useState({})   // conversation_id → count
+
+    // Conversation id currently open (route /operator/sessions/:id)
+    const activeMatch = location.pathname.match(/\/operator\/sessions\/(\d+)/)
+    const activeConvId = activeMatch ? activeMatch[1] : null
 
     const refresh = useCallback(async () => {
         try {
@@ -52,19 +103,40 @@ export default function OperatorLayout() {
         return () => clearInterval(iv)
     }, [refresh])
 
-    // Presence heartbeat — keeps this operator's last_seen fresh so the bot
-    // routes new "talk to a human" requests to them (else "no agents available").
+    // Presence heartbeat — keeps last_seen fresh (routable) and syncs status.
     useEffect(() => {
-        const beat = () => call('/portal/api/heartbeat', { method: 'POST' }).catch(() => {})
+        const beat = () => call('/portal/api/heartbeat', { method: 'POST' })
+            .then(d => { if (d?.status) setStatus(d.status) })
+            .catch(() => {})
         beat()
         const iv = setInterval(beat, 30_000)
         return () => clearInterval(iv)
     }, [call])
 
-    // Live refresh on queue/session socket events.
+    const setOperatorStatus = useCallback(async (s) => {
+        setStatus(s)  // optimistic
+        try {
+            const d = await call('/portal/api/status', { method: 'POST', body: JSON.stringify({ status: s }) })
+            if (d?.status) setStatus(d.status)
+        } catch { /* heartbeat will reconcile */ }
+    }, [call])
+
+    // Clear unread for the session currently being viewed.
+    useEffect(() => {
+        if (!activeConvId) return
+        setUnread(prev => (prev[activeConvId] ? { ...prev, [activeConvId]: 0 } : prev))
+    }, [activeConvId])
+
+    // Live refresh + unread tracking on socket events.
     usePortalSocket({
-        onEvent: (evt) => {
+        onEvent: (evt, data) => {
             if (['queue_item_updated', 'queue_item_removed', 'handoff_resolved'].includes(evt)) refresh()
+            if (evt === 'user_message' && data?.conversation_id != null) {
+                const cid = String(data.conversation_id)
+                if (cid !== String(activeConvId)) {
+                    setUnread(prev => ({ ...prev, [cid]: (prev[cid] || 0) + 1 }))
+                }
+            }
         },
     })
 
@@ -103,17 +175,25 @@ export default function OperatorLayout() {
                         <div className="pl-2 space-y-0.5">
                             {sessions.length === 0
                                 ? <p className="px-2.5 py-1 text-[11px] text-sidebarfg/40">No active sessions</p>
-                                : sessions.map(s => (
-                                    <NavLink
-                                        key={s.conversation_id}
-                                        to={`/operator/sessions/${s.conversation_id}`}
-                                        title={s.sender_id}
-                                        className={({ isActive }) => `${subItem} ${isActive ? 'bg-primary/10 text-primary' : ''}`}
-                                    >
-                                        <span>💬</span>
-                                        <span className="truncate">{shortLabel(s)}</span>
-                                    </NavLink>
-                                ))}
+                                : sessions.map(s => {
+                                    const u = unread[String(s.conversation_id)] || 0
+                                    return (
+                                        <NavLink
+                                            key={s.conversation_id}
+                                            to={`/operator/sessions/${s.conversation_id}`}
+                                            title={s.sender_id}
+                                            className={({ isActive }) => `${subItem} ${isActive ? 'bg-primary/10 text-primary' : ''}`}
+                                        >
+                                            <span>💬</span>
+                                            <span className="truncate flex-1">{shortLabel(s)}</span>
+                                            {u > 0 && (
+                                                <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                                                    {u > 9 ? '9+' : u}
+                                                </span>
+                                            )}
+                                        </NavLink>
+                                    )
+                                })}
                         </div>
                     </div>
                 </nav>
@@ -144,7 +224,7 @@ export default function OperatorLayout() {
                 <header className="h-16 bg-surface border-b border-bordc flex items-center px-6 shrink-0 transition-colors">
                     <h1 className="text-lg font-semibold text-fg">Operator Console</h1>
                     <div className="ml-auto flex items-center gap-3">
-                        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500"></span><span className="text-sm text-fgmuted">Online</span></span>
+                        <StatusControl status={status} onSet={setOperatorStatus} />
                         <AppearanceMenu />
                     </div>
                 </header>

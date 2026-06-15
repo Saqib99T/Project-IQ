@@ -9,13 +9,11 @@ from rasa_sdk import Action, Tracker
 from rasa_sdk.events import SlotSet, AllSlotsReset, Restarted, ActiveLoop, UserUttered, FollowupAction
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
-from action_server.actions.glpi_service import GlpiService
 from common import analytics_store
-from common.config_manager import get_glpi_config
 from action_server.actions._shared import (
-    get_glpi_service, get_glpi_base_url, log_bot_response,
+    log_bot_response,
     get_analytics_context, get_effective_session_token,
-    check_user_login, glpi_service, itsm_service, logger,
+    check_user_login, itsm_service, logger,
     get_iam_identity, is_iam_authenticated, require_iam_auth,
     get_org_context, get_iam_jwt,
 )
@@ -33,9 +31,9 @@ def _fmt_date(iso: str) -> str:
     return s
 
 
-class ActionCreateGlpiTicket(Action):
+class ActionCreateItsmTicket(Action):
     def name(self) -> Text:
-        return "action_create_glpi_ticket"
+        return "action_create_itsm_ticket"
 
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
@@ -115,9 +113,9 @@ class ActionCreateGlpiTicket(Action):
 # --- 2. Custom Action: Check Status ---
 
 
-class ActionCheckGlpiStatus(Action):
+class ActionCheckItsmStatus(Action):
     def name(self) -> Text:
-        return "action_check_glpi_status"
+        return "action_check_itsm_status"
 
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
@@ -201,9 +199,9 @@ class ActionCheckGlpiStatus(Action):
 # --- 3. Custom Action: Update Ticket (Status or Content) ---
 
 
-class ActionUpdateGlpiTicket(Action):
+class ActionUpdateItsmTicket(Action):
     def name(self) -> Text:
-        return "action_update_glpi_ticket"
+        return "action_update_itsm_ticket"
 
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
@@ -275,9 +273,9 @@ class ActionUpdateGlpiTicket(Action):
 # --- 4. Custom Action: Verify Resolution (Show Status & Close) ---
 
 
-class ActionVerifyGlpiResolution(Action):
+class ActionVerifyItsmResolution(Action):
     def name(self) -> Text:
-        return "action_verify_glpi_resolution"
+        return "action_verify_itsm_resolution"
 
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
@@ -416,13 +414,13 @@ class ActionListOpenTickets(Action):
         entities = latest_msg.get("entities", []) if isinstance(latest_msg, dict) else []
         for e in entities:
             if e.get("entity") == "status_id":
-                glpi_sid = int(e["value"])
-                # Map GLPI status id → itsm status string
-                _glpi_to_itsm = {
+                itsm_sid = int(e["value"])
+                # Map ITSM status id → itsm status string
+                _itsm_to_itsm = {
                     1: "open", 2: "in_progress", 3: "in_progress",
                     4: "pending", 5: "resolved", 6: "closed", 10: "approved",
                 }
-                itsm_status_filter = _glpi_to_itsm.get(glpi_sid)
+                itsm_status_filter = _itsm_to_itsm.get(itsm_sid)
                 status_name = ITSM_STATUS_DISPLAY.get(itsm_status_filter, "")
                 break
 

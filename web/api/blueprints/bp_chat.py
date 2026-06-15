@@ -198,8 +198,23 @@ def chat_webhook_proxy():
                 from common.iam_service import verify_iam_token, extract_iam_user, IamTokenError
                 claims   = verify_iam_token(auth_header[7:])
                 iam_user = extract_iam_user(claims)
-                # Stable, deterministic sender_id from IAM sub
+                # Stable, deterministic sender_id from IAM sub.
                 sender_id = f"iam-{iam_user['sub']}"
+                # Product-scoped sessions: when the user has picked a product,
+                # the identity is iam-{sub}-{product}. Switching product is then a
+                # brand-new session (different sender) on bot + operator, and
+                # per-product chats never cross-contaminate.
+                _pid_meta = metadata.get('product_id')
+                if _pid_meta:
+                    sender_id = f"iam-{iam_user['sub']}-{_pid_meta}"
+                # CRITICAL: forward this canonical id to Rasa too. The widget
+                # starts a session under a random guest UUID and only flips to
+                # iam-{sub}(-product) after IAM/product resolve, so without this
+                # rewrite a handoff gets enqueued under the guest UUID while the
+                # gate below checks the canonical id → mismatch → user gets
+                # bot/KB replies during an active handoff. Pinning data['sender']
+                # makes the gate, Rasa, and the queue all key off one identity.
+                data['sender'] = sender_id
                 # Inject IAM identity into Rasa metadata so actions can read slots
                 metadata.setdefault('iam_sub',   iam_user['sub'])
                 metadata.setdefault('iam_name',  iam_user['name'])
@@ -368,16 +383,6 @@ def chat_webhook_proxy():
                             title=f'Ticket #{tid} created',
                             body='Your support ticket has been submitted.',
                             payload={'ticket_id': tid, 'sender_id': sender_id},
-                        )
-                    except Exception:
-                        pass
-                    # Store sender mapping so GLPI webhook can find this user later
-                    try:
-                        from common.db.iam_glpi_users import store_ticket_sender
-                        store_ticket_sender(
-                            tid, sender_id, app_id,
-                            org_id=metadata.get('iam_org_id', ''),
-                            channel=metadata.get('channel', 'internal'),
                         )
                     except Exception:
                         pass

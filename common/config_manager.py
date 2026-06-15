@@ -111,24 +111,6 @@ def save_config(config: configparser.ConfigParser):
         config.write(f)
 
 
-def get_glpi_config() -> Dict[str, str]:
-    """Get GLPI configuration settings."""
-    if _init_infisical() and _infisical_secrets:
-        return {
-            'api_url': _get_secret('GLPI_API_URL', 'http://localhost:8083/apirest.php'),
-            'app_token': _get_secret('GLPI_APP_TOKEN', ''),
-            'user_token': _get_secret('GLPI_USER_TOKEN', ''),
-        }
-    
-    # Fallback to local config
-    config = load_config()
-    return {
-        'api_url': config.get('GLPI', 'GLPI_API_URL', fallback='http://localhost:8083/apirest.php'),
-        'app_token': config.get('GLPI', 'GLPI_APP_TOKEN', fallback=''),
-        'user_token': config.get('GLPI', 'GLPI_USER_TOKEN', fallback=''),
-    }
-
-
 def get_db_config() -> Dict[str, Any]:
     """Get database configuration settings."""
     if _init_infisical() and _infisical_secrets:
@@ -269,18 +251,6 @@ def get_sla_config() -> Dict[str, int]:
     }
 
 
-def get_glpi_webhook_config() -> Dict[str, str]:
-    """Get GLPI webhook configuration."""
-    if _init_infisical() and _infisical_secrets:
-        return {
-            'secret': _get_secret('GLPI_WEBHOOK_SECRET', 'change-me-to-a-random-secret'),
-        }
-    config = load_config()
-    return {
-        'secret': config.get('GLPI_WEBHOOK', 'secret', fallback='change-me-to-a-random-secret'),
-    }
-
-
 def get_iam_config() -> Dict[str, str]:
     """Get IAM / Keycloak configuration settings."""
     if _init_infisical() and _infisical_secrets:
@@ -327,26 +297,6 @@ def get_platform_config() -> Dict[str, str]:
         'org_id':         config.get('PLATFORM', 'org_id',         fallback=''),
         'glpi_entity_id': config.getint('PLATFORM', 'glpi_entity_id', fallback=0),
     }
-
-
-def get_glpi_categories() -> Dict[str, int]:
-    """Map product_id → GLPI ITIL category id."""
-    if _init_infisical() and _infisical_secrets:
-        return {
-            'accountwise-support': int(_get_secret('GLPI_CAT_ACCOUNTWISE', '0')),
-            'stockwise-support':   int(_get_secret('GLPI_CAT_STOCKWISE',   '0')),
-            'general-support':     int(_get_secret('GLPI_CAT_GENERAL',     '0')),
-            'hr-support':          int(_get_secret('GLPI_CAT_HR',          '0')),
-        }
-    config = load_config()
-    result = {}
-    if config.has_section('GLPI_CATEGORIES'):
-        for key, val in config.items('GLPI_CATEGORIES'):
-            try:
-                result[key] = int(val)
-            except (ValueError, TypeError):
-                result[key] = 0
-    return result
 
 
 def get_all_config() -> Dict[str, str]:

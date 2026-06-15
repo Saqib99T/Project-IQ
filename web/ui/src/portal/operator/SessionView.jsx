@@ -2,8 +2,34 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApi } from '../useApi'
 import { usePortalSocket } from './usePortalSocket'
+import { productLabel } from './productLabels'
 
 const TRIGGER_LABEL = { user_request: 'User Request', low_confidence: 'Low Confidence', frustration: 'Frustration' }
+
+// Map Rasa /intent payloads to friendly labels so the transcript reads naturally.
+const PAYLOAD_MAP = {
+    '/create_ticket': 'Create a ticket', '/list_tickets': 'List my tickets',
+    '/check_status': 'Check ticket status', '/help': 'Help',
+    '/request_human_agent': 'Talk to a human agent', '/confirm_gdpr_consent': 'I agree to the terms',
+    '/deny_gdpr_consent': 'I do not agree', '/login': 'Login', '/logout': 'Logout',
+    '/greet': 'Hello', '/hi': 'Hello', '/affirm': 'Yes', '/deny': 'No', '/restart': 'Start over',
+    '/out_of_scope': 'Other', '/ask_knowledge': 'Search Knowledge Base',
+    '/submit_ticket_form': 'Ticket submitted', '/show_ticket_graph': 'View ticket graph',
+    '/show_chart': 'View chart', '/accept_ticket_fallback': 'Create a support ticket',
+    '/confirm_handoff': 'Wait in queue', '/cancel_handoff': 'Cancel handoff',
+    '/kb_not_helpful': 'Not helpful', '/kb_show_full_answer': 'Show full answer',
+    '/kb_show_full_article': 'Show full article', '/feedback_positive': 'Positive feedback',
+    '/feedback_negative': 'Negative feedback', '/inform': 'Option selected',
+    '/update_ticket': 'Update ticket', '/stop': 'Cancel', '/verify_resolution': 'Mark as resolved',
+    '/list_attachments': 'List attachments', '/upload_file': 'Upload file',
+    '/rating_1': 'Rating: 1★', '/rating_2': 'Rating: 2★', '/rating_3': 'Rating: 3★',
+    '/rating_4': 'Rating: 4★', '/rating_5': 'Rating: 5★',
+}
+function fmtPayload(text) {
+    if (!text || !text.startsWith('/')) return text
+    const key = text.split('{')[0].trim().toLowerCase()
+    return PAYLOAD_MAP[key] || (text.slice(1).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase()))
+}
 
 function waitingLabel(secs) {
     if (secs == null) return '—'
@@ -16,6 +42,7 @@ function waitingLabel(secs) {
 function MessageBubble({ msg }) {
     const isOperator = msg.role === 'operator' || msg.sender === 'operator'
     const isBot      = msg.role === 'bot' || msg.sender === 'bot'
+    const isUser     = !isOperator && !isBot
     return (
         <div className={`flex ${isOperator ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
@@ -28,7 +55,7 @@ function MessageBubble({ msg }) {
                 {!isOperator && (
                     <p className="text-xs font-semibold mb-0.5 opacity-60">{isBot ? 'Bot' : 'User'}</p>
                 )}
-                <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                <p className="whitespace-pre-wrap break-words">{isUser ? fmtPayload(msg.text) : msg.text}</p>
                 <p className={`text-xs mt-1 opacity-60 ${isOperator ? 'text-right' : ''}`}>
                     {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                 </p>
@@ -59,11 +86,22 @@ export default function SessionView() {
     const [showTransfer, setShowTransfer] = useState(false)
     const [operators, setOperators]   = useState([])
     const [transferring, setTransferring] = useState(false)
+    const [endedReason, setEndedReason] = useState(null)   // resolved | abandoned | closed
+    const [histModal, setHistModal]   = useState(null)     // { title, sub, messages, loading }
 
     const bottomRef   = useRef(null)
     const typingTimer = useRef(null)
 
     const noteKey = `op-note-${conversationId}`
+
+    // A session is read-only once it has left the 'assigned'/'waiting' lifecycle.
+    const ENDED_STATES = ['resolved', 'abandoned', 'closed', 'timeout']
+    const ended = resolved || ENDED_STATES.includes(meta?.status)
+    const ENDED_LABEL = {
+        resolved: 'Session closed', abandoned: 'User left the queue',
+        closed: 'Session closed', timeout: 'Session timed out',
+    }
+    const endedLabel = ENDED_LABEL[endedReason] || ENDED_LABEL[meta?.status] || 'Session ended'
 
     const fetchConversation = useCallback(async () => {
         try {
@@ -85,14 +123,17 @@ export default function SessionView() {
         setNote(sessionStorage.getItem(noteKey) || '')
     }, [noteKey])
 
-    // Load interaction history once we know the sender
+    // Load interaction history once we know the sender — PREVIOUS sessions only
+    // (exclude the one currently open).
     useEffect(() => {
         const sid = meta?.sender_id
         if (!sid) return
         call(`/portal/api/user-history/${encodeURIComponent(sid)}?limit=11`)
-            .then(d => setHistory(d.history || []))
+            .then(d => setHistory((d.history || []).filter(
+                h => String(h.conversation_id) !== String(conversationId)
+            )))
             .catch(() => setHistory([]))
-    }, [meta?.sender_id, call])
+    }, [meta?.sender_id, call, conversationId])
 
     useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
@@ -118,10 +159,15 @@ export default function SessionView() {
                 if (data.typing) typingTimer.current = setTimeout(() => setUserTyping(false), 4000)
             }
             if (evt === 'user_left' && String(data.conversation_id) === String(conversationId)) {
-                setMessages(prev => [...prev, { role: 'system', text: 'The user has left the conversation.', timestamp: new Date().toISOString() }])
-            }
-            if (evt === 'handoff_resolved' && String(data.conversation_id) === String(conversationId)) {
+                setMessages(prev => [...prev, { role: 'system', text: data.message || 'The user has left the conversation.', timestamp: new Date().toISOString() }])
+                // The user ending the session closes the handoff — go read-only.
                 setResolved(true)
+                setEndedReason('abandoned')
+            }
+            if ((evt === 'handoff_resolved' || evt === 'queue_item_removed') &&
+                String(data.conversation_id) === String(conversationId)) {
+                setResolved(true)
+                setEndedReason(data.status || 'resolved')
             }
         },
     })
@@ -236,6 +282,23 @@ export default function SessionView() {
         }
     }
 
+    const openHistory = async (h) => {
+        setHistModal({
+            title: `${h.app_id || 'Session'} · ${h.handoff_status || ''}`.trim(),
+            sub: h.queued_at ? new Date(h.queued_at).toLocaleString() : '',
+            messages: [], loading: true,
+        })
+        try {
+            const params = new URLSearchParams()
+            if (h.queued_at)   params.set('from_time', h.queued_at)
+            if (h.resolved_at) params.set('to_time', h.resolved_at)
+            const d = await call(`/portal/api/conversation/${h.conversation_id}/transcript?${params.toString()}`)
+            setHistModal(m => m && ({ ...m, messages: d.messages || [], loading: false }))
+        } catch {
+            setHistModal(m => m && ({ ...m, messages: [], loading: false }))
+        }
+    }
+
     const senderName = meta?.sender_id || conversationId
 
     return (
@@ -248,7 +311,13 @@ export default function SessionView() {
                         <p className="font-semibold text-fg text-sm truncate">{senderName}</p>
                         {meta?.app_id && <p className="text-xs text-fgmuted">{meta.app_id}</p>}
                     </div>
-                    {resolved && <span className="badge bg-success/15 text-success">Resolved</span>}
+                    {ended && (
+                        <span className="badge bg-success/15 text-success">
+                            {endedReason === 'abandoned' ? 'Abandoned'
+                                : endedReason === 'timeout' ? 'Timed out'
+                                : 'Resolved'}
+                        </span>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 bg-bg">
@@ -274,8 +343,12 @@ export default function SessionView() {
                 </div>
 
                 <div className="px-6 py-3 bg-surface border-t border-bordc shrink-0">
-                    {resolved ? (
-                        <p className="text-center text-sm text-fgsubtle py-2">This session is resolved.</p>
+                    {ended ? (
+                        <div className="text-center py-1.5">
+                            <span className="inline-block bg-amber-50 border border-amber-200 text-amber-700 text-xs px-4 py-1.5 rounded-full font-medium">
+                                🔒 {endedLabel} — no further messages can be posted
+                            </span>
+                        </div>
                     ) : (
                         <>
                             <div className="flex items-end gap-3">
@@ -300,19 +373,19 @@ export default function SessionView() {
             </div>
 
             {/* ── Context & Info panel ────────────────────────────────── */}
-            <aside className="w-80 shrink-0 border-l border-bordc bg-surface overflow-y-auto">
-                <div className="p-5 space-y-6">
+            <aside className="w-72 shrink-0 border-l border-bordc bg-surface overflow-y-auto">
+                <div className="px-3.5 py-4 space-y-4">
                     <section>
-                        <h3 className="text-xs font-semibold tracking-wider text-fgsubtle uppercase mb-3">Context &amp; Info</h3>
-                        <div className="card p-4 space-y-2">
+                        <h3 className="text-[11px] font-semibold tracking-wider text-fgsubtle uppercase mb-1.5">Context &amp; Info</h3>
+                        <div className="card p-3 space-y-1.5">
                             <div className="flex items-start justify-between gap-2">
-                                <p className="font-semibold text-sm text-fg break-all">{senderName}</p>
+                                <p className="font-semibold text-xs text-fg break-all leading-snug">{senderName}</p>
                                 {meta?.priority != null && (
                                     <span className="badge bg-amber-100 text-amber-700 shrink-0">P{meta.priority}</span>
                                 )}
                             </div>
-                            <div className="space-y-1.5 text-sm text-fgmuted pt-1">
-                                {meta?.product_id && <p>🗂️ {meta.product_id}</p>}
+                            <div className="space-y-1 text-xs text-fgmuted">
+                                {meta?.product_id && <p>🗂️ {productLabel(meta.product_id)}</p>}
                                 {meta?.trigger_reason && <p>⚡ {TRIGGER_LABEL[meta.trigger_reason] || meta.trigger_reason}</p>}
                                 {meta?.waiting_secs != null && <p>⏱️ Waiting {waitingLabel(meta.waiting_secs)}</p>}
                                 {meta?.app_id && <p>💬 {meta.app_id}</p>}
@@ -323,59 +396,66 @@ export default function SessionView() {
 
                     {meta?.ai_summary && (
                         <section>
-                            <h3 className="text-xs font-semibold tracking-wider text-fgsubtle uppercase mb-3">AI Summary</h3>
-                            <div className="card p-4 bg-primary/5 border-primary/20">
-                                <p className="text-sm text-fgmuted whitespace-pre-wrap">{meta.ai_summary}</p>
+                            <h3 className="text-[11px] font-semibold tracking-wider text-fgsubtle uppercase mb-1.5">AI Summary</h3>
+                            <div className="card p-3 bg-primary/5 border-primary/20">
+                                <p className="text-xs text-fgmuted whitespace-pre-wrap leading-snug">{meta.ai_summary}</p>
                             </div>
                         </section>
                     )}
 
                     <section>
-                        <h3 className="text-xs font-semibold tracking-wider text-fgsubtle uppercase mb-3">Notes</h3>
+                        <h3 className="text-[11px] font-semibold tracking-wider text-fgsubtle uppercase mb-1.5">Notes</h3>
                         <textarea
                             value={note}
                             onChange={e => saveNote(e.target.value)}
                             placeholder="Private notes (not sent to user)…"
-                            rows={3}
-                            className="w-full resize-none rounded-xl border border-bordc bg-bg text-fg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            rows={2}
+                            className="w-full resize-none rounded-lg border border-bordc bg-bg text-fg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                     </section>
 
-                    {!resolved && (
-                        <section className="space-y-2">
-                            <div className="flex gap-2">
-                                <button onClick={handleResolve} disabled={resolving} className="btn-primary flex-1 text-sm py-2 disabled:opacity-50">
+                    {!ended && (
+                        <section className="space-y-1.5">
+                            <div className="flex gap-1.5">
+                                <button onClick={handleResolve} disabled={resolving} className="btn-primary flex-1 text-xs py-1.5 disabled:opacity-50">
                                     {resolving ? 'Resolving…' : '✓ Resolve'}
                                 </button>
-                                <button onClick={handleRelease} disabled={releasing} className="btn-ghost flex-1 text-sm py-2 border border-bordc disabled:opacity-50">
+                                <button onClick={handleRelease} disabled={releasing} className="btn-ghost flex-1 text-xs py-1.5 border border-bordc disabled:opacity-50">
                                     {releasing ? 'Releasing…' : '↩ Release'}
                                 </button>
                             </div>
-                            <button onClick={openTransfer} className="w-full btn-ghost text-sm py-2 border border-bordc">
+                            <button onClick={openTransfer} className="w-full btn-ghost text-xs py-1.5 border border-bordc">
                                 ⇄ Transfer to Operator
                             </button>
                         </section>
                     )}
 
                     <section>
-                        <h3 className="text-xs font-semibold tracking-wider text-fgsubtle uppercase mb-3">Interaction History</h3>
+                        <h3 className="text-[11px] font-semibold tracking-wider text-fgsubtle uppercase mb-1.5">Interaction History</h3>
                         {history == null ? (
-                            <p className="text-sm text-fgsubtle">Loading…</p>
+                            <p className="text-xs text-fgsubtle">Loading…</p>
                         ) : history.length === 0 ? (
-                            <p className="text-sm text-fgsubtle">No previous sessions</p>
+                            <p className="text-xs text-fgsubtle">No previous sessions</p>
                         ) : (
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                                 {history.map(h => (
-                                    <div key={h.queue_id} className="card p-3 text-xs space-y-1">
-                                        <div className="flex items-center justify-between">
-                                            <span className="font-medium text-fg">{h.app_id}</span>
-                                            <span className={`badge ${h.handoff_status === 'resolved' ? 'bg-success/15 text-success' : 'bg-bg text-fgmuted'}`}>
+                                    <button
+                                        key={h.queue_id}
+                                        onClick={() => openHistory(h)}
+                                        className="w-full text-left card p-2.5 text-xs space-y-0.5 hover:border-primary transition-colors cursor-pointer"
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="font-medium text-fg truncate">{h.app_id}</span>
+                                            <span className={`badge shrink-0 ${h.handoff_status === 'resolved' ? 'bg-success/15 text-success' : 'bg-bg text-fgmuted'}`}>
                                                 {h.handoff_status}
                                             </span>
                                         </div>
                                         {h.first_user_msg && <p className="text-fgmuted truncate">“{h.first_user_msg}”</p>}
-                                        <p className="text-fgsubtle">{h.queued_at ? new Date(h.queued_at).toLocaleString() : ''}</p>
-                                    </div>
+                                        <p className="text-fgsubtle flex items-center justify-between">
+                                            <span>{h.queued_at ? new Date(h.queued_at).toLocaleString() : ''}</span>
+                                            <span className="text-primary">View →</span>
+                                        </p>
+                                    </button>
                                 ))}
                             </div>
                         )}
@@ -406,6 +486,32 @@ export default function SessionView() {
                             </div>
                         )}
                         <button onClick={() => setShowTransfer(false)} className="w-full btn-ghost text-sm border border-bordc">Cancel</button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Past-session transcript modal ───────────────────────── */}
+            {histModal && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setHistModal(null)}>
+                    <div className="bg-surface rounded-2xl shadow-xl w-full max-w-lg flex flex-col" style={{ maxHeight: '80vh' }} onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-bordc shrink-0">
+                            <div>
+                                <h3 className="font-semibold text-fg text-sm">{histModal.title || 'Past Conversation'}</h3>
+                                <p className="text-xs text-fgsubtle mt-0.5">{histModal.sub}</p>
+                            </div>
+                            <button onClick={() => setHistModal(null)} className="text-fgsubtle hover:text-fg text-lg leading-none px-1">×</button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-bg">
+                            {histModal.loading ? (
+                                <div className="flex justify-center py-10">
+                                    <div className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                                </div>
+                            ) : histModal.messages.length === 0 ? (
+                                <p className="text-center text-fgsubtle text-xs py-10">No messages in this session</p>
+                            ) : (
+                                histModal.messages.map((m, i) => <MessageBubble key={i} msg={m} />)
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

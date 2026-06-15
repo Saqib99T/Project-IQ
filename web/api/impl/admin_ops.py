@@ -585,35 +585,9 @@ def admin_send_notification():
 # ── Client Users ───────────────────────────────────────────────────────────────
 
 def _fetch_glpi_users_sync():
-    """Fetch all active users from GLPI API. Returns list of dicts."""
-    import asyncio, aiohttp as _aio
-
-    async def _run():
-        from action_server.actions.glpi_service import GlpiService
-        from common.config_manager import get_glpi_config
-        cfg  = get_glpi_config()
-        glpi = GlpiService(cfg['api_url'], cfg['app_token'], cfg['user_token'])
-        sess = await glpi.init_session()
-        if not sess:
-            return []
-        try:
-            hdrs = {'App-Token': cfg['app_token'], 'Session-Token': sess}
-            url  = f"{cfg['api_url']}/User"
-            async with _aio.ClientSession() as http:
-                async with http.get(url, headers=hdrs,
-                                    params={'range': '0-1000', 'is_deleted': 0},
-                                    timeout=_aio.ClientTimeout(total=10)) as resp:
-                    if resp.status == 200:
-                        return await resp.json()
-                    return []
-        finally:
-            await glpi.kill_session(sess)
-
-    try:
-        return asyncio.run(_run())
-    except Exception as e:
-        import logging; logging.getLogger(__name__).error(f"GLPI users fetch: {e}")
-        return []
+    """Legacy GLPI user directory — removed. Client users now come from IAM and
+    from conversation stats. Returns an empty directory list."""
+    return []
 
 
 # System-level GLPI accounts that should never appear in the Client Users list
@@ -715,34 +689,7 @@ def create_client_user():
     if not password:
         return jsonify({'error': 'password is required'}), 400
 
-    async def _run():
-        from action_server.actions.glpi_service import GlpiService
-        from common.config_manager import get_glpi_config
-        cfg  = get_glpi_config()
-        glpi = GlpiService(cfg['api_url'], cfg['app_token'], cfg['user_token'])
-        sess = await glpi.init_session()
-        if not sess:
-            raise RuntimeError('Could not connect to GLPI')
-        try:
-            hdrs    = {'App-Token': cfg['app_token'], 'Session-Token': sess, 'Content-Type': 'application/json'}
-            payload = {'input': {'name': username, 'firstname': firstname, 'realname': lastname,
-                                 'password': password, 'password2': password,
-                                 '_useremails': [{'email': email}] if email else []}}
-            async with _aio.ClientSession() as http:
-                async with http.post(f"{cfg['api_url']}/User", json=payload, headers=hdrs,
-                                     timeout=_aio.ClientTimeout(total=10)) as resp:
-                    body = await resp.json()
-                    if resp.status in (200, 201):
-                        return body
-                    raise RuntimeError(body if isinstance(body, str) else str(body))
-        finally:
-            await glpi.kill_session(sess)
-
-    try:
-        result = asyncio.run(_run())
-        return jsonify({'success': True, 'glpi_id': result.get('id') if isinstance(result, dict) else result})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify({'error': 'Client user creation is managed in IAM via the admin portal.'}), 501
 
 
 def update_client_user(username):
@@ -752,51 +699,6 @@ def update_client_user(username):
     if not username:
         return jsonify({'error': 'username is required'}), 400
 
-    async def _run():
-        from action_server.actions.glpi_service import GlpiService
-        from common.config_manager import get_glpi_config
-        cfg  = get_glpi_config()
-        glpi = GlpiService(cfg['api_url'], cfg['app_token'], cfg['user_token'])
-        sess = await glpi.init_session()
-        if not sess:
-            raise RuntimeError('Could not connect to GLPI')
-        try:
-            hdrs = {'App-Token': cfg['app_token'], 'Session-Token': sess, 'Content-Type': 'application/json'}
-            # Find user ID by username
-            async with _aio.ClientSession() as http:
-                async with http.get(f"{cfg['api_url']}/User", headers=hdrs,
-                                    params={'searchText[name]': username, 'range': '0-5'},
-                                    timeout=_aio.ClientTimeout(total=10)) as resp:
-                    users = await resp.json() if resp.status == 200 else []
-                glpi_id = next((u['id'] for u in (users if isinstance(users, list) else []) if u.get('name') == username), None)
-                if not glpi_id:
-                    raise RuntimeError(f'User "{username}" not found in GLPI')
-
-                # Build update payload
-                inp = {}
-                if data.get('firstname'): inp['firstname'] = data['firstname'].strip()
-                if data.get('lastname'):  inp['realname']  = data['lastname'].strip()
-                if data.get('email'):
-                    inp['_useremails'] = [{'email': data['email'].strip()}]
-                if data.get('password'):
-                    inp['password']  = data['password']
-                    inp['password2'] = data['password']
-                if not inp:
-                    return {'id': glpi_id}
-
-                async with http.put(f"{cfg['api_url']}/User/{glpi_id}", json={'input': inp}, headers=hdrs,
-                                    timeout=_aio.ClientTimeout(total=10)) as resp:
-                    body = await resp.json()
-                    if resp.status in (200, 201):
-                        return body
-                    raise RuntimeError(str(body))
-        finally:
-            await glpi.kill_session(sess)
-
-    try:
-        asyncio.run(_run())
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify({'error': 'Client user updates are managed in IAM via the admin portal.'}), 501
 
 

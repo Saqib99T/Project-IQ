@@ -9,13 +9,10 @@ from rasa_sdk import Action, Tracker
 from rasa_sdk.events import SlotSet, AllSlotsReset, Restarted, ActiveLoop, UserUttered, FollowupAction
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
-from action_server.actions.glpi_service import GlpiService
 from common import analytics_store
-from common.config_manager import get_glpi_config
 from action_server.actions._shared import (
-    get_glpi_service, get_glpi_base_url, log_bot_response,
-    get_analytics_context, get_effective_session_token,
-    check_user_login, glpi_service, logger,
+    log_bot_response, get_analytics_context, get_effective_session_token,
+    check_user_login, logger,
 )
 
 
@@ -47,13 +44,8 @@ class ActionSearchKnowledgeBase(Action):
     def _normalize_text(self, text: str) -> str:
         return re.sub(r"\s+", " ", (text or "").strip().lower())
 
-    def _build_article_link(self, glpi_id: Any) -> Optional[str]:
-        try:
-            if glpi_id:
-                glpi_base_url = get_glpi_base_url()
-                return f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
-        except Exception as e:
-            logger.error(f"Failed to create article link: {e}")
+    def _build_article_link(self, article_id: Any) -> Optional[str]:
+        # ITSM KB content is shown inline; no external deep link is exposed to the bot.
         return None
 
     def _title_match_ratio(self, query: str, title: str) -> float:
@@ -122,10 +114,10 @@ class ActionSearchKnowledgeBase(Action):
             short_section = f"{short_section.rstrip()}..."
         response += short_section
 
-        glpi_id = section.get('glpi_id') or article.get('glpi_id')
-        article_link = self._build_article_link(glpi_id)
-        if glpi_id:
-            response += f"\n\n_Source: ITSM KB (Article #{glpi_id})_"
+        itsm_id = section.get('itsm_id') or article.get('itsm_id')
+        article_link = self._build_article_link(itsm_id)
+        if itsm_id:
+            response += f"\n\n_Source: ITSM KB (Article #{itsm_id})_"
         else:
             response += "\n\n_Source: Local KB_"
 
@@ -148,7 +140,7 @@ class ActionSearchKnowledgeBase(Action):
             SlotSet("kb_last_article_title", article_title),
             SlotSet("kb_last_article_content", article.get('content') or ''),
             SlotSet("kb_last_source", section.get('source', 'unknown')),
-            SlotSet("kb_last_glpi_id", glpi_id),
+            SlotSet("kb_last_itsm_id", itsm_id),
             SlotSet("kb_clarify_options", None),
             SlotSet("kb_clarify_attempts", 0),
             SlotSet("kb_target_article_id", None),
@@ -225,8 +217,8 @@ class ActionSearchKnowledgeBase(Action):
                 return [SlotSet("kb_clarify_attempts", attempts)]
 
             article = self.kb_cache.get_article_by_id(target_article_id) or {}
-            glpi_id = article.get('glpi_id')
-            article_link = self._build_article_link(glpi_id)
+            itsm_id = article.get('itsm_id')
+            article_link = self._build_article_link(itsm_id)
             response = f"### 📚 {article.get('title', 'Knowledge Base')}\n\nI couldn't pinpoint a single section."
             response += "\n\nWould you like the full article or the KB link?"
             buttons = [{"title": "📄 Show full article", "payload": "/kb_show_full_article"}]
@@ -237,7 +229,7 @@ class ActionSearchKnowledgeBase(Action):
                 SlotSet("kb_last_article_title", article.get('title', 'Knowledge Base')),
                 SlotSet("kb_last_article_content", article.get('content') or ''),
                 SlotSet("kb_last_source", article.get('source', 'unknown')),
-                SlotSet("kb_last_glpi_id", glpi_id),
+                SlotSet("kb_last_itsm_id", itsm_id),
                 SlotSet("kb_clarify_options", None),
                 SlotSet("kb_clarify_attempts", 0),
                 SlotSet("kb_target_article_id", None),
@@ -334,13 +326,13 @@ class ActionSearchKnowledgeBase(Action):
                     SlotSet("kb_last_article_title", article.get('title')),
                     SlotSet("kb_last_article_content", article.get('content') or ''),
                     SlotSet("kb_last_source", article.get('source', 'unknown')),
-                    SlotSet("kb_last_glpi_id", article.get('glpi_id')),
+                    SlotSet("kb_last_itsm_id", article.get('itsm_id')),
                     SlotSet("kb_clarify_options", json.dumps(options_payload)),
                     SlotSet("kb_clarify_attempts", 0),
                 ]
 
-            glpi_id = article.get('glpi_id')
-            article_link = self._build_article_link(glpi_id)
+            itsm_id = article.get('itsm_id')
+            article_link = self._build_article_link(itsm_id)
             response = f"### 📚 {article.get('title', 'Knowledge Base')}\n\nI found the right article, but I couldn't isolate a section."
             response += "\n\nWould you like the full article or the KB link?"
             buttons = [{"title": "📄 Show full article", "payload": "/kb_show_full_article"}]
@@ -351,111 +343,8 @@ class ActionSearchKnowledgeBase(Action):
                 SlotSet("kb_last_article_title", article.get('title', 'Knowledge Base')),
                 SlotSet("kb_last_article_content", article.get('content') or ''),
                 SlotSet("kb_last_source", article.get('source', 'unknown')),
-                SlotSet("kb_last_glpi_id", glpi_id),
+                SlotSet("kb_last_itsm_id", itsm_id),
             ]
-            
-            # Format response
-            response = f"### 📚 {article['title']}\n\n"
-            response += article.get('content', 'No content available.')
-            
-            # Add video tutorial if available (support both old video_url and new video object)
-            video_data = article.get('video')
-            video_url = article.get('video_url') or (video_data.get('url') if video_data else None)
-            video_title = video_data.get('title', f"Video: {article['title']}") if video_data else f"Video: {article['title']}"
-            video_start = video_data.get('start', 0) if video_data else 0
-            
-            if video_url:
-                # Add timestamp to URL if start is specified
-                display_url = video_url
-                if video_start > 0 and 'youtube.com' in video_url:
-                    if '?' in video_url:
-                        display_url = f"{video_url}&t={video_start}"
-                    else:
-                        display_url = f"{video_url}?t={video_start}"
-                response += f"\n\n---\n🎬 **Video Tutorial:**\n[Watch on YouTube]({display_url})"
-            
-            # Add related articles if any
-            if len(results) > 1:
-                response += "\n\n---\n**Related Articles:**\n"
-                for r in results[1:3]:
-                    response += f"• {r['article']['title']}\n"
-
-            # Add source indicator and link
-            source = best_match.get('source', 'unknown')
-            if source == 'glpi':
-                glpi_id = article.get('glpi_id', '')
-                response += f"\n\n_Source: ITSM KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
-                
-                # Add Clickable Link to Article
-                try:
-                    # Construct link assuming standard GLPI structure: /front/knowbaseitem.form.php?id=ID
-                    # Base URL derived from API URL in Config usually, but hardcoding for safety/speed based on known config
-                    glpi_base_url = get_glpi_base_url()
-                    if glpi_id:
-                        article_link = f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
-                        response += f"\n🔗 **[Read Full Article]({article_link})**"
-                except Exception as e:
-                    logger.error(f"Failed to create article link: {e}")
-
-            elif source == 'json':
-                response += f"\n\n_Source: Local KB_"
-            
-            # Send text response with buttons (and video if available)
-            video_payload = None
-            if video_url:
-                video_payload = {
-                    "video": {
-                        "url": video_url,
-                        "title": video_title,
-                        "start": video_start
-                    }
-                }
-            
-            # Build contextual suggestion buttons based on article category
-            category = article.get('category', '').lower()
-            suggestion_buttons = [
-                {"title": "👍 This helped!", "payload": "/feedback_positive"},
-                {"title": "👎 Not helpful", "payload": "/feedback_negative"},
-            ]
-            
-            # Add category-specific suggestions
-            if category in ['network', 'vpn', 'wifi']:
-                suggestion_buttons.extend([
-                    {"title": "🌐 Network issues ticket", "payload": '/create_ticket'},
-                    {"title": "📋 Check my tickets", "payload": "/list_tickets"},
-                ])
-            elif category in ['account', 'password', 'security']:
-                suggestion_buttons.extend([
-                    {"title": "🔐 Password reset ticket", "payload": '/create_ticket'},
-                    {"title": "📋 My open tickets", "payload": "/list_tickets"},
-                ])
-            elif category in ['hardware', 'printer', 'monitor']:
-                suggestion_buttons.extend([
-                    {"title": "🖥️ Hardware issue ticket", "payload": '/create_ticket'},
-                    {"title": "📋 View my tickets", "payload": "/list_tickets"},
-                ])
-            elif category in ['software', 'application']:
-                suggestion_buttons.extend([
-                    {"title": "💿 Software request", "payload": '/create_ticket'},
-                    {"title": "📋 My tickets", "payload": "/list_tickets"},
-                ])
-            else:
-                suggestion_buttons.extend([
-                    {"title": "🎫 Create a ticket", "payload": "/create_ticket"},
-                    {"title": "📋 List my tickets", "payload": "/list_tickets"},
-                ])
-            
-            # Always add search option
-            suggestion_buttons.append({"title": "🔍 Ask another question", "payload": "/help"})
-            
-            # Add follow-up question
-            response += "\n\n---\n**Was your issue resolved?** If not, I can help you create a support ticket."
-            
-            dispatcher.utter_message(
-                text=response,
-                buttons=suggestion_buttons,
-                json_message=video_payload
-            )
         else:
             # No matches found — log as knowledge gap
             try:
@@ -492,7 +381,7 @@ class ActionShowKbFullAnswer(Action):
         answer = tracker.get_slot("kb_last_answer") or ""
         title = tracker.get_slot("kb_last_article_title") or "Knowledge Base"
         source = tracker.get_slot("kb_last_source") or "unknown"
-        glpi_id = tracker.get_slot("kb_last_glpi_id")
+        itsm_id = tracker.get_slot("kb_last_itsm_id")
 
         if not answer:
             dispatcher.utter_message(
@@ -505,15 +394,8 @@ class ActionShowKbFullAnswer(Action):
             response += f"**Q:** {question}\n\n"
         response += f"**A:** {answer}"
 
-        if source == 'glpi':
-            response += f"\n\n_Source: ITSM KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
-            try:
-                glpi_base_url = get_glpi_base_url()
-                if glpi_id:
-                    article_link = f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
-                    response += f"\n🔗 **[Read Full Article]({article_link})**"
-            except Exception as e:
-                logger.error(f"Failed to create article link: {e}")
+        if source not in ('json',):
+            response += "\n\n_Source: ITSM Knowledge Base_"
         elif source == 'json':
             response += f"\n\n_Source: Local KB_"
 
@@ -533,7 +415,7 @@ class ActionShowKbFullArticle(Action):
         title = tracker.get_slot("kb_last_article_title") or "Knowledge Base"
         content = tracker.get_slot("kb_last_article_content") or ""
         source = tracker.get_slot("kb_last_source") or "unknown"
-        glpi_id = tracker.get_slot("kb_last_glpi_id")
+        itsm_id = tracker.get_slot("kb_last_itsm_id")
 
         if not content:
             dispatcher.utter_message(text="I don't have a full article saved yet. Please ask a KB question first.")
@@ -541,15 +423,8 @@ class ActionShowKbFullArticle(Action):
 
         response = f"### 📚 {title}\n\n{content}"
 
-        if source == 'glpi':
-            response += f"\n\n_Source: ITSM KB{f' (Article #{glpi_id})' if glpi_id else ''}_"
-            try:
-                glpi_base_url = get_glpi_base_url()
-                if glpi_id:
-                    article_link = f"{glpi_base_url}/front/knowbaseitem.form.php?id={glpi_id}"
-                    response += f"\n🔗 **[Read Full Article]({article_link})**"
-            except Exception as e:
-                logger.error(f"Failed to create article link: {e}")
+        if source not in ('json',):
+            response += "\n\n_Source: ITSM Knowledge Base_"
         elif source == 'json':
             response += "\n\n_Source: Local KB_"
 
@@ -628,7 +503,7 @@ class ActionSearchKbBeforeTicket(Action):
             # We use FollowupAction to trigger the initialization info flow without user input
             return [
                 SlotSet("kb_articles_shown", False),
-                FollowupAction("action_init_glpi_session")
+                FollowupAction("action_init_itsm_session")
             ]
 
 

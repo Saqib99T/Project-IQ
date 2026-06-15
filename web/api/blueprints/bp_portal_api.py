@@ -11,6 +11,34 @@ import web.api.shared as _s
 bp = Blueprint('portal_api', __name__, url_prefix='/portal/api')
 
 
+# ── Timestamp normalization ───────────────────────────────────────────────────
+# Storage is inconsistent: messages.timestamp is written host-local (datetime.now)
+# while handoff_queue.queued_at/resolved_at are written UTC (datetime.utcnow).
+# Both columns are naive, so without normalization the operator UI shows the same
+# event up to a tz-offset apart and time-window scoping silently misfires. These
+# helpers convert the UTC-naive handoff timestamps onto the host-local basis the
+# messages use, so everything the operator sees lines up.
+from datetime import datetime as _dtmod, timezone as _tz
+
+def _utc_naive_to_local(dt):
+    """A naive-UTC datetime → naive host-local datetime (messages' basis)."""
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=_tz.utc).astimezone().replace(tzinfo=None)
+
+def _utc_iso_to_local(s):
+    """An ISO string assumed UTC → naive host-local datetime, or None."""
+    if not s:
+        return None
+    try:
+        dt = _dtmod.fromisoformat(str(s).replace('Z', '+00:00'))
+    except Exception:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_tz.utc)
+    return dt.astimezone().replace(tzinfo=None)
+
+
 # ── Operator provisioning helper ──────────────────────────────────────────────
 
 def _get_or_create_portal_operator(iam_sub: str, name: str, email: str,
@@ -403,43 +431,10 @@ def portal_conversation(conversation_id, **kwargs):
             if not cur.fetchone():
                 return jsonify({'error': 'Not assigned to this conversation'}), 403
 
-        cur.execute(
-            """
-            SELECT sender, text, timestamp
-            FROM messages
-            WHERE conversation_id = %s
-            ORDER BY timestamp ASC
-            LIMIT 300
-            """,
-            (conversation_id,),
-        )
-        msgs = []
-        for m in cur.fetchall():
-            d = dict(m)
-            d['timestamp'] = d['timestamp'].isoformat() if d.get('timestamp') else None
-            msgs.append(d)
-
-        # Also get operator messages from operator_messages table (may not be in messages)
-        try:
-            cur.execute(
-                """
-                SELECT 'operator' AS sender, message_text AS text, sent_at AS timestamp
-                FROM operator_messages
-                WHERE conversation_id = %s
-                ORDER BY sent_at ASC
-                """,
-                (conversation_id,),
-            )
-            for m in cur.fetchall():
-                d = dict(m)
-                d['timestamp'] = d['timestamp'].isoformat() if d.get('timestamp') else None
-                msgs.append(d)
-            msgs.sort(key=lambda x: x.get('timestamp') or '')
-        except Exception:
-            pass  # operator_messages table may not exist in all envs
-
-        # Context & Info meta for the right-hand panel (Context, AI Summary, etc.)
+        # Context & Info meta first — gives us queued_at to scope the transcript
+        # to THIS handoff session (not the whole bot conversation history).
         meta = None
+        queued_at = None
         try:
             cur.execute(
                 """
@@ -457,16 +452,132 @@ def portal_conversation(conversation_id, **kwargs):
             mrow = cur.fetchone()
             if mrow:
                 m = dict(mrow)
+                # queued_at is UTC-naive → put it on the messages' host-local basis
+                queued_at = _utc_naive_to_local(m.get('queued_at'))
                 ctx = m.pop('context_package', None) or {}
                 m['ai_summary'] = ctx.get('ai_summary') if isinstance(ctx, dict) else None
-                for k in ('queued_at', 'assigned_at'):
-                    if m.get(k):
-                        m[k] = m[k].isoformat()
+                m['queued_at'] = queued_at.isoformat() if queued_at else None
+                if m.get('assigned_at'):  # assigned_at is already host-local
+                    m['assigned_at'] = m['assigned_at'].isoformat()
                 meta = m
         except Exception:
             meta = None
 
+        # Messages — scoped to the current handoff window when we know queued_at.
+        if queued_at is not None:
+            cur.execute(
+                "SELECT sender, text, timestamp FROM messages "
+                "WHERE conversation_id = %s AND timestamp >= %s "
+                "ORDER BY timestamp ASC LIMIT 300",
+                (conversation_id, queued_at),
+            )
+        else:
+            cur.execute(
+                "SELECT sender, text, timestamp FROM messages "
+                "WHERE conversation_id = %s ORDER BY timestamp ASC LIMIT 300",
+                (conversation_id,),
+            )
+        msgs = []
+        for m in cur.fetchall():
+            d = dict(m)
+            d['timestamp'] = d['timestamp'].isoformat() if d.get('timestamp') else None
+            msgs.append(d)
+
+        # Also get operator messages from operator_messages table (may not be in messages)
+        try:
+            if queued_at is not None:
+                cur.execute(
+                    "SELECT 'operator' AS sender, message_text AS text, sent_at AS timestamp "
+                    "FROM operator_messages WHERE conversation_id = %s AND sent_at >= %s "
+                    "ORDER BY sent_at ASC",
+                    (conversation_id, queued_at),
+                )
+            else:
+                cur.execute(
+                    "SELECT 'operator' AS sender, message_text AS text, sent_at AS timestamp "
+                    "FROM operator_messages WHERE conversation_id = %s ORDER BY sent_at ASC",
+                    (conversation_id,),
+                )
+            for m in cur.fetchall():
+                d = dict(m)
+                d['timestamp'] = d['timestamp'].isoformat() if d.get('timestamp') else None
+                msgs.append(d)
+            msgs.sort(key=lambda x: x.get('timestamp') or '')
+        except Exception:
+            pass  # operator_messages table may not exist in all envs
+
         return jsonify({'messages': msgs, 'meta': meta, 'conversation_id': conversation_id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.rollback()
+        _release_connection(conn)
+
+
+@bp.route('/conversation/<int:conversation_id>/transcript', methods=['GET'])
+@_s.require_iam_token
+def portal_conversation_transcript(conversation_id, **kwargs):
+    """Read-only transcript of a past session (Interaction History popup).
+
+    Optional from_time / to_time (ISO) scope it to a single past handoff window.
+    Operator role suffices — this is a read of an already-completed session,
+    not an active claim.
+    """
+    from datetime import datetime as _dt
+    from common.conversation_db import _get_connection, _release_connection
+    from psycopg2.extras import RealDictCursor
+
+    def _ts(s):
+        if not s:
+            return None
+        try:
+            return _dt.fromisoformat(s.replace('Z', '+00:00'))
+        except Exception:
+            return None
+
+    ft = _ts(request.args.get('from_time'))
+    tt = _ts(request.args.get('to_time'))
+
+    conn = _get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        extra, params = "", [conversation_id]
+        if ft:
+            extra += " AND timestamp >= %s"; params.append(ft)
+        if tt:
+            extra += " AND timestamp <= %s"; params.append(tt)
+        cur.execute(
+            f"SELECT sender, text, timestamp FROM messages "
+            f"WHERE conversation_id = %s{extra} ORDER BY timestamp ASC LIMIT 500",
+            params,
+        )
+        msgs = []
+        for m in cur.fetchall():
+            d = dict(m)
+            d['timestamp'] = d['timestamp'].isoformat() if d.get('timestamp') else None
+            msgs.append(d)
+
+        try:
+            op_extra, op_params = "", [conversation_id]
+            if ft:
+                op_extra += " AND sent_at >= %s"; op_params.append(ft)
+            if tt:
+                op_extra += " AND sent_at <= %s"; op_params.append(tt)
+            cur.execute(
+                f"SELECT 'operator' AS sender, message_text AS text, sent_at AS timestamp "
+                f"FROM operator_messages WHERE conversation_id = %s{op_extra} ORDER BY sent_at ASC",
+                op_params,
+            )
+            for m in cur.fetchall():
+                d = dict(m)
+                d['timestamp'] = d['timestamp'].isoformat() if d.get('timestamp') else None
+                msgs.append(d)
+            msgs.sort(key=lambda x: x.get('timestamp') or '')
+        except Exception:
+            pass
+
+        return jsonify({'messages': msgs, 'conversation_id': conversation_id})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
@@ -699,13 +810,17 @@ def portal_user_history(sender_id, **kwargs):
 
     history = []
     for r in rows:
+        # queued_at/resolved_at are UTC-naive → normalize to host-local so the
+        # operator sees the same wall-clock as the chat transcript.
+        qa = _utc_naive_to_local(r['queued_at'])
+        ra = _utc_naive_to_local(r['resolved_at'])
         history.append({
             'queue_id':        r['queue_id'],
             'conversation_id': r['conversation_id'],
             'app_id':          r['app_id'] or 'General',
             'handoff_status':  r['handoff_status'],
-            'queued_at':       r['queued_at'].isoformat() if r['queued_at'] else None,
-            'resolved_at':     r['resolved_at'].isoformat() if r['resolved_at'] else None,
+            'queued_at':       qa.isoformat() if qa else None,
+            'resolved_at':     ra.isoformat() if ra else None,
             'trigger_reason':  r['trigger_reason'],
             'closing_note':    r['closing_note'],
             'first_user_msg':  (r['first_user_msg'] or '')[:120],
@@ -843,14 +958,75 @@ def portal_heartbeat(**kwargs):
     conn = _get_connection()
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
+        # Refresh presence and reconcile status: stay 'away' if the operator
+        # chose it; otherwise 'busy' when at max concurrent load, else 'available'.
         cur.execute(
-            "UPDATE operators SET last_seen = NOW(), "
-            "status = CASE WHEN status = 'away' THEN 'away' ELSE 'available' END "
-            "WHERE id = %s",
+            """
+            UPDATE operators o SET last_seen = NOW(),
+              status = CASE
+                WHEN o.status = 'away' THEN 'away'
+                WHEN (SELECT COUNT(*) FROM handoff_queue hq
+                      WHERE hq.operator_id = o.id AND hq.status = 'assigned')
+                     >= o.max_concurrent THEN 'busy'
+                ELSE 'available' END
+            WHERE o.id = %s
+            RETURNING status, max_concurrent,
+              (SELECT COUNT(*) FROM handoff_queue hq
+               WHERE hq.operator_id = o.id AND hq.status = 'assigned') AS current_load
+            """,
             (op_id,),
         )
+        row = cur.fetchone() or {}
         conn.commit()
-        return jsonify({'success': True, 'op_id': op_id})
+        return jsonify({'success': True, 'op_id': op_id,
+                        'status': row.get('status', 'available'),
+                        'current_load': row.get('current_load', 0),
+                        'max_concurrent': row.get('max_concurrent', 3)})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        _release_connection(conn)
+
+
+@bp.route('/status', methods=['POST'])
+@_s.require_iam_token
+def portal_set_status(**kwargs):
+    """Operator toggles Available / Away (Away takes them out of routing)."""
+    from common.conversation_db import _get_connection, _release_connection
+    from psycopg2.extras import RealDictCursor
+
+    user  = g.iam_user
+    op_id = _get_or_create_portal_operator(
+        iam_sub=user.get('sub', ''), name=user.get('name', ''),
+        email=user.get('email', ''), org_id=user.get('org_id', ''),
+    )
+    data    = request.get_json(silent=True) or {}
+    desired = (data.get('status') or '').strip().lower()
+    if desired not in ('available', 'away'):
+        return jsonify({'error': "status must be 'available' or 'away'"}), 400
+
+    conn = _get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        # When going available, auto-promote to 'busy' if already at capacity.
+        cur.execute(
+            """
+            UPDATE operators o SET last_seen = NOW(),
+              status = CASE
+                WHEN %s = 'away' THEN 'away'
+                WHEN (SELECT COUNT(*) FROM handoff_queue hq
+                      WHERE hq.operator_id = o.id AND hq.status = 'assigned')
+                     >= o.max_concurrent THEN 'busy'
+                ELSE 'available' END
+            WHERE o.id = %s
+            RETURNING status
+            """,
+            (desired, op_id),
+        )
+        row = cur.fetchone() or {}
+        conn.commit()
+        return jsonify({'success': True, 'status': row.get('status', desired)})
     except Exception as e:
         conn.rollback()
         return jsonify({'error': str(e)}), 500

@@ -55,8 +55,8 @@ entities:
   - file_name
   - file_data
   - chart_type
-  - glpi_username
-  - glpi_password
+  - itsm_username
+  - itsm_password
 
 slots:
   ticket_id:
@@ -224,32 +224,32 @@ slots:
     influence_conversation: false
     mappings: []
 
-  glpi_user_id:
+  itsm_user_id:
     type: float
     influence_conversation: false
     mappings: []
 
-  glpi_username:
+  itsm_username:
     type: text
     influence_conversation: false
     mappings:
       - type: from_entity
-        entity: glpi_username
+        entity: itsm_username
       - type: from_text
         conditions:
          - active_loop: login_form
-           requested_slot: glpi_username
+           requested_slot: itsm_username
 
-  glpi_password:
+  itsm_password:
     type: text
     influence_conversation: false
     mappings:
       - type: from_entity
-        entity: glpi_password
+        entity: itsm_password
       - type: from_text
         conditions:
          - active_loop: login_form
-           requested_slot: glpi_password
+           requested_slot: itsm_password
 
 
 
@@ -258,7 +258,7 @@ slots:
     influence_conversation: false
     mappings: []
 
-  glpi_user_name:
+  itsm_user_name:
     type: text
     influence_conversation: false
     mappings: []
@@ -300,7 +300,7 @@ slots:
     influence_conversation: false
     mappings: []
 
-  kb_last_glpi_id:
+  kb_last_itsm_id:
     type: text
     influence_conversation: false
     mappings: []
@@ -419,10 +419,10 @@ I'm here to help you with your IT needs. Please login to manage tickets, or sear
           payload: '/inform_update{{"target_status":"Solved"}}'
 
   # Form prompts
-  utter_ask_glpi_username:
+  utter_ask_itsm_username:
     - text: "Please enter your **username**:"
 
-  utter_ask_glpi_password:
+  utter_ask_itsm_password:
     - text: "Please enter your **password**:"
 
   utter_ask_confirm_ticket:
@@ -588,12 +588,12 @@ actions:
   - action_cancel_handoff
   - action_resume_from_handoff
   # ── Existing actions ─────────────────────────────────────────────────
-  - action_glpi_login
-  - action_init_glpi_session
-  - action_create_glpi_ticket
-  - action_check_glpi_status
-  - action_update_glpi_ticket
-  - action_verify_glpi_resolution
+  - action_itsm_login
+  - action_init_itsm_session
+  - action_create_itsm_ticket
+  - action_check_itsm_status
+  - action_update_itsm_ticket
+  - action_verify_itsm_resolution
   - action_deactivate_form
   - action_view_ticket_comments
   - action_list_open_tickets
@@ -623,8 +623,8 @@ forms:
 
   login_form:
     required_slots:
-        - glpi_username
-        - glpi_password
+        - itsm_username
+        - itsm_password
 
 session_config:
   session_expiration_time: 60

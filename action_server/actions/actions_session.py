@@ -9,15 +9,7 @@ from rasa_sdk import Action, Tracker
 from rasa_sdk.events import SlotSet, AllSlotsReset, Restarted, ActiveLoop, UserUttered, FollowupAction
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
-from action_server.actions.glpi_service import GlpiService
-from common import analytics_store
-from common.config_manager import get_glpi_config
-from action_server.actions._shared import (
-    get_glpi_service, get_glpi_base_url, log_bot_response,
-    get_analytics_context, get_effective_session_token,
-    check_user_login, glpi_service, logger,
-    _get_handoff_runtime_cfg,
-)
+from action_server.actions._shared import logger, _get_handoff_runtime_cfg
 
 
 class ActionClearSession(Action):
@@ -28,14 +20,7 @@ class ActionClearSession(Action):
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
         
-        # Kill both user session and service session on cleanup
-        session_token = tracker.get_slot("session_token")
-        if session_token:
-            await glpi_service.kill_session(session_token)
-        svc_token = tracker.get_slot("svc_session_token")
-        if svc_token:
-            await glpi_service.kill_session(svc_token)
-            
+        # IAM SSO manages authentication; there's no external session to kill.
         dispatcher.utter_message(response="utter_cleared")
         
         return [AllSlotsReset(), Restarted()]

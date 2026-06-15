@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project IQ — Technical Assessment (Scalability · Performance · Security)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --c-bg:#f8fafc; --c-surface:#fff; --c-border:#e2e8f0; --c-text:#0f172a; --c-muted:#64748b;
+  --c-blue:#2563eb; --c-indigo:#4f46e5; --c-violet:#7c3aed; --c-teal:#0d9488;
+  --c-green:#16a34a; --c-amber:#d97706; --c-red:#dc2626; --c-dark:#0f172a; --c-dark2:#1e293b;
+  --radius:14px; --shadow:0 4px 24px rgba(15,23,42,.08); --shadow-lg:0 12px 48px rgba(15,23,42,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--c-bg);color:var(--c-text);line-height:1.65}
+a{color:inherit}
+
+/* Nav */
+#topnav{position:sticky;top:0;z-index:200;background:rgba(15,23,42,.96);backdrop-filter:blur(16px);
+  height:58px;display:flex;align-items:center;padding:0 2rem;gap:2rem;border-bottom:1px solid rgba(255,255,255,.07)}
+#topnav .brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+#topnav .brand .iq{font-size:1rem;font-weight:900;letter-spacing:.04em;
+  background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#topnav .brand .sub{color:#94a3b8;font-size:.75rem;font-weight:500}
+#topnav nav{display:flex;gap:2px;margin-left:auto;flex-wrap:wrap}
+#topnav nav a{color:#94a3b8;text-decoration:none;font-size:.78rem;font-weight:500;padding:.3rem .7rem;border-radius:6px;transition:all .15s}
+#topnav nav a:hover{color:#fff;background:rgba(255,255,255,.08)}
+
+/* Hero */
+.hero{background:linear-gradient(160deg,#060d1f 0%,#0f172a 40%,#1a1040 100%);padding:4.5rem 2rem 3.5rem;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:
+  radial-gradient(ellipse 60% 50% at 20% 40%,rgba(79,70,229,.18) 0%,transparent 70%),
+  radial-gradient(ellipse 50% 40% at 80% 60%,rgba(13,148,136,.14) 0%,transparent 70%)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;border:1px solid rgba(165,180,252,.35);
+  background:rgba(79,70,229,.15);color:#a5b4fc;border-radius:999px;padding:.3rem 1rem;font-size:.72rem;
+  font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:1.4rem;position:relative}
+.hero-badge::before{content:'●';color:#4ade80;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.hero h1{font-size:clamp(2rem,4.5vw,3.3rem);font-weight:900;line-height:1.1;letter-spacing:-.03em;color:#f8fafc;position:relative;margin-bottom:1rem}
+.hero h1 .grad{background:linear-gradient(135deg,#60a5fa,#a78bfa 50%,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-sub{color:#94a3b8;font-size:1.02rem;max-width:660px;margin:0 auto 2.4rem;position:relative}
+.hero-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;max-width:920px;margin:0 auto;
+  position:relative;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;background:rgba(255,255,255,.05)}
+.hstat{padding:1.3rem 1rem;text-align:center}
+.hstat .val{font-size:1.9rem;font-weight:900;line-height:1;color:#fff}
+.hstat .val.blue{color:#60a5fa}.hstat .val.violet{color:#a78bfa}.hstat .val.teal{color:#2dd4bf}
+.hstat .val.green{color:#4ade80}.hstat .val.amber{color:#fbbf24}.hstat .val.red{color:#f87171}
+.hstat .lbl{font-size:.68rem;color:#64748b;margin-top:.35rem;font-weight:500;text-transform:uppercase;letter-spacing:.06em}
+
+/* Sections */
+.section{padding:4rem 0}
+.section.alt{background:#fff}
+.container{max-width:1180px;margin:0 auto;padding:0 1.5rem}
+.sec-eye{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--c-indigo);margin-bottom:.4rem}
+.sec-h{font-size:clamp(1.4rem,3vw,2rem);font-weight:800;letter-spacing:-.02em;line-height:1.2}
+.sec-sub{color:var(--c-muted);margin-top:.5rem;max-width:620px;font-size:.95rem}
+.mt1{margin-top:1rem}.mt2{margin-top:2rem}.mt3{margin-top:2.5rem}
+
+/* Verdict banner */
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:2.5rem}
+.vcard{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:1.4rem;position:relative;overflow:hidden}
+.vcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,#4f46e5)}
+.vcard .grade{font-size:1.6rem;font-weight:900;letter-spacing:-.02em}
+.vcard .area{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--c-muted);margin-top:.3rem}
+.vcard .note{font-size:.8rem;color:var(--c-muted);margin-top:.6rem;line-height:1.5}
+
+/* Feature/assessment cards */
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.25rem}
+.feat-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:1.5rem;transition:all .2s;position:relative;overflow:hidden}
+.feat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.feat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,linear-gradient(90deg,#4f46e5,#7c3aed))}
+.feat-icon{font-size:1.7rem;margin-bottom:.7rem}
+.feat-title{font-weight:800;font-size:1rem;margin-bottom:.4rem}
+.feat-desc{font-size:.83rem;color:var(--c-muted);line-height:1.6}
+.feat-tags{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.9rem}
+.ftag{font-size:.68rem;font-weight:700;padding:.18rem .5rem;border-radius:4px}
+.ftag-blue{background:#dbeafe;color:#1d4ed8}.ftag-violet{background:#ede9fe;color:#6d28d9}
+.ftag-teal{background:#ccfbf1;color:#0f766e}.ftag-green{background:#dcfce7;color:#15803d}
+.ftag-amber{background:#fef3c7;color:#b45309}.ftag-red{background:#fee2e2;color:#b91c1c}
+
+/* Tech / matrix table */
+.tech-table{width:100%;border-collapse:collapse;font-size:.86rem;background:var(--c-surface);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.tech-table th{background:var(--c-dark);color:#e2e8f0;padding:.7rem 1rem;text-align:left;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.tech-table td{padding:.7rem 1rem;border-top:1px solid var(--c-border);vertical-align:top}
+.tech-table tr:hover td{background:#f8fafc}
+.tier-badge{display:inline-block;padding:.2rem .55rem;border-radius:5px;font-size:.68rem;font-weight:700}
+.tier-core{background:#dbeafe;color:#1e40af}.tier-infra{background:#dcfce7;color:#166534}
+.tier-front{background:#fef3c7;color:#92400e}.tier-ai{background:#fce7f3;color:#9d174d}.tier-ext{background:#ede9fe;color:#6d28d9}
+
+/* Scale rows */
+.scale-row{display:grid;grid-template-columns:220px 1fr auto;gap:1.25rem;align-items:center;padding:1rem 1.25rem;border-radius:10px;
+  border:1px solid var(--c-border);background:var(--c-surface);margin-bottom:.7rem;transition:all .2s}
+.scale-row:hover{box-shadow:var(--shadow);border-color:#c7d2fe}
+.scale-comp{font-weight:700;font-size:.9rem}
+.scale-comp small{display:block;font-weight:500;color:var(--c-muted);font-size:.74rem;margin-top:.15rem}
+.scale-action{font-size:.82rem;color:var(--c-muted)}
+.scale-effort{display:flex;align-items:center;gap:.75rem;justify-content:flex-end}
+.effort-label{font-size:.7rem;font-weight:700;padding:.2rem .6rem;border-radius:999px;white-space:nowrap}
+.e-instant{background:#dcfce7;color:#15803d}.e-easy{background:#dbeafe;color:#1d4ed8}
+.e-medium{background:#fef3c7;color:#b45309}.e-hard{background:#fee2e2;color:#b91c1c}
+@media(max-width:720px){.scale-row{grid-template-columns:1fr}.scale-effort{justify-content:flex-start}}
+
+/* Bench cards */
+.bench-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem}
+.bench-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:1.4rem;text-align:center}
+.bench-val{font-size:2.2rem;font-weight:900;line-height:1;letter-spacing:-.03em}
+.bench-label{font-size:.76rem;font-weight:600;color:var(--c-muted);margin-top:.4rem;text-transform:uppercase;letter-spacing:.06em}
+.bench-sub{font-size:.74rem;color:var(--c-muted);margin-top:.4rem}
+.chart-box{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow)}
+
+/* Security check list */
+.sec-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:760px){.sec-grid{grid-template-columns:1fr}}
+.sec-col{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:1.5rem}
+.sec-col h4{font-size:.92rem;font-weight:800;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.sec-list{list-style:none;display:flex;flex-direction:column;gap:.6rem}
+.sec-list li{font-size:.84rem;display:flex;align-items:flex-start;gap:.6rem;line-height:1.45}
+.sec-list.done li::before{content:'✓';color:#16a34a;font-weight:900;flex-shrink:0}
+.sec-list.todo li::before{content:'○';color:#d97706;font-weight:900;flex-shrink:0}
+.sev{font-size:.62rem;font-weight:800;padding:.05rem .4rem;border-radius:4px;margin-left:auto;flex-shrink:0;align-self:center}
+.sev-hi{background:#fee2e2;color:#b91c1c}.sev-md{background:#fef3c7;color:#b45309}.sev-lo{background:#e0e7ff;color:#4338ca}
+
+/* Roadmap */
+.roadmap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem}
+.rm-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:1.5rem;position:relative}
+.rm-phase{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem;border-radius:4px;display:inline-block;margin-bottom:.75rem}
+.rm-now{background:#fee2e2;color:#b91c1c}.rm-next{background:#fef3c7;color:#b45309}.rm-future{background:#dbeafe;color:#1d4ed8}.rm-vision{background:#dcfce7;color:#15803d}
+.rm-title{font-weight:800;font-size:1rem;margin-bottom:.35rem}
+.rm-items{list-style:none;margin-top:.9rem;display:flex;flex-direction:column;gap:.45rem}
+.rm-items li{font-size:.8rem;display:flex;align-items:flex-start;gap:.5rem;line-height:1.45}
+.rm-items li::before{content:'→';color:var(--c-indigo);flex-shrink:0}
+
+/* Arch diagram */
+.arch{background:#0b1120;border:1px solid #1e293b;border-radius:var(--radius);padding:1.75rem;overflow-x:auto}
+.arch-layer{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.35rem 0}
+.ab{font-size:.74rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;white-space:nowrap}
+.ab-b{background:rgba(37,99,235,.15);color:#93c5fd;border:1px solid rgba(37,99,235,.3)}
+.ab-v{background:rgba(124,58,237,.15);color:#c4b5fd;border:1px solid rgba(124,58,237,.3)}
+.ab-t{background:rgba(13,148,136,.15);color:#5eead4;border:1px solid rgba(13,148,136,.3)}
+.ab-g{background:rgba(22,163,74,.15);color:#86efac;border:1px solid rgba(22,163,74,.3)}
+.ab-r{background:rgba(220,38,38,.15);color:#fca5a5;border:1px solid rgba(220,38,38,.3)}
+.ab-a{background:rgba(217,119,6,.15);color:#fcd34d;border:1px solid rgba(217,119,6,.3)}
+.ab-s{background:rgba(100,116,139,.15);color:#cbd5e1;border:1px solid rgba(100,116,139,.3)}
+.ar{color:#475569;font-size:.85rem}
+.arch-sep{border:none;border-top:1px dashed #1e293b;margin:.6rem 0}
+.arch-lbl{color:#475569;font-size:.66rem;font-family:Consolas,monospace;width:110px;flex-shrink:0;letter-spacing:.06em}
+.arch-comment{color:#475569;font-size:.72rem;font-style:italic}
+
+/* Callout */
+.callout{background:#fff;border:1px solid var(--c-border);border-left:4px solid var(--c-indigo);border-radius:10px;padding:1.1rem 1.3rem;font-size:.86rem;color:#334155;margin-top:1.5rem}
+.callout b{color:var(--c-text)}
+
+footer{background:#0b1120;color:#64748b;padding:2.5rem 2rem;text-align:center;font-size:.78rem}
+footer .grad{background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:900}
+</style>
+</head>
+<body>
+
+<div id="topnav">
+  <a class="brand" href="#top"><span class="iq">PROJECT&nbsp;IQ</span><span class="sub">Technical Assessment</span></a>
+  <nav>
+    <a href="#summary">Summary</a>
+    <a href="#arch">Architecture</a>
+    <a href="#scale">Scalability</a>
+    <a href="#perf">Performance</a>
+    <a href="#sec">Security</a>
+    <a href="#todo">Roadmap</a>
+  </nav>
+</div>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <span class="hero-badge">Engineering Status Report · v2</span>
+  <h1>Where We <span class="grad">Stand</span> Today</h1>
+  <p class="hero-sub">A grounded assessment of the Project IQ platform after the v2 migration to IAM/Keycloak SSO, the standalone multi-tenant ITSM service, and the unified React portal — covering how fast we can scale, how we perform, what is secured, and what remains.</p>
+  <div class="hero-stats">
+    <div class="hstat"><div class="val blue">7</div><div class="lbl">Runtime Services</div></div>
+    <div class="hstat"><div class="val violet">2</div><div class="lbl">PostgreSQL Clusters</div></div>
+    <div class="hstat"><div class="val teal">175</div><div class="lbl">ITSM Tests Passing</div></div>
+    <div class="hstat"><div class="val green">RLS</div><div class="lbl">DB-Enforced Tenancy</div></div>
+    <div class="hstat"><div class="val amber">SSO</div><div class="lbl">Keycloak OIDC</div></div>
+  </div>
+</section>
+
+<!-- EXECUTIVE SUMMARY -->
+<section class="section" id="summary">
+<div class="container">
+  <div class="sec-eye">Executive Summary</div>
+  <div class="sec-h">The Short Version</div>
+  <div class="sec-sub">Architecturally the platform is in good shape: stateless app tiers, an async multi-tenant service with row-level security, real-time messaging on a Redis bus, and a clean SSO model. The gaps are operational — production deployment topology, secrets hardening, and observability — not design.</div>
+
+  <div class="verdict">
+    <div class="vcard" style="--accent:linear-gradient(90deg,#2563eb,#60a5fa)">
+      <div class="grade" style="color:#2563eb">B+</div>
+      <div class="area">Scalability</div>
+      <div class="note">App tiers are stateless and horizontally scalable. Blocked only by single-worker default and single DB primary — both config/deploy changes, not rewrites.</div>
+    </div>
+    <div class="vcard" style="--accent:linear-gradient(90deg,#0d9488,#2dd4bf)">
+      <div class="grade" style="color:#0d9488">A−</div>
+      <div class="area">Performance</div>
+      <div class="note">Async FastAPI + Redis caching + indexed queries. Major latency bug (IPv6 resolution) fixed. Frontend ships one 517&nbsp;KB chunk — the main remaining win.</div>
+    </div>
+    <div class="vcard" style="--accent:linear-gradient(90deg,#16a34a,#4ade80)">
+      <div class="grade" style="color:#16a34a">A−</div>
+      <div class="area">Security (Design)</div>
+      <div class="note">OIDC SSO, JWT validation, DB-enforced RLS as a non-superuser role, GDPR masking, rate limiting. Strong foundation.</div>
+    </div>
+    <div class="vcard" style="--accent:linear-gradient(90deg,#d97706,#fbbf24)">
+      <div class="grade" style="color:#d97706">C+</div>
+      <div class="area">Security (Ops)</div>
+      <div class="note">Default dev credentials, no TLS/headers in-app, secrets only partially in Infisical, no formal audit/pen-test. Must close before public exposure.</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section class="section alt" id="arch">
+<div class="container">
+  <div class="sec-eye">System Design — v2</div>
+  <div class="sec-h">Current Architecture</div>
+  <div class="sec-sub">Each tier is independently deployable and (where it matters) stateless. State lives in PostgreSQL, Redis, and MinIO.</div>
+
+  <div class="arch mt3">
+    <div style="color:#64748b;font-size:.68rem;font-family:Consolas,monospace;margin-bottom:1rem;letter-spacing:.08em">── PROJECT IQ v2 RUNTIME TOPOLOGY ──────────────────────</div>
+
+    <div class="arch-layer"><span class="arch-lbl">CLIENT</span>
+      <span class="ab ab-b">Chat Widget /bot</span>
+      <span class="ab ab-b">React Portal /portal</span>
+      <span class="ab ab-b">ITSM SPA /itsm</span>
+      <span class="ab ab-b">Operator /opt</span>
+      <span class="ab ab-b">Expo Mobile</span>
+    </div>
+    <div style="text-align:center;color:#334155;padding:.25rem 0;font-size:.78rem">↕ HTTPS / WSS / Socket.IO</div>
+    <hr class="arch-sep">
+
+    <div class="arch-layer"><span class="arch-lbl">IDENTITY</span>
+      <span class="ab ab-a">Keycloak IAM (realm 99-iam)</span><span class="ar">→</span>
+      <span style="color:#64748b;font-size:.74rem">OIDC · clients: project-iq / access-wise / project-iq-backend · roles synced to ITSM DB on login</span>
+    </div>
+    <hr class="arch-sep">
+
+    <div class="arch-layer"><span class="arch-lbl">APP — CHAT</span>
+      <span class="ab ab-v">Flask + Socket.IO (eventlet)</span><span class="ar">→</span>
+      <span class="ab ab-v">Blueprints ×18</span><span class="ar">↔</span>
+      <span class="ab ab-r">Redis bus</span><span class="arch-comment">← required for multi-worker Socket.IO</span>
+    </div>
+    <div class="arch-layer"><span class="arch-lbl">APP — ITSM</span>
+      <span class="ab ab-t">FastAPI (async / uvicorn)</span><span class="ar">→</span>
+      <span class="ab ab-t">CORS · RateLimit · RequestLog mw</span><span class="ar">+</span>
+      <span class="ab ab-g">Celery worker + beat</span>
+    </div>
+    <div class="arch-layer"><span class="arch-lbl">AI</span>
+      <span class="ab ab-v">Rasa Core :5005</span><span class="ar">+</span>
+      <span class="ab ab-v">Action Server :5055</span><span class="ar">→</span>
+      <span style="color:#64748b;font-size:.74rem">NLU · stories · custom actions → ITSM API</span>
+    </div>
+    <hr class="arch-sep">
+
+    <div class="arch-layer"><span class="arch-lbl">CACHE</span>
+      <span class="ab ab-r">Redis</span><span class="ar">→</span>
+      <span style="color:#64748b;font-size:.74rem">handoff config (60s) · themes (300s) · GLPI groups (300s) · in-process TTL fallback</span>
+    </div>
+    <div class="arch-layer"><span class="arch-lbl">DATA</span>
+      <span class="ab ab-g">PG · Chatbot/Handoff :5432</span><span class="ar">+</span>
+      <span class="ab ab-g">PG · ITSM :5433 (pgvector, RLS)</span>
+    </div>
+    <div class="arch-layer" style="margin-left:118px">
+      <span class="ab ab-t">pgvector (KB search)</span><span class="ar">+</span>
+      <span class="ab ab-a">MinIO (S3) — itsm-files, presigned URLs</span>
+    </div>
+    <hr class="arch-sep">
+
+    <div class="arch-layer"><span class="arch-lbl">EXTERNAL</span>
+      <span class="ab ab-a">GLPI (decommissioning)</span><span class="ar">·</span>
+      <span class="ab ab-a">Firecrawl (KB ingest)</span><span class="ar">·</span>
+      <span class="ab ab-s">Infisical (secrets, partial)</span>
+    </div>
+  </div>
+
+  <div class="callout"><b>Key v2 change:</b> authentication moved from GLPI session tokens / per-app JWT to centralized Keycloak OIDC SSO, and ITSM moved out of GLPI into a dedicated FastAPI service with per-tenant <b>row-level security enforced by the database</b> (runtime connects as the non-superuser <code>itsm_app</code> role so RLS cannot be bypassed).</div>
+</div>
+</section>
+
+<!-- TECH MATRIX -->
+<section class="section" id="stack">
+<div class="container">
+  <div class="sec-eye">Component Inventory</div>
+  <div class="sec-h">Stack &amp; Responsibilities</div>
+  <table class="tech-table mt3">
+    <thead><tr><th>Component</th><th>Tier</th><th>Technology</th><th>State / Scaling Notes</th></tr></thead>
+    <tbody>
+      <tr><td><b>Chat / Portal API</b></td><td><span class="tier-badge tier-core">Core</span></td><td>Flask + Socket.IO, eventlet, Gunicorn</td><td>Stateless; multi-worker needs Redis bus (configured, default workers=1)</td></tr>
+      <tr><td><b>ITSM Service</b></td><td><span class="tier-badge tier-core">Core</span></td><td>FastAPI, SQLAlchemy async, asyncpg, Alembic</td><td>Stateless, JWT-authed → scales horizontally behind LB</td></tr>
+      <tr><td><b>Background Jobs</b></td><td><span class="tier-badge tier-infra">Infra</span></td><td>Celery worker + beat</td><td>Scale workers independently; broker = Redis</td></tr>
+      <tr><td><b>NLU / Dialogue</b></td><td><span class="tier-badge tier-ai">AI</span></td><td>Rasa Core + Action Server</td><td>Core is stateless w/ external tracker store; action server stateless</td></tr>
+      <tr><td><b>Identity</b></td><td><span class="tier-badge tier-ext">Ext</span></td><td>Keycloak (remote, id.dev.iam.99technologies.com)</td><td>HA is Keycloak-cluster concern; app holds JWKS cache</td></tr>
+      <tr><td><b>Primary DB (Chat/Handoff)</b></td><td><span class="tier-badge tier-infra">Infra</span></td><td>PostgreSQL :5432</td><td>Single primary; tracker store + conversations/queue</td></tr>
+      <tr><td><b>ITSM DB</b></td><td><span class="tier-badge tier-infra">Infra</span></td><td>PostgreSQL 16 + pgvector, RLS</td><td>Single primary; read replica + pooler needed for scale</td></tr>
+      <tr><td><b>Cache / Bus</b></td><td><span class="tier-badge tier-infra">Infra</span></td><td>Redis 7</td><td>Cache + Socket.IO pub/sub + Celery broker</td></tr>
+      <tr><td><b>Object Storage</b></td><td><span class="tier-badge tier-infra">Infra</span></td><td>MinIO (S3-compatible)</td><td>Presigned URLs; default creds = dev only</td></tr>
+      <tr><td><b>Frontends</b></td><td><span class="tier-badge tier-front">Front</span></td><td>React + Vite, Tailwind; Expo (RN)</td><td>Static, CDN-cacheable; content-hashed assets</td></tr>
+    </tbody>
+  </table>
+</div>
+</section>
+
+<!-- SCALABILITY -->
+<section class="section alt" id="scale">
+<div class="container">
+  <div class="sec-eye">Scalability</div>
+  <div class="sec-h">How Fast Can We Scale Up?</div>
+  <div class="sec-sub">Per-component effort to add capacity. The platform is designed to scale horizontally; most levers are configuration and deployment topology, not code.</div>
+
+  <div class="mt3">
+    <div class="scale-row">
+      <div class="scale-comp">ITSM Service<small>FastAPI · stateless</small></div>
+      <div class="scale-action">Add replicas behind a load balancer. JWT-authed, no server session — any instance serves any request. DB pool sized per replica.</div>
+      <div class="scale-effort"><span class="effort-label e-easy">Easy · hours</span></div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-comp">Chat / Portal (Flask+SIO)<small>eventlet workers</small></div>
+      <div class="scale-action">Raise <code>GUNICORN_WORKERS</code> and enable the Redis bus so Socket.IO rooms sync across workers. Background threads pinned to worker 0 (already handled).</div>
+      <div class="scale-effort"><span class="effort-label e-easy">Easy · config</span></div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-comp">Celery Workers<small>async jobs</small></div>
+      <div class="scale-action">Scale worker containers horizontally; Redis broker fans out. Beat stays singleton.</div>
+      <div class="scale-effort"><span class="effort-label e-instant">Instant</span></div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-comp">Rasa Core + Actions<small>NLU runtime</small></div>
+      <div class="scale-action">Run multiple Core replicas (external Postgres tracker store already configured) + N action servers behind LB.</div>
+      <div class="scale-effort"><span class="effort-label e-medium">Medium</span></div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-comp">Frontends<small>React / Expo</small></div>
+      <div class="scale-action">Static bundles → push to CDN / object storage. Effectively unlimited horizontal scale.</div>
+      <div class="scale-effort"><span class="effort-label e-instant">Instant</span></div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-comp">PostgreSQL (both)<small>stateful</small></div>
+      <div class="scale-action">Introduce pgBouncer pooling + read replicas; route reads to replicas. Writes remain single-primary until partitioning/sharding is justified.</div>
+      <div class="scale-effort"><span class="effort-label e-hard">Hard · plan</span></div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-comp">Redis<small>cache / bus</small></div>
+      <div class="scale-action">Vertical first; Redis Cluster / Sentinel for HA when the bus becomes critical-path.</div>
+      <div class="scale-effort"><span class="effort-label e-medium">Medium</span></div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-comp">MinIO<small>object store</small></div>
+      <div class="scale-action">Distributed MinIO (erasure coding) or swap for managed S3 — presign client already abstracted from the internal client.</div>
+      <div class="scale-effort"><span class="effort-label e-medium">Medium</span></div>
+    </div>
+  </div>
+
+  <div class="callout"><b>Bottom line:</b> from a cold "single box" to a horizontally scaled deployment is mostly a <b>topology + config exercise</b> (LB, Redis bus on, more replicas, pooler, replica DB). The two true ceilings are <b>single-primary write throughput</b> and <b>Keycloak/Redis HA</b> — both addressable with standard infra patterns, no application rewrite.</div>
+</div>
+</section>
+
+<!-- PERFORMANCE -->
+<section class="section" id="perf">
+<div class="container">
+  <div class="sec-eye">Performance</div>
+  <div class="sec-h">DB · Backend · Frontend</div>
+  <div class="sec-sub">Current characteristics and the levers that matter. Figures marked “target” are design goals; others reflect observed behavior after recent fixes.</div>
+
+  <div class="bench-grid mt3">
+    <div class="bench-card"><div class="bench-val" style="color:#16a34a">~20s→&lt;1s</div><div class="bench-label">Chatbot Reply</div><div class="bench-sub">Fixed: localhost→IPv6 stall + per-call session</div></div>
+    <div class="bench-card"><div class="bench-val" style="color:#2563eb">Async</div><div class="bench-label">ITSM I/O Model</div><div class="bench-sub">asyncpg pool, non-blocking handlers</div></div>
+    <div class="bench-card"><div class="bench-val" style="color:#7c3aed">517 KB</div><div class="bench-label">Portal JS (gzip 141 KB)</div><div class="bench-sub">Single chunk — split candidate</div></div>
+    <div class="bench-card"><div class="bench-val" style="color:#0d9488">pgvector</div><div class="bench-label">KB Search</div><div class="bench-sub">ivfflat cosine index, 114 articles</div></div>
+  </div>
+
+  <div class="feat-grid mt3">
+    <div class="feat-card" style="--accent:linear-gradient(90deg,#16a34a,#4ade80)">
+      <div class="feat-icon">🗄️</div>
+      <div class="feat-title">Database</div>
+      <div class="feat-desc">Async connection pooling (asyncpg). RLS adds negligible per-query overhead. Indexed lookups on tenant/sender/timestamp. Tracker store and ITSM DB both reachable over IPv4 (the IPv6 resolution stall was the root cause of ~20s hangs and is fixed by pinning 127.0.0.1).</div>
+      <div class="feat-tags"><span class="ftag ftag-green">Conn Pool</span><span class="ftag ftag-blue">Indexed</span><span class="ftag ftag-violet">RLS low-overhead</span></div>
+    </div>
+    <div class="feat-card" style="--accent:linear-gradient(90deg,#0d9488,#2dd4bf)">
+      <div class="feat-icon">⚙️</div>
+      <div class="feat-title">Backend</div>
+      <div class="feat-desc">ITSM is fully async FastAPI — high concurrency per core. The chat app uses eventlet green threads (I/O-bound friendly). Redis caches handoff config / themes / GLPI groups to keep hot paths off the DB, with an in-process TTL fallback when Redis is down.</div>
+      <div class="feat-tags"><span class="ftag ftag-teal">FastAPI async</span><span class="ftag ftag-red">Redis cache</span><span class="ftag ftag-amber">TTL fallback</span></div>
+    </div>
+    <div class="feat-card" style="--accent:linear-gradient(90deg,#7c3aed,#a78bfa)">
+      <div class="feat-icon">🖥️</div>
+      <div class="feat-title">Frontend</div>
+      <div class="feat-desc">Vite production builds with content-hashed assets (cacheable forever) behind a no-cache HTML shell, so deploys are picked up instantly without serving stale code. The portal bundle is a single 517&nbsp;KB chunk — route-level code-splitting is the highest-leverage remaining win.</div>
+      <div class="feat-tags"><span class="ftag ftag-violet">Hashed assets</span><span class="ftag ftag-blue">No-cache shell</span><span class="ftag ftag-amber">Split candidate</span></div>
+    </div>
+  </div>
+
+  <div class="chart-box mt3">
+    <canvas id="perfChart" height="120"></canvas>
+  </div>
+</div>
+</section>
+
+<!-- SECURITY -->
+<section class="section alt" id="sec">
+<div class="container">
+  <div class="sec-eye">Security</div>
+  <div class="sec-h">What's Done · What's Needed</div>
+  <div class="sec-sub">The application-layer security model is strong. The remaining items are operational hardening that must close before any public/production exposure.</div>
+
+  <div class="sec-grid mt3">
+    <div class="sec-col">
+      <h4>✅ In Place</h4>
+      <ul class="sec-list done">
+        <li>Keycloak OIDC SSO — chatbot is SSO-only, no passwords stored</li>
+        <li>JWT Bearer validation on every ITSM request; JWKS verified</li>
+        <li>Role-based access: IAM roles synced to the ITSM DB on login</li>
+        <li>Multi-tenant <b>Row-Level Security enforced by PostgreSQL</b></li>
+        <li>Runtime connects as non-superuser <code>itsm_app</code> so RLS can't be bypassed</li>
+        <li>GDPR masking of passwords / card numbers / IBANs in handoff context</li>
+        <li>Presigned object URLs — bucket is never public</li>
+        <li>Rate limiting + request logging middleware on ITSM</li>
+        <li>CORS allowlist; silent-check-sso route for iframe SSO</li>
+        <li>Org policy: secrets/keys forbidden in prompts (placeholders only)</li>
+      </ul>
+    </div>
+    <div class="sec-col">
+      <h4>⚠️ Needed</h4>
+      <ul class="sec-list todo">
+        <li>Replace default dev credentials (minioadmin, DB passwords) <span class="sev sev-hi">HIGH</span></li>
+        <li>TLS termination + HSTS / CSP / security headers at the edge <span class="sev sev-hi">HIGH</span></li>
+        <li>Complete secrets migration into Infisical (currently partial) <span class="sev sev-hi">HIGH</span></li>
+        <li>Audit-log retention + tamper-evident storage <span class="sev sev-md">MED</span></li>
+        <li>Dependency / image vulnerability scanning in CI <span class="sev sev-md">MED</span></li>
+        <li>Per-tenant / per-role rate-limit tuning &amp; abuse controls <span class="sev sev-md">MED</span></li>
+        <li>Formal pen-test &amp; threat model sign-off <span class="sev sev-md">MED</span></li>
+        <li>MFA enforcement via Keycloak policies <span class="sev sev-lo">LOW</span></li>
+        <li>Backup / disaster-recovery runbook for both DBs + MinIO <span class="sev sev-lo">LOW</span></li>
+        <li>WAF in front of the edge <span class="sev sev-lo">LOW</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ROADMAP / TODO -->
+<section class="section" id="todo">
+<div class="container">
+  <div class="sec-eye">Improvements</div>
+  <div class="sec-h">Prioritized To-Do</div>
+  <div class="sec-sub">Grouped by horizon. “Now” items are the shortest path to a hardened, production-ready deployment.</div>
+
+  <div class="roadmap-grid mt3">
+    <div class="rm-card">
+      <span class="rm-phase rm-now">Now · Harden</span>
+      <div class="rm-title">Production Readiness</div>
+      <div class="rm-sub">Close the operational security and deploy gaps.</div>
+      <ul class="rm-items">
+        <li>Rotate all default credentials; secrets → Infisical</li>
+        <li>TLS + security headers (CSP/HSTS) at Nginx edge</li>
+        <li>Enable Redis bus + multi-worker Gunicorn in prod</li>
+        <li>pgBouncer pooling in front of both PostgreSQL clusters</li>
+      </ul>
+    </div>
+    <div class="rm-card">
+      <span class="rm-phase rm-next">Next · Optimize</span>
+      <div class="rm-title">Performance &amp; UX</div>
+      <div class="rm-sub">Reduce load time and finish in-flight work.</div>
+      <ul class="rm-items">
+        <li>Route-level code-splitting for the portal (517 KB → chunks)</li>
+        <li>KB bot service account: chatbot → ITSM KB sourcing (blocker)</li>
+        <li>Complete operator-console parity items in the new portal</li>
+        <li>Read replica + read/write routing for ITSM DB</li>
+      </ul>
+    </div>
+    <div class="rm-card">
+      <span class="rm-phase rm-future">Future · Observe</span>
+      <div class="rm-title">Observability &amp; CI/CD</div>
+      <div class="rm-sub">See and trust what production is doing.</div>
+      <ul class="rm-items">
+        <li>Metrics (Prometheus) + dashboards (Grafana)</li>
+        <li>Distributed tracing across chat → ITSM → Rasa</li>
+        <li>Dependency/image scanning + automated migrations in CI</li>
+        <li>Synthetic uptime + handoff SLA alerting</li>
+      </ul>
+    </div>
+    <div class="rm-card">
+      <span class="rm-phase rm-vision">Cleanup · Debt</span>
+      <div class="rm-title">Decommission &amp; Consolidate</div>
+      <div class="rm-sub">Retire legacy paths now that v2 stands.</div>
+      <ul class="rm-items">
+        <li>Full GLPI decommission (phased plan written)</li>
+        <li>Single KB store (ITSM) — remove remaining duplicate paths</li>
+        <li>Retire legacy operator JWT auth once portal parity confirmed</li>
+        <li>DR runbook + restore drills for DBs and MinIO</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout"><b>Definition of “production-ready”:</b> all <span style="color:#b91c1c;font-weight:700">HIGH</span> security items closed, Redis bus + multi-worker on, pooler + replica in place, and basic metrics/alerting live. Everything else is iterative improvement on a sound base.</div>
+</div>
+</section>
+
+<footer>
+  <div><span class="grad">PROJECT IQ</span> — Technical Assessment</div>
+  <div style="margin-top:.5rem">Generated for internal engineering review · reflects the v2 codebase state. Figures are point-in-time and should be re-validated before external publication.</div>
+</footer>
+
+<script>
+const ctx = document.getElementById('perfChart');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: ['Chatbot reply (pre-fix)','Chatbot reply (now)','ITSM API (typical)','KB semantic search','Portal first load (gzip)'],
+    datasets: [{
+      label: 'Relative latency / weight (lower is better)',
+      data: [100, 4, 6, 5, 14],
+      backgroundColor: ['#fca5a5','#4ade80','#60a5fa','#2dd4bf','#fbbf24'],
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    plugins: { legend: { display:false }, title: { display:true, text:'Performance profile (indexed: pre-fix chatbot = 100)' } },
+    scales: { y: { beginAtZero:true, ticks:{ callback:v=>v } } },
+    responsive: true,
+  }
+});
+</script>
+</body>
+</html>

@@ -109,25 +109,34 @@ const ChatScreen = ({ navigation }) => {
     // ── Sync IAM → local auth state ───────────────────────────────────────────
     useEffect(() => {
         if (iam.isAuthenticated && iam.user && !iam.isLoading) {
-            const iamSenderId = `iam-${iam.user.sub}`;
-            setSenderId(iamSenderId);
-            storage.setItem(appIdRef.current, 'senderId', iamSenderId).catch(() => {});
             setIsAuthenticated(true);
             isAuthenticatedRef.current = true;
             setIsGuest(false);
             setAuthUser(iam.user.name || iam.user.username || iam.user.email || '');
-            storage.setItem(appIdRef.current, 'isAuthenticated', 'true').catch(() => {});
-            storage.setItem(appIdRef.current, 'authUser', iam.user.username || '').catch(() => {});
-            // Set app_id from IAM apps[] — show selector when multiple entitlements
-            if (iam.user.apps?.length === 1) {
-                appIdRef.current = iam.user.apps[0];
-                setAppIdState(iam.user.apps[0]);
-            } else if (iam.user.apps?.length > 1) {
-                setShowProductSelector(true);
-            }
-            // Register push token + fetch unread count
-            _registerPushToken(iamSenderId);
-            _fetchUnreadCount(iamSenderId);
+            // Replace a stale single init message (e.g. leftover guest/logout text)
+            // with a signed-in welcome so the user never sees logout text post-login.
+            setMessages(prev => {
+                if (prev.length === 1 && prev[0]?.id === 'init') {
+                    const nm = iam.user.name || iam.user.username || iam.user.email || 'there';
+                    return [{ id: 'init', sender: 'bot', text: `**Hi ${nm}!** 👋\n\nWelcome back. How can I help you today?` }];
+                }
+                return prev;
+            });
+            // Product-scoped session: choose the product, then senderId becomes
+            // iam-{sub}-{product} (matches the chat proxy). Auto-restore the last
+            // choice; auto-select if only one; otherwise force the picker.
+            (async () => {
+                const prods = (iam.user.subscriptions?.length ? iam.user.subscriptions
+                              : iam.user.apps?.length ? iam.user.apps : iam.user.products) || [];
+                const stored = await storage.getItem('__global__', 'selectedProduct').catch(() => null);
+                const product = (stored && prods.includes(stored)) ? stored
+                              : (prods.length === 1 ? prods[0] : null);
+                if (product) {
+                    await applyProduct(product);
+                } else {
+                    setShowProductSelector(true);   // require a choice before chatting
+                }
+            })();
         }
     }, [iam.isAuthenticated, iam.user, iam.isLoading]);
 
@@ -766,6 +775,53 @@ const ChatScreen = ({ navigation }) => {
         setMessages([{ id: 'init', sender: 'bot', text: welcomeMsg }]);
     };
 
+    // Apply a product for the signed-in user: product-scoped senderId
+    // (iam-{sub}-{product}, consistent with the chat proxy), persisted so it
+    // auto-selects next time.
+    const applyProduct = async (product) => {
+        if (!product) return;
+        appIdRef.current = product;
+        setAppIdState(product);
+        const sub = iam.user?.sub;
+        let sid = sub ? `iam-${sub}-${product}` : await storage.getItem(product, 'senderId');
+        if (!sid) { sid = uuidv4(); }
+        setSenderId(sid);
+        await storage.setItem('__global__', 'selectedProduct', product).catch(() => {});
+        await storage.setItem(product, 'senderId', sid).catch(() => {});
+        if (iam.isAuthenticated) {
+            await storage.setItem(product, 'isAuthenticated', 'true').catch(() => {});
+            await storage.setItem(product, 'authUser', iam.user?.username || '').catch(() => {});
+        }
+        _registerPushToken(sid);
+        _fetchUnreadCount(sid);
+    };
+
+    // Switch product → end the current session everywhere, then start fresh.
+    const switchProduct = async (product) => {
+        setShowProductSelector(false);
+        setShowUserMenu(false);
+        if (!product || product === appIdRef.current) return;
+        const oldSender = senderId;
+        if (socketRef.current) {
+            try { socketRef.current.emit('user_end_session', { sender_id: oldSender }); } catch { /* ignore */ }
+        }
+        try {
+            const adminBase = await getAdminBaseUrl();
+            await fetch(`${adminBase}/handoff/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(iam.token ? { Authorization: `Bearer ${iam.token}` } : {}) },
+                body: JSON.stringify({ sender_id: oldSender }),
+            });
+        } catch { /* ignore */ }
+        setHandoffState('bot_active');
+        setSessionEnded(false);
+        lastActivityRef.current = Date.now();
+        await applyProduct(product);
+        const label = PRODUCT_LABELS[product] || product;
+        setMessages([{ id: 'init', sender: 'bot',
+            text: `**Switched to ${label}.**\n\nHow can I help you with ${label} today?` }]);
+    };
+
     // Clear history
     const handleClear = async () => {
         Alert.alert('Clear History', 'Clear all chat messages?', [
@@ -894,7 +950,7 @@ const ChatScreen = ({ navigation }) => {
         }
     };
 
-    const PRODUCT_LABELS = { IT: 'IT Support', Accounting: 'Accounting', shipnest: 'ShipNest', greenloop: 'GreenLoop', accountwise: 'AccountWise', General: 'General' };
+    const PRODUCT_LABELS = { IT: 'IT Support', Accounting: 'Accounting', shipnest: 'ShipNest', greenloop: 'GreenLoop', 'account-wise': 'AccountWise', accountwise: 'AccountWise', 'stock-wise': 'StockWise', 'stock-wise-app': 'StockWise App', 'project-iq': 'Project IQ', 'brain-box': 'BrainBox', 'e-manifest_app': 'e-Manifest', 'app-1': 'App 1', 'clear-portal': 'Clear Portal', General: 'General' };
 
     const cleanPreview = (p) => {
         if (!p || p.startsWith('/')) return 'New conversation';
@@ -1237,6 +1293,16 @@ const ChatScreen = ({ navigation }) => {
                                 >
                                     <Text style={styles.menuItemText}>My Profile</Text>
                                 </TouchableOpacity>
+                                {((iam.user?.subscriptions?.length ? iam.user.subscriptions : iam.user?.apps?.length ? iam.user.apps : iam.user?.products) || []).length > 1 && (
+                                    <TouchableOpacity
+                                        style={styles.menuItem}
+                                        onPress={() => { setShowUserMenu(false); setShowProductSelector(true); }}
+                                    >
+                                        <Text style={styles.menuItemText}>
+                                            Switch Product{appIdRef.current ? ` (${PRODUCT_LABELS[appIdRef.current] || appIdRef.current})` : ''}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
                                 {!isWelcomeState && !sessionEnded && (
                                     <TouchableOpacity style={styles.menuItem} onPress={() => { setShowUserMenu(false); handleEndSession(); }}>
                                         <Text style={styles.menuItemText}>End This Conversation</Text>
@@ -1454,17 +1520,14 @@ const ChatScreen = ({ navigation }) => {
                                 <Text style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
                                     Your account has access to multiple products.
                                 </Text>
-                                {(iam.user?.apps || []).map(app => (
+                                {((iam.user?.subscriptions?.length ? iam.user.subscriptions : iam.user?.apps?.length ? iam.user.apps : iam.user?.products) || []).map(pid => (
                                     <TouchableOpacity
-                                        key={app}
-                                        onPress={() => {
-                                            appIdRef.current = app;
-                                            setAppIdState(app);
-                                            setShowProductSelector(false);
-                                        }}
+                                        key={pid}
+                                        onPress={() => switchProduct(pid)}
                                         style={{
                                             borderWidth: 1,
-                                            borderColor: THEME.primary,
+                                            borderColor: pid === appIdRef.current ? THEME.primary : '#e5e7eb',
+                                            backgroundColor: pid === appIdRef.current ? 'rgba(0,0,0,0.03)' : '#fff',
                                             borderRadius: 10,
                                             padding: 14,
                                             marginBottom: 10,
@@ -1474,7 +1537,7 @@ const ChatScreen = ({ navigation }) => {
                                     >
                                         <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: THEME.primary, marginRight: 12 }} />
                                         <Text style={{ fontSize: 14, fontWeight: '500', color: THEME.text }}>
-                                            {app.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                            {PRODUCT_LABELS[pid] || pid}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}

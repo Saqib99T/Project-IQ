@@ -95,7 +95,8 @@ def register_sio_events(sio) -> None:
                     'message':         'The user has ended the conversation.',
                 }, room=_s._room_operator(op_id))
 
-            sio.emit('queue_item_removed', {'queue_id': queue_id, 'status': 'abandoned'},
+            sio.emit('queue_item_removed',
+                     {'queue_id': queue_id, 'conversation_id': conv_id, 'status': 'abandoned'},
                      room='queue_overview')
             emit_queue_overview()
 
@@ -399,6 +400,64 @@ def _queue_timeout_worker():
                             "I'm returning you to the bot. You can create a ticket and an agent will follow up."
                         ),
                     })
+                    emit_queue_overview()
+
+                # ── Assigned sessions gone idle (user vanished, no clean end) ──
+                # The user can close the widget / lose network without firing
+                # user_end_session, leaving the handoff stuck 'assigned' forever
+                # and showing in the operator's My Sessions. Time these out on
+                # conversation inactivity and close them in the operator portal.
+                assigned_idle_mins = int(cfg.get('queue', {}).get(
+                    'assigned_idle_timeout_mins', timeout_total))
+                cur.execute("""
+                    SELECT hq.id, hq.conversation_id, hq.operator_id, c.sender_id,
+                           EXTRACT(EPOCH FROM (NOW() - c.last_activity)) / 60 AS idle_mins
+                    FROM handoff_queue hq
+                    JOIN conversations c ON c.id = hq.conversation_id
+                    WHERE hq.status = 'assigned'
+                      AND c.last_activity IS NOT NULL
+                      AND EXTRACT(EPOCH FROM (NOW() - c.last_activity)) / 60 >= %s
+                """, (assigned_idle_mins,))
+                stale = cur.fetchall() or []
+                for row in stale:
+                    cur.execute(
+                        "UPDATE handoff_queue SET status = 'abandoned', abandoned_at = NOW(), "
+                        "closing_note = 'Session timed out (inactivity)', "
+                        "handle_time_secs = EXTRACT(EPOCH FROM (NOW() - assigned_at))::INT "
+                        "WHERE id = %s",
+                        (row['id'],)
+                    )
+                    cur.execute(
+                        "UPDATE conversations SET handoff_state = 'closed', assigned_operator_id = NULL "
+                        "WHERE id = %s",
+                        (row['conversation_id'],)
+                    )
+                    cur.execute(
+                        "INSERT INTO handoff_state_log "
+                        "(conversation_id, from_state, to_state, triggered_by, note) "
+                        "VALUES (%s, 'assigned', 'closed', 'system', 'assigned session inactivity timeout')",
+                        (row['conversation_id'],)
+                    )
+                    conn.commit()
+                    # Close it in the operator portal in real time.
+                    if row['operator_id']:
+                        sio.emit('handoff_resolved', {
+                            'conversation_id': row['conversation_id'],
+                            'queue_id':        row['id'],
+                            'status':          'timeout',
+                            'message':         'Session timed out due to inactivity.',
+                        }, room=_s._room_operator(row['operator_id']))
+                    emit_to_user(row['sender_id'], 'handoff_resolved', {
+                        'conversation_id': row['conversation_id'],
+                        'queue_id':        row['id'],
+                        'status':          'timeout',
+                        'return_to_bot':   True,
+                        'message': "The session timed out due to inactivity. I'm back to assist you.",
+                    })
+                    sio.emit('queue_item_removed',
+                             {'queue_id': row['id'], 'conversation_id': row['conversation_id'],
+                              'status': 'timeout'},
+                             room='queue_overview')
                     emit_queue_overview()
 
                 # Always close the transaction — the SELECTs above leave one open

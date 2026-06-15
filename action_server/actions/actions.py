@@ -9,8 +9,8 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from action_server.actions.actions_glpi_auth    import *  # noqa: F401,F403
-from action_server.actions.actions_glpi_tickets import *  # noqa: F401,F403
+from action_server.actions.actions_itsm_auth    import *  # noqa: F401,F403
+from action_server.actions.actions_itsm_tickets import *  # noqa: F401,F403
 from action_server.actions.actions_session      import *  # noqa: F401,F403
 from action_server.actions.actions_general      import *  # noqa: F401,F403
 from action_server.actions.actions_kb           import *  # noqa: F401,F403

@@ -9,13 +9,11 @@ from rasa_sdk import Action, Tracker
 from rasa_sdk.events import SlotSet, AllSlotsReset, Restarted, ActiveLoop, UserUttered, FollowupAction
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
-from action_server.actions.glpi_service import GlpiService
 from common import analytics_store
-from common.config_manager import get_glpi_config
 from action_server.actions._shared import (
-    get_glpi_service, get_glpi_base_url, log_bot_response,
+    log_bot_response,
     get_analytics_context, get_effective_session_token,
-    check_user_login, glpi_service, logger,
+    check_user_login, logger,
     _call_admin_api, _get_handoff_runtime_cfg,
     get_iam_identity, is_iam_authenticated, require_iam_auth,
     get_org_context,
@@ -33,7 +31,7 @@ class ActionRequestHandoff(Action):
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
 
-        # Require IAM authentication or legacy GLPI session for handoff
+        # Require IAM authentication or legacy ITSM session for handoff
         iam = get_iam_identity(tracker)
         if not iam["sub"] and not get_effective_session_token(tracker):
             return [require_iam_auth(dispatcher)] if not require_iam_auth(dispatcher) else []

@@ -143,7 +143,7 @@ class AdminKBCache:
         self.articles = []
         self.last_update = None
         self.is_loading = False
-        self.source = "glpi"
+        self.source = "itsm"
 
     def load_articles(self):
         """Load articles, preferring itsm-service over the legacy GLPI KB."""
@@ -152,9 +152,9 @@ class AdminKBCache:
 
         self.is_loading = True
         try:
-            if self._load_from_itsm():
-                return True
-            return self._load_from_glpi()
+            # itsm-service is the only KB source (GLPI removed). Returns False
+            # (cache stays empty) when the KB bot token isn't configured.
+            return self._load_from_itsm()
         finally:
             self.is_loading = False
 
@@ -228,69 +228,9 @@ class AdminKBCache:
             print(f"[Admin KB Cache] Loaded {len(transformed)} articles from itsm-service")
             return True
         except Exception as e:
-            print(f"[Admin KB Cache] itsm-service load failed, falling back to GLPI: {e}")
+            print(f"[Admin KB Cache] itsm-service KB load failed: {e}")
             return False
 
-    def _load_from_glpi(self):
-        """Load articles from the legacy GLPI KB."""
-        try:
-            from action_server.actions.glpi_service import GlpiService
-            from common.config_manager import get_glpi_config
-            from datetime import datetime
-
-            glpi_config = get_glpi_config()
-            glpi_service = GlpiService(
-                api_uri=glpi_config['api_url'],
-                app_token=glpi_config['app_token'],
-                user_token=glpi_config['user_token']
-            )
-
-            async def _fetch_articles():
-                session_token = await glpi_service.init_session()
-                if not session_token:
-                    print("[Admin KB Cache] Failed to connect to Project IQ")
-                    return None
-
-                try:
-                    return await glpi_service.get_all_knowbase_items(session_token)
-                finally:
-                    await glpi_service.kill_session(session_token)
-
-            glpi_articles = eventlet.tpool.execute(asyncio.run, _fetch_articles())
-            if glpi_articles is None:
-                return False
-
-            # Transform to simplified format
-            transformed = []
-            for article in glpi_articles:
-                transformed.append({
-                    "id": f"glpi_{article['id']}",
-                    "title": article.get('name', 'Untitled'),
-                    "category": "general",
-                    "source": "glpi",
-                    "glpi_id": article['id'],
-                    "is_faq": article.get('is_faq', 0) == 1,
-                    "date_modified": article.get('date_mod', ''),
-                    "question": article.get('question', ''),
-                    "answer": article.get('answer', '')[:200] + '...' if article.get('answer') else ''
-                })
-
-            self.articles = transformed
-            self.last_update = datetime.now().isoformat()
-            self.source = "glpi"
-            print(f"[Admin KB Cache] Loaded {len(transformed)} articles from Project IQ")
-            return True
-
-        except Exception as e:
-            log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Log')
-            os.makedirs(log_dir, exist_ok=True)
-            debug_log = os.path.join(log_dir, "admin_kb_debug.log")
-            with open(debug_log, "w") as f:
-                f.write(f"Error loading articles: {e}\n")
-                import traceback
-                f.write(traceback.format_exc())
-            print(f"[Admin KB Cache] Error loading articles: {e}")
-            return False
 
     def get_status(self):
         """Get cache status."""

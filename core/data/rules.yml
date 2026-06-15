@@ -17,7 +17,7 @@ rules:
       - active_loop: null
       - slot_was_set:
         - requested_slot: null
-      - action: action_glpi_login
+      - action: action_itsm_login
 
   - rule: Say hi
     steps:
@@ -55,14 +55,14 @@ rules:
     steps:
       - intent: create_ticket
       - action: action_search_kb_before_ticket
-      - action: action_init_glpi_session
+      - action: action_init_itsm_session
       - action: utter_ticket_form
 
   # Step 3: If KB is not helpful (Explicit user choice), start the form
   - rule: KB Not Helpful -> Start Ticket Form
     steps:
       - intent: kb_not_helpful
-      - action: action_init_glpi_session
+      - action: action_init_itsm_session
       - action: utter_ticket_form
 
   - rule: Handle Ticket Form Submission
@@ -74,7 +74,7 @@ rules:
     steps:
       - action: utter_ask_confirm_ticket
       - intent: affirm
-      - action: action_create_glpi_ticket
+      - action: action_create_itsm_ticket
 
   - rule: Submit ticket_form - Ask Confirmation
     condition:
@@ -125,23 +125,23 @@ rules:
   # --- STATUS CHECK RULES (Mutually Exclusive) ---
   # Rules disabled to favour Stories and avoid conflicts
   # RULE 1: Init session, then run status check if ID is present immediately
-  - rule: Init GLPI session and Check Status when ID is present
+  - rule: Init ITSM session and Check Status when ID is present
     steps:
       - intent: check_status
       - slot_was_set:
           - ticket_id: true # Condition via simple existence check if possible or rely on entity
-      - action: action_init_glpi_session
-      - action: action_check_glpi_status
+      - action: action_init_itsm_session
+      - action: action_check_itsm_status
       - action: utter_ask_anything_else
 
   # RULE 2: Init session, then ask for ID if status is requested but ID is MISSING
-  - rule: Init GLPI session and Ask for Ticket ID when checking status
+  - rule: Init ITSM session and Ask for Ticket ID when checking status
     condition:
       - slot_was_set:
           - ticket_id: null # Condition: Ticket ID slot is empty
     steps:
       - intent: check_status
-      - action: action_init_glpi_session
+      - action: action_init_itsm_session
       - action: utter_ask_ticket_id
       - action: action_listen
 
@@ -153,13 +153,13 @@ rules:
     steps:
       - action: utter_ask_ticket_id # Was previously executed
       - intent: inform
-      - action: action_check_glpi_status
+      - action: action_check_itsm_status
       - action: utter_ask_anything_else
 
   - rule: Handle File Upload
     steps:
       - intent: upload_file
-      - action: action_init_glpi_session
+      - action: action_init_itsm_session
       - action: action_upload_file
       - action: utter_ask_anything_else
 
@@ -178,7 +178,7 @@ rules:
   - rule: Update Ticket - Ask for new status
     steps:
       - intent: update_ticket
-      - action: action_init_glpi_session
+      - action: action_init_itsm_session
       - action: utter_ask_ticket_id
 
   - rule: Update Ticket - After providing ticket ID
@@ -187,8 +187,8 @@ rules:
           - ticket_id: true
     steps:
       - intent: update_ticket
-      - action: action_init_glpi_session
-      - action: action_check_glpi_status
+      - action: action_init_itsm_session
+      - action: action_check_itsm_status
       - action: utter_ask_target_status
 
   - rule: Handle Status Update from Button
@@ -199,7 +199,7 @@ rules:
     steps:
       - action: utter_ask_target_status
       - intent: inform_update
-      - action: action_update_glpi_ticket
+      - action: action_update_itsm_ticket
       - action: utter_ask_anything_else
 
   - rule: Show Chart
@@ -225,27 +225,27 @@ rules:
   - rule: Handle Multi Action Request
     steps:
       - intent: multi_action
-      - action: action_init_glpi_session
+      - action: action_init_itsm_session
       - action: action_handle_multi_intent
 
   # NEW RULE: Handle Verify Resolution / Close Ticket
   - rule: Verify Resolution / Close Ticket
     steps:
       - intent: verify_resolution
-      - action: action_init_glpi_session
-      - action: action_verify_glpi_resolution
+      - action: action_init_itsm_session
+      - action: action_verify_itsm_resolution
 
   - rule: Confirm Resolution Update
     steps:
-      - action: action_verify_glpi_resolution
+      - action: action_verify_itsm_resolution
       - intent: inform_update
-      - action: action_update_glpi_ticket
+      - action: action_update_itsm_ticket
       - action: utter_ask_anything_else
 
   - rule: List Attachments
     steps:
       - intent: list_attachments
-      - action: action_init_glpi_session
+      - action: action_init_itsm_session
       - action: action_list_attachments
       - action: utter_ask_anything_else
 

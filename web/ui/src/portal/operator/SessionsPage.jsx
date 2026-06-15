@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from '../useApi'
 import { usePortalSocket } from './usePortalSocket'
+import { productLabel } from './productLabels'
 
 function timeAgo(iso) {
     if (!iso) return '—'
@@ -29,7 +30,7 @@ function SessionCard({ session, onClick }) {
                         <span className="badge bg-purple-100 text-purple-700">platform</span>
                     )}
                     {session.product_id && (
-                        <span className="badge bg-bg text-fgmuted">{session.product_id}</span>
+                        <span className="badge bg-bg text-fgmuted">{productLabel(session.product_id)}</span>
                     )}
                 </div>
                 <div className="flex items-center gap-3 mt-0.5 text-xs text-fgmuted">

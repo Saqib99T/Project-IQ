@@ -1,5 +1,5 @@
 """
-ITSM Service HTTP client — replaces GlpiService for ticket operations.
+ITSM Service HTTP client — replaces ItsmService for ticket operations.
 
 All calls require a JWT Bearer token (Keycloak RS256) forwarded from
 the user's session metadata.  Never log the token value.
@@ -25,7 +25,7 @@ ITSM_STATUS_DISPLAY = {
     "cancelled":        "Cancelled",
 }
 
-# Map legacy GLPI status labels → itsm status values
+# Map legacy ITSM status labels → itsm status values
 LABEL_TO_ITSM_STATUS = {
     "New":                   "open",
     "Processing (Assigned)": "in_progress",
@@ -39,7 +39,7 @@ LABEL_TO_ITSM_STATUS = {
 # Active (non-terminal) statuses for "open tickets" queries
 ACTIVE_STATUSES = ["open", "in_progress", "pending"]
 
-# GLPI urgency integer → itsm priority string
+# ITSM urgency integer → itsm priority string
 URGENCY_TO_PRIORITY = {
     1: "low",
     2: "low",

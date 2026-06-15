@@ -39,10 +39,26 @@ function parseUser(kc) {
     const resourceAccess = t.resource_access || {};
     const config = getKcConfig();
     const clientRoles = resourceAccess[config.clientId]?.roles || [];
+    const _SYS_CLIENTS = ['account', 'account-console', 'broker', 'realm-management', 'security-admin-console'];
     const apps = t.apps || Object.keys(resourceAccess).filter(
-        k => !['account', 'account-console', 'broker'].includes(k) &&
-             resourceAccess[k]?.roles?.length > 0
+        k => !_SYS_CLIENTS.includes(k) && resourceAccess[k]?.roles?.length > 0
     );
+    // Subscribed/active products of the user's tenant (authoritative source for
+    // the chatbot's product picker). `apps` = client roles and is only a fallback.
+    const products = Array.isArray(t.products) ? t.products : [];
+    // Active subscribed apps emitted on the token by IAM (see /v1/organization/
+    // {org}/subscription). May be a string array of app names, or objects with
+    // {app|name|applicationName, status} — keep only active and normalise to name.
+    const _subRaw = t.subscriptions;
+    const subscriptions = Array.isArray(_subRaw)
+        ? _subRaw.map(s => {
+            if (typeof s === 'string') return s;
+            if (s && (s.status === undefined || String(s.status).toLowerCase() === 'active')) {
+                return s.app || s.name || s.applicationName || s.appName || null;
+            }
+            return null;
+        }).filter(Boolean)
+        : [];
     const _orgRaw = t.organization;
     const org = Array.isArray(_orgRaw) ? (_orgRaw[0] || {}) : (_orgRaw || {});
     const realmRoles = t.realm_access?.roles || [];
@@ -54,6 +70,8 @@ function parseUser(kc) {
         given_name:      t.given_name || '',
         family_name:     t.family_name || '',
         apps,
+        products,
+        subscriptions,
         realm_roles:     realmRoles,
         client_roles:    clientRoles,
         // Project IQ client roles

@@ -9,13 +9,11 @@ from rasa_sdk import Action, Tracker
 from rasa_sdk.events import SlotSet, AllSlotsReset, Restarted, ActiveLoop, UserUttered, FollowupAction
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
-from action_server.actions.glpi_service import GlpiService
 from common import analytics_store
-from common.config_manager import get_glpi_config
 from action_server.actions._shared import (
-    get_glpi_service, get_glpi_base_url, log_bot_response,
+    log_bot_response,
     get_analytics_context, get_effective_session_token,
-    check_user_login, glpi_service, logger,
+    check_user_login, logger,
 )
 
 
@@ -85,7 +83,7 @@ class ActionSaveFeedback(Action):
             # Save to PostgreSQL database for analytics
             ctx = get_analytics_context(tracker)
             print(f"[ANALYTICS DEBUG] Saving feedback - app_id: {ctx['app_id']}, user_id: {ctx['user_id']}, ticket_id: {ctx['ticket_id']}")
-            print(f"[ANALYTICS DEBUG] Tracker slots - glpi_user_name: {tracker.get_slot('glpi_user_name')}, glpi_user_id: {tracker.get_slot('glpi_user_id')}, ticket_id: {tracker.get_slot('ticket_id')}")
+            print(f"[ANALYTICS DEBUG] Tracker slots - itsm_user_name: {tracker.get_slot('itsm_user_name')}, itsm_user_id: {tracker.get_slot('itsm_user_id')}, ticket_id: {tracker.get_slot('ticket_id')}")
             analytics_store.log_feedback(tracker.sender_id, feedback_type, app_id=ctx["app_id"], user_id=ctx["user_id"], ticket_id=ctx["ticket_id"])
             
             logger.info(f"Feedback saved: {feedback_type} from {tracker.sender_id} (app: {ctx['app_id']}, user: {ctx['user_id']}, ticket: {ctx['ticket_id']})")
@@ -133,7 +131,7 @@ class ActionSaveSatisfactionRating(Action):
         # Get context info
         sender_id = tracker.sender_id
         ticket_id = tracker.get_slot("ticket_id")
-        user_id = tracker.get_slot("glpi_user_name") or tracker.get_slot("glpi_user_id")
+        user_id = tracker.get_slot("itsm_user_name") or tracker.get_slot("itsm_user_id")
         app_id = tracker.get_slot("app_id")
         
         # Log the rating

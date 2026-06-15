@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useApi } from '../useApi'
+import { productLabel } from './productLabels'
 
 const PRIORITY_LABEL = { 1: 'Low', 5: 'Normal', 7: 'High', 9: 'Urgent' }
 const TRIGGER_ICON   = { user_request: '🙋', low_confidence: '🤔', frustration: '😤' }
@@ -24,7 +25,7 @@ function QueueItem({ item, onClaim }) {
                         <span className="badge bg-purple-100 text-purple-700">platform</span>
                     )}
                     {item.product_id && (
-                        <span className="badge bg-bg text-fgmuted">{item.product_id}</span>
+                        <span className="badge bg-bg text-fgmuted">{productLabel(item.product_id)}</span>
                     )}
                 </div>
                 <div className="flex items-center gap-3 mt-0.5 text-xs text-fgmuted">

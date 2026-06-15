@@ -144,91 +144,36 @@ class KBCacheManager:
                 self.refresh_cache()
 
     async def refresh_cache_async(self) -> bool:
-        """Fetch KB articles and rebuild the cache (Async).
+        """Rebuild the cache from the local KB mirror (Path B — no GLPI).
 
-        Source priority:
-          1. itsm-service — the new KB backend (requires the KB bot service
-             account to be configured; see common.iam_service.get_kb_bot_token)
-          2. GLPI — legacy source, used as a transitional fallback until the
-             bot client is provisioned
-          3. JSON/DB fallback (existing behaviour, unchanged)
+        itsm-service is the source of truth; `common.kb_sync` mirrors its published
+        articles into the local `kb_articles` table (a backend job — no GLPI, no live
+        bot token) and rebuilds the bot's vector index. The cache and semantic search
+        are derived from that local mirror.
         """
         try:
-            itsm_articles = None
+            # 1. Mirror itsm-service KB → local kb_articles (+ rebuild vector index
+            #    where the embedding model is available). DB mirror runs everywhere;
+            #    index rebuild is a no-op where sentence_transformers isn't installed.
             try:
-                itsm_articles = await self._fetch_from_itsm_service()
+                import asyncio
+                from common.kb_sync import sync_kb_from_itsm
+                n = await asyncio.to_thread(sync_kb_from_itsm, True)
+                logger.info(f"KB mirrored from itsm-service: {n} articles")
             except Exception as e:
-                logger.warning(f"itsm-service KB fetch failed, will try GLPI: {e}")
+                logger.warning(f"KB sync from itsm-service failed (using existing local mirror): {e}")
 
-            if itsm_articles is not None:
-                if not itsm_articles:
-                    logger.warning("itsm-service returned no KB articles")
-                    if not self._cache and self.fallback_to_json:
-                        logger.info("Cache empty, falling back to JSON")
-                        self._load_json_fallback()
-                    return False
-
-                transformed = self._transform_itsm_articles(itsm_articles)
-                self._apply_transformed_cache(transformed)
-                logger.info(f"KB cache refreshed from itsm-service: {len(transformed)} articles loaded")
-                return True
-
-            logger.info("KB bot service account not configured — sourcing KB from GLPI")
-            return await self._refresh_from_glpi_async()
+            # 2. Load the cache from the local mirror.
+            with self._cache_lock:
+                self._cache = []
+            self._load_from_db()
+            if not self._cache and self.fallback_to_json:
+                logger.info("Local KB empty — falling back to JSON")
+                self._load_json_fallback()
+            return bool(self._cache)
 
         except Exception as e:
             logger.error(f"KB cache refresh failed: {e}")
-
-            # Fallback to JSON if cache is empty
-            if self.fallback_to_json and not self._cache:
-                logger.warning("Falling back to JSON KB files")
-                self._load_json_fallback()
-
-            return False
-
-    async def _refresh_from_glpi_async(self) -> bool:
-        """Fetch KB articles from GLPI and update cache (legacy/transitional source)."""
-        try:
-            logger.info("Refreshing KB cache from GLPI...")
-
-            # Initialize GLPI session
-            from common.config_manager import get_glpi_config
-            from action_server.actions.glpi_service import GlpiService
-
-            glpi_config = get_glpi_config()
-            glpi_service = GlpiService(
-                api_uri=glpi_config['api_url'],
-                app_token=glpi_config['app_token'],
-                user_token=glpi_config['user_token']
-            )
-
-            session_token = await glpi_service.init_session()
-            if not session_token:
-                raise Exception("Failed to initialize GLPI session")
-
-            try:
-                # Fetch all KB items (no entity filter as per requirements)
-                articles = await glpi_service.get_all_knowbase_items(session_token)
-
-                if not articles:
-                    logger.warning("No KB articles returned from GLPI")
-                    # Don't clear cache if GLPI returns empty - might be temporary issue
-                    if not self._cache and self.fallback_to_json:
-                        logger.info("Cache empty, falling back to JSON")
-                        self._load_json_fallback()
-                    return False
-
-                # Transform to unified format
-                transformed = self._transform_articles(articles)
-                self._apply_transformed_cache(transformed)
-                logger.info(f"KB cache refreshed from GLPI: {len(transformed)} articles loaded")
-                return True
-
-            finally:
-                await glpi_service.kill_session(session_token)
-
-        except Exception as e:
-            logger.error(f"GLPI KB cache refresh failed: {e}")
 
             # Fallback to JSON if cache is empty
             if self.fallback_to_json and not self._cache:
@@ -370,41 +315,6 @@ class KBCacheManager:
             return False
         
         return loop.run_until_complete(self.refresh_cache_async())
-
-    def _transform_articles(self, glpi_articles: List[Dict]) -> List[Dict]:
-        """Transform GLPI articles to unified KB format."""
-        transformed = []
-
-        for article in glpi_articles:
-            try:
-                # Extract keywords from content
-                keywords = self._extract_keywords(
-                    article.get('name', ''),
-                    article.get('answer', ''),
-                    article.get('question', '')
-                )
-
-                transformed_article = {
-                    'id': f"glpi_{article['id']}",
-                    'title': article.get('name', 'Untitled'),
-                    'category': self._map_category(article.get('knowbaseitemcategories_id')),
-                    'keywords': keywords,
-                    'question': article.get('question', ''),
-                    'content': self._html_to_markdown(article.get('answer', '')),
-                    'video': None,  # GLPI may not have video field
-                    'related': [],  # Could be enhanced later
-                    'source': 'glpi',
-                    'glpi_id': article['id'],
-                    'is_faq': article.get('is_faq', 0) == 1,
-                    'date_modified': article.get('date_mod', '')
-                }
-
-                transformed.append(transformed_article)
-            except Exception as e:
-                logger.error(f"Error transforming article {article.get('id')}: {e}")
-                continue
-
-        return transformed
 
     def _split_article_sections(self, article: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Split article content into smaller sections for targeted responses."""
@@ -811,23 +721,6 @@ class KBCacheManager:
         content = re.sub(r'\n{3,}', '\n\n', content)
 
         return content.strip()
-
-    def _map_category(self, category_id: Optional[int]) -> str:
-        """Map GLPI category ID to friendly category name."""
-        # This would need to be customized based on actual GLPI categories
-        # For now, return generic category
-        if not category_id:
-            return 'general'
-
-        category_map = {
-            1: 'account',
-            2: 'network',
-            3: 'hardware',
-            4: 'software',
-            5: 'security',
-            6: 'mobile',
-        }
-        return category_map.get(category_id, 'general')
 
     def _load_from_db(self):
         """Load articles from database."""

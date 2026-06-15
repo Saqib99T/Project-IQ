@@ -57,7 +57,6 @@ def register_blueprints(app: Flask) -> None:
     from web.api.blueprints.bp_admin_ops        import bp as bp_admin_ops
     from web.api.blueprints.bp_sessions         import bp as bp_sessions
     from web.api.blueprints.bp_notifications    import bp as bp_notifications
-    from web.api.blueprints.bp_glpi_webhook       import bp as bp_glpi_webhook
     from web.api.blueprints.bp_ticket_attachment  import bp as bp_ticket_attachment
     from web.api.blueprints.bp_portal_api         import bp as bp_portal_api
     from web.api.blueprints.bp_itsm_proxy         import bp as bp_itsm_proxy
@@ -66,7 +65,6 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(bp_portal_api)
     app.register_blueprint(bp_itsm_proxy)
     app.register_blueprint(bp_ticket_attachment)
-    app.register_blueprint(bp_glpi_webhook)
     app.register_blueprint(bp_notifications)
     app.register_blueprint(bp_auth)
     app.register_blueprint(bp_system)
