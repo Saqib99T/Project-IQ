@@ -19,8 +19,7 @@ eventlet==0.35.2
 psycopg2-binary==2.9.9
 sqlalchemy<2.0
 
-# Secrets & Config
-infisicalsdk>=1.0.14
+# Config
 python-dotenv>=1.0.0
 
 # System Monitoring
@@ -49,3 +48,6 @@ cryptography>=41.0.0
 
 # Testing (optional)
 pytest==7.4.3
+
+# Real-time: green psycopg2 under eventlet (keeps the Socket.IO hub unblocked)
+psycogreen>=1.0.0
