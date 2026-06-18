@@ -34,7 +34,8 @@ class ActionRequestHandoff(Action):
         # Require IAM authentication or legacy ITSM session for handoff
         iam = get_iam_identity(tracker)
         if not iam["sub"] and not get_effective_session_token(tracker):
-            return [require_iam_auth(dispatcher)] if not require_iam_auth(dispatcher) else []
+            require_iam_auth(dispatcher)   # emits the sign-in message exactly once
+            return []
 
         handoff_state = tracker.get_slot('handoff_state') or 'bot_active'
         if handoff_state in ('queued', 'assigned'):

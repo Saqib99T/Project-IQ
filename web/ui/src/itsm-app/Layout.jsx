@@ -139,7 +139,7 @@ function ItsmAppLayoutInner({ isPlatformOrg }) {
                     <SidebarLink to="/assets"    icon={MonitorSmartphone} label="Assets" />
                     <SidebarLink to="/kb"        icon={BookOpen}          label="Knowledge Base" />
                     <SidebarLink to="/reports"   icon={BarChart3}         label="Reports" />
-                    <SidebarLink to="/virtual-agent" icon={Bot}           label="Virtual Agent" />
+                    {/* Virtual Agent temporarily disabled (re-enable once the AI provider key is restored) */}
                     <SidebarLink to="/notifications" icon={Bell}          label="Notifications" />
                     {canAdminister && <SidebarLink to="/admin" icon={Settings} label="Administration" />}
                 </nav>

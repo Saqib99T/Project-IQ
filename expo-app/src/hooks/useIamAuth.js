@@ -117,7 +117,10 @@ export function useIamAuth(iamConfig) {
             clientId,
             redirectUri,
             responseType: AuthSession.ResponseType.Code,
-            scopes:       ['openid', 'profile', 'email'],
+            // offline_access → a long-lived (offline) refresh token so the user
+            // stays logged in across app restarts and after the chat session ends,
+            // until they explicitly sign out.
+            scopes:       ['openid', 'profile', 'email', 'offline_access'],
             usePKCE:      true,
         },
         discovery
@@ -222,6 +225,34 @@ export function useIamAuth(iamConfig) {
         if (request) await promptAsync();
     }, [request, promptAsync]);
 
+    // In-app login (no browser): Keycloak Direct Access Grants (password grant).
+    // Requires the `project-iq` client to have "Direct Access Grants Enabled".
+    // The password is collected by the native form and sent straight to the token
+    // endpoint — never persisted; only the returned tokens are stored (encrypted).
+    const loginWithPassword = useCallback(async (username, password) => {
+        const body = new URLSearchParams({
+            grant_type: 'password',
+            client_id:  clientId,
+            username,
+            password,
+            scope:      'openid profile email offline_access',
+        }).toString();
+        const resp = await fetch(discovery.tokenEndpoint, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body,
+        });
+        let data = {};
+        try { data = await resp.json(); } catch { /* non-JSON error */ }
+        if (!resp.ok || !data.access_token) {
+            const msg = data.error_description || data.error
+                || (resp.status === 401 ? 'Invalid username or password' : `Login failed (${resp.status})`);
+            throw new Error(msg);
+        }
+        await applyTokens(data.access_token, data.refresh_token);
+        return true;
+    }, [clientId, discovery, applyTokens]);
+
     const logout = useCallback(async () => {
         if (refreshTimer.current) clearTimeout(refreshTimer.current);
         const storedToken = await SecureStore.getItemAsync(KEY_ACCESS).catch(() => null);
@@ -245,6 +276,7 @@ export function useIamAuth(iamConfig) {
         user,
         token,
         login,
+        loginWithPassword,
         logout,
         requestReady: !!request,
     };

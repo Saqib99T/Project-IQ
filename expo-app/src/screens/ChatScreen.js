@@ -49,18 +49,26 @@ const ChatScreen = ({ navigation }) => {
     const iam = useIamAuth(IAM_CONFIG);
     const { authenticateWithBiometric } = useBiometric();
 
-    // Prompt biometric when app comes to foreground with an active session
+    // Prompt biometric ONLY after the app was genuinely backgrounded for a while
+    // — not on brief `inactive` flickers (system dialogs, the push-permission
+    // prompt, modal transitions, switching product). Those flickers were
+    // re-triggering Face ID/fingerprint on every product switch.
+    const _bgAtRef = useRef(null);
+    const BIOMETRIC_BG_THRESHOLD_MS = 30_000; // require ≥30s in background
     useEffect(() => {
         const { AppState } = require('react-native');
-        let lastState = AppState.currentState;
         const sub = AppState.addEventListener('change', async (next) => {
-            if (lastState.match(/inactive|background/) && next === 'active') {
-                if (iam.isAuthenticated) {
+            if (next === 'background') {
+                // Only a true background start counts — ignore transient 'inactive'.
+                _bgAtRef.current = Date.now();
+            } else if (next === 'active') {
+                const awayMs = _bgAtRef.current ? Date.now() - _bgAtRef.current : 0;
+                _bgAtRef.current = null;
+                if (awayMs > BIOMETRIC_BG_THRESHOLD_MS && iam.isAuthenticated) {
                     const ok = await authenticateWithBiometric();
                     if (!ok) iam.logout().catch(() => {});
                 }
             }
-            lastState = next;
         });
         return () => sub.remove();
     }, [iam.isAuthenticated, authenticateWithBiometric]);
@@ -126,15 +134,38 @@ const ChatScreen = ({ navigation }) => {
             // iam-{sub}-{product} (matches the chat proxy). Auto-restore the last
             // choice; auto-select if only one; otherwise force the picker.
             (async () => {
-                const prods = (iam.user.subscriptions?.length ? iam.user.subscriptions
-                              : iam.user.apps?.length ? iam.user.apps : iam.user.products) || [];
+                // Authoritative product list = org's active subscriptions resolved
+                // by the backend (the token doesn't carry them). Fall back to the
+                // token-derived apps/products if the fetch is unavailable.
+                let prods = [];
+                try {
+                    const adminBase = await getAdminBaseUrl();
+                    const r = await fetch(`${adminBase}/api/my-products`, {
+                        headers: iam.token ? { Authorization: `Bearer ${iam.token}` } : {},
+                    });
+                    if (r.ok) { const d = await r.json(); if (Array.isArray(d.products) && d.products.length) prods = d.products; }
+                } catch {}
+                if (!prods.length) {
+                    prods = (iam.user.subscriptions?.length ? iam.user.subscriptions
+                            : iam.user.apps?.length ? iam.user.apps : iam.user.products) || [];
+                }
+                setProductList(prods);
                 const stored = await storage.getItem('__global__', 'selectedProduct').catch(() => null);
                 const product = (stored && prods.includes(stored)) ? stored
                               : (prods.length === 1 ? prods[0] : null);
                 if (product) {
                     await applyProduct(product);
                 } else {
+                    setProductChosen(false);
                     setShowProductSelector(true);   // require a choice before chatting
+                    setMessages(prev => {
+                        if (prev.length === 1 && prev[0]?.id === 'init') {
+                            const nm = iam.user.name || iam.user.username || iam.user.email || 'there';
+                            return [{ id: 'init', sender: 'bot',
+                                text: `**Hi ${nm}!** 👋\n\nPlease select a product to get started.` }];
+                        }
+                        return prev;
+                    });
                 }
             })();
         }
@@ -169,12 +200,19 @@ const ChatScreen = ({ navigation }) => {
 
     // Inactivity timeout
     const [timeoutMinutes, setTimeoutMinutes] = useState(10);
+    // Lead time (minutes before timeout) for the "Still there?" warning — configurable.
+    const [warningMinutes, setWarningMinutes] = useState(5);
     const lastActivityRef = useRef(Date.now());
     const warningShownRef = useRef(false);
     const inactivityIntervalRef = useRef(null);
 
     // Modals
     const [showProductSelector, setShowProductSelector] = useState(false);
+    // Org's active subscribed products (fetched from /api/my-products); feeds the picker.
+    const [productList, setProductList] = useState([]);
+    // True once the signed-in user has picked a product. Until then the chat is
+    // gated: input hidden, product picker shown (mirrors the web widget).
+    const [productChosen, setProductChosen] = useState(false);
     const [showLogin, setShowLogin] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
@@ -205,6 +243,9 @@ const ChatScreen = ({ navigation }) => {
 
     // Welcome state: only the init message, no real conversation yet
     const isWelcomeState = messages.length === 1 && messages[0]?.id === 'init';
+
+    // Chat is gated for signed-in users until they pick a product.
+    const productGateActive = isAuthenticated && !isGuest && !productChosen;
 
     // Load session for a given app-id
     const loadSession = async (targetAppId) => {
@@ -268,6 +309,13 @@ const ChatScreen = ({ navigation }) => {
                 const val = parseInt(data.value || data.SESSION_TIMEOUT_MINUTES || '10', 10);
                 if (!isNaN(val) && val > 0) setTimeoutMinutes(val);
             } catch { /* use default 10 */ }
+            try {
+                const adminBase = await getAdminBaseUrl();
+                const res = await fetch(`${adminBase}/admin/config/SESSION_WARNING_MINUTES`);
+                const data = await res.json();
+                const val = parseInt(data.value || data.SESSION_WARNING_MINUTES || '5', 10);
+                if (!isNaN(val) && val > 0) setWarningMinutes(val);
+            } catch { /* use default 5 */ }
         })();
     }, []);
 
@@ -285,7 +333,9 @@ const ChatScreen = ({ navigation }) => {
             if (sessionEnded) return;
             const idleMs = Date.now() - lastActivityRef.current;
             const timeoutMs = timeoutMinutes * 60 * 1000;
-            const warningMs = Math.max((timeoutMinutes - 2) * 60 * 1000, 0);
+            // Warn `warningMinutes` before timeout (clamped so it stays positive).
+            const lead = Math.min(Math.max(warningMinutes, 1), timeoutMinutes - 1);
+            const warningMs = Math.max((timeoutMinutes - lead) * 60 * 1000, 0);
 
             if (idleMs >= timeoutMs) {
                 clearInterval(inactivityIntervalRef.current);
@@ -299,18 +349,18 @@ const ChatScreen = ({ navigation }) => {
                 }]);
             } else if (idleMs >= warningMs && !warningShownRef.current) {
                 warningShownRef.current = true;
-                const waited = timeoutMinutes - 2;
+                const waited = timeoutMinutes - lead;
                 setMessages(prev => [...prev, {
                     id: uuidv4(),
                     sender: 'bot',
-                    text: `⏰ **Still there?** You've been inactive for ${waited} minute${waited !== 1 ? 's' : ''}. Your session will end automatically in **2 minutes** if there's no activity.`,
+                    text: `⏰ **Still there?** You've been inactive for ${waited} minute${waited !== 1 ? 's' : ''}. Your session will end automatically in **${lead} minute${lead !== 1 ? 's' : ''}** if there's no activity.`,
                     type: 'warning',
                 }]);
             }
         }, 15000);
 
         return () => clearInterval(inactivityIntervalRef.current);
-    }, [sessionEnded, ready, timeoutMinutes]);
+    }, [sessionEnded, ready, timeoutMinutes, warningMinutes]);
 
     // Initialize on mount
     useEffect(() => {
@@ -444,6 +494,9 @@ const ChatScreen = ({ navigation }) => {
                     text: d.message || '✅ The agent session has ended. I\'m back to assist you.',
                     type: 'system',
                 }]);
+                // Agent closed the support session → end it: hide the quick-action
+                // buttons and show the "New Conversation" button (parity with web).
+                setSessionEnded(true);
                 // Show feedback form after operator resolves
                 if (d.request_feedback) {
                     setPendingFeedbackQueueId(d.queue_id || null);
@@ -506,6 +559,7 @@ const ChatScreen = ({ navigation }) => {
             meta.iam_org_name = iam.user.organization_alias || undefined;
             meta.channel      = iam.user.organization_id ? 'internal' : undefined;
             meta.product_id   = currentAppId || undefined;
+            meta.product_name = (currentAppId && PRODUCT_LABELS[currentAppId]) ? PRODUCT_LABELS[currentAppId] : undefined;
             meta.iam_token    = iam.token || undefined;
         }
         meta.is_authenticated = !!(isAuthenticatedRef.current || iam.user);
@@ -526,7 +580,7 @@ const ChatScreen = ({ navigation }) => {
         let lastText = null;
         for (const msg of data) {
             if (msg.text) {
-                lastText = { id: uuidv4(), sender: 'bot', text: msg.text, buttons: msg.buttons, chart: msg.chart || msg.custom?.chart, video: msg.custom?.video, ticket_form: msg.custom?.ticket_form };
+                lastText = { id: uuidv4(), sender: 'bot', text: msg.text, buttons: msg.buttons, chart: msg.chart || msg.custom?.chart, video: msg.custom?.video, ticket_form: msg.custom?.ticket_form, ticketList: msg.custom?.ticket_list };
                 processed.push(lastText);
             } else if (msg.custom?.chart && lastText) { lastText.chart = msg.custom.chart; }
             else if (msg.custom?.chart) { processed.push({ id: uuidv4(), sender: 'bot', text: '', chart: msg.custom.chart }); }
@@ -534,6 +588,8 @@ const ChatScreen = ({ navigation }) => {
             else if (msg.custom?.video) { processed.push({ id: uuidv4(), sender: 'bot', text: '', video: msg.custom.video }); }
             else if (msg.custom?.ticket_form && lastText) { lastText.ticket_form = msg.custom.ticket_form; }
             else if (msg.custom?.ticket_form) { processed.push({ id: uuidv4(), sender: 'bot', text: '', ticket_form: msg.custom.ticket_form }); }
+            else if (msg.custom?.ticket_list && lastText) { lastText.ticketList = msg.custom.ticket_list; }
+            else if (msg.custom?.ticket_list) { processed.push({ id: uuidv4(), sender: 'bot', text: '', ticketList: msg.custom.ticket_list }); }
             else if (msg.image) { processed.push({ id: uuidv4(), sender: 'bot', text: `![image](${msg.image})` }); }
         }
 
@@ -792,6 +848,18 @@ const ChatScreen = ({ navigation }) => {
             await storage.setItem(product, 'isAuthenticated', 'true').catch(() => {});
             await storage.setItem(product, 'authUser', iam.user?.username || '').catch(() => {});
         }
+        setProductChosen(true);
+        setShowProductSelector(false);
+        // While in the welcome state, tell the user which product they're chatting about.
+        setMessages(prev => {
+            if (prev.length === 1 && prev[0]?.id === 'init') {
+                const nm = authUser || iam.user?.name || iam.user?.username || 'there';
+                const label = PRODUCT_LABELS[product] || product;
+                return [{ id: 'init', sender: 'bot',
+                    text: `**Hi ${nm}!** 👋\n\nYou're chatting about **${label}**. How can I help you today?` }];
+            }
+            return prev;
+        });
         _registerPushToken(sid);
         _fetchUnreadCount(sid);
     };
@@ -1058,22 +1126,47 @@ const ChatScreen = ({ navigation }) => {
                 {/* Welcome State */}
                 {isWelcomeState ? (
                     <View style={styles.welcomeContainer}>
-                        <Text style={styles.welcomeGreeting}>
-                            Hi {isAuthenticated && authUser ? authUser : 'there'}
-                        </Text>
-                        <Text style={styles.welcomeQuestion}>Where should we start?</Text>
-                        <View style={styles.welcomeChips}>
-                            {WELCOME_ACTIONS.map((action, idx) => (
-                                <TouchableOpacity
-                                    key={idx}
-                                    style={styles.welcomeChip}
-                                    onPress={() => handleButtonClick(action.payload)}
-                                    activeOpacity={0.75}
-                                >
-                                    <Text style={styles.welcomeChipText}>{action.label}</Text>
-                                </TouchableOpacity>
-                            ))}
+                        {/* Greeting row: name on the left, active product pill on the far right. */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Text style={styles.welcomeGreeting}>
+                                Hi {isAuthenticated && authUser ? authUser : 'there'}
+                            </Text>
+                            {isAuthenticated && !productGateActive && appId && PRODUCT_LABELS[appId] && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center',
+                                               paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+                                               backgroundColor: THEME.primary + '15', borderWidth: 1, borderColor: THEME.primary + '40' }}>
+                                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: THEME.primary, marginRight: 6 }} />
+                                    <Text style={{ fontSize: 12, fontWeight: '500', color: THEME.primary }}>{PRODUCT_LABELS[appId]}</Text>
+                                </View>
+                            )}
                         </View>
+                        <Text style={styles.welcomeQuestion}>
+                            {productGateActive ? 'Please select a product first' : 'Where should we start?'}
+                        </Text>
+                        {productGateActive ? (
+                            /* Gate: show the product picker, hide the quick-action chips */
+                            <TouchableOpacity
+                                style={[styles.welcomeChip, { borderColor: THEME.primary, flexDirection: 'row', alignItems: 'center' }]}
+                                onPress={() => setShowProductSelector(true)}
+                                activeOpacity={0.75}
+                            >
+                                <Text style={[styles.welcomeChipText, { color: THEME.primary, fontWeight: '600' }]}>Select a product</Text>
+                                <Ionicons name="chevron-down" size={16} color={THEME.primary} style={{ marginLeft: 6 }} />
+                            </TouchableOpacity>
+                        ) : (
+                            <View style={styles.welcomeChips}>
+                                {WELCOME_ACTIONS.map((action, idx) => (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={styles.welcomeChip}
+                                        onPress={() => handleButtonClick(action.payload)}
+                                        activeOpacity={0.75}
+                                    >
+                                        <Text style={styles.welcomeChipText}>{action.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
                     </View>
                 ) : (
                     /* Messages */
@@ -1141,7 +1234,19 @@ const ChatScreen = ({ navigation }) => {
                 <View
                     style={[styles.inputSafeArea, { paddingBottom: isKeyboardVisible ? 0 : insets.bottom }, isWelcomeState && { backgroundColor: welcomeBg }]}
                 >
-                    {sessionEnded ? (
+                    {productGateActive ? (
+                        /* Gated: hide the chat box, show a button to pick a product */
+                        <View style={styles.newConvContainer}>
+                            <TouchableOpacity
+                                style={styles.newConvBtn}
+                                onPress={() => setShowProductSelector(true)}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="cube-outline" size={20} color="#ffffff" />
+                                <Text style={styles.newConvText}>Select a Product</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : sessionEnded ? (
                         /* New Conversation button shown when session is ended */
                         <View style={styles.newConvContainer}>
                             <TouchableOpacity
@@ -1170,7 +1275,7 @@ const ChatScreen = ({ navigation }) => {
                                             socketRef.current.emit('user_typing', { sender_id: senderId, typing: !!t.trim() });
                                         }
                                     }}
-                                    placeholder={handoffState === 'assigned' ? 'Reply to agent…' : `Ask ${TITLE}...`}
+                                    placeholder={handoffState === 'assigned' ? 'Reply to agent…' : `Ask ${appIdRef.current && PRODUCT_LABELS[appIdRef.current] ? PRODUCT_LABELS[appIdRef.current] : TITLE}...`}
                                     placeholderTextColor="#9ca3af"
                                     multiline={false}
                                     editable={handoffState !== 'queued'}
@@ -1244,6 +1349,7 @@ const ChatScreen = ({ navigation }) => {
             <LoginModal
                 visible={showLogin}
                 onClose={() => setShowLogin(false)}
+                onPasswordLogin={iam.loginWithPassword}
                 onIamLogin={iam.login ? () => { setShowLogin(false); iam.login(); } : null}
             />
             <TicketFilterModal
@@ -1293,7 +1399,7 @@ const ChatScreen = ({ navigation }) => {
                                 >
                                     <Text style={styles.menuItemText}>My Profile</Text>
                                 </TouchableOpacity>
-                                {((iam.user?.subscriptions?.length ? iam.user.subscriptions : iam.user?.apps?.length ? iam.user.apps : iam.user?.products) || []).length > 1 && (
+                                {productList.length > 1 && (
                                     <TouchableOpacity
                                         style={styles.menuItem}
                                         onPress={() => { setShowUserMenu(false); setShowProductSelector(true); }}
@@ -1508,19 +1614,19 @@ const ChatScreen = ({ navigation }) => {
                 visible={showProductSelector}
                 transparent
                 animationType="fade"
-                onRequestClose={() => setShowProductSelector(false)}
+                onRequestClose={() => { if (!productGateActive) setShowProductSelector(false); }}
             >
-                <TouchableWithoutFeedback onPress={() => setShowProductSelector(false)}>
+                <TouchableWithoutFeedback onPress={() => { if (!productGateActive) setShowProductSelector(false); }}>
                     <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
                         <TouchableWithoutFeedback>
                             <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 360 }}>
                                 <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 4 }}>
-                                    Which product do you need help with?
+                                    {productGateActive ? 'Please select a product first' : 'Which product do you need help with?'}
                                 </Text>
                                 <Text style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
                                     Your account has access to multiple products.
                                 </Text>
-                                {((iam.user?.subscriptions?.length ? iam.user.subscriptions : iam.user?.apps?.length ? iam.user.apps : iam.user?.products) || []).map(pid => (
+                                {productList.map(pid => (
                                     <TouchableOpacity
                                         key={pid}
                                         onPress={() => switchProduct(pid)}
@@ -1541,12 +1647,14 @@ const ChatScreen = ({ navigation }) => {
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
-                                <TouchableOpacity
-                                    onPress={() => setShowProductSelector(false)}
-                                    style={{ marginTop: 4, padding: 10, alignItems: 'center' }}
-                                >
-                                    <Text style={{ fontSize: 13, color: '#9ca3af' }}>Continue without selecting</Text>
-                                </TouchableOpacity>
+                                {!productGateActive && (
+                                    <TouchableOpacity
+                                        onPress={() => setShowProductSelector(false)}
+                                        style={{ marginTop: 4, padding: 10, alignItems: 'center' }}
+                                    >
+                                        <Text style={{ fontSize: 13, color: '#9ca3af' }}>Cancel</Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
                         </TouchableWithoutFeedback>
                     </View>

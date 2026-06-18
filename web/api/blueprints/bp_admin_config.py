@@ -12,10 +12,10 @@ from common.config_manager import get_all_config as get_file_config, set_all_con
 bp = Blueprint('admin_config', __name__)
 
 _DEFAULT_CONFIG_KEYS = [
-    'GLPI_API_URL', 'GLPI_APP_TOKEN', 'GLPI_USER_TOKEN', 'RASA_API_URL',
+    'RASA_API_URL',
     'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD',
     'WIDGET_TITLE', 'WIDGET_SUBTITLE', 'FIRECRAWL_API_KEY', 'FIRECRAWL_API_URL',
-    'SESSION_TIMEOUT_MINUTES',
+    'SESSION_TIMEOUT_MINUTES', 'SESSION_WARNING_MINUTES',
 ]
 
 

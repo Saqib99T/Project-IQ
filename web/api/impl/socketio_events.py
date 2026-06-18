@@ -158,6 +158,11 @@ def register_sio_events(sio) -> None:
         sender_id = (data or {}).get('sender_id', '')
         if sender_id:
             join_room(_s._room_user(sender_id))
+            try:
+                from flask import request as _rq
+                print(f"[SIO JOIN] sid={_rq.sid} joined room={_s._room_user(sender_id)}", flush=True)
+            except Exception:
+                pass
 
     @sio.on('leave_user')
     def _sio_leave_user(data):

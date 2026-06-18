@@ -199,7 +199,7 @@ def operator_iam_callback():
         print(f"[OP IAM CALLBACK] user: {user['username']} is_operator={user['is_operator']} is_admin={user['is_admin']} roles={user['client_roles']}")
         if not user['is_operator'] and not user['is_admin'] and not user['is_super_admin']:
             return redirect('/opt/?iam_error=access_denied')
-        from common.db._handoff import get_operator_by_iam_sub, get_operator_by_email, update_operator_iam_sub, update_operator_last_seen
+        from common.db._handoff import get_operator_by_iam_sub, get_operator_by_email, update_operator_iam_sub, update_operator_last_seen, update_operator_org
         from common.conversation_db import update_operator, create_operator
         import web.api.shared as _s
         op = get_operator_by_iam_sub(user['sub'])
@@ -217,6 +217,7 @@ def operator_iam_callback():
         else:
             update_operator_last_seen(op['id'])
         update_operator(op['id'], status='online', is_admin=user['is_admin'])
+        update_operator_org(op['id'], user.get('org_id') or None, user.get('channel') or 'internal')
         expiry_hours = _s.get_operator_jwt_expiry_hours()
         now = int(time.time())
         jwt_token = _s.jwt_encode({
@@ -367,7 +368,7 @@ def operator_iam_login():
         # Auto-provision local operator record (needed for status, load, queue tracking)
         from common.db._handoff import (
             get_operator_by_iam_sub, get_operator_by_email,
-            update_operator_iam_sub, update_operator_last_seen,
+            update_operator_iam_sub, update_operator_last_seen, update_operator_org,
         )
         from common.conversation_db import update_operator, create_operator
 
@@ -396,6 +397,9 @@ def operator_iam_login():
             update_operator_last_seen(op['id'])
 
         update_operator(op['id'], status='online', is_admin=user['is_admin'])
+        # Tag the operator with their IAM org so tenant admins see only their own
+        # operators (platform-org operators carry the platform org id).
+        update_operator_org(op['id'], user.get('org_id') or None, user.get('channel') or 'internal')
 
         # Issue a JWT (same mechanism as GLPI login) so the operator panel
         # can use it for all subsequent API calls without re-sending the IAM token.

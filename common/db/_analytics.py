@@ -7,59 +7,62 @@ from psycopg2.extras import RealDictCursor
 from common.db._connection import _get_connection, _release_connection
 
 
-def get_analytics_summary(app_id: str = None) -> Dict:
+def get_analytics_summary(app_id: str = None, org_id: str = None) -> Dict:
+    """org_id scopes every figure to one tenant (None = all, for platform admins).
+    messages/feedback have no org column, so they are scoped by joining conversations."""
     conn = _get_connection()
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        af = " WHERE app_id = %s" if (app_id and app_id != "all") else ""
-        ap = (app_id,) if (app_id and app_id != "all") else ()
+        _app = app_id and app_id != "all"
 
-        cursor.execute(f'SELECT COUNT(*) as count FROM conversations{af}', ap)
+        # conversations — has org_id directly
+        cw, cp = [], []
+        if org_id: cw.append("org_id = %s"); cp.append(org_id)
+        if _app:   cw.append("app_id = %s"); cp.append(app_id)
+        c_where = (" WHERE " + " AND ".join(cw)) if cw else ""
+        cursor.execute(f'SELECT COUNT(*) as count FROM conversations{c_where}', tuple(cp))
         total_conversations = cursor.fetchone()['count']
 
-        if app_id and app_id != "all":
-            cursor.execute('SELECT COUNT(*) as count FROM messages WHERE app_id = %s', (app_id,))
-        else:
-            cursor.execute('SELECT COUNT(*) as count FROM messages')
+        # messages/feedback/intents have no org column → scope via conversations join.
+        # mw/mp build the shared WHERE for a table aliased `m` joined to conversations `c`.
+        def _scoped(table_alias):
+            w, p = [], []
+            if org_id: w.append("c.org_id = %s"); p.append(org_id)
+            if _app:   w.append(f"{table_alias}.app_id = %s"); p.append(app_id)
+            join = "JOIN conversations c ON c.id = {0}.conversation_id".format(table_alias) if org_id else ""
+            where = (" WHERE " + " AND ".join(w)) if w else ""
+            return join, where, p
+
+        mj, mw, mp = _scoped("m")
+        cursor.execute(f'SELECT COUNT(*) as count FROM messages m {mj}{mw}', tuple(mp))
         total_messages = cursor.fetchone()['count']
 
+        feedback_positive = feedback_negative = 0
         for ftype in ('positive', 'negative'):
-            if app_id and app_id != "all":
-                cursor.execute(f"SELECT COUNT(*) as count FROM feedback WHERE type='{ftype}' AND app_id=%s", (app_id,))
-            else:
-                cursor.execute(f"SELECT COUNT(*) as count FROM feedback WHERE type='{ftype}'")
-            if ftype == 'positive':
-                feedback_positive = cursor.fetchone()['count']
-            else:
-                feedback_negative = cursor.fetchone()['count']
+            fj, fw, fp = _scoped("f")
+            fw = (fw + " AND f.type = %s") if fw else " WHERE f.type = %s"
+            fp = fp + [ftype]
+            cursor.execute(f'SELECT COUNT(*) as count FROM feedback f {fj}{fw}', tuple(fp))
+            cnt = cursor.fetchone()['count']
+            if ftype == 'positive': feedback_positive = cnt
+            else: feedback_negative = cnt
 
         total_feedback = feedback_positive + feedback_negative
         resolution_rate = round((feedback_positive / total_feedback) * 100, 1) if total_feedback > 0 else 0
 
-        if app_id and app_id != "all":
-            cursor.execute(
-                "SELECT intent, COUNT(*) as count FROM messages "
-                "WHERE intent IS NOT NULL AND intent != '' AND app_id = %s "
-                "GROUP BY intent ORDER BY count DESC LIMIT 10", (app_id,)
-            )
-        else:
-            cursor.execute(
-                "SELECT intent, COUNT(*) as count FROM messages "
-                "WHERE intent IS NOT NULL AND intent != '' "
-                "GROUP BY intent ORDER BY count DESC LIMIT 10"
-            )
+        ij, iw, ip = _scoped("m")
+        iw = (iw + " AND m.intent IS NOT NULL AND m.intent != ''") if iw else " WHERE m.intent IS NOT NULL AND m.intent != ''"
+        cursor.execute(
+            f"SELECT m.intent, COUNT(*) as count FROM messages m {ij}{iw} "
+            "GROUP BY m.intent ORDER BY count DESC LIMIT 10", tuple(ip)
+        )
         top_intents = [(row['intent'], row['count']) for row in cursor.fetchall()]
 
         today = datetime.now().date()
-        if app_id and app_id != "all":
-            cursor.execute(
-                "SELECT COUNT(*) as count FROM conversations WHERE DATE(last_activity)=%s AND app_id=%s",
-                (today, app_id)
-            )
-        else:
-            cursor.execute(
-                "SELECT COUNT(*) as count FROM conversations WHERE DATE(last_activity)=%s", (today,)
-            )
+        tw, tp = ["DATE(last_activity) = %s"], [today]
+        if org_id: tw.append("org_id = %s"); tp.append(org_id)
+        if _app:   tw.append("app_id = %s"); tp.append(app_id)
+        cursor.execute(f"SELECT COUNT(*) as count FROM conversations WHERE {' AND '.join(tw)}", tuple(tp))
         conversations_today = cursor.fetchone()['count']
 
         return {
@@ -79,7 +82,9 @@ def get_analytics_summary(app_id: str = None) -> Dict:
 
 def get_recent_conversations(limit: int = 50, app_id: str = None, user_search: str = None,
                               ticket_status: str = None, date_filter: str = None,
-                              date_from: str = None, date_to: str = None) -> List[Dict]:
+                              date_from: str = None, date_to: str = None,
+                              org_id: str = None) -> List[Dict]:
+    """org_id scopes results to one tenant (None = all, for platform admins)."""
     conn = _get_connection()
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -92,6 +97,8 @@ def get_recent_conversations(limit: int = 50, app_id: str = None, user_search: s
                    (SELECT COUNT(*) FROM actions WHERE conversation_id=c.id AND action_name='action_update_glpi_ticket') as tickets_updated
             FROM conversations c WHERE 1=1'''
         params = []
+        if org_id:
+            query += ' AND c.org_id = %s'; params.append(org_id)
         if app_id and app_id != 'all':
             query += ' AND c.app_id = %s'; params.append(app_id)
         if user_search:

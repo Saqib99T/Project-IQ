@@ -9,7 +9,7 @@ from rasa_sdk import Action, Tracker
 from rasa_sdk.events import SlotSet, AllSlotsReset, Restarted, ActiveLoop, UserUttered, FollowupAction
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
-from common import analytics_store
+from common import analytics_store, attachment_store
 from action_server.actions._shared import (
     log_bot_response,
     get_analytics_context, get_effective_session_token,
@@ -58,11 +58,17 @@ class ActionCreateItsmTicket(Action):
         org_ctx  = get_org_context(tracker)
         org_name = org_ctx["org_name"]
         channel  = org_ctx["channel"]
-        app_id   = tracker.get_slot("app_id")
-        if not app_id:
-            latest_msg = tracker.latest_message
-            if isinstance(latest_msg, dict):
-                app_id = latest_msg.get("metadata", {}).get("app_id")
+        meta     = tracker.latest_message.get("metadata", {}) if isinstance(tracker.latest_message, dict) else {}
+        app_id   = tracker.get_slot("app_id") or meta.get("app_id")
+        # Product the session is scoped to — slug (app_id) + display name from the
+        # client metadata. The client only sends product_name when a real product is
+        # selected, so gate on it (avoids creating bogus 'General'/'IT' products).
+        # No product selected → slug stays None → ticket is productless (blank).
+        product_name = meta.get("product_name") or None
+        product_slug = (app_id or None) if product_name else None
+        # TEMP diagnostic — confirm product metadata reaches the create action.
+        logger.info("[CREATE PRODUCT] app_id=%r product_slug=%r product_name=%r meta_keys=%s",
+                    app_id, product_slug, product_name, sorted(meta.keys()))
 
         if channel == "platform" and org_name:
             title_prefix = f"[{org_name}] "
@@ -73,7 +79,8 @@ class ActionCreateItsmTicket(Action):
         description  = ticket_content or ticket_title or ""
 
         ticket = await itsm_service.create_ticket(
-            jwt, full_title, description, priority=priority
+            jwt, full_title, description, priority=priority,
+            product_slug=product_slug, product_name=product_name,
         )
 
         if ticket:
@@ -144,6 +151,7 @@ class ActionCheckItsmStatus(Action):
             created_at   = (ticket_data.get("created_at") or "")[:16].replace("T", " ")
             updated_at   = (ticket_data.get("updated_at") or "")[:16].replace("T", " ")
             priority     = (ticket_data.get("priority") or "").capitalize()
+            product_name = ticket_data.get("product_name") or ""
             ticket_ref   = ticket_data.get("ticket_number") or ticket_id_slot
 
             message  = f"**Ticket Details: {ticket_ref}**\n\n"
@@ -152,6 +160,8 @@ class ActionCheckItsmStatus(Action):
             message += f"| **Status** | {current_status} |\n"
             message += f"| **Priority** | {priority} |\n"
             message += f"| **Title** | {title} |\n"
+            if product_name:
+                message += f"| **Product** | {product_name} |\n"
             message += f"| **Created** | {created_at} |\n"
             message += f"| **Updated** | {updated_at} |\n"
 
@@ -440,20 +450,26 @@ class ActionListOpenTickets(Action):
             f"Tickets ({status_name})" if status_name
             else ("Ticket History" if show_history else "Your Open Tickets")
         )
-        message  = f"**📂 {context_title}**\n\n"
-        message += "| # | Status | Title | Updated |\n"
-        message += "| :--- | :--- | :--- | :--- |\n"
 
+        # Structured rows for the 3-column card layout rendered by the clients:
+        #   col 1: ticket no (+ date below)   col 2: title (+ product below)   col 3: status
+        # product_name is null when the ticket has no product → shown blank.
+        rows = []
         for t in tickets[:15]:
-            tnum      = t.get("ticket_number", t.get("id", "?"))
-            title     = (t.get("title") or "No Title").replace("|", "-")
-            status_s  = ITSM_STATUS_DISPLAY.get(t.get("status", ""), "Unknown")
-            updated   = _fmt_date(t.get("updated_at"))
-            title_s   = (title[:25] + "..") if len(title) > 25 else title
-            message  += f"| **{tnum}** | {status_s} | {title_s} | {updated} |\n"
+            title = (t.get("title") or "No Title")
+            # Drop a leading "[context]" prefix — product is its own column now.
+            title = re.sub(r"^\[[^\]]*\]\s*", "", title)
+            rows.append({
+                "no":      str(t.get("ticket_number", t.get("id", "?"))),
+                "date":    _fmt_date(t.get("updated_at")),
+                "title":   title,
+                "product": t.get("product_name") or "",
+                "status":  ITSM_STATUS_DISPLAY.get(t.get("status", ""), "Unknown"),
+            })
 
         dispatcher.utter_message(
-            text=message,
+            text=f"**📂 {context_title}**",
+            json_message={"ticket_list": {"title": context_title, "rows": rows}},
             buttons=[
                 {"title": "📊 View Graph", "payload": "/show_ticket_graph"},
                 {"title": "🔍 Check ticket status", "payload": "/check_status"},
@@ -639,18 +655,54 @@ class ActionCreateTicketFromForm(Action):
         urgency  = form_data.get("urgency", "Medium")
         app_id   = tracker.get_slot("app_id") or "General"
 
+        # Product the session is scoped to — from client metadata. Only set when a
+        # real product is selected (client sends product_name then); else productless.
+        meta = tracker.latest_message.get("metadata", {}) if isinstance(tracker.latest_message, dict) else {}
+        product_name = meta.get("product_name") or None
+        product_slug = (meta.get("app_id") or tracker.get_slot("app_id") or None) if product_name else None
+        logger.info("[CREATE PRODUCT form] product_slug=%r product_name=%r meta_keys=%s",
+                    product_slug, product_name, sorted(meta.keys()))
+
         urgency_int = {"Low": 1, "Medium": 3, "High": 5}.get(urgency, 3)
         priority    = URGENCY_TO_PRIORITY.get(urgency_int, "medium")
         full_title  = f"[{app_id}] {title}"
 
         ticket = await itsm_service.create_ticket(
-            jwt, full_title, detail or title, priority=priority
+            jwt, full_title, detail or title, priority=priority,
+            product_slug=product_slug, product_name=product_name,
         )
 
         if ticket:
-            ticket_ref = ticket.get("ticket_number") or ticket.get("id", "")
+            ticket_ref  = ticket.get("ticket_number") or ticket.get("id", "")
+            ticket_uuid = ticket.get("id", "")
+
+            # Upload any file stashed during the form (pre-ticket upload). The
+            # bytes were saved by /api/ticket-attachment and referenced by doc_id;
+            # now that the ticket exists we push them to itsm via presigned PUT.
+            attach_note = ""
+            attachment = form_data.get("attachment") or {}
+            doc_id = attachment.get("doc_id")
+            if doc_id and ticket_uuid:
+                loaded = attachment_store.load(doc_id)
+                if loaded:
+                    data, fname, mime = loaded
+                    uploaded = await itsm_service.upload_attachment(
+                        jwt, ticket_uuid, data, fname, mime
+                    )
+                    attachment_store.discard(doc_id)
+                    if uploaded:
+                        attach_note = f"\n\n📎 Attached: **{fname}**"
+                    else:
+                        attach_note = (
+                            f"\n\n⚠️ Ticket created, but the attachment '{fname}' "
+                            f"could not be uploaded — you can add it from the ticket "
+                            f"detail view."
+                        )
+                else:
+                    logger.warning("[TicketForm] attachment token not found in store")
+
             dispatcher.utter_message(
-                text=f"✅ Success! Ticket **{ticket_ref}** created.",
+                text=f"✅ Success! Ticket **{ticket_ref}** created.{attach_note}",
                 buttons=[
                     {"title": "🔍 View Ticket", "payload": "/check_status"},
                     {"title": "📋 List Tickets", "payload": "/list_tickets"},

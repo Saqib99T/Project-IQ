@@ -205,14 +205,6 @@ def _init_database():
             )""",
 
             # ── Multi-tenant tables ───────────────────────────────────────────
-            # org_id → GLPI entity_id cache (avoid API call on every ticket)
-            """CREATE TABLE IF NOT EXISTS glpi_org_entities (
-                org_id         TEXT PRIMARY KEY,
-                org_name       TEXT NOT NULL,
-                glpi_entity_id INT  NOT NULL,
-                created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )""",
-
             # Which products each operator is assigned to handle (empty = all)
             """CREATE TABLE IF NOT EXISTS operator_products (
                 operator_id  INT  NOT NULL REFERENCES operators(id) ON DELETE CASCADE,

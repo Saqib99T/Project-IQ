@@ -91,7 +91,13 @@ export default function FirecrawlPage() {
             </div>
 
             {error  && <div className="card p-4 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm">{error}</div>}
-            {result && <div className="card p-4 bg-green-50 dark:bg-emerald-500/10 border-green-200 dark:border-emerald-500/20 text-green-700 dark:text-emerald-400 text-sm">{result.message || JSON.stringify(result)}</div>}
+            {result && <div className="card p-4 bg-green-50 dark:bg-emerald-500/10 border-green-200 dark:border-emerald-500/20 text-green-700 dark:text-emerald-400 text-sm">{
+                result.message
+                || (result.title ? `✓ Scraped “${result.title}” — added to the Knowledge Base.`
+                    : (result.pages_scraped != null || result.count != null) ? `✓ Ingested ${result.pages_scraped ?? result.count} page(s) into the Knowledge Base.`
+                    : result.status === 'success' ? '✓ Added to the Knowledge Base.'
+                    : JSON.stringify(result))
+            }</div>}
 
             <div className="flex gap-3 border-b border-gray-200 dark:border-slate-700">
                 {tabs.map(t => (
@@ -113,8 +119,9 @@ export default function FirecrawlPage() {
                             placeholder="https://docs.example.com/article"
                             className="flex-1 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40" />
                         <button onClick={() => run('/admin/kb/ingest-url', { url: scrapeUrl })} disabled={running || !scrapeUrl}
-                            className="btn-primary">
-                            {running ? '…' : 'Scrape'}
+                            className="btn-primary inline-flex items-center gap-2">
+                            {running && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+                            {running ? 'Scraping…' : 'Scrape'}
                         </button>
                     </div>
                     <button onClick={() => run('/admin/firecrawl/test', { url: scrapeUrl })} disabled={running || !scrapeUrl}

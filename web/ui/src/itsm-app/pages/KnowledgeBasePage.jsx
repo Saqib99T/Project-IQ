@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { BookOpen, Plus, RefreshCw, FolderTree, Folder, Layers } from 'lucide-react'
 import { useItsmApi, useItsmResource, useTenantDirectory } from '../../shared/itsm/useItsmApi'
 import { useItsmTenant } from '../../shared/itsm/ItsmTenantContext'
@@ -34,7 +34,8 @@ export default function KnowledgeBasePage() {
     const navigate = useNavigate()
     const { get } = useItsmApi()
     const { tenantId } = useItsmTenant()
-    const tenantNames = useTenantDirectory(tenantId === null)
+    const { isPlatformOrg } = useOutletContext() || {}
+    const tenantNames = useTenantDirectory(isPlatformOrg && tenantId === null)
     const [search, setSearch] = useState('')
     const [status, setStatus] = useState('all')
     const [visibility, setVisibility] = useState('all')
@@ -177,7 +178,7 @@ export default function KnowledgeBasePage() {
                             ? <EmptyState>No articles found{search ? ` for "${search}"` : ''}.</EmptyState>
                             : (
                                 <div className="space-y-2.5">
-                                    {articles.map(a => <KbArticleCard key={a.id} article={a} onClick={() => navigate(`/kb/${a.id}`)} tenantNames={tenantId === null ? tenantNames : null} />)}
+                                    {articles.map(a => <KbArticleCard key={a.id} article={a} onClick={() => navigate(`/kb/${a.id}`)} tenantNames={isPlatformOrg && tenantId === null ? tenantNames : null} />)}
                                     {!searching && (
                                         <Pagination page={page} pageCount={pageCount} onChange={setPage} total={total} pageSize={PAGE_SIZE} />
                                     )}

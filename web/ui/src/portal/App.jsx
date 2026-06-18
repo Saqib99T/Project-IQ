@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { PortalAuthProvider } from './PortalAuth'
 import AuthGuard from './AuthGuard'
 import Login from './pages/Login'
 import RoleRedirect from './pages/RoleRedirect'
@@ -11,7 +12,6 @@ import SessionView from './operator/SessionView'
 import AdminLayout from './admin/Layout'
 import OverviewPage from './admin/OverviewPage'
 import AnalyticsPage from './admin/AnalyticsPage'
-import OperatorsPage from './admin/OperatorsPage'
 import OrgsPage from './admin/OrgsPage'
 import HistoryPage from './admin/HistoryPage'
 import UsersPage from './admin/UsersPage'
@@ -36,6 +36,7 @@ import MemberChatPage from './member/ChatPage'
 export default function App() {
     return (
         <BrowserRouter basename="/portal">
+          <PortalAuthProvider>
             <Routes>
                 {/* Public */}
                 <Route path="/login" element={<Login />} />
@@ -49,7 +50,7 @@ export default function App() {
 
                 {/* Operator section — Operator or Admin roles */}
                 <Route path="/operator" element={
-                    <AuthGuard roles={['Operator', 'Admin', 'super_admin']}>
+                    <AuthGuard roles={['Operator', 'Admin', 'super_admin', 'org_admin']}>
                         <OperatorLayout />
                     </AuthGuard>
                 }>
@@ -61,14 +62,13 @@ export default function App() {
 
                 {/* Admin section — Admin or super_admin */}
                 <Route path="/admin" element={
-                    <AuthGuard roles={['Admin', 'super_admin']}>
+                    <AuthGuard roles={['Admin', 'super_admin', 'org_admin']}>
                         <AdminLayout />
                     </AuthGuard>
                 }>
                     {/* All admins */}
                     <Route index                element={<OverviewPage />} />
                     <Route path="analytics"     element={<AnalyticsPage />} />
-                    <Route path="operators"     element={<OperatorsPage />} />
                     <Route path="orgs"          element={<OrgsPage />} />
                     <Route path="history"       element={<HistoryPage />} />
                     <Route path="users"         element={<UsersPage />} />
@@ -83,7 +83,7 @@ export default function App() {
                     </Route>
 
                     {/* Shared admin + operator routes */}
-                    <Route path="monitor"       element={<AuthGuard roles={['Operator', 'Admin', 'super_admin']}><LiveMonitorPage /></AuthGuard>} />
+                    <Route path="monitor"       element={<AuthGuard roles={['Operator', 'Admin', 'super_admin', 'org_admin']}><LiveMonitorPage /></AuthGuard>} />
 
                     {/* Platform routes — super_admin only */}
                     <Route path="config"        element={<AuthGuard roles={['super_admin']}><ConfigPage /></AuthGuard>} />
@@ -97,9 +97,9 @@ export default function App() {
                     <Route path="routing"       element={<AuthGuard roles={['super_admin']}><RoutingRulesPage /></AuthGuard>} />
                 </Route>
 
-                {/* Chatbot — Member, User and Bot roles get full access (plus staff). */}
+                {/* Chatbot — User and Bot roles get full access (plus staff). */}
                 <Route path="/chat" element={
-                    <AuthGuard roles={['Member', 'User', 'Bot', 'Operator', 'Admin', 'super_admin']}>
+                    <AuthGuard roles={['User', 'Bot', 'Operator', 'Admin', 'super_admin', 'org_admin']}>
                         <MemberChatPage />
                     </AuthGuard>
                 } />
@@ -107,6 +107,7 @@ export default function App() {
                 <Route path="/no-access" element={<NoAccess />} />
                 <Route path="*" element={<NotFound />} />
             </Routes>
+          </PortalAuthProvider>
         </BrowserRouter>
     )
 }

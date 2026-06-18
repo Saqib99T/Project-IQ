@@ -40,12 +40,12 @@ export default function IntegrationPage() {
     clientId: 'project-iq',
   };
 </script>
-<script src="${serverUrl}/glpi-chat-widget.js" defer></script>
-<glpi-chat-widget
+<script src="${serverUrl}/itsm-chat-widget.js" defer></script>
+<itsm-chat-widget
   title="${title}"
   app-id="${appId}"
   theme-id="${themeColor}"
-></glpi-chat-widget>`
+></itsm-chat-widget>`
 
     const iframeCode = `<!-- Project IQ Chat (iframe embed) -->
 <iframe

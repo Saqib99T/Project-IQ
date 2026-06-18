@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify
 from common.conversation_db import _get_connection, _release_connection
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
+import web.api.shared as _s
 
 bp = Blueprint('sessions', __name__)
 
@@ -22,11 +23,13 @@ def _fmt(dt):
 # ── Active Sessions ───────────────────────────────────────────────────────────
 
 @bp.route('/admin/sessions/active', methods=['GET'])
+@_s.require_iam_token
 def active_sessions():
     try:
         app_id     = request.args.get('app_id')
         sess_type  = request.args.get('type')       # 'chatbot' | 'handoff'
         op_id      = request.args.get('operator_id')
+        scope_org  = _s.caller_org_scope()           # tenant isolation
         conn = _get_connection()
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -38,6 +41,8 @@ def active_sessions():
                     "(c.handoff_state = 'bot_active' AND c.last_activity > NOW() - INTERVAL '2 hours'))"
                 ]
                 params = []
+                if scope_org:
+                    where.append("c.org_id = %s"); params.append(scope_org)
                 if app_id:
                     where.append("c.app_id = %s"); params.append(app_id)
                 if op_id:
@@ -78,16 +83,22 @@ def active_sessions():
 
 
 @bp.route('/admin/sessions/active/<int:conv_id>/messages', methods=['GET'])
+@_s.require_iam_token
 def active_session_messages(conv_id):
     try:
+        scope_org = _s.caller_org_scope()
         conn = _get_connection()
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Tenant isolation: only return messages if the conversation belongs
+                # to the caller's org (scope_org None = platform admin → any).
                 cur.execute("""
                     SELECT sender, text, intent, timestamp
                     FROM messages WHERE conversation_id = %s
+                      AND (%s IS NULL OR conversation_id IN (
+                            SELECT id FROM conversations WHERE org_id = %s))
                     ORDER BY timestamp ASC
-                """, (conv_id,))
+                """, (conv_id, scope_org, scope_org))
                 msgs = [dict(r) for r in cur.fetchall()]
                 for m in msgs:
                     m['timestamp'] = _fmt(m['timestamp'])
@@ -203,8 +214,10 @@ def admin_end_session():
 # ── Chat History ──────────────────────────────────────────────────────────────
 
 @bp.route('/admin/sessions/history', methods=['GET'])
+@_s.require_iam_token
 def session_history():
     try:
+        scope_org = _s.caller_org_scope()            # tenant isolation
         app_id    = request.args.get('app_id')
         op_id     = request.args.get('operator_id')
         status    = request.args.get('status')       # 'resolved'|'abandoned'|'chatbot'
@@ -220,6 +233,8 @@ def session_history():
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 where = ["1=1"]
                 params = []
+                if scope_org:
+                    where.append("c.org_id = %s"); params.append(scope_org)
                 if app_id:
                     where.append("c.app_id = %s"); params.append(app_id)
                 if op_id:
@@ -284,16 +299,21 @@ def session_history():
 
 
 @bp.route('/admin/sessions/history/<int:conv_id>/messages', methods=['GET'])
+@_s.require_iam_token
 def history_messages(conv_id):
     try:
+        scope_org = _s.caller_org_scope()
         conn = _get_connection()
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Tenant isolation: only the conversation's own org may read it.
                 cur.execute("""
                     SELECT sender, text, intent, timestamp
                     FROM messages WHERE conversation_id = %s
+                      AND (%s IS NULL OR conversation_id IN (
+                            SELECT id FROM conversations WHERE org_id = %s))
                     ORDER BY timestamp ASC
-                """, (conv_id,))
+                """, (conv_id, scope_org, scope_org))
                 msgs = [dict(r) for r in cur.fetchall()]
                 for m in msgs:
                     m['timestamp'] = _fmt(m['timestamp'])
@@ -306,10 +326,12 @@ def history_messages(conv_id):
 
 
 @bp.route('/admin/sessions/history/export', methods=['GET'])
+@_s.require_iam_token
 def export_history():
     """Export history as CSV."""
     import csv, io
     try:
+        scope_org = _s.caller_org_scope()            # tenant isolation
         conn = _get_connection()
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -322,8 +344,9 @@ def export_history():
                     FROM conversations c
                     LEFT JOIN handoff_queue hq ON hq.conversation_id=c.id
                     LEFT JOIN operators o ON o.id=hq.operator_id
+                    WHERE (%s IS NULL OR c.org_id = %s)
                     ORDER BY c.started_at DESC LIMIT 5000
-                """)
+                """, (scope_org, scope_org))
                 rows = cur.fetchall()
         finally:
             conn.rollback()

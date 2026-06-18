@@ -22,10 +22,16 @@ def get_kb_status():
     try:
         status = dict(_kb_cache().get_status())
         # Merge in semantic-search/model stats from the live search cache
-        # (KBCacheManager) — the admin browse cache doesn't track those.
+        # (KBCacheManager). Importing it can trigger a blocking lazy load (itsm
+        # fetch + model init); under eventlet that synchronous block freezes the
+        # whole server and cascades every admin page into "keep loading". Run it
+        # in eventlet's real thread pool so it can never stall the hub.
         try:
-            from web.api.kb_cache_manager import kb_cache as _search_cache
-            info = _search_cache.get_cache_info()
+            import eventlet
+            def _semantic_info():
+                from web.api.kb_cache_manager import kb_cache as _search_cache
+                return _search_cache.get_cache_info()
+            info = eventlet.tpool.execute(_semantic_info)
             status['refresh_interval'] = info.get('refresh_interval')
             status['model_info'] = {
                 'model_name': info.get('model_name'),
@@ -121,7 +127,14 @@ def ingest_url():
         if not url:
             return jsonify({"success": False, "error": "url required"}), 400
         from common.firecrawl_ingester import ingest_url_to_kb
-        return jsonify({"success": True, **ingest_url_to_kb(url, category)})
+        res = ingest_url_to_kb(url, category)
+        # Refresh the admin KB cache so the scraped article shows on the KB page
+        # immediately (it was written to the local kb_articles store).
+        try:
+            _kb_cache().load_articles()
+        except Exception:
+            pass
+        return jsonify({"success": True, **res})
     except (ImportError, ValueError) as e:
         return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
@@ -136,7 +149,12 @@ def crawl_site_endpoint():
         if not url:
             return jsonify({"success": False, "error": "url required"}), 400
         from common.firecrawl_ingester import ingest_crawl_to_kb
-        return jsonify({"success": True, **ingest_crawl_to_kb(url, data.get('limit', 50), data.get('category'))})
+        res = ingest_crawl_to_kb(url, data.get('limit', 50), data.get('category'))
+        try:
+            _kb_cache().load_articles()
+        except Exception:
+            pass
+        return jsonify({"success": True, **res})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -149,7 +167,12 @@ def ingest_urls():
         if not urls or not isinstance(urls, list):
             return jsonify({"success": False, "error": "urls (list) required"}), 400
         from common.firecrawl_ingester import ingest_batch_to_kb
-        return jsonify({"success": True, **ingest_batch_to_kb(urls, data.get('category'))})
+        res = ingest_batch_to_kb(urls, data.get('category'))
+        try:
+            _kb_cache().load_articles()
+        except Exception:
+            pass
+        return jsonify({"success": True, **res})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

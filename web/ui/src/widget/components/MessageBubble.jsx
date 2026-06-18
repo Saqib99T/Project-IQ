@@ -205,6 +205,33 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                     </ReactMarkdown>
                                 )}
 
+                                {/* Render structured ticket list (3-column cards) */}
+                                {message.ticketList?.rows?.length > 0 && (
+                                    <div className="not-prose mt-1 flex flex-col gap-1.5">
+                                        {message.ticketList.rows.map((r, i) => (
+                                            <div key={i} className="flex items-stretch gap-2 rounded-lg px-2.5 py-2"
+                                                 style={{ border: `1px solid ${isDark ? '#2e3a4e' : '#e5e7eb'}`, backgroundColor: isDark ? '#111827' : '#fff' }}>
+                                                {/* Col 1: ticket no + date */}
+                                                <div className="flex flex-col justify-center shrink-0" style={{ minWidth: 64 }}>
+                                                    <span className="font-semibold leading-tight" style={{ fontSize: 13, color: isDark ? '#e5e7eb' : '#111827' }}>#{r.no}</span>
+                                                    <span className="leading-tight" style={{ fontSize: 10, color: isDark ? '#6b7280' : '#9ca3af' }}>{r.date}</span>
+                                                </div>
+                                                {/* Col 2: title + product */}
+                                                <div className="flex flex-col justify-center flex-1 min-w-0">
+                                                    <span className="leading-tight truncate" style={{ fontSize: 13, color: isDark ? '#d1d5db' : '#374151' }}>{r.title}</span>
+                                                    {r.product ? (
+                                                        <span className="leading-tight truncate" style={{ fontSize: 10, color: isDark ? '#6b7280' : '#9ca3af' }}>{r.product}</span>
+                                                    ) : null}
+                                                </div>
+                                                {/* Col 3: status */}
+                                                <div className="flex items-center shrink-0">
+                                                    <span className="px-2 py-0.5 rounded-full whitespace-nowrap" style={{ fontSize: 10, fontWeight: 500, color: primaryColor, backgroundColor: `${primaryColor}15` }}>{r.status}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {/* Render chart if present */}
                                 {message.chart && (
                                     <ChartRenderer chartData={message.chart} />

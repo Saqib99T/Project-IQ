@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def _itsm_conn_params() -> dict:
     return dict(
         host=os.environ.get("ITSM_DB_HOST", "127.0.0.1"),
-        port=int(os.environ.get("ITSM_DB_PORT", "5433")),
+        port=int(os.environ.get("ITSM_DB_PORT", "5432")),
         dbname=os.environ.get("ITSM_DB_NAME", "itsm_db"),
         user=os.environ.get("ITSM_DB_USER", "itsm_app"),
         password=os.environ.get("ITSM_DB_PASSWORD", "itsm_app_pass"),

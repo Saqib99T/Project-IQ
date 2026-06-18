@@ -1,29 +1,48 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
+// Import the compiled CSS as a STRING (not as a separate emitted file) so the
+// single-<script> web-component embed is fully self-styling — Vite lib mode
+// would otherwise emit a separate .css the embed never loads (→ unstyled widget).
+import widgetStyles from './index.css?inline'
 import ChatWindow from './widget/components/ChatWindow'
 
 // Use the current page's origin as the Admin API URL
 // Since we're running on port 80 (default HTTP), just use the origin directly
 const ADMIN_API_URL = window.location.origin;
 
-class GlpiChatWidget extends HTMLElement {
+// Inject the widget's stylesheet once into the host page so its Tailwind classes
+// render even when only the JS bundle is embedded.
+function _injectWidgetStyles() {
+    try {
+        if (typeof document === 'undefined') return;
+        if (document.getElementById('itsm-chat-widget-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'itsm-chat-widget-styles';
+        style.textContent = widgetStyles;
+        document.head.appendChild(style);
+    } catch (e) {
+        console.warn('ITSM Widget: style injection failed', e);
+    }
+}
+_injectWidgetStyles();
+
+class ItsmChatWidget extends HTMLElement {
     constructor() {
         super();
-        console.log("GLPI Widget: Constructor called");
+        console.log("ITSM Widget: Constructor called");
         this.mountPoint = null;
         this.root = null;
         this.themeData = null; // Cached theme data
     }
 
     connectedCallback() {
-        console.log("GLPI Widget: Connected callback");
+        console.log("ITSM Widget: Connected callback");
         try {
             if (!this.mountPoint) {
                 this.mountPoint = document.createElement('div');
                 this.appendChild(this.mountPoint);
                 this.root = createRoot(this.mountPoint);
-                console.log("GLPI Widget: Root created");
+                console.log("ITSM Widget: Root created");
             }
             this.loadAndRender();
         } catch (e) {
@@ -66,10 +85,10 @@ class GlpiChatWidget extends HTMLElement {
                             id: data.theme.id,
                             ...settings
                         };
-                        console.log("GLPI Widget: Loaded theme", this.themeData);
+                        console.log("ITSM Widget: Loaded theme", this.themeData);
                     }
                 } catch (e) {
-                    console.warn("GLPI Widget: Failed to load theme", e);
+                    console.warn("ITSM Widget: Failed to load theme", e);
                 }
             }
         } else if (themeIdAttr && themeIdAttr.startsWith('#')) {
@@ -103,8 +122,8 @@ class GlpiChatWidget extends HTMLElement {
 }
 
 // Define the custom element
-if (!customElements.get('glpi-chat-widget')) {
-    customElements.define('glpi-chat-widget', GlpiChatWidget);
-    console.log("GLPI Widget: Registered <glpi-chat-widget>");
+if (!customElements.get('itsm-chat-widget')) {
+    customElements.define('itsm-chat-widget', ItsmChatWidget);
+    console.log("ITSM Widget: Registered <itsm-chat-widget>");
 }
 

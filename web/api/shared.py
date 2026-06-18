@@ -60,7 +60,14 @@ def _room_admin_watch(conv_id) -> str:
 # ── Thread-safe emit helpers ──────────────────────────────────────────────────
 def emit_to_user(sender_id: str, event: str, payload: dict) -> None:
     try:
-        sio.emit(event, payload, room=_room_user(sender_id))
+        _room = _room_user(sender_id)
+        try:
+            _members = sio.server.manager.rooms.get('/', {}).get(_room)
+            _n = len(_members) if _members else 0
+        except Exception:
+            _n = -1
+        print(f"[SIO emit_to_user] event={event} room={_room} members={_n}", flush=True)
+        sio.emit(event, payload, room=_room)
     except Exception as e:
         print(f"[SIO] emit_to_user error ({event}): {e}")
 
@@ -172,7 +179,6 @@ def require_iam_token(f):
             g.is_platform_admin = user.get('is_platform_admin', False)
             g.is_client_admin  = user.get('is_client_admin', False)
             g.is_operator      = user.get('is_operator', False)
-            g.is_member        = user.get('is_member', False)
             g.product_roles    = user.get('product_roles', [])
             g.channel          = user.get('channel', 'internal')
         except IamTokenError as e:
@@ -182,6 +188,24 @@ def require_iam_token(f):
 
 
 # ── Multi-tenant scope helpers ────────────────────────────────────────────────
+
+def caller_org_scope():
+    """Return the org_id a caller's data must be scoped to, or None when they may
+    see all tenants. Requires g.iam_user (route wrapped in @require_iam_token).
+
+    - Tenant admins/operators/users → ALWAYS their own org (an override is ignored,
+      so a tenant can never read another tenant's data).
+    - Platform/super admins → may optionally filter to ONE tenant via the
+      `X-Org-Id` header (or `?org_id=`), set by the super-admin tenant switcher.
+      No selection → None (sees all tenants)."""
+    from flask import g, request
+    user = getattr(g, 'iam_user', None) or {}
+    if user.get('is_platform_admin'):
+        override = (request.headers.get('X-Org-Id')
+                    or request.args.get('org_id') or '').strip()
+        return override or None
+    return user.get('org_id') or None
+
 
 def get_org_filter(override_org_id: str = None) -> tuple:
     """

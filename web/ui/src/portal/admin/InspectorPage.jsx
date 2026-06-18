@@ -41,7 +41,7 @@ export default function InspectorPage() {
 
     useEffect(() => {
         call('/admin/analytics/apps')
-            .then(d => setApps(d?.apps || d || []))
+            .then(d => setApps(Array.isArray(d) ? d : (d?.apps || [])))
             .catch(() => {})
     }, [call])
 
@@ -53,7 +53,9 @@ export default function InspectorPage() {
         if (filter.limit)  params.set('limit', filter.limit)
         try {
             const d = await call(`/inspector/conversations?${params}`)
-            setConvos(d?.conversations || d || [])
+            // Endpoint returns { success, data: [...] }; tolerate other shapes too.
+            const list = Array.isArray(d) ? d : (d?.data || d?.conversations || d?.items || [])
+            setConvos(Array.isArray(list) ? list : [])
         } catch (e) {
             setError(e.message)
         } finally {
@@ -126,7 +128,11 @@ export default function InspectorPage() {
                                 <select value={filter.app} onChange={e => setFilter(p => ({ ...p, app: e.target.value }))}
                                     className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40">
                                     <option value="">All apps</option>
-                                    {apps.map(a => <option key={a} value={a}>{a}</option>)}
+                                    {apps.map(a => {
+                                        const id = a?.app_id || a
+                                        const name = a?.name || a
+                                        return <option key={id} value={id}>{name}</option>
+                                    })}
                                 </select>
                             )}
                             <input value={filter.search} onChange={e => setFilter(p => ({ ...p, search: e.target.value }))}

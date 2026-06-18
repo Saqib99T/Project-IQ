@@ -367,8 +367,17 @@ def handoff_analytics():
         conn = _get_connection()
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
-            app_filter  = "AND c.app_id = %s" if app_id else ""
-            params_base = [days, app_id] if app_id else [days]
+            # Tenant isolation: fold an org clause into app_filter so every query
+            # below (all share {app_filter}/params_base) is scoped. scope_org None
+            # = platform admin (all tenants). All queries join conversations c and
+            # handoff_queue hq, so hq.user_org_id is available throughout.
+            from web.api.shared import caller_org_scope
+            scope_org = caller_org_scope()
+            _clauses, _extra = [], []
+            if app_id:    _clauses.append("c.app_id = %s");       _extra.append(app_id)
+            if scope_org: _clauses.append("hq.user_org_id = %s"); _extra.append(scope_org)
+            app_filter  = ("AND " + " AND ".join(_clauses)) if _clauses else ""
+            params_base = [days] + _extra
 
             cur.execute(f"""
                 SELECT
@@ -494,47 +503,81 @@ def handoff_analytics():
 
 def admin_monitor_queue():
     try:
+        from flask import g
+        from datetime import datetime as _dt
         from common.conversation_db import (
             get_queue, get_operators, get_operator_current_load
         )
+
+        # Tenant scope: tenant admins → own org; platform admins → all, or one
+        # tenant when the super-admin switcher sets it (X-Org-Id). See caller_org_scope.
+        from web.api.shared import caller_org_scope
+        scope_org = caller_org_scope()
+
         app_id   = request.args.get('app_id')
-        waiting  = get_queue(app_id=app_id, status='waiting')
-        assigned = get_queue(app_id=app_id, status='assigned')
-        ops      = get_operators()
+        waiting  = get_queue(app_id=app_id, status='waiting', org_id=scope_org)
+        assigned = get_queue(app_id=app_id, status='assigned', org_id=scope_org)
+        ops      = get_operators(org_id=scope_org)
+
+        def _mins_since(iso):
+            if not iso:
+                return None
+            try:
+                return max(0, round((_dt.now() - _dt.fromisoformat(iso)).total_seconds() / 60))
+            except Exception:
+                return None
+
+        # Operators — id→name map used to label active sessions
         op_list  = []
+        op_names = {}
         for op in ops:
             load = get_operator_current_load(op['id'])
+            op_names[op['id']] = op.get('display_name') or op.get('username')
             op_list.append({
                 'id':             op['id'],
-                'display_name':   op['display_name'],
+                'display_name':   op.get('display_name'),
+                'name':           op.get('display_name') or op.get('username'),
                 'team':           op.get('team'),
                 'status':         op.get('status', 'offline'),
+                'active_count':   load,
                 'current_load':   load,
                 'max_concurrent': op.get('max_concurrent', 3),
-                'last_seen':      op.get('last_seen')
+                'last_seen':      op.get('last_seen'),
             })
 
-        avg_wait = None
-        if waiting:
-            from datetime import datetime as _dt
-            waits = []
-            for item in waiting:
-                if item.get('queued_at'):
-                    try:
-                        qt = _dt.fromisoformat(item['queued_at'])
-                        waits.append((_dt.now() - qt).total_seconds())
-                    except Exception:
-                        pass
-            avg_wait = round(sum(waits) / len(waits) / 60, 1) if waits else 0
+        # Shape rows the way the Live Monitor UI expects
+        waiting_queue = [{
+            'queue_id':     w.get('id'),
+            'sender_id':    w.get('user_name') or w.get('sender_id'),
+            'app_id':       w.get('app_id'),
+            'queue_name':   w.get('target_team') or 'General',
+            'wait_minutes': _mins_since(w.get('queued_at')),
+            'priority':     w.get('priority', 0),
+        } for w in waiting]
+
+        active_sessions = [{
+            'conversation_id':  a.get('conversation_id'),
+            'sender_id':        a.get('user_name') or a.get('sender_id'),
+            'app_id':           a.get('app_id'),
+            'operator_name':    op_names.get(a.get('operator_id')) or '—',
+            'duration_minutes': _mins_since(a.get('assigned_at')),
+            'message_count':    a.get('message_count'),
+        } for a in assigned]
+
+        waits    = [w['wait_minutes'] for w in waiting_queue if w['wait_minutes'] is not None]
+        avg_wait = round(sum(waits) / len(waits), 1) if waits else 0
 
         return jsonify({
-            'success':        True,
-            'waiting_count':  len(waiting),
-            'assigned_count': len(assigned),
-            'avg_wait_mins':  avg_wait,
-            'waiting':        waiting,
-            'assigned':       assigned,
-            'operators':      op_list
+            'success':         True,
+            'waiting_queue':   waiting_queue,
+            'active_sessions': active_sessions,
+            'operators':       op_list,
+            'kpis': {
+                'waiting_count':    len(waiting_queue),
+                'active_count':     len(active_sessions),
+                'avg_wait_min':     avg_wait,
+                'operators_online': sum(1 for o in op_list if o['status'] == 'online'),
+            },
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

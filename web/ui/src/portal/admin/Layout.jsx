@@ -3,6 +3,41 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { Moon, Sun, Check, Palette } from 'lucide-react'
 import { useIam } from '../../widget/hooks/useIam'
 import { useTheme, BRAND_META } from '../useTheme'
+import { AdminOrgScopeProvider, useAdminOrgScope } from '../AdminOrgScope'
+import { usePortalAuth } from '../PortalAuth'
+import { useApi } from '../useApi'
+
+/**
+ * Super-admin tenant switcher — scopes all admin data to one tenant (or all).
+ * Hidden for tenant admins (backend pins them to their own org regardless).
+ */
+function TenantSwitcher({ isPlatformAdmin }) {
+    const { call } = useApi()
+    const { orgId, setOrgId } = useAdminOrgScope()
+    const [orgs, setOrgs] = useState([])
+
+    useEffect(() => {
+        if (!isPlatformAdmin) return
+        let cancelled = false
+        call('/portal/api/admin/iam-orgs')
+            .then(d => { if (!cancelled) setOrgs(d?.orgs || []) })
+            .catch(() => { if (!cancelled) setOrgs([]) })
+        return () => { cancelled = true }
+    }, [call, isPlatformAdmin])
+
+    if (!isPlatformAdmin) return null
+    return (
+        <select
+            value={orgId}
+            onChange={e => setOrgId(e.target.value)}
+            title="Filter data by tenant"
+            className="border border-bordc rounded-lg px-3 py-1.5 text-sm bg-surface text-fg focus:outline-none focus:ring-2 focus:ring-primary/40"
+        >
+            <option value="">All tenants</option>
+            {orgs.map(o => <option key={o.org_id} value={o.org_id}>{o.name}</option>)}
+        </select>
+    )
+}
 
 const NAV_GROUP_STORAGE_KEY = 'admin-nav-collapsed-groups'
 
@@ -135,10 +170,12 @@ function AppearanceMenu() {
 
 export default function AdminLayout() {
     const { user, logout } = useIam()
-
-    const isPlatformAdmin = user?.realm_roles?.includes('super_admin')
+    // Platform status comes from the backend (super_admin OR org_admin of the
+    // platform org) — the realm role alone misses platform-org org_admins.
+    const { isPlatformAdmin } = usePortalAuth()
 
     return (
+      <AdminOrgScopeProvider>
         <div className="flex h-screen overflow-hidden bg-bg transition-colors">
             {/* Sidebar */}
             <aside className="w-64 bg-sidebar border-r border-bordc flex flex-col shrink-0 transition-colors">
@@ -159,8 +196,6 @@ export default function AdminLayout() {
                     <SidebarLink to="/admin/analytics"     icon="📈" label="Analytics"     />
                     <SidebarLink to="/admin/history"       icon="🕓" label="History"        />
                     <SidebarLink to="/admin/monitor"       icon="📡" label="Live Monitor"   />
-                    <SidebarLink to="/operator/queue"      icon="📋" label="Queue"          />
-                    <SidebarLink to="/admin/operators"     icon="👤" label="Operators"      />
                     <SidebarLink to="/admin/users"         icon="👥" label="Users"           />
 
                     {/* ITSM section — tenant-scoped for org admins, all-tenant for super_admin */}
@@ -217,6 +252,7 @@ export default function AdminLayout() {
                         <span className="ml-3 badge bg-surface2 text-fgmuted">{user.organization_alias}</span>
                     )}
                     <div className="ml-auto flex items-center gap-3">
+                        <TenantSwitcher isPlatformAdmin={isPlatformAdmin} />
                         <AppearanceMenu />
                     </div>
                 </header>
@@ -225,5 +261,6 @@ export default function AdminLayout() {
                 </main>
             </div>
         </div>
+      </AdminOrgScopeProvider>
     )
 }

@@ -2,11 +2,6 @@
 profile = prod
 debug = false
 
-[GLPI]
-glpi_api_url = http://198.233.100.77:8083/apirest.php
-glpi_app_token = c2xAtAzqKzx5YXcleWDqB6rAirV5yoUIRsbxR9Dv
-glpi_user_token = BHht1jncO8wZEi6MDLtqinFU13jIPgXHu4VxpUwq
-
 [DATABASE]
 db_host = localhost
 db_port = 5432
@@ -26,14 +21,16 @@ admin_port = 8181
 cors_origins = *
 
 [SESSION]
-session_timeout_minutes = 15
+session_timeout_minutes = 30
+# Minutes before the timeout to warn the user ("Still there?"). Must be < session_timeout_minutes.
+session_warning_minutes = 10
 
 [WIDGET]
 widget_title = IT Support
 widget_subtitle = How can I help you today?
 
 [KNOWLEDGE_BASE]
-kb_glpi_enabled = true
+kb_enabled = true
 kb_refresh_interval = 3600
 kb_fallback_json = true
 kb_semantic_enabled = true
@@ -60,10 +57,6 @@ firecrawl_api_url = http://localhost:3002
 # JWT secret for operator dashboard authentication — MUST be changed before go-live
 operator_jwt_secret = piq-prod-j7Kx92mNvRqL4wZs8dYhT3cFbEuA6gP
 
-# GLPI group enforcement for operator login
-# Requires operators to be members of the named GLPI group before they can log in
-glpi_group_enforcement = true
-glpi_support_group_name = Support
 operator_jwt_expiry_hours = 24
 
 # Socket.IO transport settings

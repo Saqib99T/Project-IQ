@@ -8,6 +8,16 @@ Extensible for any plugin modules like Firecrawl, Airbyte...
 import eventlet
 import eventlet.tpool
 eventlet.monkey_patch()
+# Make psycopg2 cooperative under eventlet — without this, every DB query BLOCKS
+# the single eventlet hub, so Socket.IO events (handoff queue updates,
+# handoff_assigned, operator↔user message relay) fire seconds late and the bot
+# replies in the gap. patch_psycopg() lets DB calls yield so emits are real-time.
+try:
+    from psycogreen.eventlet import patch_psycopg
+    patch_psycopg()
+    print("[eventlet] psycopg2 patched green — DB calls won't block the hub", flush=True)
+except Exception as _pg_e:
+    print(f"[eventlet] WARNING: psycogreen unavailable ({_pg_e}); DB calls may block Socket.IO", flush=True)
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -152,11 +162,53 @@ class AdminKBCache:
 
         self.is_loading = True
         try:
-            # itsm-service is the only KB source (GLPI removed). Returns False
-            # (cache stays empty) when the KB bot token isn't configured.
-            return self._load_from_itsm()
+            # Prefer the live itsm-service KB (KB bot service account). When that
+            # token isn't configured, fall back to the LOCAL kb_articles mirror
+            # (populated by kb_sync from itsm) so the admin KB page still shows data.
+            if self._load_from_itsm():
+                return True
+            return self._load_from_db()
         finally:
             self.is_loading = False
+
+    def _load_from_db(self):
+        """Fallback: load articles from the local kb_articles mirror."""
+        try:
+            from common.conversation_db import _get_connection, _release_connection
+            from psycopg2.extras import RealDictCursor
+            from datetime import datetime
+            conn = _get_connection()
+            try:
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT id, title, content, question, category, updated_at "
+                            "FROM kb_articles ORDER BY title")
+                rows = cur.fetchall()
+            finally:
+                conn.rollback()
+                _release_connection(conn)
+            transformed = []
+            for r in rows:
+                body = r.get('content') or ''
+                transformed.append({
+                    "id": f"local_{r['id']}",
+                    "title": r.get('title') or 'Untitled',
+                    "category": r.get('category') or 'general',
+                    "source": "local",
+                    "glpi_id": None,
+                    "itsm_id": None,
+                    "is_faq": False,
+                    "date_modified": r['updated_at'].isoformat() if r.get('updated_at') else '',
+                    "question": r.get('question') or '',
+                    "answer": (body[:200] + '...') if body else '',
+                })
+            self.articles = transformed
+            self.last_update = datetime.now().isoformat()
+            self.source = "local-mirror"
+            print(f"[Admin KB Cache] Loaded {len(transformed)} articles from local kb_articles mirror")
+            return True
+        except Exception as e:
+            print(f"[Admin KB Cache] local kb_articles load failed: {e}")
+            return False
 
     def _load_from_itsm(self):
         """Load articles from itsm-service as the KB bot. Returns False to fall back."""

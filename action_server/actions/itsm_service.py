@@ -132,17 +132,25 @@ class ITSMService:
         description: str,
         priority: str = "medium",
         ticket_type: str = "incident",
+        product_slug: Optional[str] = None,
+        product_name: Optional[str] = None,
     ) -> Optional[dict]:
-        """Create a ticket.  Returns the full ticket dict on success."""
-        return await self._request(
-            "POST", "/api/v1/tickets", token,
-            json_body={
-                "title": title,
-                "description": description,
-                "type": ticket_type,
-                "priority": priority,
-            },
-        )
+        """Create a ticket.  Returns the full ticket dict on success.
+
+        When product_slug is given, itsm-service upserts a Product for the tenant
+        and links the ticket to it. A null slug leaves the ticket productless.
+        """
+        body = {
+            "title": title,
+            "description": description,
+            "type": ticket_type,
+            "priority": priority,
+        }
+        if product_slug:
+            body["product_slug"] = product_slug
+            if product_name:
+                body["product_name"] = product_name
+        return await self._request("POST", "/api/v1/tickets", token, json_body=body)
 
     async def get_ticket_by_uuid(self, token: str, ticket_uuid: str) -> Optional[dict]:
         """Fetch ticket by UUID."""
@@ -268,6 +276,62 @@ class ITSMService:
         return await self._get_list(
             token, f"/api/v1/tickets/{ticket['id']}/attachments"
         )
+
+    async def upload_attachment(
+        self,
+        token: str,
+        ticket_uuid: str,
+        file_bytes: bytes,
+        filename: str,
+        mime_type: str = "application/octet-stream",
+    ) -> Optional[dict]:
+        """Upload a file to a ticket via itsm-service's presigned-PUT flow.
+
+        1. POST /tickets/{id}/attachments -> {attachment_id, upload_url, ...}
+           (itsm records the attachment row immediately at this step).
+        2. PUT the raw bytes to the presigned ``upload_url`` (direct to object
+           storage). The presign signs ContentType + ContentLength, so the PUT
+           MUST send a matching Content-Type and exactly ``file_size`` bytes.
+
+        Returns the presign response dict on success, else None. Runs entirely
+        server-side, so object storage need not be reachable from browsers.
+        """
+        file_size = len(file_bytes)
+        presign = await self._request(
+            "POST", f"/api/v1/tickets/{ticket_uuid}/attachments", token,
+            json_body={
+                "filename": filename,
+                "mime_type": mime_type,
+                "file_size": file_size,
+            },
+        )
+        if not presign or not presign.get("upload_url"):
+            logger.warning("[ITSM] attachment presign failed for ticket %s", ticket_uuid)
+            return None
+
+        try:
+            session = await self._get_session()
+            timeout = aiohttp.ClientTimeout(total=60)
+            # Presigned PUT: send ONLY Content-Type (must match the signed value);
+            # no Authorization header — the signature carries the auth.
+            async with session.put(
+                presign["upload_url"],
+                data=file_bytes,
+                headers={"Content-Type": mime_type},
+                timeout=timeout,
+            ) as resp:
+                if resp.status in (200, 201, 204):
+                    logger.info(
+                        "[ITSM] attachment '%s' (%d bytes) uploaded to ticket %s",
+                        filename, file_size, ticket_uuid,
+                    )
+                    return presign
+                body = await resp.text()
+                logger.warning("[ITSM] attachment PUT -> %d: %s", resp.status, body[:200])
+                return None
+        except Exception as exc:
+            logger.error("[ITSM] attachment PUT failed: %r", exc, exc_info=True)
+            return None
 
     # ------------------------------------------------------------------
     # Knowledge Base

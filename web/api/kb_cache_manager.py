@@ -120,8 +120,12 @@ class KBCacheManager:
                 self._load_json_fallback()
             return
 
-        # Initial load (Always performed at startup)
-        self.refresh_cache()
+        # Initial load — in a BACKGROUND thread so importing this module never
+        # blocks the caller. The initial load does sync_kb_from_itsm (itsm fetch +
+        # DB mirror, ~seconds); doing it synchronously here froze the eventlet hub
+        # the first time any request imported this singleton (KB page hang).
+        threading.Thread(target=self.refresh_cache, daemon=True,
+                         name="KB-Initial-Load").start()
 
         # NOTE: Periodic refresh disabled by request.
         # Cache will only refresh when manually triggered via Admin UI.

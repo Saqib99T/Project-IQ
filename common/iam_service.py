@@ -100,13 +100,30 @@ def extract_iam_user(claims: dict) -> dict:
         if isinstance(v, dict) and v.get("roles")
         and cid not in ("account", "account-console", "broker", "security-admin-console")
     ]
-    _org_raw = claims.get("organization") or {}
-    # Keycloak may return organization as a list [{...}] or a dict {...}
-    org = _org_raw[0] if isinstance(_org_raw, list) else _org_raw
     realm_roles = claims.get("realm_access", {}).get("roles", [])
 
-    org_id   = org.get("id", "")
-    org_name = org.get("alias", "") or org.get("name", "")
+    # Resolve org id/name across the shapes Keycloak/IAM may emit:
+    #   1. flat claim:            org_id = "<uuid>"
+    #   2. list of objects:       organization = [{"id": "<uuid>", "alias": "..."}]
+    #   3. flat object:           organization = {"id": "<uuid>", "alias": "..."}
+    #   4. Keycloak keyed-by-alias organization = {"<alias>": {"id": "<uuid>", ...}}
+    # (matches itsm-service's resolution so the two services agree on org_id.)
+    org_id   = claims.get("org_id", "") or ""
+    org_name = ""
+    _org_raw = claims.get("organization") or {}
+    if isinstance(_org_raw, list):
+        org = _org_raw[0] if _org_raw else {}
+        org_id   = org_id or org.get("id", "")
+        org_name = org.get("alias", "") or org.get("name", "")
+    elif isinstance(_org_raw, dict) and _org_raw:
+        if "id" in _org_raw:                                   # shape 3
+            org_id   = org_id or _org_raw.get("id", "")
+            org_name = _org_raw.get("alias", "") or _org_raw.get("name", "")
+        else:                                                  # shape 4 (keyed by alias)
+            _alias, _val = next(iter(_org_raw.items()))
+            org_name = _alias
+            if isinstance(_val, dict):
+                org_id = org_id or _val.get("id", "")
 
     # Platform config (set after Phase 0)
     try:
@@ -131,8 +148,7 @@ def extract_iam_user(claims: dict) -> dict:
     for _cid, _v in resource_access.items():
         if isinstance(_v, dict):
             _access_role_names.update(r.lower() for r in _v.get("roles", []))
-    is_member         = "member" in _access_role_names
-    # User and Bot roles also get full chatbot access (alongside Member).
+    # User and Bot project-iq roles get full chatbot access.
     is_user           = "user"   in _access_role_names
     is_bot            = "bot"     in _access_role_names
 
@@ -168,7 +184,6 @@ def extract_iam_user(claims: dict) -> dict:
         # Role flags
         "is_admin":           is_admin,
         "is_operator":        is_operator,
-        "is_member":          is_member,
         "is_user":            is_user,
         "is_bot":             is_bot,
         "is_super_admin":     is_super_admin,
@@ -340,11 +355,83 @@ def iam_list_org_users(org_id: str, max_users: int = 200) -> list:
         members = _iam_admin('GET', f'/organizations/{org_id}/members',
                              params={'max': max_users}) or []
         return members
-    except IamTokenError:
-        # Fallback: query users with organization attribute
-        return _iam_admin('GET', '/users', params={
-            'q': f'org:{org_id}', 'max': max_users,
-        }) or []
+    except Exception:
+        # Fallback: query users with the organization attribute
+        try:
+            return _iam_admin('GET', '/users', params={
+                'q': f'org:{org_id}', 'max': max_users,
+            }) or []
+        except Exception as e:
+            # Both paths failed — almost always because the IAM service account
+            # (backend client) lacks permission to read org members. Surface an
+            # actionable message instead of a 500.
+            raise IamTokenError(
+                "Cannot list organization members. Grant the IAM backend client the "
+                "'realm-management: view-users' role in Keycloak (and 'manage-users' "
+                "to invite/manage members)."
+            ) from e
+
+
+# ── Org subscribed products (for the chatbot product picker) ──────────────────
+# Maps the org's ACTIVE subscriptions (subscription.applicationId == the IAM app
+# record id) to app names via the application catalog (cached). Uses the backend
+# service account against the 99 IAM custom API (api_url + /v1/...).
+_app_name_cache: dict = {'map': None, 'exp': 0.0}
+
+
+def _app_id_name_map() -> dict:
+    """Return {application_id: app_name} for all registered apps (cached 10 min)."""
+    import requests as _req
+    now = time.time()
+    if _app_name_cache['map'] is not None and now < _app_name_cache['exp']:
+        return _app_name_cache['map']
+    cfg = _get_iam_cfg()
+    api = (cfg.get('api_url') or '').rstrip('/')
+    r = _req.get(f"{api}/v1/application",
+                 headers={'Authorization': f'Bearer {_get_admin_token()}'}, timeout=12)
+    r.raise_for_status()
+    j = r.json()
+    data = j.get('data', j) if isinstance(j, dict) else j
+    apps = data.get('list') if isinstance(data, dict) and 'list' in data else data
+    m = {a.get('id'): (a.get('name') or a.get('clientId'))
+         for a in (apps or []) if isinstance(a, dict) and a.get('id')}
+    _app_name_cache['map'] = m
+    _app_name_cache['exp'] = now + 600
+    return m
+
+
+def iam_list_org_subscribed_products(org_id: str) -> list:
+    """Return the org's ACTIVE subscribed product names (for the product picker).
+
+    Uses the backend service account against the 99 IAM custom API:
+      GET /v1/organization/{org}/subscription  -> active subscriptions
+      GET /v1/application                       -> applicationId -> name map
+    Returns a de-duplicated list of app names (e.g. ['project-iq','stock-wise',...]).
+    """
+    import requests as _req
+    if not org_id:
+        return []
+    cfg = _get_iam_cfg()
+    api = (cfg.get('api_url') or '').rstrip('/')
+    try:
+        r = _req.get(f"{api}/v1/organization/{org_id}/subscription",
+                     headers={'Authorization': f'Bearer {_get_admin_token()}'}, timeout=12)
+        r.raise_for_status()
+        j = r.json()
+        data = j.get('data', j) if isinstance(j, dict) else j
+        subs = data.get('list') if isinstance(data, dict) and 'list' in data else data
+        names = _app_id_name_map()
+        out = []
+        for s in (subs or []):
+            if not isinstance(s, dict) or str(s.get('status', '')).lower() != 'active':
+                continue
+            nm = names.get(s.get('applicationId'))
+            if nm and nm not in out:
+                out.append(nm)
+        return out
+    except Exception as e:
+        logger.warning("[IAM] org subscribed products failed for %s: %r", org_id, e)
+        return []
 
 
 def iam_get_user(sub: str) -> dict:
@@ -393,7 +480,7 @@ def iam_invite_user(email: str, first_name: str, last_name: str,
     """
     import requests as _req
 
-    roles = roles or ['Member']
+    roles = roles or ['User']
 
     # 1. Create user (enabled, email not yet verified)
     user_payload = {

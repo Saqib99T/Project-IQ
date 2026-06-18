@@ -8,12 +8,13 @@ from common.db._connection import _get_connection, _release_connection
 
 
 def log_conversation_start(sender_id: str, app_id: str = "General",
-                            user_id: str = None, user_name: str = None) -> int:
+                            user_id: str = None, user_name: str = None,
+                            org_id: str = None, product_id: str = None) -> int:
     conn = _get_connection()
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute(
-            'SELECT id, ended_at FROM conversations WHERE sender_id = %s ORDER BY id DESC LIMIT 1',
+            'SELECT id, ended_at, org_id, product_id FROM conversations WHERE sender_id = %s ORDER BY id DESC LIMIT 1',
             (sender_id,)
         )
         row = cursor.fetchone()
@@ -24,14 +25,19 @@ def log_conversation_start(sender_id: str, app_id: str = "General",
                 updates.append('user_id = %s'); params.append(user_id)
             if user_name:
                 updates.append('user_name = %s'); params.append(user_name)
+            # Backfill org_id / product_id on an existing untagged conversation.
+            if org_id and not row.get('org_id'):
+                updates.append('org_id = %s'); params.append(org_id)
+            if product_id and not row.get('product_id'):
+                updates.append('product_id = %s'); params.append(product_id)
             params.append(sender_id)
             cursor.execute(f'UPDATE conversations SET {", ".join(updates)} WHERE sender_id = %s', params)
             conn.commit()
             return row['id']
         cursor.execute(
-            'INSERT INTO conversations (sender_id, app_id, user_id, user_name, started_at, last_activity) '
-            'VALUES (%s, %s, %s, %s, %s, %s) RETURNING id',
-            (sender_id, app_id, user_id, user_name, datetime.now(), datetime.now())
+            'INSERT INTO conversations (sender_id, app_id, user_id, user_name, org_id, product_id, started_at, last_activity) '
+            'VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
+            (sender_id, app_id, user_id, user_name, org_id, product_id, datetime.now(), datetime.now())
         )
         new_id = cursor.fetchone()['id']
         conn.commit()
@@ -41,11 +47,12 @@ def log_conversation_start(sender_id: str, app_id: str = "General",
 
 
 def log_message(sender_id: str, message_type: str, text: str, intent: str = None,
-                app_id: str = "General", user_id: str = None, ticket_id: str = None):
+                app_id: str = "General", user_id: str = None, ticket_id: str = None,
+                org_id: str = None, product_id: str = None):
     conn = _get_connection()
     try:
         cursor = conn.cursor()
-        conv_id = log_conversation_start(sender_id, app_id, user_id=user_id)
+        conv_id = log_conversation_start(sender_id, app_id, user_id=user_id, org_id=org_id, product_id=product_id)
         cursor.execute(
             'INSERT INTO messages (conversation_id, sender, text, intent, app_id, user_id, ticket_id, timestamp) '
             'VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',

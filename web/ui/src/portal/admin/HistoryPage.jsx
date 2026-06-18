@@ -21,6 +21,14 @@ function fmtDate(iso) {
     return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+// Human label for a user when no name is available — strips the iam-/id- prefix
+// and the trailing product slug, leaving a short readable token.
+function shortUser(senderId) {
+    if (!senderId) return '—'
+    const m = String(senderId).replace(/^(iam-|id-)/, '')
+    return m.length > 14 ? `User ${m.slice(0, 8)}` : m
+}
+
 // ── Transcript modal ──────────────────────────────────────────────────────────
 function TranscriptModal({ convId, onClose }) {
     const { call } = useApi()
@@ -69,7 +77,7 @@ function TranscriptModal({ convId, onClose }) {
                                     )}
                                     {m.timestamp && (
                                         <p className={`text-xs mt-0.5 ${isBot ? 'text-gray-400 dark:text-slate-500' : 'text-blue-200'}`}>
-                                            {new Date(m.timestamp * 1000).toLocaleTimeString()}
+                                            {new Date(m.timestamp).toLocaleTimeString()}
                                         </p>
                                     )}
                                 </div>
@@ -247,7 +255,7 @@ export default function HistoryPage() {
                             <tr key={item.queue_id || item.conversation_id || i} className="hover:bg-gray-50 hover:dark:bg-slate-800/60">
                                 <td className="px-4 py-3">
                                     <div className="font-medium text-gray-900 dark:text-slate-100 truncate max-w-[140px]">
-                                        {item.sender_id || item.user_name || '—'}
+                                        {item.user_name || shortUser(item.sender_id)}
                                     </div>
                                     {item.user_org_id && (
                                         <div className="text-xs text-gray-400 dark:text-slate-500 truncate">{item.user_org_id}</div>
@@ -259,9 +267,10 @@ export default function HistoryPage() {
                                         : <span className="text-gray-400 dark:text-slate-500">—</span>}
                                 </td>
                                 <td className="px-4 py-3">
-                                    <span className={`badge ${STATUS_STYLE[item.status] || 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'}`}>
-                                        {item.status || '—'}
-                                    </span>
+                                    {(() => { const st = item.handoff_status || item.handoff_state || 'bot'; return (
+                                    <span className={`badge ${STATUS_STYLE[st] || 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'}`}>
+                                        {st}
+                                    </span> ) })()}
                                 </td>
                                 <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{item.operator_name || '—'}</td>
                                 <td className="px-4 py-3 text-right text-gray-600 dark:text-slate-400">{item.message_count ?? '—'}</td>
@@ -269,7 +278,7 @@ export default function HistoryPage() {
                                 <td className="px-4 py-3 text-xs text-gray-400 dark:text-slate-500">{fmtDate(item.started_at || item.created_at)}</td>
                                 <td className="px-4 py-3 text-center">
                                     <button
-                                        onClick={() => setTranscript(item.queue_id || item.conversation_id || item.sender_id)}
+                                        onClick={() => setTranscript(item.id || item.conversation_id)}
                                         className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 hover:dark:text-blue-400 hover:underline"
                                     >
                                         View

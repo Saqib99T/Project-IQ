@@ -299,7 +299,8 @@ export default function SessionView() {
         }
     }
 
-    const senderName = meta?.sender_id || conversationId
+    const _short = (sid) => sid ? String(sid).replace(/^(iam-|id-)/, '').slice(0, 8) : ''
+    const senderName = meta?.user_name || (meta?.sender_id ? `User ${_short(meta.sender_id)}` : conversationId)
 
     return (
         <div className="flex h-full -m-6">

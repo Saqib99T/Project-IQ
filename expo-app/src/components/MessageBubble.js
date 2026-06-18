@@ -211,6 +211,36 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
                         </View>
                     )}
 
+                    {/* Structured ticket list — 3-column cards */}
+                    {message.ticketList?.rows?.length > 0 && (
+                        <View style={{ marginTop: 4, gap: 6 }}>
+                            {message.ticketList.rows.map((r, i) => (
+                                <View key={i} style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8,
+                                                       borderWidth: 1, borderColor: THEME.border, borderRadius: 8,
+                                                       paddingHorizontal: 10, paddingVertical: 8, backgroundColor: THEME.background }}>
+                                    {/* Col 1: ticket no + date */}
+                                    <View style={{ justifyContent: 'center', minWidth: 60 }}>
+                                        <Text style={{ fontSize: 13, fontWeight: '700', color: THEME.text }}>#{r.no}</Text>
+                                        <Text style={{ fontSize: 10, color: THEME.textSecondary }}>{r.date}</Text>
+                                    </View>
+                                    {/* Col 2: title + product */}
+                                    <View style={{ justifyContent: 'center', flex: 1, minWidth: 0 }}>
+                                        <Text numberOfLines={1} style={{ fontSize: 13, color: THEME.text }}>{r.title}</Text>
+                                        {r.product ? (
+                                            <Text numberOfLines={1} style={{ fontSize: 10, color: THEME.textSecondary }}>{r.product}</Text>
+                                        ) : null}
+                                    </View>
+                                    {/* Col 3: status */}
+                                    <View style={{ justifyContent: 'center' }}>
+                                        <Text style={{ fontSize: 10, fontWeight: '500', color: THEME.primary,
+                                                       backgroundColor: THEME.primary + '15', paddingHorizontal: 8,
+                                                       paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{r.status}</Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+
                     {/* Chart — inline bar chart */}
                     {chartData && (
                         <View style={styles.chartContainer}>

@@ -37,17 +37,27 @@ if ($choice -eq '1') { $target = 'APK'; $task = 'assembleRelease' }
 else                 { $target = 'AAB'; $task = 'bundleRelease'   }
 
 Write-Host ""
-Write-Host "[1/3] Checking signing config..." -ForegroundColor Yellow
+Write-Host "[1/4] Running expo prebuild (regenerate native project from current source)..." -ForegroundColor Yellow
+# Regenerate android/ from app.json + the current JS. Same step build_apk_local.ps1
+# uses — guarantees a fresh, consistent build (correct version + fresh JS bundle +
+# matching native codegen). This replaces 'gradlew clean', which fails on stale
+# codegen dirs (externalNativeBuildCleanRelease: "codegen/jni/ ... not an existing directory").
+Set-Location $PSScriptRoot
+npx expo prebuild --platform android --clean
+if ($LASTEXITCODE -ne 0) { Write-Host "prebuild FAILED." -ForegroundColor Red; exit 1 }
+
+Write-Host ""
+Write-Host "[2/4] Re-applying production signing config (prebuild --clean wipes it)..." -ForegroundColor Yellow
 Ensure-SigningConfig
 
 Write-Host ""
-Write-Host "[2/3] Running Gradle $task..." -ForegroundColor Yellow
+Write-Host "[3/4] Running Gradle $task..." -ForegroundColor Yellow
 Set-Location "$PSScriptRoot\android"
 .\gradlew.bat $task --no-daemon
 if ($LASTEXITCODE -ne 0) { Write-Host "Build FAILED." -ForegroundColor Red; exit 1 }
 
 Write-Host ""
-Write-Host "[3/3] Copying output to project root..." -ForegroundColor Yellow
+Write-Host "[4/4] Copying output to project root..." -ForegroundColor Yellow
 Set-Location $PSScriptRoot
 
 if ($target -eq 'APK') {
@@ -66,3 +76,5 @@ if ($src) {
 } else {
     Write-Host "Output not found — check android\app\build\outputs\" -ForegroundColor Yellow
 }
+
+Set-Location "$PSScriptRoot"

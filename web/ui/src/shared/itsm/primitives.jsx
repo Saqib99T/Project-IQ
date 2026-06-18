@@ -113,6 +113,9 @@ export function TicketCard({ ticket, onClick, tenantNames }) {
                 <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-xs font-mono text-slate-400 dark:text-slate-500">{ticket.ticket_number || ticket.id}</p>
+                        {ticket.product_name && (
+                            <span className="badge bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300">{ticket.product_name}</span>
+                        )}
                         {tenantNames && <TenantBadge tenantId={ticket.tenant_id} tenantNames={tenantNames} />}
                     </div>
                     <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{ticket.title}</p>

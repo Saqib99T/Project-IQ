@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Send, Paperclip, Minimize2, X, User, Lock, XCircle, Sparkles, History, ChevronLeft, Mic, MicOff } from 'lucide-react';
+import { Send, Paperclip, Minimize2, X, User, Lock, XCircle, Sparkles, History, ChevronLeft, ChevronDown, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
 import MessageBubble from './MessageBubble';
@@ -95,18 +95,41 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const [selectedProductId, setSelectedProductId] = useState(
         () => getCookie(getStorageKey(appId, 'selectedProduct')) || null
     );
+    // Subscribed products fetched from the backend (org's ACTIVE subscriptions).
+    // Authoritative source for the picker — the token doesn't carry them.
+    const [subscribedProducts, setSubscribedProducts] = useState(null);
 
     // The product list for this user. Priority:
     //  1. `subscriptions` — org's active subscribed apps (when IAM emits it on the token)
     //  2. `apps` — the apps the USER holds application roles in (resource_access) ← workaround
     //  3. `products` — last resort (currently just ["itsm"])
     const productList = useMemo(() => {
+        if (Array.isArray(subscribedProducts) && subscribedProducts.length) return subscribedProducts;
         const subs = iam.user?.subscriptions;
         if (Array.isArray(subs) && subs.length) return subs;
         const a = iam.user?.apps;
         if (Array.isArray(a) && a.length) return a;
         return iam.user?.products || [];
-    }, [iam.user?.subscriptions, iam.user?.apps, iam.user?.products]);
+    }, [subscribedProducts, iam.user?.subscriptions, iam.user?.apps, iam.user?.products]);
+
+    // Fetch the org's active subscribed products from the backend (it resolves
+    // them from IAM org subscriptions, since the JWT doesn't include them).
+    useEffect(() => {
+        if (!iamAuthenticated || !iam.token) return;
+        let cancelled = false;
+        fetch(`${ADMIN_API_URL}/api/my-products`, {
+            headers: { Authorization: `Bearer ${iam.token}` },
+        })
+            .then(r => (r.ok ? r.json() : null))
+            .then(d => {
+                if (cancelled) return;
+                // Always mark as resolved (even on empty) so the resolver below can run.
+                // Empty array → productList falls back to the token-derived list.
+                setSubscribedProducts(d && Array.isArray(d.products) && d.products.length ? d.products : []);
+            })
+            .catch(() => { if (!cancelled) setSubscribedProducts([]); });
+        return () => { cancelled = true; };
+    }, [iamAuthenticated, iam.token]);
 
     const PRODUCT_LABELS = { IT: 'IT Support', Accounting: 'Accounting', shipnest: 'ShipNest',
         greenloop: 'GreenLoop', 'account-wise': 'AccountWise', accountwise: 'AccountWise',
@@ -120,6 +143,11 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     // choice, else auto-select when there's only one, else leave null (→ picker).
     useEffect(() => {
         if (!iamAuthenticated || !productList.length) return;
+        // Wait for the AUTHORITATIVE subscription list before auto-resolving. Otherwise
+        // the resolver runs against the short token fallback and discards a valid
+        // persisted choice (e.g. resets "stock-wise" → "project-iq") before the real
+        // list arrives. subscribedProducts === null means "fetch not settled yet".
+        if (subscribedProducts === null) return;
         setSelectedProductId(prev => {
             if (prev && productList.includes(prev)) return prev;
             const stored = getCookie(getStorageKey(appId, 'selectedProduct'));
@@ -128,7 +156,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             if (appId && productList.includes(appId)) return appId;
             return null;
         });
-    }, [iamAuthenticated, productList, appId]);
+    }, [iamAuthenticated, productList, appId, subscribedProducts]);
 
     // Persist the selection so it auto-selects next visit.
     useEffect(() => {
@@ -185,6 +213,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const buildMetadata = useCallback((extra = {}) => ({
         app_id:           selectedProductId || appId,
         product_id:       selectedProductId || appId || undefined,
+        product_name:     selectedProductId ? productLabel(selectedProductId) : undefined,
         user_name:        authUser || undefined,
         is_authenticated: !!(isAuthenticated || iamAuthenticated),
         iam_sub:          iam.user?.sub,
@@ -339,15 +368,21 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         setMessages(prev => {
             if (prev.length === 1 && prev[0]?.id === 'init') {
                 const name = iam.user.name || iam.user.username || authUser || 'there';
-                return [{ id: 'init', sender: 'bot',
-                    text: `**Hi ${name}!** 👋\n\nWelcome back. How can I help you today?` }];
+                // While in the welcome state, the greeting reflects product status:
+                // selected → tell them which product; not selected → ask them to pick.
+                const text = selectedProductId
+                    ? `**Hi ${name}!** 👋\n\nYou're chatting about **${productLabel(selectedProductId)}**. How can I help you today?`
+                    : `**Hi ${name}!** 👋\n\nPlease select a product below to get started.`;
+                return [{ id: 'init', sender: 'bot', text }];
             }
             return prev;
         });
-    }, [iamAuthenticated, iam.user, authUser]);
+    }, [iamAuthenticated, iam.user, authUser, selectedProductId]);
 
     // Inactivity timeout
     const [timeoutMinutes, setTimeoutMinutes] = useState(10);
+    // Lead time (minutes before timeout) for the "Still there?" warning — configurable.
+    const [warningMinutes, setWarningMinutes] = useState(5);
     const lastActivityRef = useRef(Date.now());
     const warningShownRef = useRef(false);
     const sessionEndedRef = useRef(false);
@@ -362,6 +397,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const [selectedSession, setSelectedSession] = useState(null);
     const [sessions, setSessions] = useState([]);
     const [showUserMenu, setShowUserMenu] = useState(false);
+    const [showProductDropdown, setShowProductDropdown] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [sessionLoading, setSessionLoading] = useState(false);
     const userMenuRef = useRef(null);
@@ -447,7 +483,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         scrollToBottom();
     }, [messages]);
 
-    // Fetch session timeout from admin config on mount
+    // Fetch session timeout + warning lead time from admin config on mount
     useEffect(() => {
         fetch(`${ADMIN_API_URL}/admin/config/SESSION_TIMEOUT_MINUTES`)
             .then(r => r.json())
@@ -456,6 +492,13 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 if (!isNaN(val) && val > 0) setTimeoutMinutes(val);
             })
             .catch(() => {}); // silently fall back to default 10
+        fetch(`${ADMIN_API_URL}/admin/config/SESSION_WARNING_MINUTES`)
+            .then(r => r.json())
+            .then(d => {
+                const val = parseInt(d.value || d.SESSION_WARNING_MINUTES || '5', 10);
+                if (!isNaN(val) && val > 0) setWarningMinutes(val);
+            })
+            .catch(() => {}); // silently fall back to default 5
     }, []);
 
     // Close user menu on outside click
@@ -562,6 +605,11 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                 text: d.message || '✅ The agent session has ended. I\'m back to assist you.',
                 type: 'system',
             }]);
+            // Agent closed the support session → end it: hide the quick-action
+            // buttons and surface the "New Conversation" button (matches the
+            // inactivity / manual-end behaviour).
+            setSessionEnded(true);
+            sessionEndedRef.current = true;
             // Show feedback form if requested
             if (d.request_feedback) {
                 setFeedbackRating(0);
@@ -621,7 +669,9 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             }
             const idleMs = Date.now() - lastActivityRef.current;
             const timeoutMs = timeoutMinutes * 60 * 1000;
-            const warningMs = (timeoutMinutes - 5) * 60 * 1000;
+            // Warn `warningMinutes` before timeout (clamped so it stays positive).
+            const lead = Math.min(Math.max(warningMinutes, 1), timeoutMinutes - 1);
+            const warningMs = (timeoutMinutes - lead) * 60 * 1000;
 
             if (idleMs >= timeoutMs) {
                 clearInterval(inactivityIntervalRef.current);
@@ -644,7 +694,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                     return [...prev, {
                         id: uuidv4(),
                         sender: 'bot',
-                        text: `⏰ **Still there?** You've been inactive for ${timeoutMinutes - 5} minute${timeoutMinutes - 5 !== 1 ? 's' : ''}. Your session will end automatically in **5 minutes** if there's no activity.`,
+                        text: `⏰ **Still there?** You've been inactive for ${timeoutMinutes - lead} minute${timeoutMinutes - lead !== 1 ? 's' : ''}. Your session will end automatically in **${lead} minute${lead !== 1 ? 's' : ''}** if there's no activity.`,
                         type: 'warning',
                     }];
                 });
@@ -652,7 +702,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         }, 15000);
 
         return () => clearInterval(inactivityIntervalRef.current);
-    }, [isOpen, timeoutMinutes, emitUserEndSession]);
+    }, [isOpen, timeoutMinutes, warningMinutes, emitUserEndSession]);
 
     // Scroll to bottom when chat opens (for history reload)
     useEffect(() => {
@@ -1026,7 +1076,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             buttons: msg.buttons,
                             chart: msg.chart || msg.custom?.chart,
                             video: msg.custom?.video,
-                            ticket_form: msg.custom?.ticket_form
+                            ticket_form: msg.custom?.ticket_form,
+                            ticketList: msg.custom?.ticket_list
                         };
                         processedMessages.push(lastTextMessage);
                     } else if (msg.custom?.chart && lastTextMessage) {
@@ -1066,6 +1117,15 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             text: '',
                             ticket_form: msg.custom.ticket_form,
                             buttons: [] // Ensure buttons don't float weirdly
+                        });
+                    } else if (msg.custom?.ticket_list && lastTextMessage) {
+                        lastTextMessage.ticketList = msg.custom.ticket_list;
+                    } else if (msg.custom?.ticket_list) {
+                        processedMessages.push({
+                            id: uuidv4(),
+                            sender: 'bot',
+                            text: '',
+                            ticketList: msg.custom.ticket_list
                         });
                     }
                 }
@@ -1173,7 +1233,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             buttons: msg.buttons,
                             chart: msg.chart || msg.custom?.chart,
                             video: msg.custom?.video,
-                            ticket_form: msg.custom?.ticket_form
+                            ticket_form: msg.custom?.ticket_form,
+                            ticketList: msg.custom?.ticket_list
                         };
                         processedMessages.push(lastTextMessage);
                     } else if (msg.custom?.chart && lastTextMessage) {
@@ -1206,6 +1267,15 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             sender: 'bot',
                             text: '',
                             ticket_form: msg.custom.ticket_form
+                        });
+                    } else if (msg.custom?.ticket_list && lastTextMessage) {
+                        lastTextMessage.ticketList = msg.custom.ticket_list;
+                    } else if (msg.custom?.ticket_list) {
+                        processedMessages.push({
+                            id: uuidv4(),
+                            sender: 'bot',
+                            text: '',
+                            ticketList: msg.custom.ticket_list
                         });
                     } else if (msg.image) {
                         processedMessages.push({
@@ -1330,7 +1400,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                 {isAuthenticated && !isGuest ? (
                                     <div className="relative">
                                         <button
-                                            onClick={() => setShowUserMenu(v => !v)}
+                                            onClick={() => { setShowUserMenu(v => !v); setShowProductDropdown(false); }}
                                             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold focus:outline-none"
                                             style={{ backgroundColor: primaryColor }}
                                         >
@@ -1352,26 +1422,40 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                     >
                                                         My Profile
                                                     </button>
-                                                    {/* Product switcher — switching ends the current session and starts a new one */}
+                                                    {/* Product switcher — collapsible dropdown; switching ends the current session and starts a new one */}
                                                     {productList.length > 0 && (
-                                                        <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-                                                            <div className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>Product</div>
-                                                            <div className="flex flex-col gap-0.5">
-                                                                {productList.map(pid => (
-                                                                    <button
-                                                                        key={pid}
-                                                                        onClick={() => switchProduct(pid)}
-                                                                        className="w-full text-left px-2 py-1.5 rounded-md text-sm flex items-center justify-between transition-colors"
-                                                                        style={{ color: pid === selectedProductId ? primaryColor : '#4b5563',
-                                                                                 backgroundColor: pid === selectedProductId ? 'rgba(0,0,0,0.04)' : 'transparent' }}
-                                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
-                                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = pid === selectedProductId ? 'rgba(0,0,0,0.04)' : 'transparent'}
-                                                                    >
-                                                                        <span>{productLabel(pid)}</span>
-                                                                        {pid === selectedProductId && <span style={{ color: primaryColor }}>✓</span>}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
+                                                        <div className="px-2 py-1" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+                                                            <button
+                                                                onClick={() => setShowProductDropdown(v => !v)}
+                                                                className="w-full text-left px-2 py-2 rounded-md text-sm flex items-center justify-between transition-colors"
+                                                                style={{ color: '#4b5563' }}
+                                                                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
+                                                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                            >
+                                                                <span className="flex flex-col">
+                                                                    <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Product</span>
+                                                                    <span style={{ color: '#111827' }}>{productLabel(selectedProductId) || 'Select product'}</span>
+                                                                </span>
+                                                                <ChevronDown size={16} style={{ color: '#9ca3af', transition: 'transform 0.15s', transform: showProductDropdown ? 'rotate(180deg)' : 'none' }} />
+                                                            </button>
+                                                            {showProductDropdown && (
+                                                                <div className="flex flex-col gap-0.5 mt-0.5 mb-1 max-h-48 overflow-y-auto">
+                                                                    {productList.map(pid => (
+                                                                        <button
+                                                                            key={pid}
+                                                                            onClick={() => { setShowProductDropdown(false); switchProduct(pid); }}
+                                                                            className="w-full text-left px-2 py-1.5 rounded-md text-sm flex items-center justify-between transition-colors"
+                                                                            style={{ color: pid === selectedProductId ? primaryColor : '#4b5563',
+                                                                                     backgroundColor: pid === selectedProductId ? 'rgba(0,0,0,0.04)' : 'transparent' }}
+                                                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'}
+                                                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = pid === selectedProductId ? 'rgba(0,0,0,0.04)' : 'transparent'}
+                                                                        >
+                                                                            <span>{productLabel(pid)}</span>
+                                                                            {pid === selectedProductId && <span style={{ color: primaryColor }}>✓</span>}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                     {!isWelcomeState && !sessionEnded && (
@@ -1450,6 +1534,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                         </AnimatePresence>
 
                         {/* ── Product selector (IAM subscription-driven) ────────────────── */}
+                        {/* When no product is chosen, we ask the user to pick one via a
+                            dropdown and hide the chat input below until they do. */}
                         <AnimatePresence>
                             {productGateActive && productList.length > 0 && (
                                 <motion.div
@@ -1460,31 +1546,30 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                     style={{ borderColor: c.border, backgroundColor: c.surfaceAlt }}
                                 >
                                     <p className="text-xs font-medium mb-2" style={{ color: c.textMuted }}>
-                                        Which product do you need help with?
+                                        Please select a product first to start chatting.
                                     </p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {productList.map(pid => (
-                                            <button
-                                                key={pid}
-                                                onClick={() => setSelectedProductId(pid)}
-                                                className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
-                                                style={{
-                                                    borderColor: primaryColor,
-                                                    color: primaryColor,
-                                                    backgroundColor: 'transparent',
-                                                }}
-                                                onMouseEnter={e => {
-                                                    e.currentTarget.style.backgroundColor = primaryColor;
-                                                    e.currentTarget.style.color = '#fff';
-                                                }}
-                                                onMouseLeave={e => {
-                                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                                    e.currentTarget.style.color = primaryColor;
-                                                }}
-                                            >
-                                                {productLabel(pid)}
-                                            </button>
-                                        ))}
+                                    <div className="relative">
+                                        <select
+                                            value=""
+                                            onChange={e => { if (e.target.value) setSelectedProductId(e.target.value); }}
+                                            className="w-full appearance-none rounded-lg text-sm font-medium px-3 py-2.5 pr-9 focus:outline-none focus:ring-2 cursor-pointer"
+                                            style={{
+                                                border: `1px solid ${primaryColor}`,
+                                                color: c.text,
+                                                backgroundColor: c.inputBg,
+                                                '--tw-ring-color': `${primaryColor}80`,
+                                            }}
+                                        >
+                                            <option value="" disabled>Select a product…</option>
+                                            {productList.map(pid => (
+                                                <option key={pid} value={pid}>{productLabel(pid)}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown
+                                            size={18}
+                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                                            style={{ color: primaryColor }}
+                                        />
                                     </div>
                                 </motion.div>
                             )}
@@ -1980,32 +2065,46 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                 {isWelcomeState ? (
                                     /* Welcome state — Gemini style */
                                     <div className="flex-1 overflow-y-auto p-5" style={{ backgroundColor: c.welcomeBg }}>
-                                        <div className="mb-1 text-2xl font-normal" style={{ color: c.text }}>
-                                            Hi {isAuthenticated && authUser ? authUser : 'there'}
+                                        {/* Greeting row: name on the left, active product pill on the far right. */}
+                                        <div className="mb-1 flex items-center justify-between gap-2">
+                                            <div className="text-2xl font-normal" style={{ color: c.text }}>
+                                                Hi {isAuthenticated && authUser ? authUser : 'there'}
+                                            </div>
+                                            {isAuthenticated && selectedProductId && (
+                                                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shrink-0"
+                                                     style={{ backgroundColor: `${primaryColor}15`, color: primaryColor, border: `1px solid ${primaryColor}40` }}>
+                                                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: primaryColor }} />
+                                                    {productLabel(selectedProductId)}
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="mb-6 text-2xl font-semibold" style={{ color: c.text }}>
+                                        <div className="mb-5 text-2xl font-semibold" style={{ color: c.text }}>
                                             Where should we start?
                                         </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {(isAuthenticated ? [
-                                                { label: '📝 Create Ticket', payload: '/create_ticket' },
-                                                { label: '📋 My Tickets', payload: '/list_tickets' },
-                                                { label: '🔍 Check Status', payload: '/check_status' },
-                                                { label: '❓ Get Help', payload: '/help' },
-                                            ] : [
-                                                { label: '🔑 Login', payload: '/login' },
-                                                { label: '📚 Search Knowledge Base', payload: '/ask_knowledge' },
-                                            ]).map((action, idx) => (
-                                                <button
-                                                    key={idx}
-                                                    onClick={() => handleButtonClick(action.payload)}
-                                                    className="px-4 py-2 rounded-full shadow-sm hover:shadow-md text-sm font-normal transition-shadow whitespace-nowrap"
-                                                    style={{ backgroundColor: c.surface, color: c.text, border: `1px solid ${c.border}` }}
-                                                >
-                                                    {action.label}
-                                                </button>
-                                            ))}
-                                        </div>
+                                        {/* Hide the quick-action chips until a product is selected,
+                                            so the user can't bypass the product gate. */}
+                                        {!productGateActive && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {(isAuthenticated ? [
+                                                    { label: '📝 Create Ticket', payload: '/create_ticket' },
+                                                    { label: '📋 My Tickets', payload: '/list_tickets' },
+                                                    { label: '🔍 Check Status', payload: '/check_status' },
+                                                    { label: '❓ Get Help', payload: '/help' },
+                                                ] : [
+                                                    { label: '🔑 Login', payload: '/login' },
+                                                    { label: '📚 Search Knowledge Base', payload: '/ask_knowledge' },
+                                                ]).map((action, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => handleButtonClick(action.payload)}
+                                                        className="px-4 py-2 rounded-full shadow-sm hover:shadow-md text-sm font-normal transition-shadow whitespace-nowrap"
+                                                        style={{ backgroundColor: c.surface, color: c.text, border: `1px solid ${c.border}` }}
+                                                    >
+                                                        {action.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ fontSize: `${messageFontSize}px`, backgroundColor: c.bg }}>
@@ -2100,7 +2199,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                             New Conversation
                                         </button>
                                     </div>
-                                ) : (
+                                ) : productGateActive ? null : (
                                     <form
                                         onSubmit={handleSendMessage}
                                         className="p-4 flex items-center gap-2"
@@ -2130,7 +2229,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                 type="text"
                                                 value={inputText}
                                                 onChange={(e) => { setInputText(e.target.value); handleInputTyping(); }}
-                                                placeholder={productGateActive ? 'Select a product above to start…' : handoffState === 'assigned' ? 'Reply to agent…' : 'Message Project IQ…'}
+                                                placeholder={productGateActive ? 'Select a product above to start…' : handoffState === 'assigned' ? 'Reply to agent…' : `Message ${selectedProductId ? productLabel(selectedProductId) : title}…`}
                                                 disabled={handoffState === 'queued' || productGateActive}
                                                 className="flex-1 bg-transparent focus:outline-none font-light py-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 style={{ fontSize: `${inputFontSize}px`, color: c.text }}

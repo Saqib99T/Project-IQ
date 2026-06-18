@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useOutletContext } from 'react-router-dom'
 import {
     Trash2, RefreshCw, Wrench, Network, Activity, Ticket, Paperclip, History,
 } from 'lucide-react'
@@ -41,8 +41,9 @@ export default function AssetDetailPage() {
     const navigate = useNavigate()
     const { get, remove } = useItsmApi()
     const { tenantId } = useItsmTenant()
+    const { isPlatformOrg } = useOutletContext() || {}
     const confirm = useConfirm()
-    const tenantNames = useTenantDirectory(tenantId === null)
+    const tenantNames = useTenantDirectory(isPlatformOrg && tenantId === null)
     const [deleting, setDeleting] = useState(false)
     const [deleteError, setDeleteError] = useState(null)
     const [tab, setTab] = useState('maintenance')
@@ -92,7 +93,7 @@ export default function AssetDetailPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{asset.asset_tag || asset.id}</span>
                                 <Badge tone={ASSET_STATUS_TONE[asset.status] || 'gray'}>{(asset.status || 'unknown').replace(/_/g, ' ')}</Badge>
-                                {tenantId === null && <TenantBadge tenantId={asset.tenant_id} tenantNames={tenantNames} />}
+                                {isPlatformOrg && tenantId === null && <TenantBadge tenantId={asset.tenant_id} tenantNames={tenantNames} />}
                             </div>
                             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{asset.name}</h2>
                             <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{asset.description || 'No description provided.'}</p>

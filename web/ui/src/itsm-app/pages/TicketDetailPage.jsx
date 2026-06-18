@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useOutletContext } from 'react-router-dom'
 import {
     ArrowLeft, ArrowUpCircle, Trash2, RefreshCw, MessageSquare, History,
     Paperclip, MonitorSmartphone, Eye, Tag,
@@ -81,8 +81,9 @@ export default function TicketDetailPage() {
     const navigate = useNavigate()
     const { get } = useItsmApi()
     const { tenantId } = useItsmTenant()
+    const { isPlatformOrg } = useOutletContext() || {}
     const confirm = useConfirm()
-    const tenantNames = useTenantDirectory(tenantId === null)
+    const tenantNames = useTenantDirectory(isPlatformOrg && tenantId === null)
     const userNames = useUserDirectory()
     const [showEscalate, setShowEscalate] = useState(false)
     const [deleting, setDeleting] = useState(false)
@@ -146,7 +147,7 @@ export default function TicketDetailPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{ticket.ticket_number || ticket.id}</span>
                                 {ticket.category_id && catName[ticket.category_id] && <Badge tone="gray">{catName[ticket.category_id]}</Badge>}
-                                {tenantId === null && <TenantBadge tenantId={ticket.tenant_id} tenantNames={tenantNames} />}
+                                {isPlatformOrg && tenantId === null && <TenantBadge tenantId={ticket.tenant_id} tenantNames={tenantNames} />}
                             </div>
                             <TitleDescriptionEditor ticket={ticket} onSaved={reload} />
                         </div>
@@ -179,6 +180,7 @@ export default function TicketDetailPage() {
                             </div>
                             <div>
                                 <MetaRow label="Type">{(ticket.type || '—').replace(/_/g, ' ')}</MetaRow>
+                                <MetaRow label="Product">{ticket.product_name || '—'}</MetaRow>
                                 <MetaRow label="Requester"><span title={ticket.requester_id}>{resolveUser(ticket.requester_id)}</span></MetaRow>
                                 <MetaRow label="Assignee"><span title={ticket.assignee_id}>{resolveUser(ticket.assignee_id)}</span></MetaRow>
                                 <MetaRow label="SLA">

@@ -47,6 +47,10 @@ export default function ItsmTicketDetailPage() {
                             <p className="text-gray-800 dark:text-slate-200 capitalize">{(ticket.type || '—').replace(/_/g, ' ')}</p>
                         </div>
                         <div>
+                            <p className="text-xs text-gray-400 dark:text-slate-500 uppercase tracking-wide">Product</p>
+                            <p className="text-gray-800 dark:text-slate-200">{ticket.product_name || '—'}</p>
+                        </div>
+                        <div>
                             <p className="text-xs text-gray-400 dark:text-slate-500 uppercase tracking-wide">Requester</p>
                             <p className="text-gray-800 dark:text-slate-200 font-mono text-xs">{ticket.requester_id || '—'}</p>
                         </div>

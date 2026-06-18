@@ -6,10 +6,24 @@ const PRIORITY_LABEL = { 1: 'Low', 5: 'Normal', 7: 'High', 9: 'Urgent' }
 const TRIGGER_ICON   = { user_request: '🙋', low_confidence: '🤔', frustration: '😤' }
 
 function timeAgo(iso) {
-    const secs = Math.floor((Date.now() - new Date(iso)) / 1000)
+    if (!iso) return ''
+    // Treat naive timestamps (no timezone suffix) as UTC — the backend stores
+    // queued_at as UTC; without this a non-UTC client shows a constant offset.
+    let s = String(iso)
+    if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) s = s.replace(' ', 'T') + 'Z'
+    const secs = Math.max(0, Math.floor((Date.now() - new Date(s)) / 1000))
     if (secs < 60)   return `${secs}s ago`
     if (secs < 3600) return `${Math.floor(secs / 60)}m ago`
-    return `${Math.floor(secs / 3600)}h ago`
+    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`
+    return `${Math.floor(secs / 86400)}d ago`
+}
+
+// Short, human label for a user when no name is available — strips the
+// iam-/id- prefix and the trailing product slug, leaving a short token.
+function shortUser(senderId) {
+    if (!senderId) return 'User'
+    const m = String(senderId).replace(/^(iam-|id-)/, '')
+    return m.length > 12 ? `User ${m.slice(0, 8)}` : m
 }
 
 function QueueItem({ item, onClaim }) {
@@ -20,7 +34,7 @@ function QueueItem({ item, onClaim }) {
             </div>
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-fg truncate">{item.sender_id}</span>
+                    <span className="font-medium text-sm text-fg truncate">{item.user_name || shortUser(item.sender_id)}</span>
                     {item.channel === 'platform' && (
                         <span className="badge bg-purple-100 text-purple-700">platform</span>
                     )}
@@ -30,9 +44,6 @@ function QueueItem({ item, onClaim }) {
                 </div>
                 <div className="flex items-center gap-3 mt-0.5 text-xs text-fgmuted">
                     <span>{TRIGGER_ICON[item.trigger_reason] || '💬'} {item.trigger_reason?.replace(/_/g, ' ')}</span>
-                    <span>·</span>
-                    <span>{item.app_id}</span>
-                    {item.user_org_id && <><span>·</span><span>{item.user_org_id}</span></>}
                     <span>·</span>
                     <span>{timeAgo(item.queued_at)}</span>
                 </div>

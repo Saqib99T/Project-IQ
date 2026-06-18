@@ -8,6 +8,7 @@ from flask import Blueprint
 
 from web.api.impl import admin_ops as _ao
 from web.api.impl import observability as _obs
+from web.api import shared as _s
 
 bp = Blueprint('admin_ops', __name__)
 
@@ -85,6 +86,7 @@ def admin_force_handoff():
     return _ao.admin_force_handoff()
 
 @bp.route('/admin/handoff/analytics', methods=['GET'])
+@_s.require_iam_token
 def handoff_analytics():
     return _ao.handoff_analytics()
 
@@ -99,6 +101,7 @@ def admin_send_notification():
 # ── Monitor ───────────────────────────────────────────────────────────────────
 
 @bp.route('/admin/monitor/queue', methods=['GET'])
+@_s.require_iam_token
 def admin_monitor_queue():
     return _ao.admin_monitor_queue()
 

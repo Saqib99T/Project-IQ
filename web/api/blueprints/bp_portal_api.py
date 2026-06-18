@@ -89,7 +89,12 @@ def portal_queue(**kwargs):
             SELECT hq.id, hq.sender_id, hq.app_id, hq.priority,
                    hq.trigger_reason, hq.status, hq.queued_at,
                    hq.queue_position, hq.user_org_id, hq.support_org_id,
-                   hq.product_id, hq.channel
+                   hq.product_id, hq.channel,
+                   COALESCE(
+                       NULLIF((SELECT c.user_name FROM conversations c
+                               WHERE c.id = hq.conversation_id), ''),
+                       hq.context_package->'user_profile'->>'display_name'
+                   ) AS user_name
             FROM handoff_queue hq
             WHERE hq.status = 'waiting'
               AND {scope_sql}
@@ -100,8 +105,12 @@ def portal_queue(**kwargs):
         )
         rows = [dict(r) for r in cur.fetchall()]
         for r in rows:
-            if r.get('queued_at'):
-                r['queued_at'] = r['queued_at'].isoformat()
+            qa = r.get('queued_at')
+            if qa:
+                # queued_at is stored UTC-naive (datetime.utcnow). Emit an explicit
+                # 'Z' so the browser parses it as UTC, not local — otherwise clients
+                # in non-UTC zones see a constant offset ("5h ago" for a fresh item).
+                r['queued_at'] = qa.isoformat() + ('Z' if qa.tzinfo is None else '')
         return jsonify({'queue': rows, 'count': len(rows)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -380,7 +389,9 @@ def portal_sessions(**kwargs):
             SELECT hq.id AS queue_id, hq.sender_id, hq.app_id, hq.priority,
                    hq.trigger_reason, hq.assigned_at, hq.queued_at,
                    hq.user_org_id, hq.product_id, hq.channel,
-                   c.id AS conversation_id, c.last_activity
+                   c.id AS conversation_id, c.last_activity,
+                   COALESCE(NULLIF(c.user_name, ''),
+                            hq.context_package->'user_profile'->>'display_name') AS user_name
             FROM handoff_queue hq
             JOIN conversations c ON c.id = hq.conversation_id
             WHERE hq.status = 'assigned' AND hq.operator_id = %s
@@ -392,8 +403,11 @@ def portal_sessions(**kwargs):
         for r in cur.fetchall():
             d = dict(r)
             for k in ('assigned_at', 'queued_at', 'last_activity'):
-                if d.get(k):
-                    d[k] = d[k].isoformat()
+                v = d.get(k)
+                if v:
+                    # Naive datetimes are UTC → emit explicit 'Z' so clients in
+                    # non-UTC zones don't show a constant offset.
+                    d[k] = v.isoformat() + ('Z' if getattr(v, 'tzinfo', None) is None else '')
             rows.append(d)
         return jsonify({'sessions': rows, 'count': len(rows), 'op_id': op_id})
     except Exception as e:
@@ -442,8 +456,11 @@ def portal_conversation(conversation_id, **kwargs):
                        hq.trigger_reason, hq.status, hq.queued_at, hq.assigned_at,
                        hq.user_org_id, hq.support_org_id, hq.product_id, hq.channel,
                        hq.context_package,
+                       COALESCE(NULLIF(c.user_name, ''),
+                                hq.context_package->'user_profile'->>'display_name') AS user_name,
                        EXTRACT(EPOCH FROM (NOW() - hq.queued_at))::INT AS waiting_secs
                 FROM handoff_queue hq
+                LEFT JOIN conversations c ON c.id = hq.conversation_id
                 WHERE hq.conversation_id = %s
                 ORDER BY hq.id DESC LIMIT 1
                 """,
@@ -1108,6 +1125,10 @@ def portal_admin_analytics(**kwargs):
     from psycopg2.extras import RealDictCursor
 
     days = min(int(request.args.get('days', 7)), 90)
+    # Tenant isolation: a tenant admin only sees their org's figures; platform
+    # admins (scope_org None) see all. handoff_queue→user_org_id, conversations→
+    # org_id, messages (no org column)→scoped via conversations join.
+    scope_org = _s.caller_org_scope()
     conn = _get_connection()
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -1119,12 +1140,16 @@ def portal_admin_analytics(**kwargs):
                    COUNT(*) AS handoffs,
                    COUNT(*) FILTER (WHERE status = 'resolved')  AS resolved,
                    COUNT(*) FILTER (WHERE status = 'abandoned') AS abandoned,
-                   ROUND(AVG(handle_time_secs) FILTER (WHERE handle_time_secs IS NOT NULL))::INT AS avg_handle_secs
+                   -- Only average real, completed handles: resolved with a positive
+                   -- duration. Abandoned rows carry bogus/negative handle_time_secs
+                   -- (legacy tz artifacts) that otherwise skew this to nonsense.
+                   ROUND(AVG(handle_time_secs) FILTER (WHERE status = 'resolved' AND handle_time_secs > 0))::INT AS avg_handle_secs
             FROM handoff_queue
             WHERE queued_at >= CURRENT_DATE - (%s || ' days')::INTERVAL
+              AND (%s IS NULL OR user_org_id = %s)
             GROUP BY 1 ORDER BY 1 ASC
             """,
-            (days,),
+            (days, scope_org, scope_org),
         )
         handoff_rows = [dict(r) for r in cur.fetchall()]
         for r in handoff_rows:
@@ -1136,23 +1161,26 @@ def portal_admin_analytics(**kwargs):
             SELECT started_at::date AS day, COUNT(*) AS conversations
             FROM conversations
             WHERE started_at >= CURRENT_DATE - (%s || ' days')::INTERVAL
+              AND (%s IS NULL OR org_id = %s)
             GROUP BY 1 ORDER BY 1 ASC
             """,
-            (days,),
+            (days, scope_org, scope_org),
         )
         conv_rows = [{'day': r['day'].isoformat() if r.get('day') else None,
                       'conversations': r['conversations']}
                      for r in cur.fetchall()]
 
-        # Messages per day
+        # Messages per day (messages have no org column → scope via conversations)
         cur.execute(
             """
-            SELECT timestamp::date AS day, COUNT(*) AS messages
-            FROM messages
-            WHERE timestamp >= CURRENT_DATE - (%s || ' days')::INTERVAL
+            SELECT m.timestamp::date AS day, COUNT(*) AS messages
+            FROM messages m
+            LEFT JOIN conversations c ON c.id = m.conversation_id
+            WHERE m.timestamp >= CURRENT_DATE - (%s || ' days')::INTERVAL
+              AND (%s IS NULL OR c.org_id = %s)
             GROUP BY 1 ORDER BY 1 ASC
             """,
-            (days,),
+            (days, scope_org, scope_org),
         )
         msg_rows = [{'day': r['day'].isoformat() if r.get('day') else None,
                      'messages': r['messages']}
@@ -1180,35 +1208,24 @@ def portal_admin_operators(**kwargs):
     from common.conversation_db import _get_connection, _release_connection
     from psycopg2.extras import RealDictCursor
 
-    user = g.iam_user
+    # Tenant admins → own org; super admin → all, or one tenant via the switcher
+    # (X-Org-Id). NULL scope = all tenants.
+    scope_org = _s.caller_org_scope()
     conn = _get_connection()
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        if user.get('is_platform_admin'):
-            cur.execute(
-                """
-                SELECT id, username, display_name, email, org_id, channel,
-                       status, max_concurrent, last_seen,
-                       (SELECT COUNT(*) FROM handoff_queue hq
-                        WHERE hq.operator_id = operators.id AND hq.status = 'assigned') AS active_sessions
-                FROM operators
-                ORDER BY status ASC, display_name ASC
-                """
-            )
-        else:
-            org_id = user.get('org_id', '')
-            cur.execute(
-                """
-                SELECT id, username, display_name, email, org_id, channel,
-                       status, max_concurrent, last_seen,
-                       (SELECT COUNT(*) FROM handoff_queue hq
-                        WHERE hq.operator_id = operators.id AND hq.status = 'assigned') AS active_sessions
-                FROM operators
-                WHERE org_id = %s
-                ORDER BY status ASC, display_name ASC
-                """,
-                (org_id,),
-            )
+        cur.execute(
+            """
+            SELECT id, username, display_name, email, org_id, channel,
+                   status, max_concurrent, last_seen,
+                   (SELECT COUNT(*) FROM handoff_queue hq
+                    WHERE hq.operator_id = operators.id AND hq.status = 'assigned') AS active_sessions
+            FROM operators
+            WHERE is_active = TRUE AND (%s IS NULL OR org_id = %s)
+            ORDER BY status ASC, display_name ASC
+            """,
+            (scope_org, scope_org),
+        )
         rows = []
         for r in cur.fetchall():
             d = dict(r)
@@ -1221,6 +1238,59 @@ def portal_admin_operators(**kwargs):
     finally:
         conn.rollback()
         _release_connection(conn)
+
+
+# ── Admin: whoami (authoritative platform/role flags for frontend gating) ──────
+
+@bp.route('/admin/whoami', methods=['GET'])
+@_s.require_iam_token
+def portal_whoami(**kwargs):
+    """Authoritative identity/role flags. The frontend can't compute
+    is_platform_admin itself (it doesn't know the platform org id), so it asks
+    here — this is how an org_admin of the PLATFORM org gets the super-admin UI."""
+    u = g.iam_user or {}
+    return jsonify({
+        'email':            u.get('email'),
+        'org_id':           u.get('org_id'),
+        'org_name':         u.get('org_name'),
+        'is_platform_admin': bool(u.get('is_platform_admin')),
+        'is_super_admin':    bool(u.get('is_super_admin')),
+        'is_client_admin':   bool(u.get('is_client_admin')),
+        'is_org_admin':      bool(u.get('is_org_admin')),
+        'is_operator':       bool(u.get('is_operator')),
+    })
+
+
+# ── Admin: IAM org directory (super-admin tenant switcher) ─────────────────────
+
+@bp.route('/admin/iam-orgs', methods=['GET'])
+@_s.require_iam_token
+def portal_admin_iam_orgs(**kwargs):
+    """All IAM organizations (id + name) for the super-admin tenant switcher.
+    Only platform admins may switch tenants; tenant admins get an empty list."""
+    user = g.iam_user
+    if not user.get('is_platform_admin'):
+        return jsonify({'orgs': []})
+    # Cache the IAM org directory (changes rarely) so this isn't a blocking IAM
+    # HTTP call on every admin page load — under eventlet that stalls the server.
+    import time as _t
+    global _IAM_ORGS_CACHE
+    now = _t.time()
+    cached = globals().get('_IAM_ORGS_CACHE')
+    if cached and (now - cached[0] < 300):
+        return jsonify({'orgs': cached[1]})
+    from common.iam_service import _iam_admin
+    try:
+        orgs = _iam_admin('GET', '/organizations', params={'max': 500}) or []
+        rows = [{'org_id': o.get('id'),
+                 'name': o.get('name') or o.get('alias') or o.get('id'),
+                 'alias': o.get('alias')}
+                for o in (orgs if isinstance(orgs, list) else []) if o.get('id')]
+        rows.sort(key=lambda r: (r['name'] or '').lower())
+        _IAM_ORGS_CACHE = (now, rows)
+        return jsonify({'orgs': rows})
+    except Exception as e:
+        return jsonify({'orgs': (cached[1] if cached else []), 'error': str(e)})
 
 
 # ── Admin: Orgs ───────────────────────────────────────────────────────────────
@@ -1369,7 +1439,7 @@ def portal_admin_history(**kwargs):
 
 # Assignable project-iq client roles. User/Bot grant chatbot access (see the
 # chatbot access gate); Member/Operator/Admin are the portal/ITSM roles.
-ALLOWED_CLIENT_ROLES = {'Member', 'User', 'Bot', 'Operator', 'Admin'}
+ALLOWED_CLIENT_ROLES = {'User', 'Bot', 'Operator', 'Admin'}
 
 
 def _check_admin_or_403():
@@ -1384,27 +1454,34 @@ def _check_admin_or_403():
 @bp.route('/admin/users', methods=['GET'])
 @_s.require_iam_token
 def portal_admin_users_list(**kwargs):
-    """List users in the caller's org (or all orgs for platform admin)."""
+    """List the caller's org members with their project-iq client roles + status.
+
+    Uses the backend service account against the Keycloak Admin API (org members
+    + per-user client role mappings), so role names and real account status
+    (enabled / email-verified) come straight from IAM.
+    """
     from common.iam_service import iam_list_org_users, iam_get_user_client_roles, IamTokenError
 
     user, err = _check_admin_or_403()
     if err:
         return err
 
-    org_id = request.args.get('org_id') or user.get('org_id', '')
-    # Platform admin can query any org; client admin is locked to their own
-    if not user.get('is_platform_admin'):
+    # Super admin may target a tenant via the switcher (?org_id= or X-Org-Id);
+    # with no selection they see their own (platform) org. Tenant admins are
+    # ALWAYS locked to their own org — the override is ignored (no cross-tenant peek).
+    override = request.args.get('org_id') or request.headers.get('X-Org-Id') or ''
+    if user.get('is_platform_admin'):
+        org_id = override or user.get('org_id', '')
+    else:
         org_id = user.get('org_id', '')
-
-    if not org_id and not user.get('is_platform_admin'):
+    if not org_id:
         return jsonify({'error': 'org_id required (or authenticate as org member)'}), 400
 
     try:
-        members = iam_list_org_users(org_id) if org_id else []
+        members = iam_list_org_users(org_id)
     except IamTokenError as e:
         return jsonify({'error': str(e)}), 502
 
-    # Enrich each member with their current client roles
     result = []
     for m in members:
         sub = m.get('id', '')
@@ -1413,14 +1490,14 @@ def portal_admin_users_list(**kwargs):
         except Exception:
             client_roles = []
         result.append({
-            'sub':           sub,
-            'email':         m.get('email', ''),
-            'first_name':    m.get('firstName', ''),
-            'last_name':     m.get('lastName', ''),
-            'username':      m.get('username', ''),
-            'enabled':       m.get('enabled', True),
+            'sub':            sub,
+            'email':          m.get('email', ''),
+            'first_name':     m.get('firstName', ''),
+            'last_name':      m.get('lastName', ''),
+            'username':       m.get('username', ''),
+            'enabled':        m.get('enabled', True),
             'email_verified': m.get('emailVerified', False),
-            'client_roles':  client_roles,
+            'client_roles':   client_roles,
         })
 
     return jsonify({'users': result, 'count': len(result), 'org_id': org_id})
@@ -1440,13 +1517,13 @@ def portal_admin_users_invite(**kwargs):
     email      = (data.get('email') or '').strip().lower()
     first_name = (data.get('first_name') or data.get('firstName') or '').strip()
     last_name  = (data.get('last_name')  or data.get('lastName')  or '').strip()
-    roles      = [r for r in (data.get('roles') or ['Member']) if r in ALLOWED_CLIENT_ROLES]
+    roles      = [r for r in (data.get('roles') or ['User']) if r in ALLOWED_CLIENT_ROLES]
     org_id     = data.get('org_id') or user.get('org_id', '')
 
     if not email:
         return jsonify({'error': 'email required'}), 400
     if not roles:
-        roles = ['Member']
+        roles = ['User']
     # Client admin can only invite into their own org
     if not user.get('is_platform_admin'):
         org_id = user.get('org_id', '')

@@ -11,20 +11,27 @@ from common.db._config import get_handoff_runtime_config
 
 # ── Operator CRUD ─────────────────────────────────────────────────────────────
 
-def get_operators(include_inactive: bool = False) -> List[Dict]:
+def get_operators(include_inactive: bool = False, org_id: str = None) -> List[Dict]:
+    """List operators. When org_id is given, only operators of that tenant are
+    returned (org_id=None → all, e.g. for platform admins)."""
     conn = _get_connection()
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
+        org_clause = " AND org_id = %s" if org_id else ""
+        org_param  = [org_id] if org_id else []
         if include_inactive:
             cursor.execute(
                 "SELECT id, username, display_name, email, team, app_ids, shift_schedule, "
-                "status, max_concurrent, is_active, created_at, last_seen FROM operators ORDER BY display_name"
+                "status, max_concurrent, is_active, org_id, created_at, last_seen FROM operators "
+                "WHERE TRUE" + org_clause + " ORDER BY display_name",
+                org_param,
             )
         else:
             cursor.execute(
                 "SELECT id, username, display_name, email, team, app_ids, shift_schedule, "
-                "status, max_concurrent, is_active, password_hash "
-                "FROM operators WHERE is_active=TRUE ORDER BY display_name"
+                "status, max_concurrent, is_active, org_id, password_hash "
+                "FROM operators WHERE is_active=TRUE" + org_clause + " ORDER BY display_name",
+                org_param,
             )
         result = []
         for row in cursor.fetchall():
@@ -105,6 +112,26 @@ def update_operator_iam_sub(operator_id: int, iam_sub: str) -> None:
             "UPDATE operators SET iam_sub=%s WHERE id=%s",
             (iam_sub, operator_id)
         )
+        conn.commit()
+    finally:
+        _release_connection(conn)
+
+
+def update_operator_org(operator_id: int, org_id: str = None, channel: str = None) -> None:
+    """Tag an operator with their IAM org (+ channel) so tenant admins see only
+    their own operators. No-op when neither is provided."""
+    sets, params = [], []
+    if org_id:
+        sets.append("org_id = %s"); params.append(org_id)
+    if channel:
+        sets.append("channel = %s"); params.append(channel)
+    if not sets:
+        return
+    params.append(operator_id)
+    conn = _get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f"UPDATE operators SET {', '.join(sets)} WHERE id = %s", params)
         conn.commit()
     finally:
         _release_connection(conn)
@@ -343,7 +370,9 @@ def _recalculate_queue_positions(app_id: str):
         _release_connection(conn)
 
 
-def get_queue(app_id: str = None, team: str = None, status: str = 'waiting') -> List[Dict]:
+def get_queue(app_id: str = None, team: str = None, status: str = 'waiting', org_id: str = None) -> List[Dict]:
+    """org_id scopes the queue to one tenant via handoff_queue.user_org_id
+    (None = all, for platform admins)."""
     conn = _get_connection()
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -354,6 +383,7 @@ def get_queue(app_id: str = None, team: str = None, status: str = 'waiting') -> 
         params = []
         if status: query += " AND hq.status=%s"; params.append(status)
         if app_id: query += " AND hq.app_id=%s"; params.append(app_id)
+        if org_id: query += " AND hq.user_org_id=%s"; params.append(org_id)
         if team: query += " AND (hq.target_team=%s OR hq.target_team IS NULL)"; params.append(team)
         query += " ORDER BY hq.priority DESC, hq.queued_at ASC"
         cursor.execute(query, params)

@@ -6,10 +6,20 @@ import { productLabel } from './productLabels'
 
 function timeAgo(iso) {
     if (!iso) return '—'
-    const secs = Math.floor((Date.now() - new Date(iso)) / 1000)
+    // Treat naive timestamps (no tz suffix) as UTC — backend stores UTC.
+    let s = String(iso)
+    if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) s = s.replace(' ', 'T') + 'Z'
+    const secs = Math.max(0, Math.floor((Date.now() - new Date(s)) / 1000))
     if (secs < 60)   return `${secs}s ago`
     if (secs < 3600) return `${Math.floor(secs / 60)}m ago`
-    return `${Math.floor(secs / 3600)}h ago`
+    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`
+    return `${Math.floor(secs / 86400)}d ago`
+}
+
+function shortUser(senderId) {
+    if (!senderId) return 'User'
+    const m = String(senderId).replace(/^(iam-|id-)/, '')
+    return m.length > 12 ? `User ${m.slice(0, 8)}` : m
 }
 
 function SessionCard({ session, onClick }) {
@@ -24,7 +34,7 @@ function SessionCard({ session, onClick }) {
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                     <span className="font-medium text-sm text-fg truncate">
-                        {session.sender_id}
+                        {session.user_name || shortUser(session.sender_id)}
                     </span>
                     {session.channel === 'platform' && (
                         <span className="badge bg-purple-100 text-purple-700">platform</span>
@@ -34,9 +44,6 @@ function SessionCard({ session, onClick }) {
                     )}
                 </div>
                 <div className="flex items-center gap-3 mt-0.5 text-xs text-fgmuted">
-                    <span>{session.app_id}</span>
-                    {session.user_org_id && <><span>·</span><span>{session.user_org_id}</span></>}
-                    <span>·</span>
                     <span>Claimed {timeAgo(session.assigned_at)}</span>
                 </div>
             </div>

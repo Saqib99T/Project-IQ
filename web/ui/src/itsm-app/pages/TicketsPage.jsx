@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { Ticket, Plus, RefreshCw, LayoutGrid, List, AlertCircle } from 'lucide-react'
 import { useItsmApi, useItsmResource, useTenantDirectory } from '../../shared/itsm/useItsmApi'
 import { useItsmTenant } from '../../shared/itsm/ItsmTenantContext'
@@ -22,7 +22,8 @@ export default function TicketsPage() {
     const navigate = useNavigate()
     const { get } = useItsmApi()
     const { tenantId } = useItsmTenant()
-    const tenantNames = useTenantDirectory(tenantId === null)
+    const { isPlatformOrg } = useOutletContext() || {}
+    const tenantNames = useTenantDirectory(isPlatformOrg && tenantId === null)
     const [status, setStatus] = useState('all')
     const [priority, setPriority] = useState('all')
     const [type, setType] = useState('all')
@@ -45,7 +46,7 @@ export default function TicketsPage() {
     const { data: catData } = useItsmResource(() => get('/tenant/ticket-categories').catch(() => []), [get])
     const catName = useMemo(() => Object.fromEntries((catData || []).map(c => [c.id, c.name])), [catData])
 
-    const crossTenant = tenantId === null
+    const crossTenant = isPlatformOrg && tenantId === null
 
     const columns = [
         {
@@ -64,6 +65,7 @@ export default function TicketsPage() {
                 </div>
             ),
         },
+        { key: 'product', header: 'Product', width: '130px', render: (t) => t.product_name ? <Badge tone="purple">{t.product_name}</Badge> : <span className="text-slate-400 dark:text-slate-600">—</span> },
         { key: 'type', header: 'Type', width: '120px', render: (t) => <span className="capitalize text-slate-600 dark:text-slate-400">{(t.type || '—').replace(/_/g, ' ')}</span> },
         { key: 'status', header: 'Status', width: '120px', render: (t) => <StatusBadge status={t.status} /> },
         { key: 'priority', header: 'Priority', width: '100px', render: (t) => <PriorityBadge priority={t.priority} /> },

@@ -18,7 +18,8 @@ const AssetDetailPage = lazy(() => import('./pages/AssetDetailPage'))
 const KnowledgeBasePage = lazy(() => import('./pages/KnowledgeBasePage'))
 const KbArticleDetailPage = lazy(() => import('./pages/KbArticleDetailPage'))
 const ReportsPage = lazy(() => import('./pages/ReportsPage'))
-const VirtualAgentPage = lazy(() => import('./pages/VirtualAgentPage'))
+// Virtual Agent temporarily disabled (re-enable once the AI provider key is restored)
+// const VirtualAgentPage = lazy(() => import('./pages/VirtualAgentPage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 
@@ -88,7 +89,7 @@ export default function App() {
                     <Route path="kb"                element={<KnowledgeBasePage />} />
                     <Route path="kb/:articleId"     element={<KbArticleDetailPage />} />
                     <Route path="reports"           element={<ReportsPage />} />
-                    <Route path="virtual-agent"     element={<VirtualAgentPage />} />
+                    {/* <Route path="virtual-agent" element={<VirtualAgentPage />} /> — temporarily disabled */}
                     <Route path="notifications"     element={<NotificationsPage />} />
                     <Route path="admin"             element={<AdminPage />} />
                 </Route>

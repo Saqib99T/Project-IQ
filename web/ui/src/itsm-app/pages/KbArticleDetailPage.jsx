@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useOutletContext } from 'react-router-dom'
 import { useItsmApi, useItsmResource, useTenantDirectory } from '../../shared/itsm/useItsmApi'
 import { useItsmTenant } from '../../shared/itsm/ItsmTenantContext'
 import { TenantBadge, LoadingSpinner, ErrorBanner } from '../../shared/itsm/primitives'
@@ -27,7 +27,8 @@ export default function KbArticleDetailPage() {
     const navigate = useNavigate()
     const { get } = useItsmApi()
     const { tenantId } = useItsmTenant()
-    const tenantNames = useTenantDirectory(tenantId === null)
+    const { isPlatformOrg } = useOutletContext() || {}
+    const tenantNames = useTenantDirectory(isPlatformOrg && tenantId === null)
 
     const { data: article, loading, error, reload } = useItsmResource(
         () => get(`/kb/articles/${articleId}`),
@@ -47,7 +48,7 @@ export default function KbArticleDetailPage() {
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-xs font-mono text-slate-400 dark:text-slate-500">{article.slug}</p>
-                                {tenantId === null && <TenantBadge tenantId={article.tenant_id} tenantNames={tenantNames} />}
+                                {isPlatformOrg && tenantId === null && <TenantBadge tenantId={article.tenant_id} tenantNames={tenantNames} />}
                             </div>
                             <ArticleEditPanel article={article} onUpdated={reload} />
                         </div>

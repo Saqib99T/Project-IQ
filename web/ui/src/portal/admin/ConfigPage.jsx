@@ -9,7 +9,7 @@ const SECTIONS = {
                      'kb_min_score', 'kb_max_results'],
     HANDOFF:        ['operator_jwt_secret', 'operator_jwt_expiry_hours',
                      'operator_heartbeat_timeout_secs', 'glpi_group_enforcement'],
-    SESSION:        ['session_timeout_minutes'],
+    SESSION:        ['session_timeout_minutes', 'session_warning_minutes'],
     SMTP:           ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_from', 'smtp_use_tls'],
     REDIS:          ['redis_enabled', 'redis_host', 'redis_port', 'redis_db'],
     LLM:            ['llm_summary_enabled', 'llm_summary_model', 'llm_api_key'],

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { useItsmApi } from '../../shared/itsm/useItsmApi'
 import { useItsmTenant } from '../../shared/itsm/ItsmTenantContext'
 import { EmptyState } from '../../shared/itsm/primitives'
@@ -16,15 +17,16 @@ import {
 export default function ReportsPage() {
     const { get } = useItsmApi()
     const { tenantId } = useItsmTenant()
+    const { isPlatformOrg } = useOutletContext() || {}
     const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
     const range = {
         ...(dateRange.startDate ? { start_date: dateRange.startDate } : {}),
         ...(dateRange.endDate ? { end_date: dateRange.endDate } : {}),
     }
 
-    // Reports aggregate strictly per-tenant (itsm-service has no cross-tenant
-    // rollups) — a platform-org user must pick one tenant from the switcher first.
-    if (tenantId === null) {
+    // Reports aggregate strictly per-tenant. A tenant user's tenant comes from
+    // their JWT (tenantId null) — only a PLATFORM-org user must pick one first.
+    if (isPlatformOrg && tenantId === null) {
         return (
             <div className="max-w-5xl">
                 <EmptyState>Select a tenant from the switcher above to view its reports.</EmptyState>

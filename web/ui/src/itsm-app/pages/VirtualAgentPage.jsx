@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { useItsmApi, useItsmResource } from '../../shared/itsm/useItsmApi'
 import { useItsmTenant } from '../../shared/itsm/ItsmTenantContext'
 import { LoadingSpinner, ErrorBanner, EmptyState } from '../../shared/itsm/primitives'
@@ -59,11 +60,12 @@ function MessageBubble({ message }) {
 
 export default function VirtualAgentPage() {
     const { tenantId } = useItsmTenant()
+    const { isPlatformOrg } = useOutletContext() || {}
 
-    // The virtual agent is tenant-scoped — itsm-service raises "Tenant context
-    // is required" with no tenant in the JWT/header. A platform-org user must
-    // pick one tenant from the switcher before chatting (same exception as Reports).
-    if (tenantId === null) {
+    // The virtual agent is tenant-scoped. A tenant user's tenant is resolved from
+    // their JWT (tenantId stays null) — only a PLATFORM-org user, who administers
+    // many tenants, must pick one from the switcher first.
+    if (isPlatformOrg && tenantId === null) {
         return (
             <div className="max-w-5xl">
                 <EmptyState>Select a tenant from the switcher above to chat with its virtual agent.</EmptyState>

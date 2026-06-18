@@ -1,26 +1,28 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useApi } from '../useApi'
 import { useIam } from '../../widget/hooks/useIam'
+import { useAdminOrgScope } from '../AdminOrgScope'
 
-const ALL_ROLES   = ['Member', 'Operator', 'Admin']
+const ALL_ROLES   = ['User', 'Bot', 'Operator', 'Admin']
 const ROLE_STYLE  = {
     Admin:    'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400',
     Operator: 'bg-blue-100 dark:bg-blue-500/10  text-blue-700 dark:text-blue-400',
-    Member:   'bg-gray-100 dark:bg-slate-800  text-gray-600 dark:text-slate-400',
+    User:     'bg-gray-100 dark:bg-slate-800  text-gray-600 dark:text-slate-400',
+    Bot:      'bg-violet-100 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400',
 }
 
 // ── Invite modal ──────────────────────────────────────────────────────────────
 
 function InviteModal({ onClose, onInvited, isAdmin }) {
     const { call }     = useApi()
-    const [form, setForm] = useState({ email: '', first_name: '', last_name: '', roles: ['Member'] })
+    const [form, setForm] = useState({ email: '', first_name: '', last_name: '', roles: ['User'] })
     const [saving, setSaving] = useState(false)
     const [error, setError]   = useState(null)
 
     const toggle = (role) => setForm(f => {
         const has = f.roles.includes(role)
         const next = has ? f.roles.filter(r => r !== role) : [...f.roles, role]
-        return { ...f, roles: next.length ? next : ['Member'] }
+        return { ...f, roles: next.length ? next : ['User'] }
     })
 
     const handleSubmit = async (e) => {
@@ -184,8 +186,13 @@ export default function UsersPage() {
     const [showInvite, setShowInvite] = useState(false)
     const [deletingSub, setDeletingSub] = useState(null)
 
-    const isPlatformAdmin = me?.realm_roles?.includes('super_admin') || false
-    const orgId = me?.organization_id || ''
+    // super_admin (platform) and org_admin (tenant admin) can see/assign the Admin role.
+    const isPlatformAdmin = me?.realm_roles?.includes('super_admin')
+        || me?.realm_roles?.includes('org_admin') || false
+    // Super admin: show the tenant picked in the switcher; with none, fall back to
+    // the logged-in org. (Backend ignores this for tenant admins — own org only.)
+    const { orgId: selectedOrg } = useAdminOrgScope()
+    const orgId = selectedOrg || me?.organization_id || ''
 
     const fetchUsers = useCallback(async () => {
         setLoading(true)

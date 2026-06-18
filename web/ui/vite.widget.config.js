@@ -14,8 +14,8 @@ export default defineConfig({
         emptyOutDir: true,
         lib: {
             entry: resolve(__dirname, 'src/widget.jsx'),
-            name: 'GlpiChatWidget',
-            fileName: (format) => `glpi-chat-widget.js`,
+            name: 'ItsmChatWidget',
+            fileName: (format) => `itsm-chat-widget.js`,
             formats: ['iife']
         },
         minify: false,

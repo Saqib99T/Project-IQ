@@ -1,11 +1,29 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet, KeyboardAvoidingView, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME, APP_TITLE } from '../config';
 
-const LoginModal = ({ visible, onClose, onIamLogin }) => {
-    const handleClose = () => {
-        onClose();
+const LoginModal = ({ visible, onClose, onIamLogin, onPasswordLogin }) => {
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPw, setShowPw]     = useState(false);
+    const [busy, setBusy]         = useState(false);
+    const [error, setError]       = useState(null);
+
+    const reset = () => { setUsername(''); setPassword(''); setError(null); setBusy(false); };
+    const handleClose = () => { reset(); onClose(); };
+
+    const submit = async () => {
+        if (!username.trim() || !password || !onPasswordLogin) return;
+        setBusy(true); setError(null);
+        try {
+            await onPasswordLogin(username.trim(), password);
+            reset();
+            onClose();
+        } catch (e) {
+            setError(e.message || 'Login failed');
+            setBusy(false);
+        }
     };
 
     return (
@@ -21,16 +39,63 @@ const LoginModal = ({ visible, onClose, onIamLogin }) => {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Single sign-on only — no passwords stored or handled here */}
                     <View style={styles.form}>
-                        <Text style={styles.subtitle}>Use your Project IQ account to continue.</Text>
-                        {onIamLogin && (
-                            <TouchableOpacity style={styles.iamBtn} onPress={() => { handleClose(); onIamLogin(); }}>
-                                <Ionicons name="key-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-                                <Text style={styles.iamText}>Sign in with IAM</Text>
-                            </TouchableOpacity>
+                        {onPasswordLogin && (
+                            <>
+                                <Text style={styles.label}>Email or username</Text>
+                                <View style={styles.inputRow}>
+                                    <Ionicons name="person-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+                                    <TextInput
+                                        style={styles.input} value={username} onChangeText={setUsername}
+                                        placeholder="you@example.com" placeholderTextColor="#9ca3af"
+                                        autoCapitalize="none" autoCorrect={false} keyboardType="email-address"
+                                        editable={!busy} returnKeyType="next"
+                                    />
+                                </View>
+                                <Text style={[styles.label, { marginTop: 14 }]}>Password</Text>
+                                <View style={styles.inputRow}>
+                                    <Ionicons name="lock-closed-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+                                    <TextInput
+                                        style={styles.input} value={password} onChangeText={setPassword}
+                                        placeholder="••••••••" placeholderTextColor="#9ca3af"
+                                        secureTextEntry={!showPw} autoCapitalize="none" autoCorrect={false}
+                                        editable={!busy} returnKeyType="go" onSubmitEditing={submit}
+                                    />
+                                    <TouchableOpacity onPress={() => setShowPw(v => !v)} style={{ paddingHorizontal: 12 }}>
+                                        <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={18} color="#9ca3af" />
+                                    </TouchableOpacity>
+                                </View>
+
+                                {error && (
+                                    <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>
+                                )}
+
+                                <TouchableOpacity
+                                    style={[styles.iamBtn, { marginTop: 18 }, (busy || !username.trim() || !password) && styles.disabledBtn]}
+                                    onPress={submit} disabled={busy || !username.trim() || !password}
+                                >
+                                    {busy
+                                        ? <ActivityIndicator color="#fff" />
+                                        : <Text style={styles.iamText}>Sign in</Text>}
+                                </TouchableOpacity>
+                            </>
                         )}
-                        <TouchableOpacity style={styles.cancelBtn} onPress={handleClose}>
+
+                        {onIamLogin && (
+                            <>
+                                {onPasswordLogin && (
+                                    <View style={styles.dividerRow}>
+                                        <View style={styles.dividerLine} /><Text style={styles.dividerLabel}>or</Text><View style={styles.dividerLine} />
+                                    </View>
+                                )}
+                                <TouchableOpacity style={styles.ssoBtn} onPress={() => { handleClose(); onIamLogin(); }} disabled={busy}>
+                                    <Ionicons name="key-outline" size={18} color={THEME.primary} style={{ marginRight: 8 }} />
+                                    <Text style={styles.ssoText}>Sign in with SSO (browser)</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+
+                        <TouchableOpacity style={styles.cancelBtn} onPress={handleClose} disabled={busy}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </TouchableOpacity>
                         </View>
@@ -125,6 +190,17 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     iamText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    ssoBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: THEME.primary,
+        paddingVertical: 13,
+        borderRadius: 12,
+    },
+    ssoText: { color: THEME.primary, fontWeight: '600', fontSize: 15 },
     dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
     dividerLine: { flex: 1, height: 1, backgroundColor: THEME.border },
     dividerLabel: { marginHorizontal: 10, fontSize: 12, color: '#9ca3af' },

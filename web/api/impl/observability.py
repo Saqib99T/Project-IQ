@@ -146,7 +146,7 @@ def system_status():
                          'ok':     state == 'active'})
 
     # ── Docker containers ─────────────────────────────────────────────────
-    raw = _shell('docker ps -a --format "{{.Names}}\t{{.Status}}" 2>/dev/null | grep -E "glpi|firecrawl"')
+    raw = _shell('docker ps -a --format "{{.Names}}\t{{.Status}}" 2>/dev/null | grep -E "itsm|firecrawl"')
     containers = []
     for line in raw.splitlines():
         if '\t' in line:
@@ -156,7 +156,7 @@ def system_status():
 
     # ── Ports ─────────────────────────────────────────────────────────────
     port_labels = {5005: 'ML Platform Core', 5055: 'ML Platform Actions', 8181: 'Admin API',
-                   5432: 'PostgreSQL', 8083: 'ITSM', 3002: 'Firecrawl'}
+                   5432: 'PostgreSQL', 8000: 'ITSM', 3002: 'Firecrawl'}
     ports = [{'port': p, 'label': port_labels[p], 'ok': port_listening(p)}
              for p in port_labels]
 
@@ -201,12 +201,12 @@ def system_status():
     health.append({'name': 'Admin API', 'ok': admin_up,
                    'detail': 'listening' if admin_up else 'not listening'})
 
-    # ITSM
-    glpi_code, glpi_body = _http_raw('127.0.0.1', 8083, '/')
-    glpi_ok = bool(re.search(r'Authentication|GLPI', glpi_body, re.I))
-    m2 = re.search(r'<title>([^<]+)</title>', glpi_body, re.I)
-    health.append({'name': 'ITSM', 'ok': glpi_ok,
-                   'detail': m2.group(1).strip() if m2 else ('up' if glpi_ok else 'no response')})
+    # ITSM service (itsm-service FastAPI on :8000)
+    itsm_code, itsm_body = _http_raw('127.0.0.1', 8000, '/api/v1/health')
+    itsm_ok = (itsm_code == 200) or bool(re.search(r'"status"\s*:\s*"ok"', itsm_body, re.I))
+    mv = re.search(r'"version"\s*:\s*"([^"]+)"', itsm_body)
+    health.append({'name': 'ITSM', 'ok': itsm_ok,
+                   'detail': (f'v{mv.group(1)}' if mv else ('up' if itsm_ok else 'no response'))})
 
     # PostgreSQL (use existing DB connection)
     pg_ok, pg_detail = False, 'cannot connect'

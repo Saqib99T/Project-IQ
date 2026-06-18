@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useItsmApi, useItsmResource, useTenantDirectory } from '../../../shared/itsm/useItsmApi'
 import { useItsmTenant } from '../../../shared/itsm/ItsmTenantContext'
@@ -12,10 +12,24 @@ export default function ItsmTicketsPage() {
     const { get } = useItsmApi(tenantId)
     const tenantNames = useTenantDirectory(tenantId === null)
     const [status, setStatus] = useState('all')
+    const [productId, setProductId] = useState('all')
+
+    // Tenant's products (slug-keyed projection of IAM subscriptions) for the filter.
+    const [products, setProducts] = useState([])
+    useEffect(() => {
+        let cancelled = false
+        get('/tenant/products')
+            .then(rows => { if (!cancelled) setProducts(Array.isArray(rows) ? rows : []) })
+            .catch(() => { if (!cancelled) setProducts([]) })
+        return () => { cancelled = true }
+    }, [get])
 
     const { data, loading, error, reload } = useItsmResource(
-        () => get('/tickets', status === 'all' ? {} : { status }),
-        [get, status]
+        () => get('/tickets', {
+            ...(status === 'all' ? {} : { status }),
+            ...(productId === 'all' ? {} : { product_id: productId }),
+        }),
+        [get, status, productId]
     )
     const tickets = data?.tickets || data?.items || []
 
@@ -37,7 +51,22 @@ export default function ItsmTicketsPage() {
                         </button>
                     ))}
                 </div>
-                <button onClick={reload} className="btn-ghost text-xs">↻ Refresh</button>
+                <div className="flex items-center gap-2">
+                    {products.length > 0 && (
+                        <select
+                            value={productId}
+                            onChange={e => setProductId(e.target.value)}
+                            className="form-input text-xs py-1.5 rounded-lg"
+                            title="Filter by product"
+                        >
+                            <option value="all">All Products</option>
+                            {products.map(p => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                        </select>
+                    )}
+                    <button onClick={reload} className="btn-ghost text-xs">↻ Refresh</button>
+                </div>
             </div>
 
             {loading && <LoadingSpinner />}

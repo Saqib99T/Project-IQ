@@ -11,8 +11,8 @@ function generateEmbedCode() {
     else if (themeColor !== '#000000') attrs += ` theme-color="${themeColor}"`;
 
     const code = `&lt;!-- Project IQ Widget --&gt;
-&lt;glpi-chat-widget ${attrs}&gt;&lt;/glpi-chat-widget&gt;
-&lt;script src="http://localhost/glpi-chat-widget.js"&gt;&lt;\/script&gt;`;
+&lt;itsm-chat-widget ${attrs}&gt;&lt;/itsm-chat-widget&gt;
+&lt;script src="http://localhost/itsm-chat-widget.js"&gt;&lt;\/script&gt;`;
 
     document.getElementById('embed-code').textContent = code;
 }

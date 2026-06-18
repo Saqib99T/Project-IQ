@@ -11,6 +11,67 @@ import web.api.shared as _s
 bp = Blueprint('chat', __name__)
 
 
+@bp.route('/api/my-products', methods=['GET'])
+@_s.require_iam_token
+def my_products(**kwargs):
+    """Active subscribed products for the caller's org — feeds the chat product picker
+    (web + mobile). Resolved server-side via the IAM org subscriptions, since the
+    token doesn't carry the org's subscribed apps."""
+    from flask import g
+    from common.iam_service import iam_list_org_subscribed_products
+    org_id = (getattr(g, 'iam_user', None) or {}).get('org_id', '')
+    products = iam_list_org_subscribed_products(org_id)
+    return jsonify({'products': products, 'org_id': org_id})
+
+
+# Display labels for product slugs — keep in sync with web/ui productLabels.js
+_PRODUCT_LABELS = {
+    'greenloop': 'GreenLoop', 'account-wise': 'AccountWise', 'accountwise': 'AccountWise',
+    'stock-wise': 'StockWise', 'stock-wise-app': 'StockWise App', 'project-iq': 'Project IQ',
+    'brain-box': 'BrainBox', 'e-manifest_app': 'e-Manifest', 'clear-portal': 'Clear Portal',
+}
+
+
+def _product_label(slug: str) -> str:
+    if slug in _PRODUCT_LABELS:
+        return _PRODUCT_LABELS[slug]
+    return slug.replace('-', ' ').replace('_', ' ').title()
+
+
+@bp.route('/api/sync-products', methods=['POST'])
+@_s.require_iam_token
+def sync_products():
+    """Project the caller's IAM-subscribed products into itsm-service (called on
+    login). Resolves the org's subscriptions, then forwards to itsm's upsert-by-slug
+    sync (active for subscribed, soft-deactivate for the rest — never deletes).
+    IAM stays the source of authority; itsm `products` is a slug-keyed projection."""
+    import requests
+    from flask import g
+    from common.iam_service import iam_list_org_subscribed_products
+    from common.config_manager import get_itsm_config
+
+    org_id = (getattr(g, 'iam_user', None) or {}).get('org_id', '')
+    if not org_id:
+        return jsonify({'synced': 0, 'reason': 'no org'}), 200
+    slugs = iam_list_org_subscribed_products(org_id) or []
+    payload = {'products': [{'slug': s, 'name': _product_label(s)} for s in slugs]}
+
+    token = (request.headers.get('Authorization') or '').replace('Bearer ', '')
+    base  = get_itsm_config().get('service_url', 'http://127.0.0.1:8000').rstrip('/')
+    try:
+        r = requests.post(
+            f"{base}/api/v1/tenant/products/sync",
+            json=payload,
+            headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
+            timeout=10,
+        )
+        return jsonify({'synced': len(slugs), 'itsm_status': r.status_code,
+                        'products': r.json() if r.status_code == 200 else None}), 200
+    except Exception as e:
+        # Never let a sync failure block login flows.
+        return jsonify({'synced': 0, 'error': str(e)}), 200
+
+
 @bp.route('/handoff/status/<sender_id>', methods=['GET'])
 def handoff_status(sender_id):
     """Widget polls this on reconnect to restore handoff state."""
@@ -256,10 +317,9 @@ def chat_webhook_proxy():
         metadata.setdefault('product_id',     _product_id)
 
         # ── Chatbot access role gate ───────────────────────────────────────
-        # Authenticated users need a User, Bot, or Member project role (staff
-        # roles also pass). Guests (no token) fall through to KB-only mode.
-        if iam_user and not iam_user.get('is_member') \
-                and not iam_user.get('is_user') \
+        # Authenticated users need a User or Bot project role (staff roles
+        # also pass). Guests (no token) fall through to KB-only mode.
+        if iam_user and not iam_user.get('is_user') \
                 and not iam_user.get('is_bot') \
                 and not iam_user.get('is_admin') \
                 and not iam_user.get('is_operator') \
@@ -307,15 +367,15 @@ def chat_webhook_proxy():
         is_login = message_text.strip().startswith('/login')
 
         if handoff_state == 'queued' and not is_login:
-            log_conversation_start(sender_id, app_id, user_id=user_id, user_name=user_name)
+            log_conversation_start(sender_id, app_id, user_id=user_id, user_name=user_name, org_id=_org_id, product_id=_product_id)
             log_message(sender_id, 'user', message_text, app_id=app_id,
-                        user_id=user_id, ticket_id=ticket_id)
+                        user_id=user_id, ticket_id=ticket_id, org_id=_org_id, product_id=_product_id)
             return jsonify([{"text": "⏳ You are in the queue. An agent will be with you shortly."}]), 200
 
         if handoff_state == 'assigned' and not is_login:
-            log_conversation_start(sender_id, app_id, user_id=user_id, user_name=user_name)
+            log_conversation_start(sender_id, app_id, user_id=user_id, user_name=user_name, org_id=_org_id, product_id=_product_id)
             log_message(sender_id, 'user', message_text, app_id=app_id,
-                        user_id=user_id, ticket_id=ticket_id)
+                        user_id=user_id, ticket_id=ticket_id, org_id=_org_id, product_id=_product_id)
             try:
                 conn2 = _get_connection()
                 try:
@@ -341,9 +401,9 @@ def chat_webhook_proxy():
         # ── End gate ──────────────────────────────────────────────────────────
 
         _t_iam = _time.monotonic()
-        log_conversation_start(sender_id, app_id, user_id=user_id, user_name=user_name)
+        log_conversation_start(sender_id, app_id, user_id=user_id, user_name=user_name, org_id=_org_id, product_id=_product_id)
         log_message(sender_id, 'user', message_text, app_id=app_id,
-                    user_id=user_id, ticket_id=ticket_id)
+                    user_id=user_id, ticket_id=ticket_id, org_id=_org_id, product_id=_product_id)
 
         _t_db = _time.monotonic()
         rasa_resp = requests.post(f"{_s.RASA_URL}/webhooks/rest/webhook", json=data, timeout=30)
@@ -367,7 +427,7 @@ def chat_webhook_proxy():
         for r in bot_responses:
             if r.get('text'):
                 log_message(sender_id, 'bot', r['text'], app_id=app_id,
-                            user_id=user_id, ticket_id=ticket_id)
+                            user_id=user_id, ticket_id=ticket_id, org_id=_org_id, product_id=_product_id)
 
         # Notify user when a ticket is created (detect "Ticket-XXXX" in response)
         if not ticket_id:

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { MonitorSmartphone, Plus, RefreshCw, LayoutGrid, List } from 'lucide-react'
 import { useItsmApi, useItsmResource, useTenantDirectory } from '../../shared/itsm/useItsmApi'
 import { useItsmTenant } from '../../shared/itsm/ItsmTenantContext'
@@ -19,7 +19,8 @@ export default function AssetsPage() {
     const navigate = useNavigate()
     const { get } = useItsmApi()
     const { tenantId } = useItsmTenant()
-    const tenantNames = useTenantDirectory(tenantId === null)
+    const { isPlatformOrg } = useOutletContext() || {}
+    const tenantNames = useTenantDirectory(isPlatformOrg && tenantId === null)
     const [status, setStatus] = useState('all')
     const [condition, setCondition] = useState('all')
     const [search, setSearch] = useState('')
@@ -35,7 +36,7 @@ export default function AssetsPage() {
         [get, status, condition, search]
     )
     const assets = data?.assets || data?.items || []
-    const crossTenant = tenantId === null
+    const crossTenant = isPlatformOrg && tenantId === null
     const activeFilters = status !== 'all' || condition !== 'all' || search.trim()
 
     const columns = [

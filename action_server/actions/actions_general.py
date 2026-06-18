@@ -13,7 +13,7 @@ from common import analytics_store
 from action_server.actions._shared import (
     log_bot_response,
     get_analytics_context, get_effective_session_token,
-    check_user_login, logger,
+    check_user_login, logger, get_iam_jwt,
     _get_handoff_runtime_cfg, _score_frustration,
 )
 
@@ -26,6 +26,8 @@ class ActionGreet(Action):
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
         # Simple greeting - get app_id from metadata only (slots may not be set yet)
+        app_id = None
+        metadata = {}
         try:
             latest_msg = tracker.latest_message
             if latest_msg and isinstance(latest_msg, dict):
@@ -33,16 +35,15 @@ class ActionGreet(Action):
                 if isinstance(metadata, str):
                     try:
                         metadata = json.loads(metadata)
-                    except:
+                    except Exception:
                         metadata = {}
                 elif metadata is None:
                     metadata = {}
-                
                 if isinstance(metadata, dict):
                     app_id = metadata.get("app_id")
         except Exception:
             pass
-        
+
         dept_name = "IT"  # Default
         if app_id:
             if str(app_id).lower() in ["accounting", "acc"]:
@@ -52,7 +53,14 @@ class ActionGreet(Action):
             else:
                 dept_name = str(app_id)
 
-        is_authenticated = tracker.get_slot("is_authenticated")
+        # Auth comes from the request, not a slot: the is_authenticated slot isn't
+        # populated on a fresh greeting. Trust the login metadata / IAM JWT the
+        # client sends (a valid bearer token means the user is signed in).
+        is_authenticated = (
+            bool(metadata.get("is_authenticated"))
+            or bool(get_iam_jwt(tracker))
+            or bool(tracker.get_slot("is_authenticated"))
+        )
 
         if is_authenticated:
             message = f"Hello! I'm your **{dept_name}** support bot. How can I help you today?"
@@ -70,8 +78,11 @@ class ActionGreet(Action):
 
         dispatcher.utter_message(text=message, buttons=buttons)
 
-        # Set the app_id slot for future actions
-        return [SlotSet("app_id", app_id)] if app_id else []
+        # Persist app_id + auth for downstream actions
+        events = [SlotSet("is_authenticated", is_authenticated)]
+        if app_id:
+            events.append(SlotSet("app_id", app_id))
+        return events
 
 
 # --- 13. Custom Action: Show Chart ---

@@ -22,3 +22,5 @@ if ($apk) {
 } else {
     Write-Host "`n[3/3] Build done. Check android\app\build\outputs\apk\release\" -ForegroundColor Yellow
 }
+
+Set-Location "$PSScriptRoot"

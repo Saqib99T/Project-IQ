@@ -14,6 +14,7 @@ import Keycloak from 'keycloak-js';
 // Singleton — only one Keycloak instance per page
 let _kc = null;
 let _initPromise = null;
+let _productsSynced = false;  // guard: sync IAM→itsm products once per page load
 
 function getKcConfig() {
     // Embedding page can inject: window.__IAM_CONFIG__ = { url, realm, clientId }
@@ -77,7 +78,8 @@ function parseUser(kc) {
         // Project IQ client roles
         is_admin:        clientRoles.includes('Admin'),
         is_operator:     clientRoles.includes('Operator'),
-        is_member:       clientRoles.includes('Member'),
+        is_user:         clientRoles.includes('User'),
+        is_bot:          clientRoles.includes('Bot'),
         // Realm roles
         is_super_admin:  realmRoles.includes('super_admin'),
         is_org_admin:    realmRoles.includes('org_admin'),
@@ -137,6 +139,16 @@ export function useIam() {
                     setUser(parseUser(kc));
                     setToken(kc.token);
                     scheduleRefresh(kc);
+                    // On login, project the org's IAM-subscribed products into
+                    // itsm-service (once per page load, fire-and-forget — never
+                    // block the auth flow). See /api/sync-products.
+                    if (!_productsSynced) {
+                        _productsSynced = true;
+                        fetch('/api/sync-products', {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${kc.token}`, 'Content-Type': 'application/json' },
+                        }).catch(() => {});
+                    }
                 }
             })
             .catch((err) => {
