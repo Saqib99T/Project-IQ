@@ -273,6 +273,56 @@ def batch_scrape(urls: List[str], category: str = None) -> List[Dict]:
     return articles, errors
 
 
+def _split_markdown_sections(content: str, min_words: int = 40) -> list:
+    """Split markdown into sections by H2/H3 headings.
+
+    Returns a list of (section_title, section_body) for each heading-led section
+    with at least `min_words` words. Returns [] when there are fewer than two such
+    sections, so the caller falls back to saving the page as a single article.
+    """
+    heading_re = re.compile(r'^(#{2,3})\s+(.+?)\s*#*$')
+    sections, cur_title, cur_lines = [], None, []
+    for ln in content.split('\n'):
+        m = heading_re.match(ln.strip())
+        if m:
+            if cur_title is not None:
+                sections.append((cur_title, '\n'.join(cur_lines).strip()))
+            cur_title, cur_lines = m.group(2).strip(), []
+        else:
+            cur_lines.append(ln)
+    if cur_title is not None:
+        sections.append((cur_title, '\n'.join(cur_lines).strip()))
+    out = [(t, b) for (t, b) in sections if b and len(b.split()) >= min_words]
+    return out if len(out) >= 2 else []
+
+
+def _save_page_sectioned(article: Dict, source_url: str) -> list:
+    """Save one scraped page to the KB. Long, sectioned pages are split on their
+    H2/H3 headings (each section becomes its own article); short or single-section
+    pages are saved as one article. Returns the list of saved-article summaries
+    [{article_id, title, content_length}]. The caller rebuilds embeddings afterwards.
+    """
+    from common.conversation_db import add_kb_article
+    content = article['content']
+    sections = _split_markdown_sections(content)
+    saved = []
+    if len(sections) >= 2 and len(content.split()) > 250:
+        for i, (sec_title, sec_body) in enumerate(sections, start=1):
+            full_title = (sec_title if sec_title.lower() in article['title'].lower()
+                          else f"{article['title']} — {sec_title}")
+            sid = _generate_article_id(source_url, i)
+            if add_kb_article(article_id=sid, title=full_title, content=sec_body,
+                              category=article['category'], keywords=article['keywords']):
+                _save_article_to_kb(full_title, sec_body, article.get('category', ''))
+                saved.append({"article_id": sid, "title": full_title, "content_length": len(sec_body)})
+    else:
+        if add_kb_article(article_id=article['id'], title=article['title'], content=content,
+                          category=article['category'], keywords=article['keywords']):
+            _save_article_to_kb(article['title'], content, article.get('category', ''))
+            saved.append({"article_id": article['id'], "title": article['title'], "content_length": len(content)})
+    return saved
+
+
 def ingest_url_to_kb(url: str, category: str = None) -> Dict:
     """
     Full pipeline: scrape URL → save to KB → rebuild embeddings.
@@ -284,28 +334,25 @@ def ingest_url_to_kb(url: str, category: str = None) -> Dict:
     
     article = scrape_url(url, category)
     
-    success = add_kb_article(
-        article_id=article['id'],
-        title=article['title'],
-        content=article['content'],
-        category=article['category'],
-        keywords=article['keywords']
-    )
-    
-    if not success:
+    saved = _save_page_sectioned(article, url)
+    if not saved:
         raise RuntimeError(f"Failed to save article to database for {url}")
-
-    _save_article_to_kb(article['title'], article['content'], article.get('category', ''))
-    log_data_source('firecrawl_url', {'url': url, 'category': category or ''}, 1)
+    log_data_source('firecrawl_url', {'url': url, 'category': category or ''}, len(saved))
     _rebuild_embeddings()
 
+    split = len(saved) > 1
     return {
         "status": "success",
-        "article_id": article['id'],
+        "split": split,
+        "sections": len(saved),
+        "articles": saved,
         "title": article['title'],
-        "content_length": len(article['content']),
         "category": article['category'],
-        "source_url": url
+        "content_length": len(article['content']),
+        "article_id": None if split else article['id'],
+        "source_url": url,
+        "message": (f"✓ Scraped “{article['title']}” — split into {len(saved)} sections and added to the Knowledge Base."
+                    if split else f"✓ Scraped “{article['title']}” — added to the Knowledge Base."),
     }
 
 
@@ -320,33 +367,21 @@ def ingest_crawl_to_kb(url: str, limit: int = 50, category: str = None) -> Dict:
     
     articles = crawl_site(url, limit, category)
     
-    saved = 0
+    saved_items = []
     for article in articles:
-        success = add_kb_article(
-            article_id=article['id'],
-            title=article['title'],
-            content=article['content'],
-            category=article['category'],
-            keywords=article['keywords']
-        )
-        if success:
-            saved += 1
+        saved_items.extend(_save_page_sectioned(article, article.get('source_url') or url))
 
-    if saved > 0:
-        for article in articles:
-            _save_article_to_kb(article['title'], article['content'], article.get('category', ''))
-        log_data_source('firecrawl_crawl', {'url': url, 'limit': limit, 'category': category or ''}, saved)
+    if saved_items:
+        log_data_source('firecrawl_crawl', {'url': url, 'limit': limit, 'category': category or ''}, len(saved_items))
         _rebuild_embeddings()
 
     return {
         "status": "success",
         "total_pages": len(articles),
-        "saved": saved,
+        "saved": len(saved_items),
         "source_url": url,
-        "articles": [
-            {"id": a['id'], "title": a['title'], "content_length": len(a['content'])}
-            for a in articles
-        ]
+        "message": f"✓ Crawled {len(articles)} page(s) → {len(saved_items)} Knowledge Base article(s) (long pages split into sections).",
+        "articles": saved_items,
     }
 
 
@@ -358,30 +393,22 @@ def ingest_batch_to_kb(urls: List[str], category: str = None) -> Dict:
     
     articles, errors = batch_scrape(urls, category)
     
-    saved = 0
+    saved_items = []
     for article in articles:
-        success = add_kb_article(
-            article_id=article['id'],
-            title=article['title'],
-            content=article['content'],
-            category=article['category'],
-            keywords=article['keywords']
-        )
-        if success:
-            saved += 1
+        saved_items.extend(_save_page_sectioned(article, article.get('source_url') or ''))
 
-    if saved > 0:
-        for article in articles:
-            _save_article_to_kb(article['title'], article['content'], article.get('category', ''))
-        log_data_source('firecrawl_batch', {'urls': urls[:5], 'category': category or ''}, saved)
+    if saved_items:
+        log_data_source('firecrawl_batch', {'urls': urls[:5], 'category': category or ''}, len(saved_items))
         _rebuild_embeddings()
 
     return {
         "status": "success",
         "total_urls": len(urls),
         "scraped": len(articles),
-        "saved": saved,
-        "errors": errors
+        "saved": len(saved_items),
+        "errors": errors,
+        "message": f"✓ Scraped {len(articles)} of {len(urls)} URL(s) → {len(saved_items)} Knowledge Base article(s) (long pages split into sections).",
+        "articles": saved_items,
     }
 
 

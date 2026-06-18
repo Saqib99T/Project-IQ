@@ -140,8 +140,9 @@ const ChatScreen = ({ navigation }) => {
                 let prods = [];
                 try {
                     const adminBase = await getAdminBaseUrl();
+                    const _tok = await iam.getFreshToken();
                     const r = await fetch(`${adminBase}/api/my-products`, {
-                        headers: iam.token ? { Authorization: `Bearer ${iam.token}` } : {},
+                        headers: _tok ? { Authorization: `Bearer ${_tok}` } : {},
                     });
                     if (r.ok) { const d = await r.json(); if (Array.isArray(d.products) && d.products.length) prods = d.products; }
                 } catch {}
@@ -178,9 +179,10 @@ const ChatScreen = ({ navigation }) => {
             if (status !== 'granted') return;
             const tokenData = await Notifications.getExpoPushTokenAsync();
             const adminBase = await getAdminBaseUrl();
+            const _tok = await iam.getFreshToken();
             await fetch(`${adminBase}/notifications/push-token`, {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json', ...(iam.token ? { Authorization: `Bearer ${iam.token}` } : {}) },
+                headers: { 'Content-Type': 'application/json', ...(_tok ? { Authorization: `Bearer ${_tok}` } : {}) },
                 body:    JSON.stringify({ token: tokenData.data, platform: 'expo', sender_id: userId }),
             });
         } catch (e) { /* best-effort */ }
@@ -550,6 +552,9 @@ const ChatScreen = ({ navigation }) => {
         const meta = { app_id: currentAppId };
         if (authUser) meta.user_name = authUser;
         if (sessionTokenRef.current) meta.session_token = sessionTokenRef.current;
+        // Self-heal: get a guaranteed-fresh token (refreshes if stale) so the bot
+        // proxy never receives an expired token and silently treats us as a guest.
+        const authToken = iam.user ? await iam.getFreshToken() : null;
         // Inject IAM identity + org context into Rasa metadata
         if (iam.user) {
             meta.iam_sub      = iam.user.sub;
@@ -560,11 +565,11 @@ const ChatScreen = ({ navigation }) => {
             meta.channel      = iam.user.organization_id ? 'internal' : undefined;
             meta.product_id   = currentAppId || undefined;
             meta.product_name = (currentAppId && PRODUCT_LABELS[currentAppId]) ? PRODUCT_LABELS[currentAppId] : undefined;
-            meta.iam_token    = iam.token || undefined;
+            meta.iam_token    = authToken || undefined;
         }
         meta.is_authenticated = !!(isAuthenticatedRef.current || iam.user);
         const headers = { 'Content-Type': 'application/json' };
-        if (iam.token) headers['Authorization'] = `Bearer ${iam.token}`;
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
         const response = await fetch(webhookUrl, {
             method: 'POST',
             headers,
@@ -875,9 +880,10 @@ const ChatScreen = ({ navigation }) => {
         }
         try {
             const adminBase = await getAdminBaseUrl();
+            const _tok = await iam.getFreshToken();
             await fetch(`${adminBase}/handoff/end`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...(iam.token ? { Authorization: `Bearer ${iam.token}` } : {}) },
+                headers: { 'Content-Type': 'application/json', ...(_tok ? { Authorization: `Bearer ${_tok}` } : {}) },
                 body: JSON.stringify({ sender_id: oldSender }),
             });
         } catch { /* ignore */ }

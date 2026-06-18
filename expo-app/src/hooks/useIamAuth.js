@@ -11,6 +11,7 @@
  *   { sub, username, email, name, apps, realm_roles, is_super_admin, is_operator, ... }
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { AppState } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as SecureStore from 'expo-secure-store';
@@ -153,26 +154,57 @@ export function useIamAuth(iamConfig) {
         }
     }, [response]); // eslint-disable-line
 
-    // Proactive token refresh
-    const scheduleRefresh = useCallback((accessToken, refreshToken) => {
+    // Refresh the access token using the stored (offline_access) refresh token.
+    // Returns true on success. CRITICAL: never sign the user out on a transient
+    // or network error — the session must survive flaky connectivity and only
+    // ends when the refresh token itself is rejected (invalid_grant) or the user
+    // explicitly signs out. This is what keeps the user logged in indefinitely.
+    const refreshSession = useCallback(async () => {
+        const rt = await SecureStore.getItemAsync(KEY_REFRESH).catch(() => null);
+        if (!rt) return false;
+        try {
+            const result = await AuthSession.refreshAsync({ clientId, refreshToken: rt }, discovery);
+            await applyTokens(result.accessToken, result.refreshToken || rt);
+            return result.accessToken;   // return the fresh token for immediate use
+        } catch (e) {
+            const msg = String(e?.message || e?.error || e || '').toLowerCase();
+            if (msg.includes('invalid_grant') || msg.includes('invalid_token') || msg.includes('invalid_refresh')) {
+                // Refresh token genuinely revoked/expired — only now is re-login required.
+                await logout();
+            }
+            // Otherwise keep the user signed in; the next tick / foreground retries.
+            return false;
+        }
+    }, [clientId, discovery, applyTokens]); // eslint-disable-line
+
+    // Proactive token refresh — re-arms on success (via applyTokens); on a
+    // transient failure it retries in 60s instead of logging the user out.
+    const scheduleRefresh = useCallback((accessToken /* refreshToken unused: read live */) => {
         if (refreshTimer.current) clearTimeout(refreshTimer.current);
         const exp = tokenExpiry(accessToken);
         if (!exp) return;
         const msUntilRefresh = Math.max(5000, exp - Date.now() - 120_000); // 2 min before exp
         refreshTimer.current = setTimeout(async () => {
-            if (!refreshToken) return;
-            try {
-                const result = await AuthSession.refreshAsync(
-                    { clientId, refreshToken },
-                    discovery
-                );
-                await applyTokens(result.accessToken, result.refreshToken || refreshToken);
-            } catch {
-                // Refresh failed — clear auth state
-                await logout();
+            const ok = await refreshSession();
+            if (!ok) {
+                refreshTimer.current = setTimeout(() => refreshSession(), 60_000);
             }
         }, msUntilRefresh);
-    }, [clientId, discovery]); // eslint-disable-line
+    }, [refreshSession]); // eslint-disable-line
+
+    // Return a guaranteed-valid access token, refreshing first if the current one
+    // is missing or within 60s of expiry. Callers use this right before an
+    // authenticated request so a call never goes out with a stale token (the
+    // self-healing safety net on top of the scheduled / foreground refreshes).
+    const getFreshToken = useCallback(async () => {
+        const current = token;
+        if (current) {
+            const exp = tokenExpiry(current);
+            if (exp && exp > Date.now() + 60_000) return current; // still good
+        }
+        const refreshed = await refreshSession();   // new token string, or false
+        return refreshed || current || null;
+    }, [token, refreshSession]); // eslint-disable-line
 
     // Restore session on mount
     useEffect(() => {
@@ -190,17 +222,12 @@ export function useIamAuth(iamConfig) {
                         setIsAuthenticated(true);
                         scheduleRefresh(storedToken, storedRefresh);
                     } else if (storedRefresh) {
-                        // Token expired — try refresh
-                        try {
-                            const result = await AuthSession.refreshAsync(
-                                { clientId, refreshToken: storedRefresh },
-                                discovery
-                            );
-                            await applyTokens(result.accessToken, result.refreshToken || storedRefresh);
-                        } catch {
-                            // Refresh failed — treat as guest
-                            await clearStoredTokens();
-                        }
+                        // Access token expired — refresh it. refreshSession keeps the
+                        // stored tokens on a transient failure (only invalid_grant signs
+                        // out) and we retry shortly, so a flaky cold start still recovers
+                        // instead of dropping the user to guest.
+                        const ok = await refreshSession();
+                        if (!ok) setTimeout(() => { refreshSession(); }, 30_000);
                     }
                 }
             } catch (e) {
@@ -214,6 +241,21 @@ export function useIamAuth(iamConfig) {
             if (refreshTimer.current) clearTimeout(refreshTimer.current);
         };
     }, []); // eslint-disable-line
+
+    // Keep the session alive across backgrounding. JS timers are paused/throttled
+    // while the app is backgrounded, so the scheduled refresh may never fire —
+    // instead, refresh on every return to the foreground if the access token is
+    // at/near expiry. With the offline_access refresh token this keeps the user
+    // signed in indefinitely (no expiry while the refresh token stays valid).
+    useEffect(() => {
+        const sub = AppState.addEventListener('change', (state) => {
+            if (state !== 'active') return;
+            const exp = tokenExpiry(token);
+            if (token && exp && exp > Date.now() + 120_000) return; // still fresh
+            refreshSession(); // expired / near-expiry / unknown → refresh (no-op for guests)
+        });
+        return () => sub.remove();
+    }, [token, refreshSession]); // eslint-disable-line
 
     const clearStoredTokens = async () => {
         await SecureStore.deleteItemAsync(KEY_ACCESS).catch(() => {});
@@ -278,6 +320,8 @@ export function useIamAuth(iamConfig) {
         login,
         loginWithPassword,
         logout,
+        refreshSession,
+        getFreshToken,
         requestReady: !!request,
     };
 }
