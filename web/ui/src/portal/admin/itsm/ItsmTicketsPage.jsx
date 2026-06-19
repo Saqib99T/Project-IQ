@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useItsmApi, useItsmResource, useTenantDirectory } from '../../../shared/itsm/useItsmApi'
 import { useItsmTenant } from '../../../shared/itsm/ItsmTenantContext'
 import { TicketCard, LoadingSpinner, ErrorBanner, EmptyState } from '../../../shared/itsm/primitives'
@@ -8,6 +8,9 @@ const STATUS_FILTERS = ['all', 'open', 'in_progress', 'pending', 'resolved', 'cl
 
 export default function ItsmTicketsPage() {
     const navigate = useNavigate()
+    const location = useLocation()
+    // Route-aware: list renders under /admin/itsm and /operator/tickets.
+    const detailBase = location.pathname.startsWith('/operator') ? '/operator/tickets' : '/admin/itsm/tickets'
     const { tenantId } = useItsmTenant()
     const { get } = useItsmApi(tenantId)
     const tenantNames = useTenantDirectory(tenantId === null)
@@ -78,7 +81,7 @@ export default function ItsmTicketsPage() {
                     : (
                         <div className="space-y-2.5">
                             {tickets.map(t => (
-                                <TicketCard key={t.id} ticket={t} onClick={() => navigate(`/admin/itsm/tickets/${t.id}`)} tenantNames={tenantId === null ? tenantNames : null} />
+                                <TicketCard key={t.id} ticket={t} onClick={() => navigate(`${detailBase}/${t.id}`)} tenantNames={tenantId === null ? tenantNames : null} />
                             ))}
                         </div>
                     )

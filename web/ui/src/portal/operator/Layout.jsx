@@ -196,6 +196,11 @@ export default function OperatorLayout() {
                                 })}
                         </div>
                     </div>
+
+                    {/* ITSM Tickets — operators can view and work tickets */}
+                    <div className="space-y-1">
+                        <GroupHeader to="/operator/tickets" icon="🎫" label="Tickets" count={0} />
+                    </div>
                 </nav>
 
                 {/* User footer */}

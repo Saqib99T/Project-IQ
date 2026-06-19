@@ -8,8 +8,8 @@ import { useItsmApi, useItsmResource, useTenantDirectory, useUserDirectory } fro
 import { useItsmTenant, ItsmTenantScope } from '../../shared/itsm/ItsmTenantContext'
 import { StatusBadge, PriorityBadge, TenantBadge, LoadingSpinner, ErrorBanner } from '../../shared/itsm/primitives'
 import { Button, IconButton, Badge, Breadcrumb, Tabs, useConfirm } from '../../shared/itsm/ui'
-import TicketEditPanel from '../components/TicketEditPanel'
-import CommentsSection from '../components/CommentsSection'
+import TicketEditPanel from '../../shared/itsm/TicketEditPanel'
+import CommentsSection from '../../shared/itsm/CommentsSection'
 import WatchersSection from '../components/WatchersSection'
 import AttachmentsSection from '../components/AttachmentsSection'
 import EscalateModal from '../components/EscalateModal'
@@ -181,8 +181,8 @@ export default function TicketDetailPage() {
                             <div>
                                 <MetaRow label="Type">{(ticket.type || '—').replace(/_/g, ' ')}</MetaRow>
                                 <MetaRow label="Product">{ticket.product_name || '—'}</MetaRow>
-                                <MetaRow label="Requester"><span title={ticket.requester_id}>{resolveUser(ticket.requester_id)}</span></MetaRow>
-                                <MetaRow label="Assignee"><span title={ticket.assignee_id}>{resolveUser(ticket.assignee_id)}</span></MetaRow>
+                                <MetaRow label="Requester"><span title={ticket.requester_id}>{ticket.requester_name || resolveUser(ticket.requester_id)}</span></MetaRow>
+                                <MetaRow label="Assignee"><span title={ticket.assignee_id}>{ticket.assignee_name || resolveUser(ticket.assignee_id)}</span></MetaRow>
                                 <MetaRow label="SLA">
                                     <span className={ticket.sla_breached ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
                                         {ticket.sla_breached ? 'Breached' : 'Within SLA'}

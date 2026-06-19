@@ -9,6 +9,7 @@ import OperatorLayout from './operator/Layout'
 import QueuePage from './operator/QueuePage'
 import SessionsPage from './operator/SessionsPage'
 import SessionView from './operator/SessionView'
+import ItsmTicketsLayout from './operator/ItsmTicketsLayout'
 import AdminLayout from './admin/Layout'
 import OverviewPage from './admin/OverviewPage'
 import AnalyticsPage from './admin/AnalyticsPage'
@@ -59,6 +60,11 @@ export default function App() {
                     <Route path="queue"                    element={<QueuePage />} />
                     <Route path="sessions"                 element={<SessionsPage />} />
                     <Route path="sessions/:conversationId" element={<SessionView />} />
+                    {/* ITSM tickets — operators view/work tickets (reuses the shared ITSM pages) */}
+                    <Route path="tickets" element={<ItsmTicketsLayout />}>
+                        <Route index               element={<ItsmTicketsPage />} />
+                        <Route path=":ticketId"    element={<ItsmTicketDetailPage />} />
+                    </Route>
                 </Route>
 
                 {/* Admin section — Admin or super_admin */}

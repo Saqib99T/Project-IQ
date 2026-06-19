@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useItsmApi, useItsmResource } from '../../shared/itsm/useItsmApi'
-import { ErrorBanner } from '../../shared/itsm/primitives'
+import { useItsmApi, useItsmResource } from './useItsmApi'
+import { ErrorBanner } from './primitives'
 
 const STATUSES = ['open', 'in_progress', 'pending', 'pending_approval', 'approved', 'rejected', 'resolved', 'closed', 'cancelled']
 const PRIORITIES = ['low', 'medium', 'high', 'critical']
@@ -13,6 +13,8 @@ function userLabel(u) {
 /**
  * Inline-editable ticket fields — each select auto-saves via PATCH /tickets/{id}
  * on change. Requires agent-or-above ITSM role on the backend (enforced server-side).
+ *
+ * Shared by the portal (admin + operator) and the standalone itsm-app.
  */
 export default function TicketEditPanel({ ticket, onUpdated }) {
     const { get, patch } = useItsmApi()

@@ -168,10 +168,11 @@ class ActionCheckItsmStatus(Action):
             # prefix the title is stored with.
             clean_title = _re.sub(r'^\[[^\]]*\]\s*', '', title)
 
+            ticket_uuid = ticket_data.get("id")
+
             # Collect attachments (structured for the widget + text fallback).
             attach_list = []
             try:
-                ticket_uuid = ticket_data.get("id")
                 _ta = _time.monotonic()
                 attachments = await itsm_service._get_list(
                     jwt, f"/api/v1/tickets/{ticket_uuid}/attachments"
@@ -186,6 +187,25 @@ class ActionCheckItsmStatus(Action):
             except Exception as att_err:
                 logger.warning("[CheckStatus] Could not fetch attachments: %s", att_err)
 
+            # Public comments shown to the user. itsm-service filters internal
+            # (agent-only) notes out for the end user's token, so we only ever
+            # receive user-visible comments here. Most recent 5, oldest→newest.
+            comment_list = []
+            try:
+                _tc = _time.monotonic()
+                comments = await itsm_service._get_list(
+                    jwt, f"/api/v1/tickets/{ticket_uuid}/comments"
+                )
+                logger.info("[STATUS TIMING] comments=%.2fs", _time.monotonic() - _tc)
+                for c in (comments or [])[-5:]:
+                    comment_list.append({
+                        "author": c.get("author_name") or "Support",
+                        "date":   (c.get("created_at") or "")[:16].replace("T", " "),
+                        "body":   (c.get("body") or "").strip(),
+                    })
+            except Exception as cmt_err:
+                logger.warning("[CheckStatus] Could not fetch comments: %s", cmt_err)
+
             # Text fallback (mobile / non-structured clients): status + priority on
             # the header line, [product] prefix stripped, no Property/Value table.
             message  = f"**Ticket {ticket_ref}: {current_status}"
@@ -195,6 +215,11 @@ class ActionCheckItsmStatus(Action):
             message += f"**Title:** {clean_title}\n\n"
             if product_name:
                 message += f"**Product:** {product_name}\n\n"
+            if comment_list:
+                message += "**💬 Comments:**\n\n"
+                for c in comment_list:
+                    hdr = c["author"] + (f" · {c['date']}" if c["date"] else "")
+                    message += f"_{hdr}_\n{c['body']}\n\n"
             message += f"**Created:** {created_at}\n\n**Updated:** {updated_at}\n"
             if attach_list:
                 message += "\n\n**📎 Attachments:**\n\n"
@@ -214,6 +239,7 @@ class ActionCheckItsmStatus(Action):
                     "priority":    priority,
                     "title":       clean_title,
                     "product":     product_name,
+                    "comments":    comment_list,
                     "created":     created_at,
                     "updated":     updated_at,
                     "attachments": attach_list,

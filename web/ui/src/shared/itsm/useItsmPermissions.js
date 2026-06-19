@@ -37,7 +37,11 @@ export function useItsmPermissions() {
         const isAdmin = iamAdmin || has(ITSM_ADMIN_ROLES)
         const isManager = isAdmin || has(ITSM_MANAGER_ROLES)
         const isTeamLead = isManager || has(ITSM_TEAMLEAD_ROLES)
-        const isAgent = isTeamLead || has(ITSM_AGENT_ROLES)
+        // IAM `Operator` (chat-handoff agents) maps to ITSM `agent` server-side,
+        // so they get agent-tier UX (view/edit tickets, comment) — but NOT
+        // manager/admin capabilities. The backend remains the real authority.
+        const iamAgent = all.includes('Operator')
+        const isAgent = isTeamLead || iamAgent || has(ITSM_AGENT_ROLES)
         // Platform (99T) staff — the only actors allowed to author cross-tenant
         // (global / product) KB content. Mirrors the backend tier=="platform"
         // gate; the backend remains the real authority.

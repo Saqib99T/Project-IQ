@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useIam } from '../../widget/hooks/useIam'
-import { useItsmApi, useItsmResource } from '../../shared/itsm/useItsmApi'
-import { useItsmPermissions } from '../../shared/itsm/useItsmPermissions'
-import { LoadingSpinner, ErrorBanner, EmptyState } from '../../shared/itsm/primitives'
-import { useConfirm } from '../../shared/itsm/ui'
+import { useItsmApi, useItsmResource } from './useItsmApi'
+import { useItsmPermissions } from './useItsmPermissions'
+import { LoadingSpinner, ErrorBanner, EmptyState } from './primitives'
+import { useConfirm } from './ui'
 
 function formatDate(iso) {
     if (!iso) return '—'
@@ -44,7 +44,8 @@ function CommentItem({ comment, canEdit, onSaved, onDeleted }) {
         }`}>
             <div className="flex items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-slate-400 dark:text-slate-500">{comment.author_id}</span>
+                    {/* Prefer the resolved name from itsm-service; fall back to the id */}
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{comment.author_name || comment.author_id}</span>
                     {comment.is_internal && <span className="badge bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400">Internal note</span>}
                 </div>
                 <span className="text-xs text-slate-400 dark:text-slate-500">{formatDate(comment.created_at)}</span>
@@ -75,6 +76,11 @@ function CommentItem({ comment, canEdit, onSaved, onDeleted }) {
     )
 }
 
+/**
+ * Ticket comments — lists comments and posts new ones. Agents (incl. operators)
+ * may post internal notes; the backend enforces the real authorization and the
+ * internal/public visibility filter. Shared by the portal and the itsm-app.
+ */
 export default function CommentsSection({ ticketId }) {
     const { user } = useIam()
     const { isAgent } = useItsmPermissions()

@@ -267,6 +267,22 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                             <div className="flex flex-col gap-1.5" style={{ fontSize: 13 }}>
                                                 <div className="flex gap-2"><span style={labelStyle}>Title</span><span style={valStyle}>{t.title}</span></div>
                                                 {t.product && <div className="flex gap-2"><span style={labelStyle}>Product</span><span style={valStyle}>{t.product}</span></div>}
+                                                {/* Public comments, shown before the created date per requirement */}
+                                                {(t.comments || []).length > 0 && (
+                                                    <div className="mt-1">
+                                                        <p style={{ ...labelStyle, marginBottom: 4 }}>💬 Comments</p>
+                                                        <div className="flex flex-col gap-2">
+                                                            {t.comments.map((c, i) => (
+                                                                <div key={i} style={{ borderLeft: `2px solid ${isDark ? '#2e3a4e' : '#e5e7eb'}`, paddingLeft: 8 }}>
+                                                                    <div style={{ fontSize: 11, fontWeight: 600, color: isDark ? '#9ca3af' : '#6b7280' }}>
+                                                                        {c.author}{c.date ? ` · ${c.date}` : ''}
+                                                                    </div>
+                                                                    <div style={{ ...valStyle, whiteSpace: 'pre-wrap' }}>{c.body}</div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 {t.created && <div className="flex gap-2"><span style={labelStyle}>Created</span><span style={valStyle}>{t.created}</span></div>}
                                                 {t.updated && <div className="flex gap-2"><span style={labelStyle}>Updated</span><span style={valStyle}>{t.updated}</span></div>}
                                             </div>
