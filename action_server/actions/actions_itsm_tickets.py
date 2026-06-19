@@ -15,7 +15,7 @@ from action_server.actions._shared import (
     get_analytics_context, get_effective_session_token,
     check_user_login, itsm_service, logger,
     get_iam_identity, is_iam_authenticated, require_iam_auth,
-    get_org_context, get_iam_jwt,
+    get_org_context, get_iam_jwt, bind_request_id,
 )
 from action_server.actions.itsm_service import (
     ITSM_STATUS_DISPLAY, LABEL_TO_ITSM_STATUS, URGENCY_TO_PRIORITY,
@@ -38,7 +38,7 @@ class ActionCreateItsmTicket(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
+        bind_request_id(tracker)
         jwt = get_iam_jwt(tracker)
         if not jwt:
             if not await check_user_login(tracker, dispatcher):
@@ -78,6 +78,15 @@ class ActionCreateItsmTicket(Action):
         full_title   = f"{title_prefix}{ticket_title}"
         description  = ticket_content or ticket_title or ""
 
+        # itsm-service requires description >= 10 chars. Catch it here with a clear
+        # message instead of letting the API return a cryptic 422 → generic failure.
+        if len(description.strip()) < 10:
+            msg = ("⚠️ Please describe the issue in a bit more detail "
+                   "(at least 10 characters) so I can create the ticket.")
+            dispatcher.utter_message(text=msg)
+            log_bot_response(tracker, msg)
+            return [SlotSet("ticket_content", None)]
+
         ticket = await itsm_service.create_ticket(
             jwt, full_title, description, priority=priority,
             product_slug=product_slug, product_name=product_name,
@@ -97,9 +106,9 @@ class ActionCreateItsmTicket(Action):
             dispatcher.utter_message(
                 text=response_text,
                 buttons=[
-                    {"title": "🔍 Check its status", "payload": "/check_status"},
-                    {"title": "📋 List my tickets", "payload": "/list_tickets"},
-                    {"title": "🎫 Create another", "payload": "/create_ticket"},
+                    {"title": "🔍 Check Status", "payload": "/check_status"},
+                    {"title": "📋 List", "payload": "/list_tickets"},
+                    {"title": "🎫 New ticket", "payload": "/create_ticket"},
                 ]
             )
             log_bot_response(tracker, response_text)
@@ -127,7 +136,7 @@ class ActionCheckItsmStatus(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
+        bind_request_id(tracker)
         jwt = get_iam_jwt(tracker)
         if not jwt:
             if not await check_user_login(tracker, dispatcher):
@@ -154,18 +163,13 @@ class ActionCheckItsmStatus(Action):
             product_name = ticket_data.get("product_name") or ""
             ticket_ref   = ticket_data.get("ticket_number") or ticket_id_slot
 
-            message  = f"**Ticket Details: {ticket_ref}**\n\n"
-            message += "| Property | Value |\n"
-            message += "| :--- | :--- |\n"
-            message += f"| **Status** | {current_status} |\n"
-            message += f"| **Priority** | {priority} |\n"
-            message += f"| **Title** | {title} |\n"
-            if product_name:
-                message += f"| **Product** | {product_name} |\n"
-            message += f"| **Created** | {created_at} |\n"
-            message += f"| **Updated** | {updated_at} |\n"
+            import re as _re
+            # The product is shown in its own field, so strip the "[product]"
+            # prefix the title is stored with.
+            clean_title = _re.sub(r'^\[[^\]]*\]\s*', '', title)
 
-            # Attachments
+            # Collect attachments (structured for the widget + text fallback).
+            attach_list = []
             try:
                 ticket_uuid = ticket_data.get("id")
                 _ta = _time.monotonic()
@@ -173,28 +177,51 @@ class ActionCheckItsmStatus(Action):
                     jwt, f"/api/v1/tickets/{ticket_uuid}/attachments"
                 )
                 logger.info("[STATUS TIMING] attachments=%.2fs", _time.monotonic() - _ta)
-                if attachments:
-                    message += "\n\n**📎 Attachments:**\n\n"
-                    for att in attachments:
-                        fname = att.get("filename", "File")
-                        url   = att.get("download_url")
-                        mime  = att.get("mime_type", "") or ""
-                        if url and mime.startswith("image/"):
-                            # Inline image → rendered as a clickable thumbnail by the widget
-                            message += f"![{fname}]({url})\n"
-                        elif url:
-                            message += f"- [{fname}]({url})\n"
-                        else:
-                            message += f"- {fname}\n"
+                for att in (attachments or []):
+                    attach_list.append({
+                        "filename": att.get("filename", "File"),
+                        "url":      att.get("download_url"),
+                        "mime":     att.get("mime_type", "") or "",
+                    })
             except Exception as att_err:
                 logger.warning("[CheckStatus] Could not fetch attachments: %s", att_err)
 
+            # Text fallback (mobile / non-structured clients): status + priority on
+            # the header line, [product] prefix stripped, no Property/Value table.
+            message  = f"**Ticket {ticket_ref}: {current_status}"
+            if priority:
+                message += f" · {priority}"
+            message += "**\n\n"
+            message += f"**Title:** {clean_title}\n\n"
+            if product_name:
+                message += f"**Product:** {product_name}\n\n"
+            message += f"**Created:** {created_at}\n\n**Updated:** {updated_at}\n"
+            if attach_list:
+                message += "\n\n**📎 Attachments:**\n\n"
+                for a in attach_list:
+                    if a["url"] and a["mime"].startswith("image/"):
+                        message += f"![{a['filename']}]({a['url']})\n"
+                    elif a["url"]:
+                        message += f"- [{a['filename']}]({a['url']})\n"
+                    else:
+                        message += f"- {a['filename']}\n"
+
             dispatcher.utter_message(
                 text=message,
+                json_message={"ticket_detail": {
+                    "ref":         str(ticket_ref),
+                    "status":      current_status,
+                    "priority":    priority,
+                    "title":       clean_title,
+                    "product":     product_name,
+                    "created":     created_at,
+                    "updated":     updated_at,
+                    "attachments": attach_list,
+                }},
                 buttons=[
-                    {"title": "📝 Update this ticket", "payload": "/update_ticket"},
-                    {"title": "✅ Close ticket", "payload": "/verify_resolution"},
-                    {"title": "📋 List all tickets", "payload": "/list_tickets"},
+                    {"title": "📝 Update", "payload": "/update_ticket"},
+                    {"title": "✅ Close", "payload": "/verify_resolution"},
+                    {"title": "📋 List", "payload": "/list_tickets"},
                 ]
             )
             log_bot_response(tracker, message)
@@ -216,7 +243,7 @@ class ActionUpdateItsmTicket(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
+        bind_request_id(tracker)
         jwt = get_iam_jwt(tracker)
         if not jwt:
             if not await check_user_login(tracker, dispatcher):
@@ -290,7 +317,7 @@ class ActionVerifyItsmResolution(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
+        bind_request_id(tracker)
         jwt = get_iam_jwt(tracker)
         if not jwt:
             dispatcher.utter_message(text="Session is not active.")
@@ -346,7 +373,7 @@ class ActionDeactivateForm(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+        bind_request_id(tracker)
         return [
             ActiveLoop(None),
             SlotSet("ticket_title", None), 
@@ -366,7 +393,7 @@ class ActionViewTicketComments(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
+        bind_request_id(tracker)
         jwt = get_iam_jwt(tracker)
         if not jwt:
             if not await check_user_login(tracker, dispatcher):
@@ -406,7 +433,7 @@ class ActionListOpenTickets(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
+        bind_request_id(tracker)
         jwt = get_iam_jwt(tracker)
         if not jwt:
             if not await check_user_login(tracker, dispatcher):
@@ -418,13 +445,29 @@ class ActionListOpenTickets(Action):
         user_text  = latest_msg.get("text", "").lower() if isinstance(latest_msg, dict) else ""
         show_history = any(w in user_text for w in ["all", "history", "closed", "past", "old", "every"])
 
-        # Check for status filter from button payloads (e.g. /list_tickets{"status_id": 5})
+        # Read filter params from the /list_tickets{...} payload. Rasa's REST
+        # payload parser does NOT reliably surface these as NLU entities (verified:
+        # parse returns []), so parse the JSON object out of the message text
+        # directly, falling back to any entities Rasa did extract.
+        import json as _json
+        entities = latest_msg.get("entities", []) if isinstance(latest_msg, dict) else []
+        raw_text = latest_msg.get("text", "") if isinstance(latest_msg, dict) else ""
+        params = {}
+        _brace = raw_text.find("{")
+        if _brace != -1:
+            try:
+                params = _json.loads(raw_text[_brace:])
+            except Exception:
+                params = {}
+        for e in entities:
+            if e.get("entity") and e.get("entity") not in params and e.get("value") is not None:
+                params[e["entity"]] = e["value"]
+
         itsm_status_filter = None
         status_name        = None
-        entities = latest_msg.get("entities", []) if isinstance(latest_msg, dict) else []
-        for e in entities:
-            if e.get("entity") == "status_id":
-                itsm_sid = int(e["value"])
+        if params.get("status_id") is not None:
+            try:
+                itsm_sid = int(params["status_id"])
                 # Map ITSM status id → itsm status string
                 _itsm_to_itsm = {
                     1: "open", 2: "in_progress", 3: "in_progress",
@@ -432,7 +475,16 @@ class ActionListOpenTickets(Action):
                 }
                 itsm_status_filter = _itsm_to_itsm.get(itsm_sid)
                 status_name = ITSM_STATUS_DISPLAY.get(itsm_status_filter, "")
-                break
+            except (ValueError, TypeError):
+                pass
+
+        # Record limit from the filter popup (e.g. /list_tickets{"limit": 5}).
+        record_limit = 15  # default cap when not specified
+        if params.get("limit") is not None:
+            try:
+                record_limit = max(1, int(params["limit"]))
+            except (ValueError, TypeError):
+                pass
 
         if itsm_status_filter:
             tickets = await itsm_service.list_tickets_by_status(jwt, [itsm_status_filter])
@@ -455,7 +507,7 @@ class ActionListOpenTickets(Action):
         #   col 1: ticket no (+ date below)   col 2: title (+ product below)   col 3: status
         # product_name is null when the ticket has no product → shown blank.
         rows = []
-        for t in tickets[:15]:
+        for t in tickets[:record_limit]:
             title = (t.get("title") or "No Title")
             # Drop a leading "[context]" prefix — product is its own column now.
             title = re.sub(r"^\[[^\]]*\]\s*", "", title)
@@ -472,8 +524,8 @@ class ActionListOpenTickets(Action):
             json_message={"ticket_list": {"title": context_title, "rows": rows}},
             buttons=[
                 {"title": "📊 View Graph", "payload": "/show_ticket_graph"},
-                {"title": "🔍 Check ticket status", "payload": "/check_status"},
-                {"title": "🎫 Create new ticket", "payload": "/create_ticket"},
+                {"title": "🔍 Check Status", "payload": "/check_status"},
+                {"title": "🎫 New ticket", "payload": "/create_ticket"},
             ]
         )
         return []
@@ -486,6 +538,7 @@ class ActionUploadFile(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
+        bind_request_id(tracker)
         # File uploads go via the web UI presigned-URL flow, not through chat.
         dispatcher.utter_message(
             text="📎 To attach a file, use the paperclip icon in the ticket detail view."
@@ -500,7 +553,7 @@ class ActionListAttachments(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
+        bind_request_id(tracker)
         jwt = get_iam_jwt(tracker)
         if not jwt:
             if not await check_user_login(tracker, dispatcher):
@@ -547,7 +600,7 @@ class ActionShowTicketGraph(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
+        bind_request_id(tracker)
         jwt = get_iam_jwt(tracker)
         if not jwt:
             dispatcher.utter_message(text="❌ Please sign in first to view your ticket graph.")
@@ -632,7 +685,7 @@ class ActionCreateTicketFromForm(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
+        bind_request_id(tracker)
         jwt = get_iam_jwt(tracker)
         if not jwt:
             dispatcher.utter_message(text="Session is not active. Please sign in and try again.")

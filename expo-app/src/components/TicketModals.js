@@ -145,6 +145,7 @@ export const TicketFormModal = ({ visible, onClose, onSubmit, prefill = {}, apiB
         category: prefill.category || 'Hardware',
     });
     const [error, setError] = useState('');
+    const [detailError, setDetailError] = useState('');
     const [showConfirm, setShowConfirm] = useState(false);
     const [attachment, setAttachment] = useState(null); // { doc_id, name } after upload
     const [uploading, setUploading] = useState(false);
@@ -157,6 +158,7 @@ export const TicketFormModal = ({ visible, onClose, onSubmit, prefill = {}, apiB
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
         if (field === 'title' && value.trim()) setError('');
+        if (field === 'detail') setDetailError('');
     };
 
     const MAX_BYTES = 1 * 1024 * 1024; // 1 MB
@@ -249,8 +251,19 @@ export const TicketFormModal = ({ visible, onClose, onSubmit, prefill = {}, apiB
     };
 
     const handleInitialSubmit = () => {
+        setDetailError('');
         if (!formData.title.trim()) {
             setError('Title is required');
+            return;
+        }
+        // Description (= Detail, else Title) must be >= 10 chars (itsm-service rule).
+        const desc = formData.detail.trim() || formData.title.trim();
+        if (desc.length < 10) {
+            if (formData.detail.trim()) {
+                setDetailError('Please add a bit more detail — at least 10 characters.');
+            } else {
+                setError('Please make the title more descriptive (at least 10 characters), or add a Detail.');
+            }
             return;
         }
         setShowConfirm(true);
@@ -320,12 +333,13 @@ export const TicketFormModal = ({ visible, onClose, onSubmit, prefill = {}, apiB
 
                                 <Text style={[styles.label, { marginTop: 12 }]}>Detail</Text>
                                 <TextInput
-                                    style={[styles.textInput, { height: 75, textAlignVertical: 'top' }]}
+                                    style={[styles.textInput, { height: 75, textAlignVertical: 'top' }, detailError ? { borderColor: '#ef4444' } : null]}
                                     value={formData.detail}
                                     onChangeText={(val) => handleChange('detail', val)}
                                     placeholder="Describe the issue in detail..."
                                     multiline
                                 />
+                                {detailError ? <Text style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{detailError}</Text> : null}
 
                                 <View style={{ marginTop: 16 }}>
                                     <CustomSelect 

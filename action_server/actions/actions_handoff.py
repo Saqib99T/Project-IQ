@@ -16,7 +16,7 @@ from action_server.actions._shared import (
     check_user_login, logger,
     _call_admin_api, _get_handoff_runtime_cfg,
     get_iam_identity, is_iam_authenticated, require_iam_auth,
-    get_org_context,
+    get_org_context, bind_request_id,
 )
 
 
@@ -30,7 +30,7 @@ class ActionRequestHandoff(Action):
 
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
-
+        bind_request_id(tracker)
         # Require IAM authentication or legacy ITSM session for handoff
         iam = get_iam_identity(tracker)
         if not iam["sub"] and not get_effective_session_token(tracker):
@@ -85,7 +85,7 @@ class ActionConfirmHandoff(Action):
 
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
-
+        bind_request_id(tracker)
         sender_id = tracker.sender_id
         metadata = tracker.latest_message.get('metadata') or {}
         app_id = (metadata.get('app_id') or tracker.get_slot('app_id') or 'IT').strip()
@@ -169,7 +169,7 @@ class ActionCancelHandoff(Action):
 
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
-
+        bind_request_id(tracker)
         dispatcher.utter_message(response='utter_handoff_cancelled')
         return [
             SlotSet('handoff_state', 'bot_active'),
@@ -192,7 +192,7 @@ class ActionResumeFromHandoff(Action):
 
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
-
+        bind_request_id(tracker)
         operator_name = tracker.get_slot('assigned_operator_name') or 'The agent'
         dispatcher.utter_message(
             response='utter_handoff_resolved_return',

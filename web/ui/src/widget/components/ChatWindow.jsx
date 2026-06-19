@@ -211,6 +211,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
 
     // ── Centralised metadata builder ──────────────────────────────────────────
     const buildMetadata = useCallback((extra = {}) => ({
+        // Per-turn correlation id — threaded through Admin API → Rasa → actions →
+        // itsm so one turn can be traced across services. Sent in metadata (not a
+        // header) to avoid a CORS preflight on the cross-origin widget embed.
+        request_id:       uuidv4().replace(/-/g, '').slice(0, 8),
         app_id:           selectedProductId || appId,
         product_id:       selectedProductId || appId || undefined,
         product_name:     selectedProductId ? productLabel(selectedProductId) : undefined,
@@ -388,6 +392,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const sessionEndedRef = useRef(false);
     const inactivityIntervalRef = useRef(null);
     const [showTicketFilterPopup, setShowTicketFilterPopup] = useState(false);
+    const [filterLimit, setFilterLimit] = useState(5); // No. of records to fetch on filter
     const [showTicketIdPopup, setShowTicketIdPopup] = useState(false);
     const [ticketIdInput, setTicketIdInput] = useState('');
     const [inputText, setInputText] = useState('');
@@ -424,6 +429,11 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     const userTypingTimer = useRef(null);
     const isUserTypingRef = useRef(false);
     const handoffStateRef = useRef('bot_active');
+    // Watermark of the most recent operator message already shown (ISO string).
+    // Used to back-fill any operator messages missed while the socket was asleep
+    // (background tab) without re-adding ones we already have. The DB is the
+    // source of truth; the socket is just a fast path.
+    const lastOpTsRef     = useRef(null);
 
     // Hooks — socket and history logic extracted for maintainability.
     // TODO: replace the inline useEffect/handlers below with these hooks once tested.
@@ -436,6 +446,41 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
 
     // Keep handoffStateRef in sync so inactivity timeout can read current state
     useEffect(() => { handoffStateRef.current = handoffState; }, [handoffState]);
+
+    // Initialise the operator-message watermark once from any persisted messages,
+    // so the first back-fill won't re-add operator messages we already restored.
+    useEffect(() => {
+        const times = messages
+            .filter(m => m.sender === 'operator' && m.timestamp)
+            .map(m => new Date(m.timestamp).getTime())
+            .filter(t => !Number.isNaN(t));
+        if (times.length) lastOpTsRef.current = new Date(Math.max(...times)).toISOString();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Back-fill operator messages from the DB (source of truth) that we missed
+    // while the socket was asleep. Appends only ones newer than the watermark, so
+    // it's safe to call on every (re)connect and tab focus.
+    const backfillOperatorMessages = useCallback(async () => {
+        if (!senderId) return;
+        try {
+            const res  = await fetch(`${ADMIN_API_URL}/api/user/conversation/${encodeURIComponent(senderId)}/messages`);
+            const data = await res.json();
+            if (!data?.success || !Array.isArray(data.data)) return;
+            const watermark = lastOpTsRef.current ? new Date(lastOpTsRef.current).getTime() : 0;
+            const fresh = data.data.filter(m =>
+                m.sender === 'operator' && m.text &&
+                m.timestamp && new Date(m.timestamp).getTime() > watermark
+            );
+            if (!fresh.length) return;
+            const maxTs = Math.max(...fresh.map(m => new Date(m.timestamp).getTime()));
+            lastOpTsRef.current = new Date(maxTs).toISOString();
+            setMessages(prev => [
+                ...prev,
+                ...fresh.map(m => ({ id: uuidv4(), sender: 'operator', text: m.text, timestamp: m.timestamp })),
+            ]);
+        } catch { /* non-fatal — socket will catch up, or next focus retries */ }
+    }, [senderId]);
 
     // Notify backend when user ends session during an active handoff
     const emitUserEndSession = useCallback(() => {
@@ -520,6 +565,9 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         socket.on('connect', () => {
             socket.emit('join_user', { sender_id: senderId });
 
+            // Pull any operator messages we missed while disconnected.
+            backfillOperatorMessages();
+
             // Restore handoff state after reconnect / page refresh
             fetch(`${ADMIN_API_URL}/handoff/status/${encodeURIComponent(senderId)}`)
                 .then(r => r.json())
@@ -571,6 +619,11 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         socket.on('operator_message', (d) => {
             // Ignore if this message is not for this conversation
             if (d.sender_id && d.sender_id !== senderId) return;
+            // Dedup against back-fill: skip anything at/older than the watermark
+            // (back-fill may have already appended this exact message).
+            const ts = d.timestamp ? new Date(d.timestamp).getTime() : 0;
+            if (ts && lastOpTsRef.current && ts <= new Date(lastOpTsRef.current).getTime()) return;
+            if (ts) lastOpTsRef.current = d.timestamp;
             setMessages(prev => [...prev, {
                 id: uuidv4(),
                 sender: 'operator',
@@ -648,6 +701,29 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             socket.disconnect();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [senderId]);
+
+    // Self-heal a stale/zombie socket. A tab left open a long time can lose its
+    // ping/pong (e.g. dropped by a firewall) and end up "connected" client-side
+    // while the server no longer has it in any room — every operator_message
+    // then lands in an empty room (members=0) and is silently lost. When the tab
+    // regains focus/visibility, reconnect if needed and re-join the user room.
+    useEffect(() => {
+        const rejoin = () => {
+            const s = socketRef.current;
+            if (!s) return;
+            if (!s.connected) { try { s.connect(); } catch { /* noop */ } }
+            try { s.emit('join_user', { sender_id: senderId }); } catch { /* noop */ }
+            // Pull anything that arrived while this tab was backgrounded/asleep.
+            backfillOperatorMessages();
+        };
+        const onVisible = () => { if (document.visibilityState === 'visible') rejoin(); };
+        document.addEventListener('visibilitychange', onVisible);
+        window.addEventListener('focus', rejoin);
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible);
+            window.removeEventListener('focus', rejoin);
+        };
     }, [senderId]);
 
     // Inactivity timer — runs while chat is open and session is active
@@ -898,10 +974,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
 
     // Guard Rails: Input Validation
     const validateInput = (message) => {
-        // Block profanity (basic list - expand as needed)
-        const profanityList = ['damn', 'hell', 'crap', 'stupid', 'idiot'];
-        const lowerMessage = message.toLowerCase();
-        if (profanityList.some(word => lowerMessage.includes(word))) {
+        // Block profanity — whole words only (\b…\b) so legitimate words that merely
+        // contain these substrings (e.g. "hello" → "hell", "scrap" → "crap") are NOT flagged.
+        const profanityRe = /\b(damn|hell|crap|stupid|idiot)\b/i;
+        if (profanityRe.test(message)) {
             return { valid: false, error: "Please keep the conversation professional." };
         }
 
@@ -973,7 +1049,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
 
     const handleTicketFilterSubmit = (statusId) => {
         setShowTicketFilterPopup(false);
-        const payload = `/list_tickets{"status_id": ${statusId}}`; // Just numbers, no quotes for int
+        // Include the chosen record limit so the action fetches only that many.
+        const payload = `/list_tickets{"status_id": ${statusId}, "limit": ${filterLimit}}`;
         handleButtonClick(payload); // Recursive call but now it acts as manual send
     };
 
@@ -1077,7 +1154,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             chart: msg.chart || msg.custom?.chart,
                             video: msg.custom?.video,
                             ticket_form: msg.custom?.ticket_form,
-                            ticketList: msg.custom?.ticket_list
+                            ticketList: msg.custom?.ticket_list,
+                            ticketDetail: msg.custom?.ticket_detail
                         };
                         processedMessages.push(lastTextMessage);
                     } else if (msg.custom?.chart && lastTextMessage) {
@@ -1126,6 +1204,18 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             sender: 'bot',
                             text: '',
                             ticketList: msg.custom.ticket_list
+                        });
+                    } else if (msg.custom?.ticket_detail && lastTextMessage) {
+                        // Rasa splits text + json_message into two items; attach the
+                        // detail to the preceding text bubble (which then renders the
+                        // structured badges and suppresses its own markdown text).
+                        lastTextMessage.ticketDetail = msg.custom.ticket_detail;
+                    } else if (msg.custom?.ticket_detail) {
+                        processedMessages.push({
+                            id: uuidv4(),
+                            sender: 'bot',
+                            text: '',
+                            ticketDetail: msg.custom.ticket_detail
                         });
                     }
                 }
@@ -1234,7 +1324,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             chart: msg.chart || msg.custom?.chart,
                             video: msg.custom?.video,
                             ticket_form: msg.custom?.ticket_form,
-                            ticketList: msg.custom?.ticket_list
+                            ticketList: msg.custom?.ticket_list,
+                            ticketDetail: msg.custom?.ticket_detail
                         };
                         processedMessages.push(lastTextMessage);
                     } else if (msg.custom?.chart && lastTextMessage) {
@@ -1276,6 +1367,18 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             sender: 'bot',
                             text: '',
                             ticketList: msg.custom.ticket_list
+                        });
+                    } else if (msg.custom?.ticket_detail && lastTextMessage) {
+                        // Rasa splits text + json_message into two items; attach the
+                        // detail to the preceding text bubble (which then renders the
+                        // structured badges and suppresses its own markdown text).
+                        lastTextMessage.ticketDetail = msg.custom.ticket_detail;
+                    } else if (msg.custom?.ticket_detail) {
+                        processedMessages.push({
+                            id: uuidv4(),
+                            sender: 'bot',
+                            text: '',
+                            ticketDetail: msg.custom.ticket_detail
                         });
                     } else if (msg.image) {
                         processedMessages.push({
@@ -1702,6 +1805,18 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                             >
                                                 <XCircle size={20} />
                                             </button>
+                                        </div>
+
+                                        <div className="px-4 pt-4 flex items-center justify-between gap-2">
+                                            <label className="text-sm font-medium text-gray-700">No. of records</label>
+                                            <select
+                                                value={filterLimit}
+                                                onChange={(e) => setFilterLimit(Number(e.target.value))}
+                                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1"
+                                                style={{ '--tw-ring-color': primaryColor }}
+                                            >
+                                                {[2, 5, 10].map(n => <option key={n} value={n}>{n}</option>)}
+                                            </select>
                                         </div>
 
                                         <div className="p-4 grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">

@@ -12,12 +12,15 @@ import hashlib
 import json
 import time
 import asyncio
+import logging
 from typing import Optional
 from functools import wraps
 
 from flask import request, jsonify
 
 import web.api.shared as _s
+
+logger = logging.getLogger(__name__)
 from web.api.shared import (
     require_operator_token,
     jwt_encode, jwt_decode,
@@ -572,7 +575,7 @@ def internal_queue_enqueue():
                 'queued_at':          queued_at_str,
             }, room='queue_overview')
             emit_queue_overview()
-            print(f"[SIO enqueue] Emitted new_queue_item to queue_overview (queue_id={entry['id']}, pos={pos})")
+            logger.debug(f"[SIO enqueue] Emitted new_queue_item to queue_overview (queue_id={entry['id']}, pos={pos})")
             emit_to_user(sender_id, 'handoff_queued', {
                 'conversation_id':    conversation_id,
                 'queue_position':     pos,
@@ -580,7 +583,7 @@ def internal_queue_enqueue():
             })
         except Exception as _nqe:
             import traceback
-            print(f"[SIO enqueue] notify error (non-fatal): {_nqe}")
+            logger.warning(f"[SIO enqueue] notify error (non-fatal): {_nqe}")
             traceback.print_exc()
 
         return jsonify({
@@ -718,7 +721,7 @@ def operator_claim(**kwargs):
                         ),
                     })
             except Exception as _ce:
-                print(f"[SIO claim] notify user error (non-fatal): {_ce}")
+                logger.warning(f"[SIO claim] notify user error (non-fatal): {_ce}")
 
             _s.sio.emit('queue_item_updated', {
                 'queue_id':    row['id'],
@@ -822,7 +825,7 @@ def operator_resolve(**kwargs):
                             'request_feedback': True,
                         })
             except Exception as _re:
-                print(f"[SIO resolve] notify user error (non-fatal): {_re}")
+                logger.warning(f"[SIO resolve] notify user error (non-fatal): {_re}")
 
             _s.sio.emit('queue_item_removed', {'queue_id': queue_id, 'status': 'resolved'},
                         room='queue_overview')
@@ -896,7 +899,7 @@ def operator_release(**kwargs):
                         'message': "⏳ The agent returned your chat to the queue. You'll be connected to the next available agent.",
                     })
             except Exception as _rle:
-                print(f"[SIO release] notify user error (non-fatal): {_rle}")
+                logger.warning(f"[SIO release] notify user error (non-fatal): {_rle}")
 
             _s.sio.emit('queue_item_updated', {'queue_id': queue_id, 'status': 'waiting'},
                         room='queue_overview')
@@ -1038,6 +1041,7 @@ def operator_send_message(**kwargs):
             )
             q = cursor.fetchone()
             if not q:
+                logger.warning(f"[OP SEND 403] no assigned row: conversation_id={conversation_id} operator_id={op_id}")
                 return jsonify({'error': 'Not assigned to this conversation'}), 403
 
             cursor.execute(
@@ -1047,14 +1051,18 @@ def operator_send_message(**kwargs):
                 (conversation_id, q['id'], op_id, text)
             )
             msg_id = cursor.fetchone()['id']
+            # One timestamp for BOTH the DB row and the socket payload, so the
+            # widget can dedup a message that arrives via socket vs. via backfill
+            # (a mismatched now() would make the same message look like two).
+            _msg_ts = _dt.now()
             cursor.execute(
                 "INSERT INTO messages (conversation_id, sender, text, timestamp) "
                 "VALUES (%s, 'operator', %s, %s)",
-                (conversation_id, text, _dt.now())
+                (conversation_id, text, _msg_ts)
             )
             cursor.execute(
                 "UPDATE conversations SET last_activity = %s WHERE id = %s",
-                (_dt.now(), conversation_id)
+                (_msg_ts, conversation_id)
             )
             cursor.execute(
                 "SELECT sender_id FROM conversations WHERE id = %s", (conversation_id,)
@@ -1071,7 +1079,7 @@ def operator_send_message(**kwargs):
                 'message_id':      msg_id,
                 'sender_id':       _om_cr['sender_id'],
                 'text':            text,
-                'timestamp':       _dt.now().isoformat(),
+                'timestamp':       _msg_ts.isoformat(),
             })
             _s.sio.emit('live_message', {
                 'conversation_id': conversation_id,

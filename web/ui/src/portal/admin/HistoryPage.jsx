@@ -29,6 +29,44 @@ function shortUser(senderId) {
     return m.length > 14 ? `User ${m.slice(0, 8)}` : m
 }
 
+// Friendly labels for bot button payloads, so the transcript reads like the
+// chat the user actually saw — not raw "/create_ticket" / "/submit_ticket_form{…}".
+const PAYLOAD_LABELS = {
+    '/create_ticket':     'Create a ticket',
+    '/submit_ticket_form':'Submitted ticket',
+    '/list_tickets':      'List my tickets',
+    '/check_status':      'Check ticket status',
+    '/update_ticket':     'Update ticket',
+    '/inform_update':     'Update ticket',
+    '/verify_resolution': 'Close ticket',
+    '/show_ticket_graph': 'View graph',
+    '/restart':           'Restart conversation',
+    '/greet':             'Hi',
+    '/affirm':            'Yes',
+    '/deny':              'No',
+}
+function humanizeMessage(text) {
+    if (!text || typeof text !== 'string') return text
+    const t = text.trim()
+    if (!t.startsWith('/')) return t.replace(/\*\*/g, '')  // strip markdown bold
+    const braceIdx = t.indexOf('{')
+    const intent = (braceIdx === -1 ? t : t.slice(0, braceIdx)).trim()
+    let label = PAYLOAD_LABELS[intent]
+    if (!label) {
+        const name = intent.replace(/^\//, '').replace(/_/g, ' ')
+        label = name.charAt(0).toUpperCase() + name.slice(1)
+    }
+    if (braceIdx !== -1) {
+        try {
+            const d = JSON.parse(t.slice(braceIdx))
+            let detail = d.title || d.target_status || d.detail
+            if (!detail && d.status_id != null) detail = `status ${d.status_id}`
+            if (detail) label += `: ${detail}`
+        } catch { /* ignore malformed payload */ }
+    }
+    return label
+}
+
 // ── Transcript modal ──────────────────────────────────────────────────────────
 function TranscriptModal({ convId, onClose }) {
     const { call } = useApi()
@@ -69,7 +107,7 @@ function TranscriptModal({ convId, onClose }) {
                                 <div className={`max-w-xs rounded-xl px-3 py-2 text-sm ${
                                     isBot ? 'bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-slate-100' : 'bg-blue-600 text-white'
                                 }`}>
-                                    <p>{m.text || m.data?.text || JSON.stringify(m.data || {})}</p>
+                                    <p className="whitespace-pre-wrap break-words">{humanizeMessage(m.text || m.data?.text || '') || JSON.stringify(m.data || {})}</p>
                                     {m.intent && (
                                         <p className={`text-xs mt-1 ${isBot ? 'text-gray-400 dark:text-slate-500' : 'text-blue-200'}`}>
                                             intent: {m.intent}

@@ -47,7 +47,7 @@ export default function OrgsPage() {
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 dark:bg-slate-800/60 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-wide">
                             <tr>
-                                <th className="px-5 py-3 text-left">Org ID</th>
+                                <th className="px-5 py-3 text-left">Organization</th>
                                 <th className="px-5 py-3 text-right">Waiting</th>
                                 <th className="px-5 py-3 text-right">Assigned</th>
                                 <th className="px-5 py-3 text-right">Resolved (7d)</th>
@@ -58,7 +58,10 @@ export default function OrgsPage() {
                         <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                             {orgs.map(o => (
                                 <tr key={o.org_id} className="hover:bg-gray-50 hover:dark:bg-slate-800/60">
-                                    <td className="px-5 py-3 font-medium text-gray-900 dark:text-slate-100">{o.org_id}</td>
+                                    <td className="px-5 py-3">
+                                        <div className="font-medium text-gray-900 dark:text-slate-100">{o.org_name || o.org_id}</div>
+                                        {o.org_name && <div className="text-[10px] text-gray-400 dark:text-slate-500 font-mono">{o.org_id}</div>}
+                                    </td>
                                     <td className="px-5 py-3 text-right">
                                         {o.waiting > 0
                                             ? <span className="text-amber-600 dark:text-amber-400 font-medium">{o.waiting}</span>

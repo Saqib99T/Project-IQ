@@ -14,7 +14,7 @@ from action_server.actions._shared import (
     log_bot_response,
     get_analytics_context, get_effective_session_token,
     check_user_login, logger, get_iam_jwt,
-    _get_handoff_runtime_cfg, _score_frustration,
+    _get_handoff_runtime_cfg, _score_frustration, bind_request_id,
 )
 
 
@@ -25,6 +25,7 @@ class ActionGreet(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
+        bind_request_id(tracker)
         # Simple greeting - get app_id from metadata only (slots may not be set yet)
         app_id = None
         metadata = {}
@@ -97,7 +98,7 @@ class ActionShowChart(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+        bind_request_id(tracker)
         # Get chart type from slot or user message
         chart_type = tracker.get_slot("chart_type")
         latest_msg = tracker.latest_message
@@ -296,10 +297,10 @@ class ActionHandleMultiIntent(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+        bind_request_id(tracker)
         latest_msg = tracker.latest_message
         user_text = latest_msg.get("text", "") if isinstance(latest_msg, dict) else str(latest_msg)
-        
+
         # Parse the user's message for actions
         detected_actions = self._parse_actions(user_text)
         
@@ -361,7 +362,7 @@ class ActionTrackConfidence(Action):
 
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
-
+        bind_request_id(tracker)
         cfg = _get_handoff_runtime_cfg()
         trigger_cfg = cfg.get('triggers', {})
         conf_threshold = trigger_cfg.get('confidence_threshold', 0.40)

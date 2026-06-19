@@ -4,12 +4,15 @@ Socket.IO event handlers and background worker threads.
 Call register_sio_events(sio) after the SocketIO instance is created,
 then call start_background_workers() once per process (guarded by worker-id).
 """
+import logging
 import time as _time
 import threading as _threading
 import os as _os
 import traceback
 
 import web.api.shared as _s
+
+logger = logging.getLogger(__name__)
 from web.api.shared import emit_to_user, emit_queue_overview
 from common.conversation_db import _get_connection, _release_connection
 
@@ -21,11 +24,19 @@ def register_sio_events(sio) -> None:
 
     @sio.on('connect')
     def _sio_connect():
-        pass
+        try:
+            from flask import request as _rq
+            logger.debug(f"[SIO connect] sid={_rq.sid}")
+        except Exception:
+            pass
 
     @sio.on('disconnect')
     def _sio_disconnect():
-        pass
+        try:
+            from flask import request as _rq
+            logger.debug(f"[SIO disconnect] sid={_rq.sid}")
+        except Exception:
+            pass
 
     @sio.on('user_end_session')
     def _sio_user_end_session(data):
@@ -101,7 +112,7 @@ def register_sio_events(sio) -> None:
             emit_queue_overview()
 
         except Exception as _e:
-            print(f"[SIO user_end_session] error (non-fatal): {_e}")
+            logger.warning(f"[SIO user_end_session] error (non-fatal): {_e}")
 
     @sio.on('handoff_queued')
     def _sio_handoff_queued(data):
@@ -157,10 +168,16 @@ def register_sio_events(sio) -> None:
     def _sio_join_user(data):
         sender_id = (data or {}).get('sender_id', '')
         if sender_id:
-            join_room(_s._room_user(sender_id))
+            _room = _s._room_user(sender_id)
+            join_room(_room)
             try:
                 from flask import request as _rq
-                print(f"[SIO JOIN] sid={_rq.sid} joined room={_s._room_user(sender_id)}", flush=True)
+                try:
+                    _m = sio.server.manager.rooms.get('/', {}).get(_room)
+                    _n = len(_m) if _m else 0
+                except Exception:
+                    _n = -1
+                logger.debug(f"[SIO JOIN] sid={_rq.sid} joined room={_room} members_now={_n}")
             except Exception:
                 pass
 
@@ -224,7 +241,7 @@ def register_sio_events(sio) -> None:
             join_room('queue_overview')
             emit('joined_operator', {'operator_id': op_id, 'room': _s._room_operator(op_id)})
         except Exception as _e:
-            print(f"[SIO join_portal_operator] error (non-fatal): {_e}")
+            logger.warning(f"[SIO join_portal_operator] error (non-fatal): {_e}")
 
     @sio.on('join_admin_live')
     def _sio_join_admin_live(data):
@@ -294,7 +311,7 @@ def _ensure_sla_column():
         finally:
             _release_connection(conn)
     except Exception as e:
-        print(f"[SLA] column migration skipped: {e}")
+        logger.info(f"[SLA] column migration skipped: {e}")
 
 
 def _queue_timeout_worker():
@@ -559,7 +576,7 @@ def _heartbeat_watchdog():
                 gone_offline = cur.fetchall() or []
                 conn.commit()
                 for op in gone_offline:
-                    print(f"[Heartbeat watchdog] Operator {op['display_name']} set offline (missed heartbeat)")
+                    logger.info(f"[Heartbeat watchdog] Operator {op['display_name']} set offline (missed heartbeat)")
                     _s.sio.emit('capacity_update', {
                         'operator_id': op['id'],
                         'status': 'offline',
@@ -602,7 +619,7 @@ def _orphan_state_healer():
                 healed_assigned = cur.rowcount
                 if healed_queued or healed_assigned:
                     conn.commit()
-                    print(f"[OrphanHealer] Healed {healed_queued} queued + {healed_assigned} assigned orphans")
+                    logger.info(f"[OrphanHealer] Healed {healed_queued} queued + {healed_assigned} assigned orphans")
                 else:
                     conn.rollback()
             finally:
@@ -616,7 +633,7 @@ def start_background_workers() -> None:
     """Start all background threads. Call once — guarded externally by GUNICORN_WORKER_ID."""
     worker_id = int(_os.environ.get('GUNICORN_WORKER_ID', '0'))
     if worker_id != 0:
-        print(f'[Admin] Background workers skipped (worker_id={worker_id}, primary handles them)')
+        logger.info(f'[Admin] Background workers skipped (worker_id={worker_id}, primary handles them)')
         return
 
     _threading.Thread(target=_queue_timeout_worker,  daemon=True, name='sio-queue-timeout').start()
@@ -624,4 +641,4 @@ def start_background_workers() -> None:
     _threading.Thread(target=_priority_boost_worker, daemon=True, name='sio-priority-boost').start()
     _threading.Thread(target=_heartbeat_watchdog,    daemon=True, name='sio-heartbeat-watchdog').start()
     _threading.Thread(target=_orphan_state_healer,   daemon=True, name='sio-orphan-healer').start()
-    print(f'[Admin] Background workers started (worker_id={worker_id})')
+    logger.info(f'[Admin] Background workers started (worker_id={worker_id})')

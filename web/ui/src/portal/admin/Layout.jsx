@@ -85,7 +85,7 @@ function SidebarLink({ to, icon, label, end }) {
             end={end}
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
         >
-            <span className="text-lg leading-none">{icon}</span>
+            <span className="text-base leading-none">{icon}</span>
             {label}
         </NavLink>
     )
@@ -187,7 +187,7 @@ export default function AdminLayout() {
                     <span className="ml-2 badge bg-primary/10 text-primary">Admin</span>
                 </div>
 
-                <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                <nav className="flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
                     {/* Organization section — all admins */}
                     <div className="px-3.5 pt-1 pb-1.5 text-[11px] font-semibold text-sidebarfg/40 uppercase tracking-wider">
                         Organization
@@ -219,6 +219,7 @@ export default function AdminLayout() {
                             <SidebarLink to="/admin/integration"   icon="🔗" label="Integration"    />
                             <SidebarLink to="/admin/firecrawl"     icon="🕷️" label="Firecrawl"      />
                             <SidebarLink to="/admin/observability" icon="🔭" label="Observability"  />
+                            <SidebarLink to="/admin/diagnostics"   icon="🩺" label="Diagnostics"    />
                             <SidebarLink to="/admin/inspector"     icon="🔍" label="Inspector"      />
                             <SidebarLink to="/admin/routing"       icon="🔀" label="Routing Rules"  />
                         </SidebarGroup>

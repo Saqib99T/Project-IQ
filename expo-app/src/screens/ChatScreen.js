@@ -64,6 +64,16 @@ const ChatScreen = ({ navigation }) => {
             } else if (next === 'active') {
                 const awayMs = _bgAtRef.current ? Date.now() - _bgAtRef.current : 0;
                 _bgAtRef.current = null;
+                // Self-heal a stale/zombie socket after backgrounding: a socket
+                // whose ping/pong lapsed while the app was suspended can end up
+                // "connected" client-side but absent from any server room, so
+                // operator_message lands in an empty room (members=0) and is lost.
+                // Reconnect if needed and re-join the user room on foreground.
+                const s = socketRef.current;
+                if (s) {
+                    if (!s.connected) { try { s.connect(); } catch { /* noop */ } }
+                    try { s.emit('join_user', { sender_id: senderId }); } catch { /* noop */ }
+                }
                 if (awayMs > BIOMETRIC_BG_THRESHOLD_MS && iam.isAuthenticated) {
                     const ok = await authenticateWithBiometric();
                     if (!ok) iam.logout().catch(() => {});
@@ -71,7 +81,7 @@ const ChatScreen = ({ navigation }) => {
             }
         });
         return () => sub.remove();
-    }, [iam.isAuthenticated, authenticateWithBiometric]);
+    }, [iam.isAuthenticated, authenticateWithBiometric, senderId]);
 
     // State
     const [messages, setMessages] = useState([]);
@@ -550,6 +560,9 @@ const ChatScreen = ({ navigation }) => {
         const currentAppId = appIdRef.current || await getAppId();
         const webhookUrl = await getWebhookUrl();
         const meta = { app_id: currentAppId };
+        // Per-turn correlation id — threaded Admin API → Rasa → actions → itsm so
+        // one turn can be traced across services (sent in metadata, not a header).
+        meta.request_id = uuidv4().replace(/-/g, '').slice(0, 8);
         if (authUser) meta.user_name = authUser;
         if (sessionTokenRef.current) meta.session_token = sessionTokenRef.current;
         // Self-heal: get a guaranteed-fresh token (refreshes if stale) so the bot
@@ -624,8 +637,8 @@ const ChatScreen = ({ navigation }) => {
         const ccPattern = /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/;
         if (ssnPattern.test(text)) return "Please don't share Social Security Numbers.";
         if (ccPattern.test(text)) return "Please don't share credit card numbers.";
-        const profanity = ['damn', 'hell', 'crap', 'stupid', 'idiot'];
-        if (profanity.some(w => text.toLowerCase().includes(w))) return 'Please keep the conversation professional.';
+        // Whole words only (\b…\b) so "hello"→"hell", "scrap"→"crap" etc. aren't flagged.
+        if (/\b(damn|hell|crap|stupid|idiot)\b/i.test(text)) return 'Please keep the conversation professional.';
         const letters = text.replace(/[^a-zA-Z]/g, '');
         if (letters.length > 10 && (letters.split('').filter(c => c >= 'A' && c <= 'Z').length / letters.length) > 0.7)
             return 'Please avoid excessive use of capital letters.';

@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useIam } from '../../../widget/hooks/useIam'
+import { usePortalAuth } from '../../PortalAuth'
 import { ItsmTenantProvider, useItsmTenant } from '../../../shared/itsm/ItsmTenantContext'
 import { TenantSwitcher } from '../../../shared/itsm/TenantSwitcher'
 
@@ -24,7 +25,10 @@ function ItsmTab({ to, label, end }) {
 function ItsmHeader() {
     const { user } = useIam()
     const { tenantId, setTenantId } = useItsmTenant()
-    const isPlatformAdmin = user?.realm_roles?.includes('super_admin')
+    // Use the backend's authoritative platform-admin flag (covers org_admin of the
+    // platform org, e.g. projectiq-admin@…) — not just the super_admin realm role,
+    // which a platform-org admin doesn't carry.
+    const { isPlatformAdmin } = usePortalAuth()
 
     return (
         <div className="space-y-4">

@@ -128,6 +128,29 @@ def get_logs():
 def admin_health_service(service):
     return _obs.service_health(service)
 
+# ── Diagnostics (super-admin): server logs (journald + docker) ──────────────────
+def _require_platform_admin():
+    """Return an error response if the caller isn't a platform/super admin, else None."""
+    from flask import g, jsonify
+    if not getattr(g, 'is_platform_admin', False):
+        return jsonify({'error': 'super admin required'}), 403
+    return None
+
+@bp.route('/admin/diagnostics/logs/sources', methods=['GET'])
+@_s.require_iam_token
+def diagnostics_log_sources():
+    return _require_platform_admin() or _obs.diagnostics_log_sources()
+
+@bp.route('/admin/diagnostics/logs', methods=['GET'])
+@_s.require_iam_token
+def diagnostics_logs():
+    return _require_platform_admin() or _obs.diagnostics_logs()
+
+@bp.route('/admin/firecrawl/service', methods=['POST'])
+@_s.require_iam_token
+def firecrawl_service_control():
+    return _require_platform_admin() or _obs.firecrawl_service_control()
+
 @bp.route('/observability/metrics', methods=['GET'])
 def observability_metrics():
     return _obs.observability_metrics()

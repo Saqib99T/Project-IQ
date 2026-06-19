@@ -250,7 +250,7 @@ export default function RoutingRulesPage() {
                 <p className="text-xs text-blue-700 dark:text-blue-400">
                     <strong>How rules work:</strong> When a conversation matches a rule, it is routed to the specified queue and its priority is boosted.
                     Rules are evaluated in order of priority boost (highest first). If no rule matches, the default queue is used.
-                    <br /><strong>Match types:</strong> Intent = Rasa intent name · Keyword = message text contains · App ID = exact app ID · Entity = any entity with this name · Regex = pattern match on message text.
+                    <br /><strong>Match types:</strong> Intent = ML Core intent name · Keyword = message text contains · App ID = exact app ID · Entity = any entity with this name · Regex = pattern match on message text.
                 </p>
             </div>
 

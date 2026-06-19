@@ -47,7 +47,22 @@ export function usePortalSocket({ onEvent } = {}) {
             socket.on(evt, data => onEventRef.current?.(evt, data))
         })
 
+        // Self-heal a stale/zombie socket. A tab left open a long time can lose
+        // its ping/pong (firewall drops idle WS) and stay "connected"
+        // client-side while the server dropped it from the operator room — every
+        // user_message then lands in an empty room (members=0) and is lost. On
+        // focus/visibility, reconnect if needed and re-join the operator room.
+        const rejoin = () => {
+            if (!socket.connected) { try { socket.connect() } catch { /* noop */ } }
+            try { socket.emit('join_portal_operator', { token }) } catch { /* noop */ }
+        }
+        const onVisible = () => { if (document.visibilityState === 'visible') rejoin() }
+        document.addEventListener('visibilitychange', onVisible)
+        window.addEventListener('focus', rejoin)
+
         return () => {
+            document.removeEventListener('visibilitychange', onVisible)
+            window.removeEventListener('focus', rejoin)
             socket.disconnect()
             socketRef.current = null
             setConnected(false)

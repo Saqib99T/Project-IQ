@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useIam } from '../../../widget/hooks/useIam'
+import { usePortalAuth } from '../../PortalAuth'
 import { useItsmApi, useItsmResource } from '../../../shared/itsm/useItsmApi'
 import { useItsmTenant } from '../../../shared/itsm/ItsmTenantContext'
 import { LoadingSpinner, ErrorBanner, EmptyState } from '../../../shared/itsm/primitives'
@@ -98,10 +98,12 @@ function TenantReports({ get }) {
 }
 
 export default function ItsmReportsPage() {
-    const { user } = useIam()
     const { tenantId } = useItsmTenant()
     const { get } = useItsmApi(tenantId)
-    const isPlatformAdmin = user?.realm_roles?.includes('super_admin')
+    // Backend-authoritative platform-admin flag (matches the Platform sidebar) —
+    // so a platform-org admin without the super_admin realm role still gets the
+    // cross-tenant overview instead of a "tenant context required" error.
+    const { isPlatformAdmin } = usePortalAuth()
 
     // Cross-tenant overview only when a super_admin hasn't narrowed to one tenant —
     // itsm-service has no cross-tenant ticket-analytics endpoint, so platform admins

@@ -1006,8 +1006,10 @@ class KBCacheManager:
         for i, article in enumerate(self._cache):
             score = 0.0
 
-            # Check keywords (highest weight)
-            keywords = [k.lower() for k in article.get('keywords', [])]
+            # Check keywords (highest weight). Use `or []` / `or ''` rather than
+            # the get() default: a present-but-null column yields None, and the
+            # get() default only fires on a MISSING key — None.lower() would crash.
+            keywords = [k.lower() for k in (article.get('keywords') or [])]
             for word in query_words:
                 for keyword in keywords:
                     if word in keyword or keyword in word:
@@ -1015,12 +1017,12 @@ class KBCacheManager:
                         break
 
             # Check title (medium weight)
-            title_words = set(article.get('title', '').lower().split())
+            title_words = set((article.get('title') or '').lower().split())
             common_title = query_words.intersection(title_words)
             score += len(common_title) * 2.0
 
             # Check question (medium weight)
-            question_words = set(article.get('question', '').lower().split())
+            question_words = set((article.get('question') or '').lower().split())
             common_question = query_words.intersection(question_words)
             score += len(common_question) * 2.0
 

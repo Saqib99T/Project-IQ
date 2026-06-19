@@ -75,17 +75,11 @@ function StatCard({ label, value, unit, icon, gradient, barPct }) {
     )
 }
 
-const LOG_LEVELS = { ERROR: 'text-red-400', WARNING: 'text-amber-400', WARN: 'text-amber-400', INFO: 'text-emerald-400', DEBUG: 'text-gray-500 dark:text-slate-400' }
-const SOURCE_LABEL = { rasa: 'NLP Core', actions: 'Actions', admin: 'Admin API' }
-
 export default function ObservabilityPage() {
     const { call } = useApi()
     const [health, setHealth]     = useState({})
     const [metrics, setMetrics]   = useState(null)
     const [dbStats, setDbStats]   = useState(null)
-    const [logs, setLogs]         = useState([])
-    const [levelFilter, setLevelFilter]   = useState('all')
-    const [sourceFilter, setSourceFilter] = useState('all')
     const [loading, setLoading]   = useState(true)
     const [error, setError]       = useState(null)
     const [updatedAt, setUpdatedAt] = useState(null)
@@ -93,15 +87,13 @@ export default function ObservabilityPage() {
 
     const refresh = async () => {
         try {
-            const [metricsRes, dbRes, logsRes, ...healthRes] = await Promise.allSettled([
+            const [metricsRes, dbRes, ...healthRes] = await Promise.allSettled([
                 call('/admin/observability/metrics'),
                 call('/admin/observability/database/stats'),
-                call('/admin/observability/logs'),
                 ...SERVICES.map(s => call(`/admin/health/${s.key}`)),
             ])
             if (metricsRes.status === 'fulfilled') setMetrics(metricsRes.value?.data || null)
             if (dbRes.status === 'fulfilled') setDbStats(dbRes.value?.data || null)
-            if (logsRes.status === 'fulfilled') setLogs(logsRes.value?.data || [])
             const hMap = {}
             SERVICES.forEach((s, i) => {
                 const r = healthRes[i]
@@ -129,17 +121,13 @@ export default function ObservabilityPage() {
     )
 
     const services = metrics?.services || {}
-    const filteredLogs = logs.filter(l =>
-        (levelFilter === 'all' || (l.level || 'INFO').toUpperCase() === levelFilter.toUpperCase()) &&
-        (sourceFilter === 'all' || l.source === sourceFilter)
-    )
 
     return (
         <div className="max-w-6xl space-y-6">
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Observability</h2>
-                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Service health, system metrics, and logs</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Service health and system metrics</p>
                 </div>
                 <div className="flex items-center gap-3">
                     {updatedAt && <span className="text-xs text-gray-400 dark:text-slate-500">Updated {updatedAt.toLocaleTimeString()}</span>}
@@ -220,40 +208,6 @@ export default function ObservabilityPage() {
                     </div>
                 </div>
             )}
-
-            {/* Log viewer */}
-            <div className="card overflow-hidden">
-                <div className="px-5 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
-                    <h3 className="font-semibold text-gray-800 dark:text-slate-200 flex items-center gap-2"><span>📋</span> System logs</h3>
-                    <div className="flex gap-2">
-                        <select value={levelFilter} onChange={e => setLevelFilter(e.target.value)}
-                            className="text-sm border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-gray-700 dark:text-slate-300">
-                            <option value="all">All levels</option>
-                            <option value="ERROR">Errors only</option>
-                            <option value="WARNING">Warnings</option>
-                            <option value="INFO">Info</option>
-                        </select>
-                        <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
-                            className="text-sm border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-gray-700 dark:text-slate-300">
-                            <option value="all">All sources</option>
-                            <option value="rasa">NLP Core</option>
-                            <option value="actions">Actions</option>
-                            <option value="admin">Admin API</option>
-                        </select>
-                    </div>
-                </div>
-                <div className="bg-gray-900 px-5 py-4 h-72 overflow-y-auto font-mono text-xs space-y-1">
-                    {filteredLogs.length === 0 && <p className="text-gray-500 dark:text-slate-400">No log entries.</p>}
-                    {filteredLogs.map((l, i) => (
-                        <div key={i} className="flex gap-3">
-                            <span className="text-gray-600 dark:text-slate-400 shrink-0">{(l.timestamp || '').replace('T', ' ').slice(0, 19)}</span>
-                            <span className="text-gray-500 dark:text-slate-400 shrink-0 w-16">{SOURCE_LABEL[l.source] || l.source || ''}</span>
-                            <span className={`shrink-0 w-16 ${LOG_LEVELS[(l.level || 'INFO').toUpperCase()] || 'text-gray-400 dark:text-slate-500'}`}>{l.level || 'INFO'}</span>
-                            <span className="text-gray-300 dark:text-slate-600">{l.message}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
         </div>
     )
 }

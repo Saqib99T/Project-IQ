@@ -74,11 +74,22 @@ class ITSMService:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _headers(self, token: str) -> dict:
-        return {
+    def _headers(self, token: str, tenant_id=None) -> dict:
+        h = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
+        # Explicit tenant context — required by itsm-service for writes when the
+        # caller's token doesn't resolve a single tenant (e.g. a platform admin).
+        if tenant_id:
+            h["X-Tenant-ID"] = str(tenant_id)
+        # Forward the correlation id (bound from the tracker upstream) so the
+        # itsm-service request can be tied back to the originating chat turn.
+        from common.request_context import REQUEST_ID_HEADER, get_request_id
+        rid = get_request_id()
+        if rid and rid != "-":
+            h[REQUEST_ID_HEADER] = rid
+        return h
 
     async def _request(
         self,
@@ -87,13 +98,14 @@ class ITSMService:
         token: str,
         json_body: dict = None,
         params=None,
+        tenant_id=None,
     ) -> Optional[dict]:
         """Generic HTTP request.  Returns parsed JSON or None on error / 404."""
         url = f"{self.base_url}{path}"
         try:
             session = await self._get_session()
             timeout = aiohttp.ClientTimeout(total=15)
-            kwargs = {"headers": self._headers(token), "timeout": timeout}
+            kwargs = {"headers": self._headers(token, tenant_id), "timeout": timeout}
             if json_body is not None:
                 kwargs["json"] = json_body
             if params is not None:
@@ -221,11 +233,11 @@ class ITSMService:
         return await self._get_list(token, "/api/v1/tickets", params=params)
 
     async def update_ticket(
-        self, token: str, ticket_uuid: str, data: dict
+        self, token: str, ticket_uuid: str, data: dict, tenant_id=None
     ) -> Optional[dict]:
         """PATCH ticket fields (status, priority, title, etc.)."""
         return await self._request(
-            "PATCH", f"/api/v1/tickets/{ticket_uuid}", token, json_body=data
+            "PATCH", f"/api/v1/tickets/{ticket_uuid}", token, json_body=data, tenant_id=tenant_id
         )
 
     async def update_ticket_status(
@@ -235,7 +247,11 @@ class ITSMService:
         ticket = await self.get_ticket(token, ticket_ref)
         if not ticket:
             return False
-        result = await self.update_ticket(token, ticket["id"], {"status": status})
+        # Pass the ticket's own tenant as X-Tenant-ID so the write carries tenant
+        # context even when the caller's token doesn't resolve one (platform admin).
+        result = await self.update_ticket(
+            token, ticket["id"], {"status": status}, tenant_id=ticket.get("tenant_id")
+        )
         return result is not None
 
     # ------------------------------------------------------------------
@@ -252,6 +268,7 @@ class ITSMService:
         result = await self._request(
             "POST", f"/api/v1/tickets/{ticket['id']}/comments", token,
             json_body={"body": body, "is_internal": internal},
+            tenant_id=ticket.get("tenant_id"),
         )
         return result is not None
 

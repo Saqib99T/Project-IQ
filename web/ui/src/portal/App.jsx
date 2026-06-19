@@ -22,6 +22,7 @@ import IntegrationPage from './admin/IntegrationPage'
 import ThemesPage from './admin/ThemesPage'
 import FirecrawlPage from './admin/FirecrawlPage'
 import ObservabilityPage from './admin/ObservabilityPage'
+import DiagnosticsPage from './admin/DiagnosticsPage'
 import InspectorPage from './admin/InspectorPage'
 import RoutingRulesPage from './admin/RoutingRulesPage'
 import LiveMonitorPage from './admin/LiveMonitorPage'
@@ -93,6 +94,7 @@ export default function App() {
                     <Route path="themes"        element={<AuthGuard roles={['super_admin']}><ThemesPage /></AuthGuard>} />
                     <Route path="firecrawl"     element={<AuthGuard roles={['super_admin']}><FirecrawlPage /></AuthGuard>} />
                     <Route path="observability" element={<AuthGuard roles={['super_admin']}><ObservabilityPage /></AuthGuard>} />
+                    <Route path="diagnostics"   element={<AuthGuard roles={['super_admin']}><DiagnosticsPage /></AuthGuard>} />
                     <Route path="inspector"     element={<AuthGuard roles={['super_admin']}><InspectorPage /></AuthGuard>} />
                     <Route path="routing"       element={<AuthGuard roles={['super_admin']}><RoutingRulesPage /></AuthGuard>} />
                 </Route>

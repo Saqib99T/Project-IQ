@@ -500,8 +500,18 @@ def portal_conversation(conversation_id, **kwargs):
             d['timestamp'] = d['timestamp'].isoformat() if d.get('timestamp') else None
             msgs.append(d)
 
-        # Also get operator messages from operator_messages table (may not be in messages)
+        # Also pull operator messages from operator_messages — but ONLY legacy
+        # rows that aren't already in `messages`. Operator sends now write to BOTH
+        # tables, so merging blindly returned every operator message twice (the
+        # duplicate-bubble bug). Dedup against operator rows already collected,
+        # keyed by (text, second) — the two inserts share one request so their
+        # timestamps match to the second; genuinely repeated texts are seconds
+        # apart and survive.
         try:
+            existing_op = {
+                (m.get('text'), (m.get('timestamp') or '')[:19])
+                for m in msgs if m.get('sender') == 'operator'
+            }
             if queued_at is not None:
                 cur.execute(
                     "SELECT 'operator' AS sender, message_text AS text, sent_at AS timestamp "
@@ -518,6 +528,8 @@ def portal_conversation(conversation_id, **kwargs):
             for m in cur.fetchall():
                 d = dict(m)
                 d['timestamp'] = d['timestamp'].isoformat() if d.get('timestamp') else None
+                if (d.get('text'), (d.get('timestamp') or '')[:19]) in existing_op:
+                    continue  # already present from the messages table
                 msgs.append(d)
             msgs.sort(key=lambda x: x.get('timestamp') or '')
         except Exception:
@@ -643,10 +655,13 @@ def portal_chat_send(**kwargs):
             (conversation_id, text, now),
         )
         try:
+            # Set sent_at to the SAME `now` as the messages-table row so the two
+            # copies share an identical timestamp — portal_conversation dedups
+            # operator messages by (text, second), so this keeps them collapsed.
             cur.execute(
-                "INSERT INTO operator_messages (conversation_id, queue_id, operator_id, message_text) "
-                "VALUES (%s, %s, %s, %s) RETURNING id",
-                (conversation_id, q['id'], op_id, text),
+                "INSERT INTO operator_messages (conversation_id, queue_id, operator_id, message_text, sent_at) "
+                "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                (conversation_id, q['id'], op_id, text, now),
             )
             msg_id = cur.fetchone()['id']
         except Exception:
@@ -1295,6 +1310,27 @@ def portal_admin_iam_orgs(**kwargs):
 
 # ── Admin: Orgs ───────────────────────────────────────────────────────────────
 
+def _iam_org_name_map():
+    """Return {org_id: name} from the cached IAM org directory (best-effort)."""
+    import time as _t
+    global _IAM_ORGS_CACHE
+    now = _t.time()
+    cached = globals().get('_IAM_ORGS_CACHE')
+    if not (cached and (now - cached[0] < 300)):
+        try:
+            from common.iam_service import _iam_admin
+            orgs = _iam_admin('GET', '/organizations', params={'max': 500}) or []
+            rows = [{'org_id': o.get('id'),
+                     'name': o.get('name') or o.get('alias') or o.get('id'),
+                     'alias': o.get('alias')}
+                    for o in (orgs if isinstance(orgs, list) else []) if o.get('id')]
+            _IAM_ORGS_CACHE = (now, rows)
+            cached = _IAM_ORGS_CACHE
+        except Exception:
+            pass
+    return {r['org_id']: r['name'] for r in (cached[1] if cached else [])}
+
+
 @bp.route('/admin/orgs', methods=['GET'])
 @_s.require_iam_token
 def portal_admin_orgs(**kwargs):
@@ -1343,11 +1379,13 @@ def portal_admin_orgs(**kwargs):
                 """,
                 (org_id,),
             )
+        name_map = _iam_org_name_map()
         rows = []
         for r in cur.fetchall():
             d = dict(r)
             if d.get('last_activity'):
                 d['last_activity'] = d['last_activity'].isoformat()
+            d['org_name'] = name_map.get(d.get('org_id'), '')
             rows.append(d)
         return jsonify({'orgs': rows, 'count': len(rows)})
     except Exception as e:

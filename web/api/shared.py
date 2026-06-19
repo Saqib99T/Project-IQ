@@ -12,11 +12,14 @@ import hmac
 import base64
 import json
 import os
+import logging
 from functools import wraps
 from typing import Optional
 
 from flask import request, jsonify, current_app
 from flask_socketio import SocketIO
+
+logger = logging.getLogger(__name__)
 
 # ── SocketIO singleton (bound to Flask app in admin_api.py via init_app) ──────
 sio = SocketIO()
@@ -66,17 +69,24 @@ def emit_to_user(sender_id: str, event: str, payload: dict) -> None:
             _n = len(_members) if _members else 0
         except Exception:
             _n = -1
-        print(f"[SIO emit_to_user] event={event} room={_room} members={_n}", flush=True)
+        logger.debug(f"[SIO emit_to_user] event={event} room={_room} members={_n}")
         sio.emit(event, payload, room=_room)
     except Exception as e:
-        print(f"[SIO] emit_to_user error ({event}): {e}")
+        logger.warning(f"[SIO] emit_to_user error ({event}): {e}")
 
 
 def emit_to_operator(op_id, event: str, payload: dict) -> None:
     try:
-        sio.emit(event, payload, room=_room_operator(op_id))
+        _room = _room_operator(op_id)
+        try:
+            _members = sio.server.manager.rooms.get('/', {}).get(_room)
+            _n = len(_members) if _members else 0
+        except Exception:
+            _n = -1
+        logger.debug(f"[SIO emit_to_operator] event={event} room={_room} members={_n}")
+        sio.emit(event, payload, room=_room)
     except Exception as e:
-        print(f"[SIO] emit_to_operator error ({event}): {e}")
+        logger.warning(f"[SIO] emit_to_operator error ({event}): {e}")
 
 
 def emit_queue_overview() -> None:
@@ -90,7 +100,7 @@ def emit_queue_overview() -> None:
             'assigned_count': len(assigned),
         }, room='queue_overview')
     except Exception as e:
-        print(f"[SIO] emit_queue_overview error: {e}")
+        logger.warning(f"[SIO] emit_queue_overview error: {e}")
 
 
 # ── JWT helpers (stdlib only — no PyJWT required) ────────────────────────────

@@ -54,6 +54,45 @@ app = Flask(__name__, static_folder=None)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'projectiq-iam-pkce-secret-change-in-prod')
 CORS(app)
 
+# ── Correlation IDs ───────────────────────────────────────────────────────────
+# Bind one request_id per inbound request (reuse the client's X-Request-ID when
+# present, else mint one) so a single turn can be traced across Rasa, the action
+# server and itsm-service. install_request_id_logging() stamps it onto logging output.
+import logging as _logging
+from common.request_context import (
+    REQUEST_ID_HEADER, set_request_id, get_request_id, install_request_id_logging,
+)
+# INFO so the diagnostics that used to be print() (e.g. [CHAT TIMING]) stay
+# visible now that they're logger.info — converting them must not silence them.
+install_request_id_logging(level=_logging.INFO)
+
+
+@app.before_request
+def _bind_request_id():
+    from flask import g
+    g.request_id = set_request_id(request.headers.get(REQUEST_ID_HEADER))
+
+
+@app.after_request
+def _echo_request_id(response):
+    response.headers[REQUEST_ID_HEADER] = get_request_id()
+    return response
+
+
+# ── Error alerting ────────────────────────────────────────────────────────────
+# Real ERROR/exception log records (with traceback + [req=...]) ping admins via
+# the existing notify_admins channel — replacing the old "infer errors from the
+# word 'sorry'" heuristic. Deduped + storm-capped inside AdminAlertHandler.
+def _admin_alert_sink(title, body, payload):
+    try:
+        from web.api.impl.notify import notify_admins
+        notify_admins(type='system_error', title=title[:120], body=body, payload=payload)
+    except Exception:
+        pass
+
+from common.error_alerting import install_admin_alerts
+install_admin_alerts(_admin_alert_sink)
+
 # Populate shared.py with runtime values so blueprints can import them
 import web.api.shared as _shared
 _shared.configure(

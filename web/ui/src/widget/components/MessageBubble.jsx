@@ -6,6 +6,24 @@ import { motion } from 'framer-motion';
 import ChartRenderer from './ChartRenderer';
 import TicketForm from './TicketForm';
 
+// Status/priority badge colors for the ticket-detail view.
+const STATUS_HEX = {
+    open: '#2563eb', new: '#2563eb',
+    'in progress': '#d97706', 'in-progress': '#d97706', assigned: '#d97706',
+    pending: '#7c3aed', 'on hold': '#7c3aed', waiting: '#7c3aed',
+    resolved: '#16a34a', solved: '#16a34a', closed: '#16a34a', done: '#16a34a',
+};
+const PRIORITY_HEX = {
+    low: '#16a34a', minor: '#16a34a',
+    medium: '#d97706', normal: '#d97706',
+    high: '#ea580c', major: '#ea580c',
+    critical: '#dc2626', urgent: '#dc2626',
+};
+function badgeStyle(hexMap, value, isDark) {
+    const base = hexMap[(value || '').toLowerCase().trim()] || (isDark ? '#9ca3af' : '#6b7280');
+    return { color: base, backgroundColor: base + (isDark ? '26' : '1a') };
+}
+
 const PAYLOAD_LABELS = {
     '/create_ticket':        'Create a ticket',
     '/list_tickets':         'List my tickets',
@@ -160,7 +178,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                     )}
                     {/* Bubble */}
                     <div
-                        className={`${hasTable ? 'p-0' : 'p-3'} text-sm ${(isBot || isOperator) ? '' : 'rounded-3xl rounded-tr-none px-5'}`}
+                        className={`${(hasTable || message.ticketDetail) ? 'p-0' : 'p-3'} text-sm ${(isBot || isOperator) ? '' : 'rounded-3xl rounded-tr-none px-5'}`}
                         style={isOperator
                             ? { backgroundColor: isDark ? '#1a2e20' : '#f0fdf4', border: `1px solid ${isDark ? '#166534' : '#bbf7d0'}`, borderRadius: '0 12px 12px 12px', color: isDark ? '#86efac' : '#166534' }
                             : (!isBot ? { backgroundColor: dm.userBubble, color: dm.userText } : { color: isDark ? '#e5e7eb' : '#1f2937' })}
@@ -169,8 +187,8 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                             <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{message.text}</p>
                         ) : isBot ? (
                             <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-table:my-2">
-                                {/* Text content */}
-                                {message.text && (
+                                {/* Text content (suppressed when a structured ticket detail is shown) */}
+                                {message.text && !message.ticketDetail && (
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         components={{
@@ -231,6 +249,49 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                         ))}
                                     </div>
                                 )}
+
+                                {/* Structured ticket detail — header with colored status/priority badges */}
+                                {message.ticketDetail && (() => {
+                                    const t = message.ticketDetail;
+                                    const labelStyle = { minWidth: 64, fontWeight: 600, color: isDark ? '#9ca3af' : '#6b7280' };
+                                    const valStyle   = { color: isDark ? '#d1d5db' : '#374151' };
+                                    const imgs = (t.attachments || []).filter(a => a.url && (a.mime || '').startsWith('image/'));
+                                    const files = (t.attachments || []).filter(a => !(a.url && (a.mime || '').startsWith('image/')));
+                                    return (
+                                        <div className="not-prose p-3">
+                                            <div className="flex items-center flex-wrap gap-2 mb-3">
+                                                <span style={{ fontSize: 14, fontWeight: 600, color: isDark ? '#e5e7eb' : '#111827' }}>Ticket {t.ref}:</span>
+                                                {t.status && <span className="rounded-full px-2 py-0.5" style={{ fontSize: 11, fontWeight: 600, ...badgeStyle(STATUS_HEX, t.status, isDark) }}>{t.status}</span>}
+                                                {t.priority && <span className="rounded-full px-2 py-0.5" style={{ fontSize: 11, fontWeight: 600, ...badgeStyle(PRIORITY_HEX, t.priority, isDark) }}>{t.priority}</span>}
+                                            </div>
+                                            <div className="flex flex-col gap-1.5" style={{ fontSize: 13 }}>
+                                                <div className="flex gap-2"><span style={labelStyle}>Title</span><span style={valStyle}>{t.title}</span></div>
+                                                {t.product && <div className="flex gap-2"><span style={labelStyle}>Product</span><span style={valStyle}>{t.product}</span></div>}
+                                                {t.created && <div className="flex gap-2"><span style={labelStyle}>Created</span><span style={valStyle}>{t.created}</span></div>}
+                                                {t.updated && <div className="flex gap-2"><span style={labelStyle}>Updated</span><span style={valStyle}>{t.updated}</span></div>}
+                                            </div>
+                                            {(imgs.length > 0 || files.length > 0) && (
+                                                <div className="mt-3">
+                                                    <p style={{ fontSize: 12, fontWeight: 600, color: isDark ? '#9ca3af' : '#6b7280', marginBottom: 6 }}>📎 Attachments</p>
+                                                    {imgs.length > 0 && (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                            {imgs.map((a, i) => (
+                                                                <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" style={{ width: 'calc(33.33% - 3px)', display: 'block' }}>
+                                                                    <img src={a.url} alt={a.filename} style={{ width: '100%', height: 80, objectFit: 'cover', borderRadius: 6, border: `1px solid ${isDark ? '#2e3a4e' : '#e5e7eb'}` }} />
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {files.map((a, i) => (
+                                                        <div key={i} style={{ fontSize: 13 }}>
+                                                            {a.url ? <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ color: primaryColor }} className="hover:underline">{a.filename}</a> : a.filename}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
 
                                 {/* Render chart if present */}
                                 {message.chart && (

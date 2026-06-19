@@ -9,7 +9,7 @@ from rasa_sdk import Action, Tracker
 from rasa_sdk.events import SlotSet, AllSlotsReset, Restarted, ActiveLoop, UserUttered, FollowupAction
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
-from action_server.actions._shared import logger, _get_handoff_runtime_cfg
+from action_server.actions._shared import logger, _get_handoff_runtime_cfg, bind_request_id
 
 
 class ActionClearSession(Action):
@@ -19,7 +19,7 @@ class ActionClearSession(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+        bind_request_id(tracker)
         # IAM SSO manages authentication; there's no external session to kill.
         dispatcher.utter_message(response="utter_cleared")
         
@@ -35,7 +35,7 @@ class ActionExtractContext(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+        bind_request_id(tracker)
         # Check metadata from the latest message
         metadata = tracker.latest_message.get("metadata", {})
         if isinstance(metadata, str):
@@ -66,7 +66,7 @@ class ActionGdprConsent(Action):
 
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
-
+        bind_request_id(tracker)
         cfg = _get_handoff_runtime_cfg()
         if not cfg.get('gdpr', {}).get('consent_required', True):
             # Consent not required — skip straight to confirm
@@ -84,7 +84,7 @@ class ActionConfirmGdprConsent(Action):
 
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
-
+        bind_request_id(tracker)
         return [
             SlotSet('consent_given', True),
             FollowupAction('action_confirm_handoff')
@@ -99,7 +99,7 @@ class ActionDenyGdprConsent(Action):
 
     def run(self, dispatcher: CollectingDispatcher,
             tracker: Tracker, domain: Dict[Text, Any]) -> List:
-
+        bind_request_id(tracker)
         dispatcher.utter_message(response='utter_handoff_cancelled')
         return [
             SlotSet('consent_given', False),

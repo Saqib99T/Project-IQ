@@ -102,7 +102,7 @@
     /* Sidebar navigation — foreground adapts per theme via --c-sidebar-fg
        (white on IQ's dark sidebar / dark on 99T's light sidebar). */
     .sidebar-link {
-        @apply flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium
+        @apply flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm font-medium
                text-sidebarfg/60 hover:bg-sidebarfg/5 hover:text-sidebarfg transition-colors;
     }
     .sidebar-link.active {

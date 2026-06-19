@@ -137,9 +137,10 @@ def system_status():
         return state, mem_str, uptime
 
     services = []
+    _SVC_LABELS = {'project-iq-rasa': 'ml-core', 'project-iq-actions': 'actions', 'project-iq-admin': 'admin'}
     for svc in ['project-iq-rasa', 'project-iq-actions', 'project-iq-admin']:
         state, mem_str, uptime = _svc_info(svc)
-        services.append({'name':   svc.replace('project-iq-', ''),
+        services.append({'name':   _SVC_LABELS.get(svc, svc.replace('project-iq-', '')),
                          'state':  state,
                          'mem':    mem_str,
                          'uptime': uptime,
@@ -316,7 +317,7 @@ def system_status():
     # ── Recent errors (journalctl) ────────────────────────────────────────
     errors = []
     for svc in ['project-iq-rasa', 'project-iq-actions', 'project-iq-admin']:
-        label = svc.replace('project-iq-', '')
+        label = _SVC_LABELS.get(svc, svc.replace('project-iq-', ''))
         raw_e = _shell(f'journalctl -u {svc} -p err -n 5 --no-pager --output=short 2>/dev/null | grep -v "^--" | tail -5')
         errors.append({'service': label,
                        'errors': [l for l in raw_e.splitlines() if l.strip()]})
@@ -384,75 +385,71 @@ def get_system_metrics():
         disk_used = disk.used
         disk_total = disk.total
 
-        # Get per-service metrics
+        # ── Per-service process metrics ───────────────────────────────────────
+        # Categorize processes in ONE pass, then measure CPU non-blocking with a
+        # SINGLE 0.3s gap. The old code called proc.cpu_percent(interval=0.5) per
+        # matched process — with ~20 postgres backends that summed to ~13s and
+        # made this whole endpoint (and the page) crawl.
+        import time as _time
         services = {}
         current_pid = os.getpid()
+        SERVICE_PATTERNS = {
+            'rasa':     ['rasa.exe', 'rasa run'],
+            'actions':  ['rasa_sdk', 'rasa-sdk', 'rasa_sdk.cli', 'actions.py'],
+            'database': ['postgres.exe', 'postgres', 'postgresql'],
+        }
+        buckets = {k: [] for k in SERVICE_PATTERNS}
+        try:
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    info  = proc.info
+                    pname = (info.get('name') or '').lower()
+                    cmd   = ' '.join(info.get('cmdline') or []).lower()
+                    for svc, patterns in SERVICE_PATTERNS.items():
+                        if any(p.lower() in pname or p.lower() in cmd for p in patterns):
+                            buckets[svc].append(proc)
+                            break
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+        except Exception as e:
+            print(f"process_iter error: {e}")
 
-        # Helper function to find process by name or port
-        def find_process_metrics(name_patterns, port=None):
-            """Find a process and return its CPU and memory usage."""
-            matched_processes = []
-            try:
-                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                    try:
-                        proc_info = proc.info
-                        proc_name = proc_info.get('name', '').lower()
-                        cmdline = ' '.join(proc_info.get('cmdline', [])).lower() if proc_info.get('cmdline') else ''
-
-                        # Check if process matches any pattern
-                        for pattern in name_patterns:
-                            pattern_lower = pattern.lower()
-                            if pattern_lower in proc_name or pattern_lower in cmdline:
-                                matched_processes.append(proc)
-                                break  # Found match, move to next process
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        continue
-
-                # If we found matching processes, aggregate their metrics
-                if matched_processes:
-                    total_cpu = 0.0
-                    total_mem = 0.0
-                    count = 0
-
-                    for proc in matched_processes:
-                        try:
-                            cpu = proc.cpu_percent(interval=0.5)  # Blocking — accurate reading
-                            mem = proc.memory_percent()
-                            total_cpu += cpu
-                            total_mem += mem
-                            count += 1
-                        except (psutil.NoSuchProcess, psutil.AccessDenied):
-                            continue
-
-                    if count > 0:
-                        return {
-                            'cpu': round(total_cpu, 1),
-                            'memory': round(total_mem, 1),
-                            'pid': matched_processes[0].pid,
-                            'count': count
-                        }
-            except Exception as e:
-                print(f"Error finding process {name_patterns}: {e}")
-            return {'cpu': 0.0, 'memory': 0.0, 'pid': None, 'count': 0}
-
-        # Get metrics for each service
-        # Look for rasa.exe or python running rasa
-        services['rasa'] = find_process_metrics(['rasa.exe', 'rasa run'])
-        # Look for rasa_sdk (actions server) - check for python process running rasa_sdk
-        services['actions'] = find_process_metrics(['rasa_sdk', 'rasa-sdk', 'rasa_sdk.cli', 'actions.py'])
-        # Look for postgres
-        services['database'] = find_process_metrics(['postgres.exe', 'postgres', 'postgresql'])
-
-        # Admin API is the current process
         try:
             current_proc = psutil.Process(current_pid)
-            services['admin'] = {
-                'cpu': round(current_proc.cpu_percent(interval=0.5), 1),
-                'memory': round(current_proc.memory_percent(), 1),
-                'pid': current_pid
-            }
-        except Exception as e:
-            print(f"Error getting current process metrics: {e}")
+        except Exception:
+            current_proc = None
+
+        # Prime CPU counters (non-blocking → returns 0 now, delta on next read).
+        all_procs = [p for ps in buckets.values() for p in ps]
+        for p in all_procs + ([current_proc] if current_proc else []):
+            try: p.cpu_percent(None)
+            except Exception: pass
+
+        _time.sleep(0.3)  # ONE gap for every process, not 0.5s each
+
+        def _agg(procs):
+            cpu = mem = 0.0; cnt = 0; pid = None
+            for p in procs:
+                try:
+                    cpu += p.cpu_percent(None)
+                    mem += p.memory_percent()
+                    if pid is None: pid = p.pid
+                    cnt += 1
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            return {'cpu': round(cpu, 1), 'memory': round(mem, 1), 'pid': pid, 'count': cnt}
+
+        for svc in SERVICE_PATTERNS:
+            services[svc] = _agg(buckets[svc])
+
+        if current_proc:
+            try:
+                services['admin'] = {'cpu': round(current_proc.cpu_percent(None), 1),
+                                     'memory': round(current_proc.memory_percent(), 1),
+                                     'pid': current_pid}
+            except Exception:
+                services['admin'] = {'cpu': 0.0, 'memory': 0.0, 'pid': current_pid}
+        else:
             services['admin'] = {'cpu': 0.0, 'memory': 0.0, 'pid': current_pid}
 
         # Get real performance metrics from database
@@ -529,25 +526,17 @@ def get_system_metrics():
                 if row and row[0] and row[1] and row[1] > 0:
                     throughput = round(row[0] / row[1], 2)
 
-            # Error rate: % of bot messages that are fallbacks/errors in last 7 days
-            # Falls back to all-time if no recent data
+            # Error rate: % of action executions that errored in last 7 days.
+            # Uses the real actions.status='error' signal (matches
+            # observability_metrics()) instead of guessing from bot wording —
+            # polite phrases like "sorry" no longer count as errors, and real
+            # 500s are no longer missed. Falls back to all-time if no recent data.
             cursor.execute('''
                 SELECT
-                    COUNT(*) FILTER (WHERE
-                        text ILIKE '%error%' OR
-                        text ILIKE '%failed%' OR
-                        text ILIKE '%sorry%' OR
-                        text ILIKE '%not sure%' OR
-                        text ILIKE '%don''t understand%' OR
-                        text ILIKE '%couldn''t%' OR
-                        text ILIKE '%unable%' OR
-                        text ILIKE '%cannot%' OR
-                        text ILIKE '%not understand%'
-                    ) AS errors,
+                    COUNT(*) FILTER (WHERE status = 'error') AS errors,
                     COUNT(*) AS total
-                FROM messages
-                WHERE sender = 'bot'
-                  AND timestamp > NOW() - INTERVAL '7 days'
+                FROM actions
+                WHERE timestamp > NOW() - INTERVAL '7 days'
             ''')
             result = cursor.fetchone()
             if result and result[1] and result[1] > 0:
@@ -556,16 +545,9 @@ def get_system_metrics():
                 # All-time fallback
                 cursor.execute('''
                     SELECT
-                        COUNT(*) FILTER (WHERE
-                            text ILIKE '%error%' OR text ILIKE '%failed%' OR
-                            text ILIKE '%sorry%' OR text ILIKE '%not sure%' OR
-                            text ILIKE '%don''t understand%' OR text ILIKE '%couldn''t%' OR
-                            text ILIKE '%unable%' OR text ILIKE '%cannot%' OR
-                            text ILIKE '%not understand%'
-                        ) AS errors,
+                        COUNT(*) FILTER (WHERE status = 'error') AS errors,
                         COUNT(*) AS total
-                    FROM messages
-                    WHERE sender = 'bot'
+                    FROM actions
                 ''')
                 result = cursor.fetchone()
                 error_rate = round((result[0] / result[1]) * 100, 2) if result and result[1] else 0
@@ -622,7 +604,7 @@ def get_db_stats():
         cursor = conn.cursor()
 
         # Count rows in key tables
-        tables = ['conversations', 'messages', 'feedback', 'users']
+        tables = ['conversations', 'messages', 'feedback']
         stats = {}
 
         for table in tables:
@@ -633,6 +615,16 @@ def get_db_stats():
                 conn.rollback()
                 stats[table] = 0
 
+        # There's no `users` table — identities come from IAM. Report the number
+        # of distinct chat senders so the dashboard still shows a user count
+        # (instead of erroring on a missing relation).
+        try:
+            cursor.execute("SELECT COUNT(DISTINCT sender_id) FROM conversations")
+            stats['users'] = cursor.fetchone()[0]
+        except Exception:
+            conn.rollback()
+            stats['users'] = 0
+
         # Recent activity
         try:
             cursor.execute("SELECT COUNT(*) FROM messages WHERE timestamp > NOW() - INTERVAL '1 hour'")
@@ -642,27 +634,32 @@ def get_db_stats():
             msgs_hour = 0
 
         try:
-            cursor.execute("SELECT COUNT(*) FROM conversations WHERE start_time > CURRENT_DATE")
+            cursor.execute("SELECT COUNT(*) FROM conversations WHERE started_at > CURRENT_DATE")
             convs_today = cursor.fetchone()[0]
         except:
             conn.rollback()
             convs_today = 0
 
-        # Get real average response time
+        # Get real average response time: ms between each bot message and the
+        # NEAREST preceding user message in the same conversation. The old JOIN
+        # paired every bot msg with every earlier user msg, so far-apart pairs
+        # inflated the average into the millions of ms.
         try:
             cursor.execute('''
-                SELECT AVG(
-                    EXTRACT(EPOCH FROM (
-                        bot.timestamp - user_msg.timestamp
-                    ))
-                ) * 1000 as avg_ms
-                FROM messages bot
-                JOIN messages user_msg ON bot.conversation_id = user_msg.conversation_id
-                    AND bot.timestamp > user_msg.timestamp
-                WHERE bot.sender = 'bot'
-                    AND user_msg.sender = 'user'
-                    AND bot.timestamp > NOW() - INTERVAL '24 hours'
-                LIMIT 5000
+                WITH bot_responses AS (
+                    SELECT bot.timestamp AS bot_ts,
+                        (SELECT MAX(u.timestamp)
+                         FROM messages u
+                         WHERE u.conversation_id = bot.conversation_id
+                           AND u.sender = 'user'
+                           AND u.timestamp < bot.timestamp) AS prev_user_ts
+                    FROM messages bot
+                    WHERE bot.sender = 'bot'
+                      AND bot.timestamp > NOW() - INTERVAL '24 hours'
+                )
+                SELECT AVG(EXTRACT(EPOCH FROM (bot_ts - prev_user_ts)) * 1000)
+                FROM bot_responses
+                WHERE prev_user_ts IS NOT NULL
             ''')
             result = cursor.fetchone()
             avg_response_ms = round(result[0]) if result and result[0] else 0
@@ -747,9 +744,13 @@ def get_recent_logs():
 
 
 def service_health(service):
-    """Check health of specific service."""
+    """Check health of a specific service.
+
+    rasa/actions are checked by a raw TCP connect to their listening port via
+    eventlet.tpool — a plain requests.get() hangs/fails under the eventlet hub
+    (which is why it falsely reported Offline while the services were up).
+    """
     try:
-        import requests
         healthy = True
 
         if service == 'database':
@@ -757,25 +758,24 @@ def service_health(service):
             try:
                 conn = _get_connection()
                 _release_connection(conn)
-            except:
+            except Exception:
                 healthy = False
-        elif service == 'rasa':
+        elif service in ('rasa', 'actions'):
+            import socket as _sock
+            port = 5005 if service == 'rasa' else 5055
+            def _check():
+                try:
+                    s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+                    s.settimeout(3)
+                    s.connect(('127.0.0.1', port))
+                    s.close()
+                    return True
+                except Exception:
+                    return False
             try:
-                response = requests.get(
-                    f'{RASA_URL}/status',
-                    headers={'Accept': 'application/json'},
-                    timeout=3
-                )
-                healthy = response.status_code == 200
-            except:
-                healthy = False
-        elif service == 'actions':
-            try:
-                action_health = ACTION_URL.replace('/webhook', '/health')
-                response = requests.get(action_health, timeout=3)
-                healthy = response.status_code == 200
-            except:
-                healthy = False
+                healthy = bool(eventlet.tpool.execute(_check))
+            except Exception:
+                healthy = _check()
 
         return jsonify({
             "status": "ok",
@@ -963,6 +963,132 @@ def observability_logs_search():
 
 
 
+# ============================================================================
+# DIAGNOSTICS — server logs (journald + docker) for the super-admin page
+# ============================================================================
+
+_DIAG_LOG_SOURCES = [
+    {'key': 'admin',       'group': 'Admin', 'label': 'API',       'kind': 'systemd', 'unit':  'project-iq-admin'},
+    {'key': 'actions',     'group': 'Admin', 'label': 'Server',    'kind': 'systemd', 'unit':  'project-iq-actions'},
+    {'key': 'itsm-api',    'group': 'ITSM',  'label': 'API',       'kind': 'docker',  'match': 'itsm-service_api'},
+    {'key': 'itsm-worker', 'group': 'ITSM',  'label': 'Worker',    'kind': 'docker',  'match': 'itsm-service_worker_'},
+    {'key': 'itsm-beat',   'group': 'ITSM',  'label': 'Beat',      'kind': 'docker',  'match': 'itsm-service_worker-beat'},
+    {'key': 'itsm-db',     'group': 'ITSM',  'label': 'Database',  'kind': 'docker',  'match': 'itsm-service_db'},
+    {'key': 'rasa',        'group': '',      'label': 'ML Core',   'kind': 'systemd', 'unit':  'project-iq-rasa'},
+    {'key': 'firecrawl',   'group': '',      'label': 'Firecrawl', 'kind': 'docker',  'match': 'firecrawl-selfhost_api'},
+]
+
+
+def diagnostics_log_sources():
+    """List the log sources the Diagnostics page can tail."""
+    return jsonify({'success': True, 'data': [
+        {'key': s['key'], 'label': s['label'], 'kind': s['kind'], 'group': s.get('group', '')}
+        for s in _DIAG_LOG_SOURCES
+    ]})
+
+
+def firecrawl_service_control():
+    """Start/stop the Firecrawl docker stack on demand (it's rarely used).
+
+    Safe: `action` is whitelisted to start/stop and the container list is
+    resolved server-side (filtered to firecrawl-selfhost) — no user input ever
+    reaches the shell (argument lists, no shell=True).
+    """
+    import subprocess
+    data   = request.get_json(silent=True) or {}
+    action = data.get('action')
+    if action not in ('start', 'stop'):
+        return jsonify({'success': False, 'error': "action must be 'start' or 'stop'"}), 400
+
+    def _names():
+        try:
+            r = subprocess.run(['docker', 'ps', '-a', '--format', '{{.Names}}'],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=8)
+            return r.stdout.decode('utf-8', 'replace')
+        except Exception:
+            return ''
+    names = [n.strip() for n in eventlet.tpool.execute(_names).splitlines()
+             if 'firecrawl-selfhost' in n]
+    if not names:
+        return jsonify({'success': False, 'error': 'no firecrawl containers found'}), 404
+
+    # Bring infra (redis/rabbitmq/nuq-postgres) up first / shut it down last.
+    INFRA = ('redis', 'rabbitmq', 'nuq-postgres')
+    infra = [n for n in names if any(k in n for k in INFRA)]
+    apps  = [n for n in names if n not in infra]   # api, playwright
+    ordered = (infra + apps) if action == 'start' else (apps + infra)
+
+    def _ctl():
+        try:
+            r = subprocess.run(['docker', action] + ordered,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
+            return r.returncode, r.stdout.decode('utf-8', 'replace')
+        except Exception as e:
+            return 1, str(e)
+    rc, out = eventlet.tpool.execute(_ctl)
+    return jsonify({'success': rc == 0, 'action': action,
+                    'containers': ordered, 'output': out[-600:]})
+
+
+def diagnostics_logs():
+    """Tail logs for one whitelisted source (systemd unit or docker container).
+
+    Hardened: the command is built from a fixed whitelist using argument lists
+    (no shell=True), and the search query is applied in Python — never
+    interpolated into a shell — so neither `source` nor `q` can inject commands.
+    """
+    import subprocess
+
+    source = request.args.get('source', 'admin')
+    query  = (request.args.get('q', '') or '').strip()
+    try:
+        lines = int(request.args.get('lines', 400))
+    except Exception:
+        lines = 400
+    lines = max(20, min(lines, 2000))
+
+    src = next((s for s in _DIAG_LOG_SOURCES if s['key'] == source), None)
+    if not src:
+        return jsonify({'success': False, 'error': f'unknown source: {source}'}), 400
+
+    def _run(cmd, timeout=10):
+        def _x():
+            try:
+                r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   timeout=timeout)
+                return r.stdout.decode('utf-8', errors='replace')
+            except Exception as e:
+                return f'[diagnostics] could not read logs: {e}'
+        return eventlet.tpool.execute(_x)
+
+    if src['kind'] == 'systemd':
+        out = _run(['journalctl', '-u', src['unit'], '-n', str(lines),
+                    '--no-pager', '--output=short-iso'])
+    else:
+        def _names():
+            try:
+                r = subprocess.run(['docker', 'ps', '-a', '--format', '{{.Names}}'],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=6)
+                return r.stdout.decode('utf-8', errors='replace')
+            except Exception:
+                return ''
+        names = eventlet.tpool.execute(_names)
+        container = next((n.strip() for n in names.splitlines() if src['match'] in n), None)
+        if not container:
+            return jsonify({'success': True, 'data': [],
+                            'note': f"no container matching '{src['match']}'"})
+        out = _run(['docker', 'logs', '--tail', str(lines), '--timestamps', container])
+
+    log_lines = [l for l in out.splitlines() if l.strip()]
+    if query:
+        ql = query.lower()
+        log_lines = [l for l in log_lines if ql in l.lower()]
+    log_lines = log_lines[-lines:]
+
+    return jsonify({'success': True, 'source': source,
+                    'count': len(log_lines), 'data': log_lines})
+
+
 def observability_logs_stats():
     """Get log file statistics."""
     try:
@@ -998,7 +1124,7 @@ def observability_database_stats():
 
             # Get table sizes
             tables = {}
-            for table in ['conversations', 'messages', 'feedback', 'actions', 'themes', 'apps']:
+            for table in ['conversations', 'messages', 'feedback', 'actions', 'themes', 'chat_apps']:
                 try:
                     cursor.execute(f"SELECT COUNT(*) FROM {table}")
                     tables[table] = cursor.fetchone()[0]
@@ -1006,37 +1132,56 @@ def observability_database_stats():
                     conn.rollback()
                     tables[table] = 0
 
-            # Get recent activity
-            cursor.execute("""
-                SELECT COUNT(*) FROM messages
-                WHERE created_at > NOW() - INTERVAL '1 hour'
-            """)
-            messages_last_hour = cursor.fetchone()[0]
+            # Get recent activity. Real schema: messages.timestamp,
+            # conversations.started_at (NOT created_at). Each query is guarded so
+            # one mismatch can't abort the whole response or spam Postgres errors.
+            try:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM messages
+                    WHERE timestamp > NOW() - INTERVAL '1 hour'
+                """)
+                messages_last_hour = cursor.fetchone()[0]
+            except Exception:
+                conn.rollback()
+                messages_last_hour = 0
 
-            cursor.execute("""
-                SELECT COUNT(*) FROM conversations
-                WHERE created_at > NOW() - INTERVAL '24 hours'
-            """)
-            conversations_today = cursor.fetchone()[0]
+            try:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM conversations
+                    WHERE started_at > NOW() - INTERVAL '24 hours'
+                """)
+                conversations_today = cursor.fetchone()[0]
+            except Exception:
+                conn.rollback()
+                conversations_today = 0
 
-            # Get average response time (from message pairs)
-            cursor.execute("""
-                WITH user_messages AS (
-                    SELECT sender_id, created_at, ROW_NUMBER() OVER (PARTITION BY sender_id ORDER BY created_at) as rn
-                    FROM messages WHERE role = 'user'
-                ),
-                bot_messages AS (
-                    SELECT sender_id, created_at, ROW_NUMBER() OVER (PARTITION BY sender_id ORDER BY created_at) as rn
-                    FROM messages WHERE role = 'assistant'
-                )
-                SELECT AVG(EXTRACT(EPOCH FROM (b.created_at - u.created_at)) * 1000)::INT as avg_ms
-                FROM user_messages u
-                JOIN bot_messages b ON u.sender_id = b.sender_id AND u.rn = b.rn
-                WHERE b.created_at > u.created_at
-                AND b.created_at - u.created_at < INTERVAL '1 minute'
-            """)
-            result = cursor.fetchone()
-            avg_response_ms = result[0] if result and result[0] else 0
+            # Average response time: ms between each bot msg and the NEAREST
+            # preceding user msg in the same conversation (messages.sender, not
+            # role). A plain JOIN pairs every bot with every earlier user msg,
+            # inflating the average — the correlated subquery takes only the
+            # closest preceding user message.
+            try:
+                cursor.execute("""
+                    WITH bot_responses AS (
+                        SELECT bot.timestamp AS bot_ts,
+                            (SELECT MAX(u.timestamp)
+                             FROM messages u
+                             WHERE u.conversation_id = bot.conversation_id
+                               AND u.sender = 'user'
+                               AND u.timestamp < bot.timestamp) AS prev_user_ts
+                        FROM messages bot
+                        WHERE bot.sender = 'bot'
+                          AND bot.timestamp > NOW() - INTERVAL '24 hours'
+                    )
+                    SELECT AVG(EXTRACT(EPOCH FROM (bot_ts - prev_user_ts)) * 1000)::INT
+                    FROM bot_responses
+                    WHERE prev_user_ts IS NOT NULL
+                """)
+                result = cursor.fetchone()
+                avg_response_ms = result[0] if result and result[0] else 0
+            except Exception:
+                conn.rollback()
+                avg_response_ms = 0
 
             cursor.close()
         finally:

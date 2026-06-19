@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useApi } from '../useApi'
 
 function JobRow({ job }) {
@@ -40,6 +40,43 @@ export default function FirecrawlPage() {
     const [batchUrls, setBatchUrls] = useState('')
     // Config
     const [configForm, setConfigForm] = useState({})
+    // Live service status
+    const [status, setStatus]   = useState(null)   // { running, message }
+    const [checking, setChecking] = useState(false)
+
+    const [svcBusy, setSvcBusy] = useState(false)
+
+    const checkStatus = useCallback(async () => {
+        setChecking(true)
+        try {
+            const d = await call('/admin/firecrawl/status')
+            setStatus(d)
+        } catch (e) {
+            setStatus({ running: false, message: e.message })
+        } finally {
+            setChecking(false)
+        }
+    }, [call])
+
+    // Start/stop the Firecrawl stack. Start takes ~30s to become healthy, so we
+    // poll the status a few times after the command returns.
+    const controlService = useCallback(async (action) => {
+        setSvcBusy(true)
+        try {
+            await call('/admin/firecrawl/service', { method: 'POST', body: JSON.stringify({ action }) })
+            await checkStatus()
+            if (action === 'start') {
+                for (let i = 0; i < 6; i++) {
+                    await new Promise(r => setTimeout(r, 5000))
+                    await checkStatus()
+                }
+            }
+        } catch (e) {
+            setStatus({ running: false, message: e.message })
+        } finally {
+            setSvcBusy(false)
+        }
+    }, [call, checkStatus])
 
     useEffect(() => {
         Promise.all([
@@ -47,7 +84,8 @@ export default function FirecrawlPage() {
             call('/admin/firecrawl/crawl-jobs').then(d => setJobs(d?.jobs || d || [])),
         ]).catch(e => setError(e.message))
           .finally(() => setLoading(false))
-    }, [call])
+        checkStatus()
+    }, [call, checkStatus])
 
     const run = async (action, body) => {
         setRunning(true); setResult(null); setError(null)
@@ -82,12 +120,36 @@ export default function FirecrawlPage() {
     )
 
     const tabs = ['scrape', 'crawl', 'batch', 'config']
+    const serviceUp = !!status?.running  // gate scrape/crawl/batch inputs on this
 
     return (
         <div className="max-w-4xl space-y-6">
-            <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Firecrawl</h2>
-                <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Scrape and crawl web pages to add to the knowledge base</p>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Firecrawl</h2>
+                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Scrape and crawl web pages to add to the knowledge base</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                        status?.running ? 'bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-400'
+                        : status ? 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400'
+                        : 'bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400'
+                    }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${status?.running ? 'bg-green-500' : status ? 'bg-red-500' : 'bg-gray-400'}`} />
+                        {checking ? 'Checking…' : status ? (status.running ? 'Service running' : 'Service not reachable') : 'Status unknown'}
+                    </span>
+                    <button onClick={checkStatus} disabled={checking || svcBusy}
+                        className="btn-ghost border border-gray-200 dark:border-slate-700 text-xs px-2.5 py-1">↻ Re-check</button>
+                    {status?.running
+                        ? <button onClick={() => controlService('stop')} disabled={svcBusy}
+                            className="text-xs px-2.5 py-1 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-60">
+                            {svcBusy ? 'Working…' : '■ Stop'}
+                          </button>
+                        : <button onClick={() => controlService('start')} disabled={svcBusy}
+                            className="text-xs px-2.5 py-1 rounded-lg font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-60">
+                            {svcBusy ? 'Starting…' : '▶ Start'}
+                          </button>}
+                </div>
             </div>
 
             {error  && <div className="card p-4 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm">{error}</div>}
@@ -114,17 +176,18 @@ export default function FirecrawlPage() {
                 <div className="card p-5 space-y-4">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Scrape single URL</h3>
                     <p className="text-xs text-gray-500 dark:text-slate-400">Scrape one page and ingest its content into the KB.</p>
+                    {!serviceUp && <p className="text-xs text-amber-600 dark:text-amber-400">⚠ Start the Firecrawl service to scrape.</p>}
                     <div className="flex gap-2">
-                        <input value={scrapeUrl} onChange={e => setScrapeUrl(e.target.value)}
+                        <input value={scrapeUrl} onChange={e => setScrapeUrl(e.target.value)} disabled={!serviceUp}
                             placeholder="https://docs.example.com/article"
-                            className="flex-1 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40" />
-                        <button onClick={() => run('/admin/kb/ingest-url', { url: scrapeUrl })} disabled={running || !scrapeUrl}
-                            className="btn-primary inline-flex items-center gap-2">
+                            className="flex-1 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 disabled:bg-gray-100 disabled:dark:bg-slate-800 disabled:cursor-not-allowed" />
+                        <button onClick={() => run('/admin/kb/ingest-url', { url: scrapeUrl })} disabled={running || !scrapeUrl || !serviceUp}
+                            className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                             {running && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
                             {running ? 'Scraping…' : 'Scrape'}
                         </button>
                     </div>
-                    <button onClick={() => run('/admin/firecrawl/test', { url: scrapeUrl })} disabled={running || !scrapeUrl}
+                    <button onClick={() => { run('/admin/firecrawl/test', {}); checkStatus() }} disabled={running}
                         className="btn-ghost border border-gray-200 dark:border-slate-700 text-xs">
                         Test connection only
                     </button>
@@ -135,15 +198,16 @@ export default function FirecrawlPage() {
                 <div className="card p-5 space-y-4">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Crawl site</h3>
                     <p className="text-xs text-gray-500 dark:text-slate-400">Crawl an entire site starting from a base URL and ingest all pages.</p>
+                    {!serviceUp && <p className="text-xs text-amber-600 dark:text-amber-400">⚠ Start the Firecrawl service to crawl.</p>}
                     <div className="flex gap-2">
-                        <input value={crawlUrl} onChange={e => setCrawlUrl(e.target.value)}
+                        <input value={crawlUrl} onChange={e => setCrawlUrl(e.target.value)} disabled={!serviceUp}
                             placeholder="https://docs.example.com"
-                            className="flex-1 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40" />
-                        <input value={maxPages} onChange={e => setMaxPages(e.target.value)}
+                            className="flex-1 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 disabled:bg-gray-100 disabled:dark:bg-slate-800 disabled:cursor-not-allowed" />
+                        <input value={maxPages} onChange={e => setMaxPages(e.target.value)} disabled={!serviceUp}
                             placeholder="Max pages" type="number"
-                            className="w-24 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40" />
+                            className="w-24 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 disabled:bg-gray-100 disabled:dark:bg-slate-800 disabled:cursor-not-allowed" />
                         <button onClick={() => run('/admin/kb/crawl-site', { url: crawlUrl, max_pages: parseInt(maxPages) })}
-                            disabled={running || !crawlUrl} className="btn-primary">
+                            disabled={running || !crawlUrl || !serviceUp} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
                             {running ? '…' : 'Crawl'}
                         </button>
                     </div>
@@ -154,11 +218,12 @@ export default function FirecrawlPage() {
                 <div className="card p-5 space-y-4">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Batch URLs</h3>
                     <p className="text-xs text-gray-500 dark:text-slate-400">Enter one URL per line to ingest multiple pages at once.</p>
-                    <textarea value={batchUrls} onChange={e => setBatchUrls(e.target.value)}
+                    {!serviceUp && <p className="text-xs text-amber-600 dark:text-amber-400">⚠ Start the Firecrawl service to ingest.</p>}
+                    <textarea value={batchUrls} onChange={e => setBatchUrls(e.target.value)} disabled={!serviceUp}
                         placeholder="https://docs.example.com/page-1&#10;https://docs.example.com/page-2"
-                        className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 resize-none h-36" />
+                        className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 resize-none h-36 disabled:bg-gray-100 disabled:dark:bg-slate-800 disabled:cursor-not-allowed" />
                     <button onClick={() => run('/admin/kb/ingest-urls', { urls: batchUrls.split('\n').map(u => u.trim()).filter(Boolean) })}
-                        disabled={running || !batchUrls.trim()} className="btn-primary">
+                        disabled={running || !batchUrls.trim() || !serviceUp} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
                         {running ? '…' : 'Ingest all'}
                     </button>
                 </div>

@@ -14,7 +14,7 @@ from rasa_sdk.events import SlotSet
 from rasa_sdk.executor import CollectingDispatcher
 
 from common import analytics_store
-from action_server.actions._shared import get_analytics_context, logger
+from action_server.actions._shared import get_analytics_context, logger, bind_request_id
 
 
 class ActionItsmLogin(Action):
@@ -26,6 +26,7 @@ class ActionItsmLogin(Action):
 
     async def run(self, dispatcher: CollectingDispatcher, tracker: Tracker,
                   domain: Dict[Text, Any]) -> List[Dict[Text, Any]]:
+        bind_request_id(tracker)
         if tracker.get_slot("is_authenticated"):
             dispatcher.utter_message(text="✅ You're already signed in. How can I help?")
         else:
@@ -43,6 +44,7 @@ class ActionInitItsmSession(Action):
 
     async def run(self, dispatcher: CollectingDispatcher, tracker: Tracker,
                   domain: Dict[Text, Any]) -> List[Dict[Text, Any]]:
+        bind_request_id(tracker)
         try:
             app_id = tracker.get_slot("app_id")
             if not app_id:

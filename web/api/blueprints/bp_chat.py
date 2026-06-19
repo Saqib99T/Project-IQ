@@ -2,13 +2,19 @@
 Chat and handoff blueprint.
 Routes: /webhooks/rest/webhook, /handoff/status/*, /handoff/end
 """
+import logging
 from datetime import datetime as _dt
 from flask import Blueprint, request, jsonify
 from common.conversation_db import _get_connection, _release_connection
 from psycopg2.extras import RealDictCursor
 import web.api.shared as _s
+from common.request_context import (
+    REQUEST_ID_HEADER, REQUEST_ID_META_KEY, get_request_id, set_request_id,
+)
 
 bp = Blueprint('chat', __name__)
+
+logger = logging.getLogger(__name__)
 
 
 @bp.route('/api/my-products', methods=['GET'])
@@ -243,10 +249,19 @@ def chat_webhook_proxy():
         message_text = data.get('message', '')
         metadata     = data.get('metadata', {})
 
+        # Correlation id: prefer one the client put in metadata (lets the widget /
+        # mobile app originate the id without a custom CORS header), else the
+        # server-minted id from before_request. Forward it to Rasa (and onward to
+        # the action server) via header AND metadata, since the action server sees
+        # the tracker, not our HTTP headers.
+        rid = set_request_id(metadata.get(REQUEST_ID_META_KEY) or get_request_id())
+        _rasa_headers = {REQUEST_ID_HEADER: rid}
+
         # Auto-Assist draft calls — proxy to Rasa, skip DB logging
         if sender_id.startswith('__draft__'):
             try:
-                r = requests.post(f"{_s.RASA_URL}/webhooks/rest/webhook", json=data, timeout=10)
+                r = requests.post(f"{_s.RASA_URL}/webhooks/rest/webhook", json=data,
+                                  headers=_rasa_headers, timeout=10)
                 return jsonify(r.json()), r.status_code
             except Exception:
                 return jsonify([]), 200
@@ -287,7 +302,7 @@ def chat_webhook_proxy():
                 # "❌ Authentication required." even for signed-in users.
                 metadata['iam_token'] = auth_header[7:]
             except Exception as _iam_err:
-                print(f"[IAM] Token validation warning: {_iam_err}")
+                logger.warning(f"[IAM] Token validation warning: {_iam_err}")
                 # Invalid token — treat as guest (don't block KB access)
 
         # ── Org context ────────────────────────────────────────────────────────
@@ -315,6 +330,11 @@ def chat_webhook_proxy():
         metadata.setdefault('support_org_id', _support_org_id)
         metadata.setdefault('channel',        _ctx_channel)
         metadata.setdefault('product_id',     _product_id)
+        # Carry the correlation id into the tracker so the action server can read
+        # it back and forward it to itsm-service. Re-attach metadata to data in
+        # case the client omitted it (then `metadata` was a detached local dict).
+        metadata[REQUEST_ID_META_KEY] = rid
+        data['metadata'] = metadata
 
         # ── Chatbot access role gate ───────────────────────────────────────
         # Authenticated users need a User or Bot project role (staff roles
@@ -326,7 +346,7 @@ def chat_webhook_proxy():
                 and not iam_user.get('is_super_admin'):
             # Diagnostic: log exactly what roles the token carried so a denial
             # can be traced to a stale/unmapped token vs a missing assignment.
-            print(f"[CHAT GATE DENY] email={iam_user.get('email')} "
+            logger.warning(f"[CHAT GATE DENY] email={iam_user.get('email')} "
                   f"resource_access_clients={list((claims.get('resource_access') or {}).keys())} "
                   f"client_roles(project-iq)={iam_user.get('client_roles')} "
                   f"realm_roles={iam_user.get('realm_roles')}")
@@ -362,7 +382,7 @@ def chat_webhook_proxy():
             finally:
                 _release_connection(conn)
         except Exception as e:
-            print(f"[Handoff gate] DB check failed: {e}")
+            logger.warning(f"[Handoff gate] DB check failed: {e}")
 
         is_login = message_text.strip().startswith('/login')
 
@@ -396,7 +416,7 @@ def chat_webhook_proxy():
                         'text': message_text, 'timestamp': _dt.now().isoformat(),
                     }, room=_s._room_admin_watch(prow['id']))
             except Exception as e:
-                print(f"[SIO relay] error (non-fatal): {e}")
+                logger.warning(f"[SIO relay] error (non-fatal): {e}")
             return jsonify([]), 200
         # ── End gate ──────────────────────────────────────────────────────────
 
@@ -406,9 +426,10 @@ def chat_webhook_proxy():
                     user_id=user_id, ticket_id=ticket_id, org_id=_org_id, product_id=_product_id)
 
         _t_db = _time.monotonic()
-        rasa_resp = requests.post(f"{_s.RASA_URL}/webhooks/rest/webhook", json=data, timeout=30)
+        rasa_resp = requests.post(f"{_s.RASA_URL}/webhooks/rest/webhook", json=data,
+                                  headers=_rasa_headers, timeout=30)
         _t_rasa = _time.monotonic()
-        print(f"[CHAT TIMING] setup+iam={_t_iam-_t0:.2f}s db_log={_t_db-_t_iam:.2f}s "
+        logger.info(f"[CHAT TIMING] setup+iam={_t_iam-_t0:.2f}s db_log={_t_db-_t_iam:.2f}s "
               f"rasa={_t_rasa-_t_db:.2f}s | msg={message_text[:40]!r} sender={sender_id}")
         bot_responses = rasa_resp.json() if rasa_resp.status_code == 200 else []
 
@@ -450,5 +471,5 @@ def chat_webhook_proxy():
 
         return jsonify(bot_responses), rasa_resp.status_code
     except Exception as e:
-        import traceback; traceback.print_exc()
+        logger.exception(f"[chat_webhook_proxy] unhandled error: {e}")
         return jsonify({"error": str(e)}), 500

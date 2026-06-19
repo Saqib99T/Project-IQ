@@ -15,6 +15,7 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1', prefill = {}
     const [showConfirm, setShowConfirm] = useState(false);
     const [isCompleted, setIsCompleted] = useState(false);
     const [error, setError] = useState('');
+    const [detailError, setDetailError] = useState('');
     const [attachment, setAttachment] = useState(null); // { name, doc_id, sizeLabel } after upload
     const [fileError, setFileError] = useState('');
     const [uploading, setUploading] = useState(false);
@@ -28,6 +29,7 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1', prefill = {}
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
         if (name === 'title' && value.trim()) setError('');
+        if (name === 'detail') setDetailError('');
     };
 
     const handleFileChange = async (e) => {
@@ -63,8 +65,21 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1', prefill = {}
 
     const handleSubmitClick = (e) => {
         e.preventDefault();
+        setDetailError('');
         if (!formData.title.trim()) {
             setError('Title is required');
+            return;
+        }
+        // The ticket description must be at least 10 chars (itsm-service rule).
+        // Description = Detail if provided, else falls back to Title — so validate
+        // whichever one will actually be sent, and point the user at it.
+        const desc = formData.detail.trim() || formData.title.trim();
+        if (desc.length < 10) {
+            if (formData.detail.trim()) {
+                setDetailError('Please add a bit more detail — at least 10 characters.');
+            } else {
+                setError('Please make the title more descriptive (at least 10 characters), or add a Detail.');
+            }
             return;
         }
         setShowConfirm(true);
@@ -136,9 +151,10 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1', prefill = {}
                             onChange={handleChange}
                             rows="3"
                             placeholder="Describe the issue in detail..."
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1"
-                            style={{ '--tw-ring-color': primaryColor }}
+                            className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-1 ${detailError ? 'border-red-500' : 'border-gray-300'}`}
+                            style={{ '--tw-ring-color': primaryColor, borderColor: detailError ? '#ef4444' : '' }}
                         />
+                        {detailError && <p className="text-xs text-red-500 mt-1">{detailError}</p>}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

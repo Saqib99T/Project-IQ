@@ -23,8 +23,57 @@ from rasa_sdk.executor import CollectingDispatcher
 from action_server.actions.itsm_service import ITSMService
 from common import analytics_store
 from common.config_manager import get_itsm_config
+from common.request_context import (
+    REQUEST_ID_META_KEY, set_request_id, install_request_id_logging,
+)
 
 logger = logging.getLogger(__name__)
+
+# Stamp [req=<id>] onto this process's logs. The id itself is bound per action
+# by bind_request_id(), which reads it off the tracker metadata that the Admin
+# API injected upstream.
+install_request_id_logging()
+
+
+def _action_alert_sink(title, body, payload):
+    """Forward an ERROR/exception alert to the Admin API so the action server's
+    failures reach admins through the same notify_admins channel as the API's
+    own. Fire-and-forget on a daemon thread — logging must never block an action
+    on a 5s HTTP round-trip. Dedup/cap already happened in AdminAlertHandler."""
+    import threading
+
+    def _post():
+        try:
+            _call_admin_api('/internal/alert', method='POST',
+                            data={'title': title, 'body': body, 'payload': payload})
+        except Exception:
+            pass
+    threading.Thread(target=_post, daemon=True).start()
+
+
+# Real ERROR/exception records in this process now ping admins (was: API-only).
+from common.error_alerting import install_admin_alerts
+install_admin_alerts(_action_alert_sink)
+
+
+def bind_request_id(tracker) -> str:
+    """Bind the correlation id carried in the tracker's message metadata so this
+    action's logs and any downstream itsm-service calls share the upstream id.
+
+    Called from the common metadata readers below, so every action that reads
+    IAM / analytics context is covered without per-action wiring. Falls back to
+    a fresh id when none was forwarded.
+    """
+    meta = {}
+    if isinstance(getattr(tracker, "latest_message", None), dict):
+        meta = tracker.latest_message.get("metadata", {}) or {}
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except Exception:
+            meta = {}
+    rid = meta.get(REQUEST_ID_META_KEY) if isinstance(meta, dict) else None
+    return set_request_id(rid)
 
 
 def get_itsm_service() -> ITSMService:
@@ -39,6 +88,7 @@ def get_iam_jwt(tracker) -> Optional[str]:
     Returns None when the user is unauthenticated or the frontend did not
     include the token in message metadata.  Never logs the token value.
     """
+    bind_request_id(tracker)
     meta = {}
     if isinstance(tracker.latest_message, dict):
         meta = tracker.latest_message.get("metadata", {}) or {}
@@ -58,6 +108,7 @@ def log_bot_response(tracker: Tracker, text: str):
 
 def get_analytics_context(tracker: Tracker) -> Dict[str, str]:
     """Extract app_id, user_id, and ticket_id from tracker for analytics logging."""
+    bind_request_id(tracker)
     # Safely get metadata
     latest_msg = tracker.latest_message
     metadata = {}

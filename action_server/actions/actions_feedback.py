@@ -13,7 +13,7 @@ from common import analytics_store
 from action_server.actions._shared import (
     log_bot_response,
     get_analytics_context, get_effective_session_token,
-    check_user_login, logger,
+    check_user_login, logger, bind_request_id,
 )
 
 
@@ -26,6 +26,7 @@ class ActionSaveFeedback(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
+        bind_request_id(tracker)
         import os
         from datetime import datetime
         
@@ -82,8 +83,8 @@ class ActionSaveFeedback(Action):
             
             # Save to PostgreSQL database for analytics
             ctx = get_analytics_context(tracker)
-            print(f"[ANALYTICS DEBUG] Saving feedback - app_id: {ctx['app_id']}, user_id: {ctx['user_id']}, ticket_id: {ctx['ticket_id']}")
-            print(f"[ANALYTICS DEBUG] Tracker slots - itsm_user_name: {tracker.get_slot('itsm_user_name')}, itsm_user_id: {tracker.get_slot('itsm_user_id')}, ticket_id: {tracker.get_slot('ticket_id')}")
+            logger.debug(f"[ANALYTICS DEBUG] Saving feedback - app_id: {ctx['app_id']}, user_id: {ctx['user_id']}, ticket_id: {ctx['ticket_id']}")
+            logger.debug(f"[ANALYTICS DEBUG] Tracker slots - itsm_user_name: {tracker.get_slot('itsm_user_name')}, itsm_user_id: {tracker.get_slot('itsm_user_id')}, ticket_id: {tracker.get_slot('ticket_id')}")
             analytics_store.log_feedback(tracker.sender_id, feedback_type, app_id=ctx["app_id"], user_id=ctx["user_id"], ticket_id=ctx["ticket_id"])
             
             logger.info(f"Feedback saved: {feedback_type} from {tracker.sender_id} (app: {ctx['app_id']}, user: {ctx['user_id']}, ticket: {ctx['ticket_id']})")
@@ -118,7 +119,7 @@ class ActionSaveSatisfactionRating(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+        bind_request_id(tracker)
         # Get rating from intent name (rating_1 -> 1, rating_5 -> 5)
         intent = tracker.latest_message.get("intent", {}).get("name", "")
         rating = 0

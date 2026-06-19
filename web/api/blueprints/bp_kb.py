@@ -226,6 +226,25 @@ def test_firecrawl_connection():
                         "message": "Could not reach Firecrawl"}), 200
 
 
+@bp.route('/admin/firecrawl/status', methods=['GET'])
+def firecrawl_status():
+    """Live status of the Firecrawl service — no URL needed."""
+    try:
+        cfg     = get_file_config()
+        api_url = cfg.get('FIRECRAWL_API_URL', 'http://localhost:3002').rstrip('/')
+        try:
+            resp = _requests.get(api_url + '/', timeout=5)
+            ok   = resp.status_code == 200
+            return jsonify({"success": True, "running": ok, "api_url": api_url,
+                            "message": "Running" if ok else f"HTTP {resp.status_code}",
+                            "status_code": resp.status_code})
+        except Exception as e:
+            return jsonify({"success": True, "running": False, "api_url": api_url,
+                            "message": "Not reachable", "error": str(e)[:120]})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @bp.route('/admin/firecrawl/crawl-jobs', methods=['GET'])
 def get_firecrawl_crawl_jobs():
     try:

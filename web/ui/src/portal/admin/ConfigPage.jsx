@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useApi } from '../useApi'
 
 const SECTIONS = {
-    RASA:           ['rasa_api_url', 'rasa_action_url'],
+    'ML CORE':      ['rasa_api_url', 'rasa_action_url'],
     SERVER:         ['admin_port', 'cors_origins'],
     KNOWLEDGE_BASE: ['kb_glpi_enabled', 'kb_refresh_interval', 'kb_semantic_enabled',
                      'kb_semantic_model', 'kb_semantic_weight', 'kb_keyword_weight',
@@ -20,7 +20,7 @@ function ConfigField({ k, value, onChange }) {
     const isSecret = k.toLowerCase().includes('secret') || k.toLowerCase().includes('password') || k.toLowerCase().includes('key')
     return (
         <div className="flex items-center gap-3 py-2 border-b border-gray-100 dark:border-slate-800 last:border-0">
-            <label className="text-sm text-gray-600 dark:text-slate-400 w-56 shrink-0 font-mono">{k}</label>
+            <label className="text-sm text-gray-600 dark:text-slate-400 w-56 shrink-0 font-mono">{k.replace(/rasa/gi, 'core')}</label>
             {isBool
                 ? <select
                     value={value}

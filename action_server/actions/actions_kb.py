@@ -12,7 +12,7 @@ from rasa_sdk.executor import CollectingDispatcher
 from common import analytics_store
 from action_server.actions._shared import (
     log_bot_response, get_analytics_context, get_effective_session_token,
-    check_user_login, logger,
+    check_user_login, logger, bind_request_id,
 )
 
 
@@ -149,7 +149,7 @@ class ActionSearchKnowledgeBase(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-
+        bind_request_id(tracker)
         # Get user's original message
         latest_msg = tracker.latest_message
         user_message = latest_msg.get("text", "") if isinstance(latest_msg, dict) else str(latest_msg)
@@ -377,6 +377,7 @@ class ActionShowKbFullAnswer(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
+        bind_request_id(tracker)
         question = tracker.get_slot("kb_last_question") or ""
         answer = tracker.get_slot("kb_last_answer") or ""
         title = tracker.get_slot("kb_last_article_title") or "Knowledge Base"
@@ -412,6 +413,7 @@ class ActionShowKbFullArticle(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
+        bind_request_id(tracker)
         title = tracker.get_slot("kb_last_article_title") or "Knowledge Base"
         content = tracker.get_slot("kb_last_article_content") or ""
         source = tracker.get_slot("kb_last_source") or "unknown"
@@ -447,11 +449,11 @@ class ActionSearchKbBeforeTicket(Action):
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
-        
+        bind_request_id(tracker)
         latest_msg = tracker.latest_message
         user_message = latest_msg.get("text", "") if isinstance(latest_msg, dict) else str(latest_msg)
         app_id = tracker.get_slot("app_id")
-        
+
         # Also check if there's a description entity extracted
         description = None
         entities = latest_msg.get("entities", []) if isinstance(latest_msg, dict) else []

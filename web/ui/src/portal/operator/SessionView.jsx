@@ -118,6 +118,20 @@ export default function SessionView() {
 
     useEffect(() => { fetchConversation() }, [fetchConversation])
 
+    // Re-pull authoritative messages whenever this tab regains focus/visibility.
+    // The socket can miss user_message events while the operator's tab is
+    // backgrounded (browser suspends the WebSocket); re-fetching the DB truth on
+    // return guarantees nothing typed by the user is silently dropped.
+    useEffect(() => {
+        const onVisible = () => { if (document.visibilityState === 'visible') fetchConversation() }
+        document.addEventListener('visibilitychange', onVisible)
+        window.addEventListener('focus', fetchConversation)
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible)
+            window.removeEventListener('focus', fetchConversation)
+        }
+    }, [fetchConversation])
+
     // Restore client-side private note for this session
     useEffect(() => {
         setNote(sessionStorage.getItem(noteKey) || '')

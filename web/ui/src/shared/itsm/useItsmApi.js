@@ -120,7 +120,7 @@ export function useUserDirectory() {
 export async function loadKbArticles(get, search, filters = {}) {
     const { status, visibility } = filters
     if (search && search.trim()) {
-        const results = await get('/kb/search', { q: search.trim(), limit: 20 })
+        const results = await get('/kb/search', { q: search.trim(), limit: 50 })
         let articles = results.map(r => r.article)
         if (status)     articles = articles.filter(a => a.status === status)
         if (visibility) articles = articles.filter(a => a.visibility === visibility)
@@ -128,16 +128,29 @@ export async function loadKbArticles(get, search, filters = {}) {
     }
     const spaces = await get('/kb/spaces')
     if (!spaces.length) return { articles: [] }
-    const space = spaces[0]
-    // Space slugs are unique per-tenant (not globally) — in the cross-tenant
-    // "All tenants" view (no X-Tenant-ID sent), force the lookup to the
-    // space's own tenant so it resolves instead of matching a global-only space.
-    const headers = space.tenant_id ? { 'X-Tenant-ID': space.tenant_id } : undefined
-    const page = await get(`/kb/spaces/${space.slug}/articles`, {
-        ...(status ? { status } : {}),
-        ...(visibility ? { visibility } : {}),
-    }, { headers })
-    return { articles: (page.items || []).map(a => ({ ...a, _spaceTenantId: space.tenant_id, _spaceName: space.name })) }
+    const baseParams = { ...(status ? { status } : {}), ...(visibility ? { visibility } : {}) }
+    // Fetch ALL articles across ALL spaces. The endpoint's param is `limit`
+    // (NOT page_size — that was silently ignored → default cap of 25) and it's
+    // capped at 100, so page through every space. Space slugs are unique
+    // per-tenant, so in the cross-tenant view we pin each to its own X-Tenant-ID.
+    const fetchSpace = async (space) => {
+        const headers = space.tenant_id ? { 'X-Tenant-ID': space.tenant_id } : undefined
+        const out = []
+        for (let page = 1; page <= 50; page++) {
+            let resp
+            try {
+                resp = await get(`/kb/spaces/${space.slug}/articles`,
+                    { ...baseParams, limit: 100, page }, { headers })
+            } catch { break }
+            const items = resp.items || []
+            out.push(...items.map(a => ({ ...a, _spaceTenantId: space.tenant_id, _spaceName: space.name })))
+            if (items.length < 100) break
+            if (resp.total != null && out.length >= resp.total) break
+        }
+        return out
+    }
+    const perSpace = await Promise.all(spaces.map(fetchSpace))
+    return { articles: perSpace.flat() }
 }
 
 /**
