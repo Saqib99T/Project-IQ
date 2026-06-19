@@ -98,18 +98,18 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1', prefill = {}
     if (isCompleted) return null;
 
     return (
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 w-full mt-2 mb-2">
-            <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm">
+        <div className="bg-white p-2.5 rounded-lg shadow-sm border border-gray-200 w-full mt-2 mb-2">
+            <h3 className="font-semibold text-gray-800 mb-1.5 flex items-center gap-2 text-sm">
                 <span className="p-1 bg-purple-100 text-purple-600 rounded">📝</span>
                 New Ticket
             </h3>
 
             {!showConfirm ? (
-                <form className="space-y-2">
+                <form className="space-y-1.5">
                     {/* Quick issue chips */}
                     <div>
                         <p className="text-xs text-gray-400 mb-1">Common issues:</p>
-                        <div className="flex flex-wrap gap-1 mb-2">
+                        <div className="flex flex-wrap gap-1">
                             {[
                                 { label: '💻 Laptop issue',      title: 'Laptop not working',          category: 'Hardware' },
                                 { label: '🌐 No internet',       title: 'Unable to connect to internet', category: 'Network'  },
@@ -127,7 +127,7 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1', prefill = {}
                             ))}
                         </div>
                     </div>
-                    {/* Title (Mandatory) */}
+                    {/* Title (Mandatory) — stacked (label above, full-width input) */}
                     <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Title <span className="text-red-500">*</span></label>
                         <input
@@ -136,102 +136,102 @@ const TicketForm = ({ onSubmit, onCancel, primaryColor = '#6366f1', prefill = {}
                             value={formData.title}
                             onChange={handleChange}
                             placeholder="Brief summary of the issue"
-                            className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-1 ${error ? 'border-red-500' : 'border-gray-300'}`}
+                            className={`w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-1 ${error ? 'border-red-500' : 'border-gray-300'}`}
                             style={{ '--tw-ring-color': primaryColor, borderColor: error ? '#ef4444' : '' }}
                         />
-                        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+                        {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
                     </div>
 
-                    {/* Detail (Optional) */}
+                    {/* Detail (Optional) — stacked */}
                     <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Detail</label>
                         <textarea
                             name="detail"
                             value={formData.detail}
                             onChange={handleChange}
-                            rows="3"
+                            rows="2"
                             placeholder="Describe the issue in detail..."
-                            className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-1 ${detailError ? 'border-red-500' : 'border-gray-300'}`}
+                            className={`w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-1 ${detailError ? 'border-red-500' : 'border-gray-300'}`}
                             style={{ '--tw-ring-color': primaryColor, borderColor: detailError ? '#ef4444' : '' }}
                         />
-                        {detailError && <p className="text-xs text-red-500 mt-1">{detailError}</p>}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        {/* Priority */}
-                        <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Priority</label>
-                            <select
-                                name="priority"
-                                value={formData.priority}
-                                onChange={handleChange}
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1"
-                                style={{ '--tw-ring-color': primaryColor }}
-                            >
-                                {priorityOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
-
-                        {/* Urgency */}
-                        <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Urgency</label>
-                            <select
-                                name="urgency"
-                                value={formData.urgency}
-                                onChange={handleChange}
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1"
-                                style={{ '--tw-ring-color': primaryColor }}
-                            >
-                                {urgencyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
+                        {detailError && <p className="text-xs text-red-500 mt-0.5">{detailError}</p>}
                     </div>
 
                     {/* Category */}
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+                    <div className="flex items-center gap-2">
+                        <label className="w-[70px] shrink-0 text-xs font-medium text-gray-700">Category</label>
                         <select
                             name="category"
                             value={formData.category}
                             onChange={handleChange}
-                            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1"
+                            className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1"
                             style={{ '--tw-ring-color': primaryColor }}
                         >
                             {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                         </select>
                     </div>
 
+                    {/* Priority */}
+                    <div className="flex items-center gap-2">
+                        <label className="w-[70px] shrink-0 text-xs font-medium text-gray-700">Priority</label>
+                        <select
+                            name="priority"
+                            value={formData.priority}
+                            onChange={handleChange}
+                            className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1"
+                            style={{ '--tw-ring-color': primaryColor }}
+                        >
+                            {priorityOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </div>
+
+                    {/* Urgency */}
+                    <div className="flex items-center gap-2">
+                        <label className="w-[70px] shrink-0 text-xs font-medium text-gray-700">Urgency</label>
+                        <select
+                            name="urgency"
+                            value={formData.urgency}
+                            onChange={handleChange}
+                            className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1"
+                            style={{ '--tw-ring-color': primaryColor }}
+                        >
+                            {urgencyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </div>
+
                     {/* Attachment */}
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Attachment <span className="text-gray-400 font-normal">(max 1 MB)</span></label>
-                        <input ref={fileRef} type="file" className="hidden" onChange={handleFileChange}
-                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.png,.jpg,.jpeg" />
-                        {uploading ? (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-600">
-                                <Loader size={13} className="animate-spin flex-shrink-0" />
-                                <span>Uploading…</span>
-                            </div>
-                        ) : attachment ? (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
-                                <Paperclip size={13} className="text-gray-400 flex-shrink-0" />
-                                <span className="text-xs text-gray-700 truncate flex-1">{attachment.name}</span>
-                                <span className="text-xs text-gray-400">{attachment.sizeLabel}</span>
-                                <button type="button" onClick={() => setAttachment(null)} className="text-gray-400 hover:text-gray-600">
-                                    <XIcon size={13} />
+                    <div className="flex items-start gap-2">
+                        <label className="w-[70px] shrink-0 text-xs font-medium text-gray-700 pt-1.5">Attachment</label>
+                        <div className="flex-1">
+                            <input ref={fileRef} type="file" className="hidden" onChange={handleFileChange}
+                                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.png,.jpg,.jpeg" />
+                            {uploading ? (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-600">
+                                    <Loader size={13} className="animate-spin flex-shrink-0" />
+                                    <span>Uploading…</span>
+                                </div>
+                            ) : attachment ? (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+                                    <Paperclip size={13} className="text-gray-400 flex-shrink-0" />
+                                    <span className="text-xs text-gray-700 truncate flex-1">{attachment.name}</span>
+                                    <span className="text-xs text-gray-400">{attachment.sizeLabel}</span>
+                                    <button type="button" onClick={() => setAttachment(null)} className="text-gray-400 hover:text-gray-600">
+                                        <XIcon size={13} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button type="button" onClick={() => fileRef.current?.click()}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-gray-300 rounded-md text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors w-full"
+                                >
+                                    <Paperclip size={13} /> Choose file… <span className="text-gray-400">(max 1 MB)</span>
                                 </button>
-                            </div>
-                        ) : (
-                            <button type="button" onClick={() => fileRef.current?.click()}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-gray-300 rounded-md text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors w-full"
-                            >
-                                <Paperclip size={13} /> Choose file…
-                            </button>
-                        )}
-                        {fileError && <p className="text-xs text-red-500 mt-1">{fileError}</p>}
+                            )}
+                            {fileError && <p className="text-xs text-red-500 mt-0.5">{fileError}</p>}
+                        </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex gap-2 pt-1">
                         <button
                             type="button"
                             onClick={handleCancel}

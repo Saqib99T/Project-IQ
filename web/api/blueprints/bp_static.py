@@ -36,7 +36,7 @@ def serve_root():
 
 @bp.route('/bot')
 def serve_bot():
-    return send_from_directory(_s.WIDGET_DIR, 'it.html')
+    return send_from_directory(_s.WIDGET_DIR, 'bot.html')
 
 # Keycloak silent-SSO helper. Apps (widget/portal/itsm) init Keycloak with
 # silentCheckSsoRedirectUri = <origin>/silent-check-sso.html; without this route

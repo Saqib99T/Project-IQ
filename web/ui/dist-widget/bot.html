@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project IQ Widget Integration Test</title>
     <!-- Cache-busting for CSS -->
-    <link rel="stylesheet" href="modern-web-interface.css?v=${new Date().getTime()}">
+    <link rel="stylesheet" href="modern-web-interface.css?v=1.0.1">
     <style>
         body {
             font-family: sans-serif;
@@ -42,8 +42,8 @@
         <p><small>(If you see a red border box but no chat, it's a rendering issue)</small></p>
     </div>
 
-    <!-- Project IQ Bot Widget - Using Teal Fresh theme (ID: 10) -->
-    <itsm-chat-widget title="General Support Bot" app-id="General" theme-id="5"></itsm-chat-widget>
+    <!-- Project IQ Bot Widget -->
+    <itsm-chat-widget title="Project IQ Bot" app-id="IT" theme-id="#2563eb"></itsm-chat-widget>
 
     <script>
         window.__IAM_CONFIG__ = {
@@ -52,7 +52,7 @@
             clientId: 'project-iq',
         };
     </script>
-    <script src="itsm-chat-widget.js?v=20260531"></script>
+    <script src="itsm-chat-widget.js?v=20260619d"></script>
 </body>
 
 </html>
