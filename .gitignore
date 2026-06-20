@@ -40,6 +40,7 @@ models/*.tar.gz
 data/history/
 
 # Firecrawl self-host (node_modules, build output, generated files)
+firecrawl-selfhost/
 firecrawl-selfhost/**/node_modules/
 firecrawl-selfhost/**/.next/
 firecrawl-selfhost/**/dist/
