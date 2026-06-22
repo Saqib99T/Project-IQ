@@ -1,93 +1,86 @@
 # Deployment Guide — Project IQ
 
 ## Production Server
-- **IP:** 192.168.71.66
-- **User:** user
-- **Project path:** /home/user/project-iq
-- **Services:** managed by systemd
+- **IP:** 198.233.100.77 (Ubuntu)
+- **User:** `user` — use **key-based SSH** (no passwords in this repo; see `docs/SECURITY_SECRETS.md`)
+- **Project path:** `/home/user/project-iq`
+- **itsm-service:** `/home/user/itsm-service` (docker-compose)
+- **Services:** systemd (`project-iq-admin`, `rasa-core@<port>`) + the action server; itsm-service via docker-compose
 
-## Quick Deploy (use deploy_prod.py)
+> The server is **not** a git repo. It keeps its own hand-maintained
+> `common/app.config` and secrets; deploys never overwrite them.
 
-```
-D:\99T\Rasa\Project-IQ\venv\Scripts\python.exe deploy_prod.py
-```
+## Deploy with `scripts/deploy.sh`
 
-The script:
-1. SFTPs all changed files to the server
-2. Restarts `project-iq-admin` and `project-iq-actions` via systemctl
-3. Runs a health check on all three ports (8181, 5005, 5055)
+Safe, parametrized, **dry-run by default**. It ships only git-tracked code
+(never secrets, `app.config*`, models, caches, or build junk), backs up the
+remote dir first, restarts services, health-checks, and **rolls back on
+failure**.
 
-## Manual Deploy Steps
-
-### 1. Add files to UPLOAD_FILES in deploy_prod.py
-Edit `deploy_prod.py` and add any newly changed files to the `UPLOAD_FILES` list.
-
-### 2. Run the deploy script
-```
-D:\99T\Rasa\Project-IQ\venv\Scripts\python.exe deploy_prod.py
-```
-
-### 3. If services don't restart cleanly — SSH manually
 ```bash
-ssh user@192.168.71.66
-# password: 99tech6677
+# Preview exactly what would happen (no changes):
+scripts/deploy.sh main
+scripts/deploy.sh itsm
+scripts/deploy.sh frontend         # build first: cd web/ui && npm run build
 
+# Do it for real:
+scripts/deploy.sh main --apply
+scripts/deploy.sh all  --apply     # itsm + main
+```
+
+Components: `main` (rasa + actions + admin code), `itsm` (the microservice),
+`frontend` (built `web/ui/dist*` + `public`), `all`.
+Flags: `--apply` (off = dry run), `--no-restart`, `--no-rollback`, `-h`.
+
+Override defaults via env, e.g.:
+```bash
+DEPLOY_HOST=198.233.100.77 DEPLOY_USER=user DEPLOY_SSH_KEY=~/.ssh/piq \
+  MAIN_REMOTE_DIR=/home/user/project-iq scripts/deploy.sh main --apply
+```
+
+### Prerequisite — secrets must be on the server
+Tracked config files no longer carry secrets. Before (or alongside) a deploy,
+ensure the `PIQ_*` env vars are set on the server (systemd `Environment=` /
+service env). See `docs/SECURITY_SECRETS.md` for the full list and the
+rotation checklist.
+
+## Manual restart / logs (if needed)
+```bash
+ssh user@198.233.100.77
 sudo systemctl restart project-iq-admin
-sudo systemctl restart project-iq-actions
-sudo systemctl status project-iq-admin project-iq-actions
-```
-
-### 4. Check logs on server
-```bash
+sudo systemctl restart 'rasa-core@*'
 journalctl -u project-iq-admin -f --no-pager
-journalctl -u project-iq-actions -f --no-pager
+# itsm-service:
+cd /home/user/itsm-service && docker compose logs -f api
 ```
 
 ## Service Port Map
 
-| Port  | Service            | Check                            |
-|-------|--------------------|----------------------------------|
-| 8181  | Admin API          | http://SERVER:8181/              |
-| 5005  | ML Platform Core   | http://SERVER:5005/version       |
-| 5055  | ML Platform Actions| http://SERVER:5055/webhook       |
-| 3002  | Firecrawl          | http://SERVER:3002/is-production |
-| 5432  | PostgreSQL         | internal                         |
-| 8083  | ITSM (GLPI)        | http://SERVER:8083/              |
+| Port | Service              | Health check                         |
+|------|----------------------|--------------------------------------|
+| 8181 | Admin API (Flask)    | `http://127.0.0.1:8181/api/status`   |
+| 5005 | Rasa Core            | `http://127.0.0.1:5005/status`       |
+| 5055 | Rasa Actions         | `http://127.0.0.1:5055/health`       |
+| 8000 | itsm-service (FastAPI)| `http://127.0.0.1:8000/api/v1/health`|
+| 5432 | PostgreSQL           | internal                             |
 
-## What Requires a Restart
+## What requires a restart
 
-| Change type                         | Restart needed          |
-|-------------------------------------|-------------------------|
-| admin/api/admin_api.py              | project-iq-admin        |
-| admin/ui/public/js/*.js             | None (static files)     |
-| admin/ui/public/components/*.html   | None (static files)     |
-| common/*.py                         | project-iq-admin + actions |
-| action_server/actions/*.py          | project-iq-actions      |
-| core/domain.yml / nlu.yml / stories | Rasa retrain needed     |
+| Change                              | Restart                          |
+|-------------------------------------|----------------------------------|
+| `web/api/**`, `common/**`           | `project-iq-admin` (+ actions)   |
+| `action_server/actions/**`          | the action server                |
+| `core/domain.yml` / `nlu.yml` / stories | Rasa **retrain**, then restart core |
+| `web/ui/**` (after `npm run build`) | none (static) — or restart admin |
+| itsm-service `app/**`               | hot-reloads; else `docker compose up -d` |
 
-## What Does NOT Need a Restart
-- Static UI files (JS, HTML, CSS) — served directly, live immediately
-- Config changes in app.config (if not cached at startup)
-
-## Firecrawl Docker (if crash-looping)
+## Mobile app (expo-app)
+Not server-deployed. Build via EAS / the local build script:
 ```bash
-ssh user@192.168.71.66
-docker ps | grep firecrawl          # check status
-docker logs firecrawl-api --tail 20 # check errors
-
-# If NUQ error — run from project dir:
-docker compose -f docker-compose-firecrawl.yml up -d --force-recreate firecrawl-api firecrawl-worker
-```
-
-## Mobile App (expo-app)
-Mobile changes are NOT deployed to the server. Build via EAS:
-```bash
-cd expo-app
-eas build --platform android --profile production
+cd expo-app && eas build --platform android --profile production
 ```
 
 ## Notes
-- The server is NOT a git repo — deploy via SFTP (deploy_prod.py), not git pull
-- paramiko must be installed in D:\99T\Rasa\Project-IQ\venv (not the Code venv)
-- Sensitive files (app.config.local, credentials.yml) are already on server with prod values — do NOT overwrite them
-- Cache files (kb_embeddings.pkl, kb_embeddings_cache.json) regenerate automatically — do NOT deploy them
+- Cache files (`kb_embeddings_cache.json`, `web/data/cache/`) regenerate at
+  runtime — never deploy them (the script already withholds them).
+- Rasa model tarballs are not in git — see `docs/DEVELOPMENT.md`.

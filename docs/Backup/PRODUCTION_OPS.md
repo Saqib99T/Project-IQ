@@ -1,7 +1,7 @@
 # Project-IQ — Production Operations Reference
 
 **Server:** 198.233.100.77 (Ubuntu 22.04)
-**SSH:** `ssh user@198.233.100.77` (password: `99tech6677`)
+**SSH:** `ssh user@198.233.100.77` (use key-based auth; credentials are not stored in this repo)
 **Project root:** `/home/user/project-iq`
 
 ---
@@ -111,11 +111,11 @@ sudo systemctl daemon-reload && sudo systemctl restart project-iq-admin
 
 **Connection details (external / pgAdmin):**
 - Host: `198.233.100.77` | Port: `5432`
-- User: `postgres` | Password: `99tech6677` | Database: `Chatbot`
+- User: `postgres` | Password: _(not stored in repo — see your secrets store / `PGPASSWORD`)_ | Database: `Chatbot`
 
 ```bash
 # Connect from server shell
-PGPASSWORD=99tech6677 psql -h 127.0.0.1 -U postgres -d Chatbot
+PGPASSWORD="$PGPASSWORD" psql -h 127.0.0.1 -U postgres -d Chatbot
 
 # Inside psql — useful commands
 \dt                          -- list all tables
@@ -135,15 +135,15 @@ sudo systemctl restart postgresql
 sudo systemctl reload postgresql    -- reload pg_hba without full restart
 
 # Active connections
-PGPASSWORD=99tech6677 psql -h 127.0.0.1 -U postgres -d Chatbot \
+PGPASSWORD="$PGPASSWORD" psql -h 127.0.0.1 -U postgres -d Chatbot \
   -c "SELECT count(*) FROM pg_stat_activity;"
 
 # Backup
-PGPASSWORD=99tech6677 pg_dump -h 127.0.0.1 -U postgres -F p \
+PGPASSWORD="$PGPASSWORD" pg_dump -h 127.0.0.1 -U postgres -F p \
   -f /home/user/backups/chatbot_$(date +%Y%m%d).sql Chatbot
 
 # Restore
-PGPASSWORD=99tech6677 psql -h 127.0.0.1 -U postgres -d Chatbot \
+PGPASSWORD="$PGPASSWORD" psql -h 127.0.0.1 -U postgres -d Chatbot \
   -f /home/user/backups/chatbot_YYYYMMDD.sql
 ```
 
@@ -345,7 +345,7 @@ sudo systemctl start project-iq-admin
 # Verify everything is up
 systemctl is-active project-iq-rasa project-iq-actions project-iq-admin
 docker ps
-PGPASSWORD=99tech6677 psql -h 127.0.0.1 -U postgres -d Chatbot -c "SELECT 1;"
+PGPASSWORD="$PGPASSWORD" psql -h 127.0.0.1 -U postgres -d Chatbot -c "SELECT 1;"
 curl http://localhost:5005/version
 ```
 
@@ -369,7 +369,7 @@ free -h && \
 echo "=== Rasa ===" && \
 curl -s http://localhost:5005/version && \
 echo "=== DB ===" && \
-PGPASSWORD=99tech6677 psql -h 127.0.0.1 -U postgres -d Chatbot \
+PGPASSWORD="$PGPASSWORD" psql -h 127.0.0.1 -U postgres -d Chatbot \
   -c "SELECT COUNT(*) as conversations FROM conversations;" 2>&1
 ```
 

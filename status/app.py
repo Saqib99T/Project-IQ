@@ -7,6 +7,10 @@ from flask import Flask, jsonify, send_from_directory
 
 app = Flask(__name__, static_folder=".")
 
+# DB password comes from the environment, never hardcoded (see docs/SECURITY_SECRETS.md).
+# subprocess calls below inherit it; set PGPASSWORD or PIQ_DATABASE_DB_PASSWORD before launch.
+os.environ.setdefault("PGPASSWORD", os.environ.get("PIQ_DATABASE_DB_PASSWORD", ""))
+
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def run(cmd, timeout=6):
@@ -73,8 +77,8 @@ def get_health():
     items.append({"name":"GLPI", "ok": ok, "detail": title or "no response"})
 
     # PostgreSQL
-    db = run("PGPASSWORD=99tech6677 psql -h 127.0.0.1 -U postgres -d Chatbot -t -c \"SELECT COUNT(*) FROM conversations;\" 2>/dev/null")
-    ops = run("PGPASSWORD=99tech6677 psql -h 127.0.0.1 -U postgres -d Chatbot -t -c \"SELECT COUNT(*) FROM operators;\" 2>/dev/null")
+    db = run("psql -h 127.0.0.1 -U postgres -d Chatbot -t -c \"SELECT COUNT(*) FROM conversations;\" 2>/dev/null")
+    ops = run("psql -h 127.0.0.1 -U postgres -d Chatbot -t -c \"SELECT COUNT(*) FROM operators;\" 2>/dev/null")
     ok_pg = bool(db.strip())
     items.append({"name":"PostgreSQL", "ok": ok_pg,
                   "detail": f"{db.strip()} conversations, {ops.strip()} operators" if ok_pg else "cannot connect"})

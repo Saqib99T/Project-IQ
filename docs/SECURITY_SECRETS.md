@@ -55,7 +55,16 @@ from history — **rotation is what neutralizes the exposure.**
    and set `PIQ_DATABASE_DB_PASSWORD` on the box. (The committed values `12345`
    / `itsm_pass` were dev defaults.)
 
-4. **Android keystore / key passwords** — were in `expo-app/CREDENTIALS.md`
+4. **Prod server SSH password + Postgres `postgres` password** — the **same**
+   value was committed (as the SSH password and reused as the DB password) in
+   `DEPLOYMENT.md`, `docs/Backup/PRODUCTION_OPS.md`, `status.sh`,
+   `scripts/status.sh`, and `status/app.py` (now removed; those scripts read
+   `PGPASSWORD` / `PIQ_DATABASE_DB_PASSWORD` from the environment).
+   → Change the Linux `user` account password (and prefer key-based SSH only).
+   → Rotate the Postgres `postgres` role password; set `PGPASSWORD` /
+   `PIQ_DATABASE_DB_PASSWORD` on the box. **Stop reusing one secret for both.**
+
+5. **Android keystore / key passwords** — were in `expo-app/CREDENTIALS.md`
    (now redacted; real values in the git-ignored
    `expo-app/credentials/android/keystore.env` + EAS account).
    A signing keystore **cannot be rotated** (Google Play is bound to its SHA1).
