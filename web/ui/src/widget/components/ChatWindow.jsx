@@ -80,6 +80,16 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         return newId;
     });
 
+    // ── Per-session epoch ─────────────────────────────────────────────────────
+    // Each chat session must be its OWN record in history. For signed-in users
+    // the id is iam-{sub}-{product}-{epoch}; a new epoch ⇒ new sender_id ⇒ new
+    // conversations row ⇒ separate history entry. The epoch is bumped on a fresh
+    // login (Keycloak sid changes) and on "New conversation", but is stable
+    // across reloads (persisted), so a reload stays in the same session.
+    const [sessionEpoch, setSessionEpoch] = useState(
+        () => getCookie(getStorageKey(appId, 'sessionEpoch')) || '');
+    const newEpoch = () => `s${Date.now().toString(36)}`;
+
     // ── IAM-aware fetch headers ───────────────────────────────────────────────
     const getAuthHeaders = useCallback(() => {
         const h = { 'Content-Type': 'application/json' };
@@ -174,10 +184,28 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
     // ── Sync IAM → local auth state ───────────────────────────────────────────
     // senderId is product-scoped (iam-{sub}-{product}) and MUST match what the
     // chat proxy computes server-side, so socket rooms / handoff status line up.
+    // Start a NEW session record on each fresh login: when the Keycloak session
+    // id (sid) differs from the one our current epoch was minted for, bump the
+    // epoch. Reloads restore the same sid ⇒ same epoch ⇒ same session record.
+    useEffect(() => {
+        if (!iamAuthenticated || !iam.user?.sid) return;
+        const lastSid = getCookie(getStorageKey(appId, 'sessionSid'));
+        if (iam.user.sid !== lastSid) {
+            const ep = newEpoch();
+            setCookie(getStorageKey(appId, 'sessionEpoch'), ep);
+            setCookie(getStorageKey(appId, 'sessionSid'), iam.user.sid);
+            setSessionEpoch(ep);
+        }
+    }, [iamAuthenticated, iam.user?.sid, appId]);
+
     useEffect(() => {
         if (iamAuthenticated && iam.user) {
+            // iam-{sub}-{product}-{epoch}: product-scoped AND session-scoped, so
+            // each login / new conversation is its own record (see sessionEpoch).
             const base = `iam-${iam.user.sub}`;
-            const iamSenderId = selectedProductId ? `${base}-${selectedProductId}` : base;
+            const prod = selectedProductId ? `-${selectedProductId}` : '';
+            const ep   = sessionEpoch ? `-${sessionEpoch}` : '';
+            const iamSenderId = `${base}${prod}${ep}`;
             setSenderId(iamSenderId);
             setCookie(getStorageKey(appId, 'senderId'), iamSenderId);
             setIsAuthenticated(true);
@@ -186,7 +214,25 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             setCookie(getStorageKey(appId, 'isAuthenticated'), 'true');
             setCookie(getStorageKey(appId, 'authUser'), iam.user.username || '');
         }
-    }, [iamAuthenticated, iam.user, appId, selectedProductId]);
+    }, [iamAuthenticated, iam.user, appId, selectedProductId, sessionEpoch]);
+
+    // When the identity (senderId) changes to a NEW session — e.g. a fresh login
+    // — start with a clean chat so the previous session's messages never carry
+    // over. Explicit handlers (new conversation / switch product / logout) set
+    // skipAutoClearRef because they render their own context-specific welcome.
+    const sessionIdentityRef = useRef(senderId);
+    const skipAutoClearRef   = useRef(false);
+    useEffect(() => {
+        if (sessionIdentityRef.current === senderId) return;
+        sessionIdentityRef.current = senderId;
+        if (skipAutoClearRef.current) { skipAutoClearRef.current = false; return; }
+        localStorage.removeItem(getStorageKey(appId, 'messages'));
+        const welcome = (isAuthenticated && authUser)
+            ? `**Hi ${authUser}!**\n\nHow can I help you today?`
+            : `**Hi, I'm ${title}** 👋\n\nHow can I help you today?`;
+        setMessages([{ id: 'init', sender: 'bot', text: welcome }]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [senderId]);
 
     // Authentication state - check cookies for persisted login.
     // If this browser has an active operator session (op_token in localStorage),
@@ -842,6 +888,12 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         deleteCookie(getStorageKey(appId, 'authUser'));
         deleteCookie(getStorageKey(appId, 'glpiSessionToken'));
         localStorage.removeItem(getStorageKey(appId, 'messages'));
+        // New guest session; clear the signed-in session markers so a later
+        // login is detected as a fresh session. We set our own welcome below.
+        deleteCookie(getStorageKey(appId, 'sessionEpoch'));
+        deleteCookie(getStorageKey(appId, 'sessionSid'));
+        setSessionEpoch('');
+        skipAutoClearRef.current = true;
         const freshId = uuidv4();
         setCookie(getStorageKey(appId, 'senderId'), freshId);
         setSenderId(freshId);
@@ -882,10 +934,20 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         warningShownRef.current = false;
         sessionEndedRef.current = false;
         localStorage.removeItem(getStorageKey(appId, 'messages'));
-        deleteCookie(getStorageKey(appId, 'senderId'));
-        const newId = uuidv4();
-        setCookie(getStorageKey(appId, 'senderId'), newId);
-        setSenderId(newId);
+        // New conversation = a brand-new session record. Signed-in: bump the
+        // epoch (senderId effect recomputes iam-{sub}-{product}-{epoch}); guest:
+        // a fresh UUID. We set our own welcome, so skip the auto-clear effect.
+        skipAutoClearRef.current = true;
+        if (iamAuthenticated) {
+            const ep = newEpoch();
+            setCookie(getStorageKey(appId, 'sessionEpoch'), ep);
+            setSessionEpoch(ep);
+        } else {
+            deleteCookie(getStorageKey(appId, 'senderId'));
+            const newId = uuidv4();
+            setCookie(getStorageKey(appId, 'senderId'), newId);
+            setSenderId(newId);
+        }
         setSessionEnded(false);
         const welcomeMsg = isAuthenticated && authUser
             ? `**Hi ${authUser}!**\n\nWelcome back. How can I help you today?`
@@ -903,8 +965,10 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
             method: 'POST', headers: getAuthHeaders(),
             body: JSON.stringify({ sender_id: senderId }),
         }).catch(() => {});
-        // Switch → the senderId effect recomputes to iam-{sub}-{newPid}: a brand
-        // new session on both bot and operator.
+        // Switch → the senderId effect recomputes to iam-{sub}-{newPid}-{epoch}:
+        // a brand new session on both bot and operator. We set our own welcome,
+        // so skip the auto-clear effect that the senderId change would trigger.
+        skipAutoClearRef.current = true;
         setSelectedProductId(newPid);
         setCookie(getStorageKey(appId, 'selectedProduct'), newPid);
         // Reset the conversation UI for the new product.

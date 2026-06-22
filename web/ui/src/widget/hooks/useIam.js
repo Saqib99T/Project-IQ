@@ -65,6 +65,10 @@ function parseUser(kc) {
     const realmRoles = t.realm_access?.roles || [];
     return {
         sub:             t.sub,
+        // Keycloak SSO session id — changes on a fresh login, stable across
+        // reloads (silent SSO restores the same session). Used by the widget to
+        // start a NEW chat session/record on each login.
+        sid:             t.sid || t.session_state || '',
         username:        t.preferred_username || '',
         email:           t.email || '',
         name:            t.name || `${t.given_name || ''} ${t.family_name || ''}`.trim(),

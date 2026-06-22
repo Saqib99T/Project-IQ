@@ -40192,6 +40192,10 @@ if (typeof window !== "undefined" && !window.process) {
     const realmRoles = t.realm_access?.roles || [];
     return {
       sub: t.sub,
+      // Keycloak SSO session id — changes on a fresh login, stable across
+      // reloads (silent SSO restores the same session). Used by the widget to
+      // start a NEW chat session/record on each login.
+      sid: t.sid || t.session_state || "",
       username: t.preferred_username || "",
       email: t.email || "",
       name: t.name || `${t.given_name || ""} ${t.family_name || ""}`.trim(),
@@ -40511,6 +40515,10 @@ if (typeof window !== "undefined" && !window.process) {
       setCookie(getStorageKey(appId, "senderId"), newId);
       return newId;
     });
+    const [sessionEpoch, setSessionEpoch] = reactExports.useState(
+      () => getCookie(getStorageKey(appId, "sessionEpoch")) || ""
+    );
+    const newEpoch = () => `s${Date.now().toString(36)}`;
     const getAuthHeaders = reactExports.useCallback(() => {
       const h = { "Content-Type": "application/json" };
       if (iam.token) h["Authorization"] = `Bearer ${iam.token}`;
@@ -40580,9 +40588,21 @@ if (typeof window !== "undefined" && !window.process) {
       iam.login({ redirectUri: window.location.href });
     }, [iam]);
     reactExports.useEffect(() => {
+      if (!iamAuthenticated || !iam.user?.sid) return;
+      const lastSid = getCookie(getStorageKey(appId, "sessionSid"));
+      if (iam.user.sid !== lastSid) {
+        const ep = newEpoch();
+        setCookie(getStorageKey(appId, "sessionEpoch"), ep);
+        setCookie(getStorageKey(appId, "sessionSid"), iam.user.sid);
+        setSessionEpoch(ep);
+      }
+    }, [iamAuthenticated, iam.user?.sid, appId]);
+    reactExports.useEffect(() => {
       if (iamAuthenticated && iam.user) {
         const base = `iam-${iam.user.sub}`;
-        const iamSenderId = selectedProductId ? `${base}-${selectedProductId}` : base;
+        const prod = selectedProductId ? `-${selectedProductId}` : "";
+        const ep = sessionEpoch ? `-${sessionEpoch}` : "";
+        const iamSenderId = `${base}${prod}${ep}`;
         setSenderId(iamSenderId);
         setCookie(getStorageKey(appId, "senderId"), iamSenderId);
         setIsAuthenticated(true);
@@ -40591,7 +40611,24 @@ if (typeof window !== "undefined" && !window.process) {
         setCookie(getStorageKey(appId, "isAuthenticated"), "true");
         setCookie(getStorageKey(appId, "authUser"), iam.user.username || "");
       }
-    }, [iamAuthenticated, iam.user, appId, selectedProductId]);
+    }, [iamAuthenticated, iam.user, appId, selectedProductId, sessionEpoch]);
+    const sessionIdentityRef = reactExports.useRef(senderId);
+    const skipAutoClearRef = reactExports.useRef(false);
+    reactExports.useEffect(() => {
+      if (sessionIdentityRef.current === senderId) return;
+      sessionIdentityRef.current = senderId;
+      if (skipAutoClearRef.current) {
+        skipAutoClearRef.current = false;
+        return;
+      }
+      localStorage.removeItem(getStorageKey(appId, "messages"));
+      const welcome = isAuthenticated && authUser ? `**Hi ${authUser}!**
+
+How can I help you today?` : `**Hi, I'm ${title}** 👋
+
+How can I help you today?`;
+      setMessages([{ id: "init", sender: "bot", text: welcome }]);
+    }, [senderId]);
     !!localStorage.getItem("op_token");
     const [isAuthenticated, setIsAuthenticated] = reactExports.useState(() => {
       return getCookie(getStorageKey(appId, "isAuthenticated")) === "true";
@@ -41132,6 +41169,10 @@ Please select a product below to get started.`;
       deleteCookie(getStorageKey(appId, "authUser"));
       deleteCookie(getStorageKey(appId, "glpiSessionToken"));
       localStorage.removeItem(getStorageKey(appId, "messages"));
+      deleteCookie(getStorageKey(appId, "sessionEpoch"));
+      deleteCookie(getStorageKey(appId, "sessionSid"));
+      setSessionEpoch("");
+      skipAutoClearRef.current = true;
       const freshId = v4();
       setCookie(getStorageKey(appId, "senderId"), freshId);
       setSenderId(freshId);
@@ -41172,10 +41213,17 @@ Please select a product below to get started.`;
       warningShownRef.current = false;
       sessionEndedRef.current = false;
       localStorage.removeItem(getStorageKey(appId, "messages"));
-      deleteCookie(getStorageKey(appId, "senderId"));
-      const newId = v4();
-      setCookie(getStorageKey(appId, "senderId"), newId);
-      setSenderId(newId);
+      skipAutoClearRef.current = true;
+      if (iamAuthenticated) {
+        const ep = newEpoch();
+        setCookie(getStorageKey(appId, "sessionEpoch"), ep);
+        setSessionEpoch(ep);
+      } else {
+        deleteCookie(getStorageKey(appId, "senderId"));
+        const newId = v4();
+        setCookie(getStorageKey(appId, "senderId"), newId);
+        setSenderId(newId);
+      }
       setSessionEnded(false);
       const welcomeMsg = isAuthenticated && authUser ? `**Hi ${authUser}!**
 
@@ -41200,6 +41248,7 @@ I'm here to help you with:
         body: JSON.stringify({ sender_id: senderId })
       }).catch(() => {
       });
+      skipAutoClearRef.current = true;
       setSelectedProductId(newPid);
       setCookie(getStorageKey(appId, "selectedProduct"), newPid);
       setHandoffState("bot_active");
