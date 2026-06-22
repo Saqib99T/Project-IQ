@@ -2,9 +2,12 @@
 User-facing API blueprint.
 Routes: /api/user/conversations, /api/user/conversation/*/messages, /api/user/session/feedback
 """
+import logging
 from flask import Blueprint, request, jsonify
 from common.conversation_db import _get_connection, _release_connection
 from psycopg2.extras import RealDictCursor
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('user_api', __name__)
 
@@ -124,7 +127,7 @@ def save_session_feedback():
                 finally:
                     _release_connection(conn)
             except Exception as e:
-                print(f"[feedback] queue rating update failed (non-fatal): {e}")
+                logger.warning("[feedback] queue rating update failed (non-fatal): %s", e)
 
         return jsonify({'success': True, 'message': 'Feedback saved'})
     except Exception as e:

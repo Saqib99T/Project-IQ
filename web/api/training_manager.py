@@ -2,6 +2,7 @@
 Training Manager Module
 Read and write Rasa training data files (NLU, stories, rules)
 """
+import logging
 import os
 import yaml
 import re
@@ -21,6 +22,8 @@ DOMAIN_FILE = os.path.join(PROJECT_ROOT, 'domain.yml')
 # Training state
 _training_jobs = {}
 
+
+logger = logging.getLogger(__name__)
 
 def get_nlu_data() -> Dict:
     """
@@ -170,7 +173,7 @@ def get_stories_data() -> Dict:
                     "steps": parse_story_steps(story.get('steps', []))
                 })
         except Exception as e:
-            print(f"Error reading stories.yml: {e}")
+            logger.warning("Error reading stories.yml: %s", e)
     
     # Read rules.yml
     if os.path.exists(RULES_FILE):
@@ -185,7 +188,7 @@ def get_stories_data() -> Dict:
                     "steps": parse_story_steps(rule.get('steps', []))
                 })
         except Exception as e:
-            print(f"Error reading rules.yml: {e}")
+            logger.warning("Error reading rules.yml: %s", e)
     
     return {
         "success": True,

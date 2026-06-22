@@ -1,6 +1,7 @@
 """
 Authentication blueprint — admin login/logout/verify + operator login/logout/token.
 """
+import logging
 import uuid
 import time
 import base64
@@ -11,6 +12,8 @@ import json as _json
 from flask import Blueprint, request, jsonify, redirect
 from common.conversation_db import _get_connection, _release_connection
 import web.api.shared as _s
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('auth', __name__)
 
@@ -170,14 +173,14 @@ def operator_iam_callback():
     state = request.args.get('state')
     error = request.args.get('error')
 
-    print(f"[OP IAM CALLBACK] code={bool(code)} state={state} error={error} store_size={len(_pkce_store)}")
+    logger.info("[OP IAM CALLBACK] code=%s state=%s error=%s store_size=%s", bool(code), state, error, len(_pkce_store))
 
     if error:
-        print(f"[OP IAM CALLBACK] Keycloak error: {error}")
+        logger.warning("[OP IAM CALLBACK] Keycloak error: %s", error)
         return redirect(f"/opt/?iam_error={error}")
 
     entry = _pkce_store.pop(state, None) if state else None
-    print(f"[OP IAM CALLBACK] entry found: {bool(entry)}, code present: {bool(code)}")
+    logger.info("[OP IAM CALLBACK] entry found: %s, code present: %s", bool(entry), bool(code))
     if not code or not entry:
         return redirect('/opt/?iam_error=invalid_state')
 
@@ -190,13 +193,13 @@ def operator_iam_callback():
             'code': code, 'redirect_uri': redirect_uri, 'code_verifier': verifier,
         }, timeout=10)
         tok = tok_resp.json()
-        print(f"[OP IAM CALLBACK] token status={tok_resp.status_code} err={tok.get('error')} desc={tok.get('error_description')}")
+        logger.info("[OP IAM CALLBACK] token status=%s err=%s desc=%s", tok_resp.status_code, tok.get('error'), tok.get('error_description'))
         if 'access_token' not in tok:
             err_msg = tok.get('error_description') or tok.get('error') or 'token_failed'
             return redirect(f"/opt/?iam_error={err_msg}")
         from common.iam_service import verify_iam_token, extract_iam_user, IamTokenError
         user = extract_iam_user(verify_iam_token(tok['access_token']))
-        print(f"[OP IAM CALLBACK] user: {user['username']} is_operator={user['is_operator']} is_admin={user['is_admin']} roles={user['client_roles']}")
+        logger.info("[OP IAM CALLBACK] user: %s is_operator=%s is_admin=%s roles=%s", user['username'], user['is_operator'], user['is_admin'], user['client_roles'])
         if not user['is_operator'] and not user['is_admin'] and not user['is_super_admin']:
             return redirect('/opt/?iam_error=access_denied')
         from common.db._handoff import get_operator_by_iam_sub, get_operator_by_email, update_operator_iam_sub, update_operator_last_seen, update_operator_org
@@ -279,7 +282,7 @@ def admin_iam_login():
             'iam':          True,
             'iam_exp':      user['exp'],
         }
-        print(f"[ADMIN IAM] '{user['username'] or user.get('email')}' logged in as admin via IAM")
+        logger.info("[ADMIN IAM] '%s' logged in as admin via IAM", user['username'] or user.get('email'))
         return jsonify({
             'success':       True,
             'session_token': session_token,
@@ -413,7 +416,7 @@ def operator_iam_login():
         }, _s.get_operator_jwt_secret())
 
         display = user['name'] or user['username']
-        print(f"[OPERATOR IAM] '{user['username']}' logged in (role: {'Admin' if user['is_admin'] else 'Operator'})")
+        logger.info("[OPERATOR IAM] '%s' logged in (role: %s)", user['username'], 'Admin' if user['is_admin'] else 'Operator')
         return jsonify({
             # Top-level fields for op-auth.js compatibility
             'token':        jwt_token,

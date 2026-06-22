@@ -38,8 +38,11 @@ imports (import web.api.admin_api as _m) for complex routes. This works
 because those functions are called AFTER admin_api.py is fully loaded.
 """
 
+import logging
 from flask import Flask
 
+
+logger = logging.getLogger(__name__)
 
 def register_blueprints(app: Flask) -> None:
     """Register all blueprints on the Flask app."""
@@ -83,5 +86,4 @@ def register_blueprints(app: Flask) -> None:
     # Static files last — its /<path:filename> catch-all must not shadow API routes
     app.register_blueprint(bp_static)
 
-    print(f"[Blueprints] Registered {len(app.blueprints)} blueprints, "
-          f"{len(app.url_map._rules)} total rules")
+    logger.info("[Blueprints] Registered %d blueprints, %d total rules", len(app.blueprints), len(app.url_map._rules))

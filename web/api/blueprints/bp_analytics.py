@@ -2,10 +2,13 @@
 Analytics blueprint.
 Routes: /admin/analytics/*, /analytics/satisfaction, /admin/analytics/satisfaction
 """
+import logging
 from flask import Blueprint, request, jsonify
 from common.analytics_store import get_analytics_summary, get_recent_conversations
 from common.conversation_db import get_app_list
 import web.api.shared as _s
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('analytics', __name__)
 
@@ -152,7 +155,7 @@ def satisfaction_ratings():
             "average": round(weighted_sum / total, 2) if total else 0
         }})
     except Exception as e:
-        print(f"[Analytics] satisfaction error: {e}")
+        logger.error("[Analytics] satisfaction error: %s", e)
         return jsonify({"success": True, "data": {
             "ratings": {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}, "total": 0, "average": 0
         }})

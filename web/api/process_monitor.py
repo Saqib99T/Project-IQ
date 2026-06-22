@@ -2,6 +2,7 @@
 Process Monitor Module
 Real-time monitoring of Rasa services using psutil
 """
+import logging
 import psutil
 import os
 import time
@@ -21,6 +22,8 @@ _metrics_history = {
 _history_lock = threading.Lock()
 MAX_HISTORY_POINTS = 360  # 1 hour at 10-second intervals
 
+
+logger = logging.getLogger(__name__)
 
 def get_process_by_port(port: int) -> Optional[Dict]:
     """Find process listening on a specific port."""
@@ -47,7 +50,7 @@ def get_process_by_port(port: int) -> Optional[Dict]:
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
     except Exception as e:
-        print(f"Error getting process by port {port}: {e}")
+        logger.warning("Error getting process by port %s: %s", port, e)
     return None
 
 
@@ -75,7 +78,7 @@ def get_process_by_name(name_pattern: str) -> Optional[Dict]:
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
     except Exception as e:
-        print(f"Error getting process by name {name_pattern}: {e}")
+        logger.warning("Error getting process by name %s: %s", name_pattern, e)
     return None
 
 
@@ -240,7 +243,7 @@ def start_metrics_collector(interval_seconds: int = 10):
             try:
                 record_metrics()
             except Exception as e:
-                print(f"Metrics collection error: {e}")
+                logger.warning("Metrics collection error: %s", e)
             time.sleep(interval_seconds)
     
     thread = threading.Thread(target=collector, daemon=True)

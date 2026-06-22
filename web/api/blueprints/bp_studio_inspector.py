@@ -2,12 +2,15 @@
 Studio and Inspector blueprint.
 Routes: /admin/studio/*, /inspector/*, /test/message, /observability/*
 """
+import logging
 import os
 import requests as _requests
 from flask import Blueprint, request, jsonify
 from common.conversation_db import _get_connection, _release_connection
 from psycopg2.extras import RealDictCursor
 import web.api.shared as _s
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('studio_inspector', __name__)
 
@@ -34,7 +37,7 @@ def _get_stories_and_rules():
                     if data:
                         flows[key] = data.get(key, [])
             except Exception as e:
-                print(f"[Studio] Error parsing {fname}: {e}")
+                logger.warning("[Studio] Error parsing %s: %s", fname, e)
     return flows
 
 
@@ -52,7 +55,7 @@ def _get_domain_info():
             domain['slots']     = data.get('slots', {})
             domain['responses'] = list(data.get('responses', {}).keys())
         except Exception as e:
-            print(f"[Studio] Error parsing domain.yml: {e}")
+            logger.warning("[Studio] Error parsing domain.yml: %s", e)
     return domain
 
 
