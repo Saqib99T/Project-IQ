@@ -1,0 +1,17 @@
+# Lint guard. Scope is intentionally narrow: block new print() in production
+# runtime code (use the module logger instead — see the logging migration).
+# CLI/dev scripts and pre-logging bootstrap files are allowed to print.
+
+target-version = "py310"
+
+# Directories that are CLI tools / tests / build output — printing is fine there.
+extend-exclude = ["scripts", "expo-app", "tests", "venv", ".venv", "core/models", "firecrawl-selfhost"]
+
+[lint]
+# Only the flake8-print rules (T20x). We are not enforcing broader style here.
+select = ["T20"]
+
+[lint.per-file-ignores]
+"web/api/web_api.py" = ["T20"]                 # pre-logging bootstrap (eventlet/psycopg monkey-patch)
+"web/api/migrate_to_blueprints.py" = ["T20"]   # dead one-off migration helper
+"common/vector_search.py" = ["T20"]            # __main__ CLI output
