@@ -20,16 +20,17 @@ The trained NLU/dialogue model (~40 MB) is a build artifact.
   cd core && rasa train
   ```
 
-  **Or fetch a prebuilt one** (once a Release/bucket asset exists):
+  **Or fetch the prebuilt one** from the `model-latest` Release:
   ```bash
   export RASA_MODEL_URL="https://github.com/saqibgm/Project-IQ/releases/download/model-latest/model.tar.gz"
-  # optional but recommended — integrity check:
-  export RASA_MODEL_SHA256="<sha256 of the tarball>"
+  export RASA_MODEL_SHA256="2fcfad382fb4f028856d1f9c408db52a5680711de98ad32206594cc36441d38c"
   python scripts/get_model.py
   ```
-  The fetch script is HTTPS-only, verifies the download is a real model tarball
-  (and checks SHA-256 when provided), never overwrites an existing model unless
-  you pass `--force`, and writes atomically. See `scripts/get_model.py --help`.
+  **The repo is private**, so the script downloads via the `gh` CLI (install it
+  and run `gh auth login` first). For a GitHub release URL it uses
+  `gh release download` automatically; the raw-URL path is used only for public
+  buckets. It verifies the SHA-256, never overwrites an existing model unless you
+  pass `--force`, and writes atomically. See `scripts/get_model.py --help`.
 
   Rasa automatically loads the **newest** model in `core/models/`, so once one
   file is present (trained or fetched), the bot runs.

@@ -33,11 +33,19 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import re
+import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
 import urllib.request
 from pathlib import Path
+
+# https://github.com/<owner>/<repo>/releases/download/<tag>/<asset>
+_GH_RELEASE_RE = re.compile(
+    r"^https://github\.com/(?P<repo>[^/]+/[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<asset>[^/]+)$"
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = REPO_ROOT / "core" / "models"
@@ -79,6 +87,24 @@ def _download(url: str, dest: Path, token: str | None) -> None:
                 fh.write(chunk)
 
 
+def _download_via_gh(repo: str, tag: str, asset: str, dest: Path) -> None:
+    """Download a release asset with the gh CLI (handles private-repo auth).
+
+    GitHub does not serve private release assets over the plain
+    releases/download/ URL (404 even with a bearer token), so for a GitHub
+    release we shell out to gh, which resolves the asset via the API.
+    """
+    dest.unlink(missing_ok=True)  # gh refuses to overwrite without --clobber
+    try:
+        subprocess.run(
+            ["gh", "release", "download", tag, "--repo", repo,
+             "--pattern", asset, "--output", str(dest), "--clobber"],
+            check=True, capture_output=True, text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        _fail(f"gh release download failed: {exc.stderr.strip() or exc}")
+
+
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -116,8 +142,18 @@ def main() -> None:
     os.close(fd)
     tmp = Path(tmp_name)
     try:
-        print(f"Downloading model from {url} ...")
-        _download(url, tmp, token)
+        gh_match = _GH_RELEASE_RE.match(url)
+        if gh_match and shutil.which("gh"):
+            # GitHub release (works for private repos via gh's authenticated API).
+            m = gh_match.groupdict()
+            print(f"Downloading {m['asset']} from {m['repo']} release {m['tag']} via gh ...")
+            _download_via_gh(m["repo"], m["tag"], m["asset"], tmp)
+        else:
+            if gh_match:
+                print("note: gh CLI not found — trying a direct download "
+                      "(works only if the repo/asset is public).")
+            print(f"Downloading model from {url} ...")
+            _download(url, tmp, token)
 
         if tmp.stat().st_size == 0:
             _fail("downloaded file is empty")
