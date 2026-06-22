@@ -23,8 +23,10 @@ venv/
 *.log
 Log/
 
-# Models (large files)
+# Models (large files) — regenerable Rasa training artifacts, kept out of git
 models/*.tar.gz
+core/models/*.tar.gz
+core/models/*.zip
 
 # OS
 .DS_Store
@@ -36,7 +38,7 @@ _nul
 backups/*.backup
 
 # Rasa
-models/*.tar.gz
+core/models/*.tar.gz
 data/history/
 
 # Firecrawl self-host (node_modules, build output, generated files)
@@ -56,4 +58,8 @@ web/ui/dist-widget/modern-web-interface.css
 # Credentials (belt-and-suspenders)
 .env.bak
 *.bak
-expo-app/ProjectIQ.aab
+
+# Build artifacts — regenerable, kept out of git (APK via EAS/Releases, KB cache regenerated at runtime)
+expo-app/*.apk
+expo-app/*.aab
+web/data/cache/
