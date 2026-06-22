@@ -335,6 +335,89 @@ function LogsPanel({ call, registerRefresh }) {
     )
 }
 
+// ── Trace view ───────────────────────────────────────────────────────────────
+// Reconstructs one turn across services by correlation id (X-Request-ID),
+// built on /admin/observability/trace/<id>.
+function TracePanel({ call, registerRefresh }) {
+    const [reqId, setReqId]     = useState('')
+    const [entries, setEntries] = useState(null)
+    const [count, setCount]     = useState(0)
+    const [loading, setLoading] = useState(false)
+    const [error, setError]     = useState(null)
+
+    const run = useCallback(async () => {
+        const id = reqId.trim()
+        if (!id) return
+        setLoading(true); setError(null)
+        try {
+            const d = await call(`/admin/observability/trace/${encodeURIComponent(id)}`)
+            setEntries(d.data || [])
+            setCount(d.count || 0)
+        } catch (e) {
+            setError(e.message); setEntries(null)
+        } finally {
+            setLoading(false)
+        }
+    }, [call, reqId])
+
+    useEffect(() => { registerRefresh?.(run) }, [registerRefresh, run])
+
+    const levelColor = (lvl) => ({
+        ERROR: 'text-red-400', CRITICAL: 'text-red-400',
+        WARNING: 'text-amber-400', INFO: 'text-emerald-400',
+    }[lvl] || 'text-gray-300 dark:text-slate-400')
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center gap-2">
+                <input
+                    value={reqId}
+                    onChange={e => setReqId(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && run()}
+                    placeholder="Paste a request ID (X-Request-ID)…"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button onClick={run}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                    disabled={loading || !reqId.trim()}>Trace</button>
+            </div>
+            <p className="text-[11px] text-gray-400 dark:text-slate-500">
+                Find an ID in the <b>Logs</b> tab (<code>req=…</code>) or the <code>X-Request-ID</code> response header.
+            </p>
+
+            {error && <div className="card p-3 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 text-sm">{error}</div>}
+
+            <div className="card overflow-hidden">
+                <div className="bg-gray-900 px-4 py-3 h-[60vh] overflow-y-auto font-mono text-xs leading-relaxed">
+                    {loading && (
+                        <div className="flex items-center gap-2 text-gray-400">
+                            <span className="w-3.5 h-3.5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+                            Tracing…
+                        </div>
+                    )}
+                    {!loading && entries === null && <p className="text-gray-500">Enter a request ID to reconstruct its trace.</p>}
+                    {!loading && entries && entries.length === 0 && <p className="text-gray-500">No log entries found for that request ID.</p>}
+                    {!loading && entries && entries.length > 0 && (
+                        <>
+                            <p className="text-gray-400 mb-2">{count} entries across services</p>
+                            {entries.map((e, i) => (
+                                <div key={i} className="flex gap-3 whitespace-pre-wrap break-all py-0.5">
+                                    <span className="text-gray-500 shrink-0 select-none">{(e.timestamp || '').slice(11, 23)}</span>
+                                    <span className="inline-block px-1.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-200 shrink-0 self-center">{e.source}</span>
+                                    <span className={`${levelColor(e.level)} shrink-0 w-14`}>{e.level}</span>
+                                    <span className="text-gray-300 dark:text-slate-400">
+                                        {e.logger ? `${e.logger.split('.').pop()}: ` : ''}{e.message}
+                                    </span>
+                                </div>
+                            ))}
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function DiagnosticsPage() {
     const { call } = useApi()
@@ -346,6 +429,7 @@ export default function DiagnosticsPage() {
     const TABS = [
         { key: 'services', label: 'Services', icon: '🖥️' },
         { key: 'logs',     label: 'Logs',     icon: '📋' },
+        { key: 'trace',    label: 'Trace',    icon: '🔗' },
     ]
 
     return (
@@ -371,9 +455,9 @@ export default function DiagnosticsPage() {
                     className="btn-ghost border border-gray-200 dark:border-slate-700 text-sm px-3 py-1.5 ml-auto mb-1">↻ Refresh</button>
             </div>
 
-            {tab === 'services'
-                ? <ServicesPanel call={call} registerRefresh={registerRefresh} />
-                : <LogsPanel call={call} registerRefresh={registerRefresh} />}
+            {tab === 'services' && <ServicesPanel call={call} registerRefresh={registerRefresh} />}
+            {tab === 'logs'     && <LogsPanel call={call} registerRefresh={registerRefresh} />}
+            {tab === 'trace'    && <TracePanel call={call} registerRefresh={registerRefresh} />}
         </div>
     )
 }
