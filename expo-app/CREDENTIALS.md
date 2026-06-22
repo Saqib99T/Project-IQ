@@ -11,11 +11,11 @@
 ## Android
 
 ### Keystore File
-- **File**: `expo-app/project-iq-release.jks` (keep this file safe — it's the original signing key)
-- **Keystore Password**: `6367b1b0f159f2cd45386e8b93b22044`
-- **Key Alias**: `c633a473d4aeaff9abe8ee13a737aa07`
-- **Key Password**: `7edff7a237bdb9a3a7ac8c873cf89ae4`
-- **SHA1 Fingerprint**: `51:F9:D0:09:73:A9:32:25:D2:F8:9E:82:FA:1F:60:D3:0B:A2:4D:1A`
+- **File**: `expo-app/project-iq-release.jks` (keep this file safe — it's the original signing key; git-ignored, never commit)
+- **Keystore Password**: _redacted — see git-ignored `expo-app/credentials/android/keystore.env` or the EAS `saqibidrees` account_
+- **Key Alias**: _redacted — see the same secure store_
+- **Key Password**: _redacted — see the same secure store_
+- **SHA1 Fingerprint**: `51:F9:D0:09:73:A9:32:25:D2:F8:9E:82:FA:1F:60:D3:0B:A2:4D:1A` (public — fine to keep)
 - **Validity**: 2026-2056 (30 years)
 
 ### Status

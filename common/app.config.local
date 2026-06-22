@@ -7,7 +7,8 @@ db_host = 127.0.0.1
 db_port = 5432
 db_name = Chatbot
 db_user = itsm_user
-db_password = itsm_pass
+# SECRET — set in the git-ignored .env as PIQ_DATABASE_DB_PASSWORD (see .env.example).
+db_password =
 
 [RASA]
 rasa_api_url = http://localhost:5005
@@ -50,7 +51,8 @@ session_timeout_minutes = 30
 session_warning_minutes = 10
 
 [HANDOFF]
-operator_jwt_secret = handoff-local-dev-secret-change-in-prod
+# SECRET — set in the git-ignored .env as PIQ_HANDOFF_OPERATOR_JWT_SECRET (see .env.example).
+operator_jwt_secret =
 operator_jwt_expiry_hours = 24
 socketio_async_mode = eventlet
 socketio_ping_timeout = 60
@@ -83,7 +85,8 @@ realm = 99-iam
 client_id = project-iq
 api_url = https://api.dev.iam.99technologies.com
 backend_client_id = project-iq-backend
-backend_client_secret = QPQPP0nc0CTDQ1MmZDhwseuIpCB5DZhK
+# SECRET — set in the git-ignored .env as PIQ_IAM_BACKEND_CLIENT_SECRET (see .env.example).
+backend_client_secret =
 
 [PLATFORM]
 org_id = 7d35c7c9-dbd6-4f6b-8d0c-07178923d859

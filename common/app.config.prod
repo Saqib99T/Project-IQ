@@ -7,7 +7,8 @@ db_host = localhost
 db_port = 5432
 db_name = Chatbot
 db_user = postgres
-db_password = 12345
+# SECRET — supply at runtime via env var PIQ_DATABASE_DB_PASSWORD (see .env.example).
+db_password =
 
 [RASA]
 # Points to the internal Nginx Rasa load balancer (port 5000).
@@ -54,8 +55,9 @@ firecrawl_api_key = fc-selfhosted
 firecrawl_api_url = http://localhost:3002
 
 [HANDOFF]
-# JWT secret for operator dashboard authentication — MUST be changed before go-live
-operator_jwt_secret = piq-prod-j7Kx92mNvRqL4wZs8dYhT3cFbEuA6gP
+# SECRET — JWT secret for operator dashboard auth. Supply at runtime via env var
+# PIQ_HANDOFF_OPERATOR_JWT_SECRET (see .env.example). Never commit a real value.
+operator_jwt_secret =
 
 operator_jwt_expiry_hours = 24
 
@@ -97,5 +99,6 @@ db_replica_host     =
 db_replica_port     = 5432
 db_replica_name     = Chatbot
 db_replica_user     = postgres
-db_replica_password = 12345
+# SECRET — supply at runtime via env var PIQ_DATABASE_REPLICA_DB_REPLICA_PASSWORD (replica disabled by default).
+db_replica_password =
 

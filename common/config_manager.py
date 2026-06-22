@@ -45,6 +45,23 @@ def save_config(config: configparser.ConfigParser):
         config.write(f)
 
 
+def _env_secret(section: str, option: str, file_value: str) -> str:
+    """Prefer a secret supplied via the environment over the config-file value.
+
+    Convention: ``PIQ_<SECTION>_<OPTION>`` (uppercased). This lets prod/staging
+    inject secrets at runtime (process env or an untracked, git-ignored .env)
+    instead of committing them to app.config*. When the env var is unset/empty,
+    the file value is returned, so existing setups keep working unchanged.
+
+    Applied only inside secret getters (never in load_config/save_config) so a
+    runtime-injected secret can never be written back into the tracked file via
+    the admin "save config" path.
+    """
+    env_key = f"PIQ_{section}_{option}".upper()
+    val = os.environ.get(env_key)
+    return val if val not in (None, "") else file_value
+
+
 def get_db_config() -> Dict[str, Any]:
     """Get database configuration settings."""
     config = load_config()
@@ -53,7 +70,8 @@ def get_db_config() -> Dict[str, Any]:
         'port': config.getint('DATABASE', 'DB_PORT', fallback=5432),
         'database': config.get('DATABASE', 'DB_NAME', fallback='Chatbot'),
         'user': config.get('DATABASE', 'DB_USER', fallback='postgres'),
-        'password': config.get('DATABASE', 'DB_PASSWORD', fallback='12345'),
+        'password': _env_secret('DATABASE', 'DB_PASSWORD',
+                                config.get('DATABASE', 'DB_PASSWORD', fallback='12345')),
     }
 
 
@@ -113,7 +131,8 @@ def get_kb_bot_config() -> Dict[str, str]:
     config = load_config()
     return {
         'client_id': config.get('KNOWLEDGE_BASE', 'kb_bot_client_id', fallback=''),
-        'client_secret': config.get('KNOWLEDGE_BASE', 'kb_bot_client_secret', fallback=''),
+        'client_secret': _env_secret('KNOWLEDGE_BASE', 'kb_bot_client_secret',
+                                     config.get('KNOWLEDGE_BASE', 'kb_bot_client_secret', fallback='')),
     }
 
 
@@ -137,7 +156,8 @@ def get_iam_config() -> Dict[str, str]:
         'client_id':             config.get('IAM', 'client_id',               fallback='project-iq'),
         'api_url':               config.get('IAM', 'api_url',                 fallback='https://api.dev.iam.99technologies.com'),
         'backend_client_id':     config.get('IAM', 'backend_client_id',       fallback='project-iq-backend'),
-        'backend_client_secret': config.get('IAM', 'backend_client_secret',   fallback=''),
+        'backend_client_secret': _env_secret('IAM', 'backend_client_secret',
+                                             config.get('IAM', 'backend_client_secret', fallback='')),
     }
 
 
@@ -241,7 +261,8 @@ def get_handoff_config() -> Dict[str, Any]:
     """
     config = load_config()
     return {
-        'operator_jwt_secret':            config.get('HANDOFF', 'operator_jwt_secret', fallback='dev-secret-change-me'),
+        'operator_jwt_secret':            _env_secret('HANDOFF', 'operator_jwt_secret',
+                                                      config.get('HANDOFF', 'operator_jwt_secret', fallback='dev-secret-change-me')),
         'operator_jwt_expiry_hours':       config.getint('HANDOFF', 'operator_jwt_expiry_hours', fallback=24),
         'socketio_async_mode':             config.get('HANDOFF', 'socketio_async_mode', fallback='eventlet'),
         'socketio_ping_timeout':           config.getint('HANDOFF', 'socketio_ping_timeout', fallback=60),
@@ -251,12 +272,14 @@ def get_handoff_config() -> Dict[str, Any]:
         'smtp_host':                       config.get('HANDOFF', 'smtp_host', fallback=''),
         'smtp_port':                       config.getint('HANDOFF', 'smtp_port', fallback=587),
         'smtp_user':                       config.get('HANDOFF', 'smtp_user', fallback=''),
-        'smtp_password':                   config.get('HANDOFF', 'smtp_password', fallback=''),
+        'smtp_password':                   _env_secret('HANDOFF', 'smtp_password',
+                                                       config.get('HANDOFF', 'smtp_password', fallback='')),
         'smtp_from':                       config.get('HANDOFF', 'smtp_from', fallback=''),
         'smtp_use_tls':                    config.getboolean('HANDOFF', 'smtp_use_tls', fallback=True),
         'llm_summary_enabled':             config.getboolean('HANDOFF', 'llm_summary_enabled', fallback=False),
         'llm_summary_model':               config.get('HANDOFF', 'llm_summary_model', fallback='claude-haiku-4-5-20251001'),
-        'llm_api_key':                     config.get('HANDOFF', 'llm_api_key', fallback=''),
+        'llm_api_key':                     _env_secret('HANDOFF', 'llm_api_key',
+                                                       config.get('HANDOFF', 'llm_api_key', fallback='')),
     }
 
 

@@ -1,10 +1,25 @@
 Set-Location $PSScriptRoot
 
 $KEYSTORE_PATH  = '../../credentials/android/keystore.jks'
-$STORE_PASSWORD = '6367b1b0f159f2cd45386e8b93b22044'
-$KEY_ALIAS      = 'c633a473d4aeaff9abe8ee13a737aa07'
-$KEY_PASSWORD   = '7edff7a237bdb9a3a7ac8c873cf89ae4'
 $BUILD_GRADLE   = "$PSScriptRoot\android\app\build.gradle"
+
+# Signing secrets are NOT stored in this script. Load them from the git-ignored
+# credentials/android/keystore.env (KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD)
+# or from matching environment variables. See docs/SECURITY_SECRETS.md.
+$keystoreEnv = "$PSScriptRoot\credentials\android\keystore.env"
+$secrets = @{}
+if (Test-Path $keystoreEnv) {
+    Get-Content $keystoreEnv | ForEach-Object {
+        if ($_ -match '^\s*([^#=]+?)\s*=\s*(.*)$') { $secrets[$matches[1].Trim()] = $matches[2].Trim() }
+    }
+}
+$STORE_PASSWORD = if ($env:KEYSTORE_PASSWORD) { $env:KEYSTORE_PASSWORD } else { $secrets['KEYSTORE_PASSWORD'] }
+$KEY_ALIAS      = if ($env:KEY_ALIAS)         { $env:KEY_ALIAS }         else { $secrets['KEY_ALIAS'] }
+$KEY_PASSWORD   = if ($env:KEY_PASSWORD)      { $env:KEY_PASSWORD }      else { $secrets['KEY_PASSWORD'] }
+if (-not $STORE_PASSWORD -or -not $KEY_ALIAS -or -not $KEY_PASSWORD) {
+    Write-Host "ERROR: keystore secrets missing. Create $keystoreEnv with KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD (see docs/SECURITY_SECRETS.md)." -ForegroundColor Red
+    exit 1
+}
 
 # Re-inject production signingConfig if missing (expo prebuild --clean wipes it)
 function Ensure-SigningConfig {

@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.infisical.template
+!.env.example
 core/.rasa
 .rasa/
 .agent
@@ -59,6 +60,10 @@ web/ui/dist-widget/modern-web-interface.css
 # Credentials (belt-and-suspenders)
 .env.bak
 *.bak
+# Signing keystores + their secret notes — never track
+expo-app/credentials/
+*.jks
+*.keystore
 
 # Build artifacts — regenerable, kept out of git (APK via EAS/Releases, KB cache regenerated at runtime)
 expo-app/*.apk
