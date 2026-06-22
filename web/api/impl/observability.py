@@ -11,6 +11,7 @@ import json
 from datetime import datetime
 from flask import request, jsonify
 from common.conversation_db import _get_connection, _release_connection
+from web.api.impl.metrics_queries import avg_bot_response_ms, error_rate_pct
 
 logger = logging.getLogger(__name__)
 def system_status():
@@ -459,54 +460,9 @@ def get_system_metrics():
             conn = _get_connection()
             cursor = conn.cursor()
 
-            # Response time: avg ms between each user msg and the NEAREST following bot msg
-            # Try last 7 days first, fall back to all-time if no data
-            cursor.execute('''
-                WITH bot_responses AS (
-                    SELECT
-                        bot.id,
-                        bot.conversation_id,
-                        bot.timestamp AS bot_ts,
-                        (
-                            SELECT MAX(u.timestamp)
-                            FROM messages u
-                            WHERE u.conversation_id = bot.conversation_id
-                              AND u.sender = 'user'
-                              AND u.timestamp < bot.timestamp
-                        ) AS prev_user_ts
-                    FROM messages bot
-                    WHERE bot.sender = 'bot'
-                      AND bot.timestamp > NOW() - INTERVAL '7 days'
-                )
-                SELECT AVG(EXTRACT(EPOCH FROM (bot_ts - prev_user_ts)) * 1000)
-                FROM bot_responses
-                WHERE prev_user_ts IS NOT NULL
-            ''')
-            result = cursor.fetchone()
-            avg_response_time = round(result[0]) if result and result[0] else 0
-
-            # If still 0 (no data in last 7 days), try all-time
-            if avg_response_time == 0:
-                cursor.execute('''
-                    WITH bot_responses AS (
-                        SELECT
-                            bot.timestamp AS bot_ts,
-                            (
-                                SELECT MAX(u.timestamp)
-                                FROM messages u
-                                WHERE u.conversation_id = bot.conversation_id
-                                  AND u.sender = 'user'
-                                  AND u.timestamp < bot.timestamp
-                            ) AS prev_user_ts
-                        FROM messages bot
-                        WHERE bot.sender = 'bot'
-                    )
-                    SELECT AVG(EXTRACT(EPOCH FROM (bot_ts - prev_user_ts)) * 1000)
-                    FROM bot_responses
-                    WHERE prev_user_ts IS NOT NULL
-                ''')
-                result = cursor.fetchone()
-                avg_response_time = round(result[0]) if result and result[0] else 0
+            # Response time over 7 days, all-time fallback (centralized — see
+            # metrics_queries.avg_bot_response_ms).
+            avg_response_time = avg_bot_response_ms(cursor, window="7 days", fallback_all_time=True)
 
             # Throughput: messages per minute averaged over last 24 hours
             # Falls back to all-time average if no recent data
@@ -528,31 +484,10 @@ def get_system_metrics():
                 if row and row[0] and row[1] and row[1] > 0:
                     throughput = round(row[0] / row[1], 2)
 
-            # Error rate: % of action executions that errored in last 7 days.
-            # Uses the real actions.status='error' signal (matches
-            # observability_metrics()) instead of guessing from bot wording —
-            # polite phrases like "sorry" no longer count as errors, and real
-            # 500s are no longer missed. Falls back to all-time if no recent data.
-            cursor.execute('''
-                SELECT
-                    COUNT(*) FILTER (WHERE status = 'error') AS errors,
-                    COUNT(*) AS total
-                FROM actions
-                WHERE timestamp > NOW() - INTERVAL '7 days'
-            ''')
-            result = cursor.fetchone()
-            if result and result[1] and result[1] > 0:
-                error_rate = round((result[0] / result[1]) * 100, 2)
-            else:
-                # All-time fallback
-                cursor.execute('''
-                    SELECT
-                        COUNT(*) FILTER (WHERE status = 'error') AS errors,
-                        COUNT(*) AS total
-                    FROM actions
-                ''')
-                result = cursor.fetchone()
-                error_rate = round((result[0] / result[1]) * 100, 2) if result and result[1] else 0
+            # Error rate over 7 days, all-time fallback (centralized — see
+            # metrics_queries.error_rate_pct). Uses the real actions.status='error'
+            # signal, not bot-wording heuristics.
+            error_rate = error_rate_pct(cursor, window="7 days", fallback_all_time=True)
 
             cursor.close()
         except Exception as e:
@@ -642,30 +577,10 @@ def get_db_stats():
             conn.rollback()
             convs_today = 0
 
-        # Get real average response time: ms between each bot message and the
-        # NEAREST preceding user message in the same conversation. The old JOIN
-        # paired every bot msg with every earlier user msg, so far-apart pairs
-        # inflated the average into the millions of ms.
+        # Avg response time (centralized — see metrics_queries.avg_bot_response_ms).
         try:
-            cursor.execute('''
-                WITH bot_responses AS (
-                    SELECT bot.timestamp AS bot_ts,
-                        (SELECT MAX(u.timestamp)
-                         FROM messages u
-                         WHERE u.conversation_id = bot.conversation_id
-                           AND u.sender = 'user'
-                           AND u.timestamp < bot.timestamp) AS prev_user_ts
-                    FROM messages bot
-                    WHERE bot.sender = 'bot'
-                      AND bot.timestamp > NOW() - INTERVAL '24 hours'
-                )
-                SELECT AVG(EXTRACT(EPOCH FROM (bot_ts - prev_user_ts)) * 1000)
-                FROM bot_responses
-                WHERE prev_user_ts IS NOT NULL
-            ''')
-            result = cursor.fetchone()
-            avg_response_ms = round(result[0]) if result and result[0] else 0
-        except:
+            avg_response_ms = avg_bot_response_ms(cursor, window="24 hours", fallback_all_time=False)
+        except Exception:
             conn.rollback()
             avg_response_ms = 0
 
@@ -800,15 +715,9 @@ def observability_metrics():
         conn = _get_connection()
         cursor = conn.cursor()
         
-        # Get response time stats from last 1000 messages
-        cursor.execute('''
-            SELECT AVG(EXTRACT(EPOCH FROM (timestamp - LAG(timestamp) OVER (PARTITION BY conversation_id ORDER BY timestamp))))
-            FROM messages 
-            WHERE sender = 'bot' 
-            LIMIT 1000
-        ''')
-        avg_response = cursor.fetchone()[0] or 0
-        
+        # Avg response time (centralized — replaces the old LAG/`*1000` heuristic).
+        avg_response_ms = avg_bot_response_ms(cursor, window="24 hours", fallback_all_time=True)
+
         # Get throughput (messages per minute in last hour)
         cursor.execute('''
             SELECT COUNT(*) 
@@ -818,23 +727,13 @@ def observability_metrics():
         hourly_messages = cursor.fetchone()[0] or 0
         throughput = round(hourly_messages / 60, 2)
         
-        # Get error rate from actions table
-        cursor.execute('''
-            SELECT 
-                COUNT(*) FILTER (WHERE status = 'error') as errors,
-                COUNT(*) as total
-            FROM actions
-            WHERE timestamp > NOW() - INTERVAL '24 hours'
-        ''')
-        result = cursor.fetchone()
-        errors = result[0] if result[0] else 0
-        total = result[1] if result[1] else 1
-        error_rate = round((errors / total) * 100, 2) if total > 0 else 0
-        
+        # Error rate (centralized — real actions.status='error' signal).
+        error_rate = error_rate_pct(cursor, window="24 hours", fallback_all_time=True)
+
         return jsonify({
             "success": True,
             "data": {
-                "avg_response_time": round(avg_response * 1000, 0) if avg_response else 100,  # ms
+                "avg_response_time": avg_response_ms,  # ms
                 "throughput": throughput,
                 "error_rate": f"{error_rate}%",
                 "healthy_services": 3  # TODO: count actual healthy services
@@ -1157,30 +1056,9 @@ def observability_database_stats():
                 conn.rollback()
                 conversations_today = 0
 
-            # Average response time: ms between each bot msg and the NEAREST
-            # preceding user msg in the same conversation (messages.sender, not
-            # role). A plain JOIN pairs every bot with every earlier user msg,
-            # inflating the average — the correlated subquery takes only the
-            # closest preceding user message.
+            # Avg response time (centralized — see metrics_queries.avg_bot_response_ms).
             try:
-                cursor.execute("""
-                    WITH bot_responses AS (
-                        SELECT bot.timestamp AS bot_ts,
-                            (SELECT MAX(u.timestamp)
-                             FROM messages u
-                             WHERE u.conversation_id = bot.conversation_id
-                               AND u.sender = 'user'
-                               AND u.timestamp < bot.timestamp) AS prev_user_ts
-                        FROM messages bot
-                        WHERE bot.sender = 'bot'
-                          AND bot.timestamp > NOW() - INTERVAL '24 hours'
-                    )
-                    SELECT AVG(EXTRACT(EPOCH FROM (bot_ts - prev_user_ts)) * 1000)::INT
-                    FROM bot_responses
-                    WHERE prev_user_ts IS NOT NULL
-                """)
-                result = cursor.fetchone()
-                avg_response_ms = result[0] if result and result[0] else 0
+                avg_response_ms = avg_bot_response_ms(cursor, window="24 hours", fallback_all_time=False)
             except Exception:
                 conn.rollback()
                 avg_response_ms = 0
