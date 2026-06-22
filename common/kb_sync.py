@@ -94,4 +94,4 @@ def sync_kb_from_itsm(rebuild_index: bool = True) -> int:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    print(f"Synced {sync_kb_from_itsm()} KB articles from itsm-service.")
+    logger.info("Synced %s KB articles from itsm-service.", sync_kb_from_itsm())

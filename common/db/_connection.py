@@ -1,6 +1,7 @@
 """
 common.db._connection — connection pool, schema init, and read-replica routing.
 """
+import logging
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2 import pool
@@ -8,6 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 import json
 
+logger = logging.getLogger(__name__)
 # ── Connection pool ───────────────────────────────────────────────────────────
 
 _connection_pool = None
@@ -302,4 +304,4 @@ def _init_database():
 try:
     _init_database()
 except Exception as e:
-    print(f"Warning: Could not initialize database: {e}")
+    logger.warning("Could not initialize database: %s", e)

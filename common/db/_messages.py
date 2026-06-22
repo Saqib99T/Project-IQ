@@ -1,12 +1,14 @@
 """
 common.db._messages — conversation logging and message retrieval.
 """
+import logging
 from datetime import datetime
 from typing import Dict, List, Optional
 from psycopg2.extras import RealDictCursor
 from common.db._connection import _get_connection, _release_connection
 
 
+logger = logging.getLogger(__name__)
 def log_conversation_start(sender_id: str, app_id: str = "General",
                             user_id: str = None, user_name: str = None,
                             org_id: str = None, product_id: str = None) -> int:
@@ -92,7 +94,7 @@ def log_feedback(sender_id: str, feedback_type: str, app_id: str = "General",
             cursor.execute('UPDATE conversations SET resolved = 1 WHERE id = %s', (conv_id,))
         conn.commit()
     except Exception as e:
-        print(f"Error saving feedback: {e}")
+        logger.error("Error saving feedback: %s", e)
         conn.rollback()
     finally:
         _release_connection(conn)
@@ -111,7 +113,7 @@ def log_action(sender_id: str, action_name: str, success: bool = True,
         )
         conn.commit()
     except Exception as e:
-        print(f"Error logging action: {e}")
+        logger.error("Error logging action: %s", e)
         conn.rollback()
     finally:
         _release_connection(conn)
@@ -142,7 +144,7 @@ def end_conversation(conversation_id: int):
                        (datetime.now(), conversation_id))
         conn.commit()
     except Exception as e:
-        print(f"Error ending conversation {conversation_id}: {e}")
+        logger.error("Error ending conversation %s: %s", conversation_id, e)
         conn.rollback()
     finally:
         _release_connection(conn)

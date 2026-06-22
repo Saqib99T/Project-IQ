@@ -1,6 +1,7 @@
 """
 common.db._handoff — operators CRUD, queue management, handoff state, consent.
 """
+import logging
 import json
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -9,6 +10,7 @@ from common.db._connection import _get_connection, _release_connection
 from common.db._config import get_handoff_runtime_config
 
 
+logger = logging.getLogger(__name__)
 # ── Operator CRUD ─────────────────────────────────────────────────────────────
 
 def get_operators(include_inactive: bool = False, org_id: str = None) -> List[Dict]:
@@ -350,7 +352,7 @@ def enqueue_handoff(conversation_id: int, sender_id: str, app_id: str,
         updated = cursor.fetchone()
         return dict(updated) if updated else row
     except Exception as e:
-        print(f"Error enqueuing handoff: {e}"); conn.rollback(); return None
+        logger.error("Error enqueuing handoff: %s", e); conn.rollback(); return None
     finally:
         _release_connection(conn)
 

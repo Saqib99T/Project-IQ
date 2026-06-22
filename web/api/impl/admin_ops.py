@@ -4,6 +4,7 @@ Admin operations implementations.
 Covers: operator CRUD, handoff config, routing rules,
         force handoff, analytics, and queue monitor.
 """
+import logging
 from flask import request, jsonify
 
 import web.api.shared as _s
@@ -14,6 +15,8 @@ from web.api.impl.operator import (
     _build_context_package,
 )
 from common.conversation_db import _get_connection, _release_connection
+
+logger = logging.getLogger(__name__)
 
 
 # ── Operator CRUD ──────────────────────────────────────────────────────────────
@@ -348,7 +351,7 @@ def admin_force_handoff():
                 'triggered_by': 'admin',
             }, room='admin_live')
         except Exception as _afe:
-            print(f"[SIO admin_force] notify error (non-fatal): {_afe}")
+            logger.warning("[SIO admin_force] notify error (non-fatal): %s", _afe)
 
         return jsonify({'success': True, 'queue_id': entry['id'],
                         'position': entry.get('queue_position', 1)})

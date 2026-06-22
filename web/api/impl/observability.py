@@ -3,6 +3,7 @@ Observability and system-health implementations.
 Routes served via bp_admin_ops.py: /api/status, /admin/observability/*,
 /admin/health/<service>, /observability/*
 """
+import logging
 import eventlet
 import eventlet.tpool
 import os
@@ -11,6 +12,7 @@ from datetime import datetime
 from flask import request, jsonify
 from common.conversation_db import _get_connection, _release_connection
 
+logger = logging.getLogger(__name__)
 def system_status():
     """System status dashboard — Python-native checks, safe under eventlet."""
     import socket, re, os, glob, urllib.request, urllib.error
@@ -412,7 +414,7 @@ def get_system_metrics():
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
         except Exception as e:
-            print(f"process_iter error: {e}")
+            logger.warning("process_iter error: %s", e)
 
         try:
             current_proc = psutil.Process(current_pid)
@@ -554,7 +556,7 @@ def get_system_metrics():
 
             cursor.close()
         except Exception as e:
-            print(f"Error getting performance metrics: {e}")
+            logger.error("Error getting performance metrics: %s", e)
             avg_response_time = 0
             throughput = 0
             error_rate = 0
@@ -583,7 +585,7 @@ def get_system_metrics():
         }
         return jsonify(data)
     except Exception as e:
-        print(f"Error in get_system_metrics: {e}")
+        logger.error("Error in get_system_metrics: %s", e)
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
         if conn:
@@ -682,7 +684,7 @@ def get_db_stats():
             }
         })
     except Exception as e:
-        print(f"DB Stats Error: {e}")
+        logger.error("DB Stats Error: %s", e)
         if conn:
             conn.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
@@ -731,14 +733,14 @@ def get_recent_logs():
                                 "message": line.strip()[:300]
                             })
                 except Exception as e:
-                    print(f"Error reading log file {path}: {e}")
+                    logger.warning("Error reading log file %s: %s", path, e)
 
         return jsonify({
             "success": True,
             "data": logs[-50:]
         })
     except Exception as e:
-        print(f"Error in get_recent_logs: {e}")
+        logger.error("Error in get_recent_logs: %s", e)
         return jsonify({"success": False, "error": str(e)}), 500
 
 

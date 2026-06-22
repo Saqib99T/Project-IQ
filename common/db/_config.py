@@ -1,6 +1,7 @@
 """
 common.db._config — app config, themes, KB articles, handoff runtime config.
 """
+import logging
 import json
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -8,6 +9,7 @@ from psycopg2.extras import RealDictCursor
 from common.db._connection import _get_connection, _release_connection
 
 
+logger = logging.getLogger(__name__)
 # ── App config ────────────────────────────────────────────────────────────────
 
 def get_config(key: str = None) -> Dict:
@@ -149,7 +151,7 @@ def add_kb_article(article_id: str, title: str, content: str, category: str = No
         conn.commit()
         return True
     except Exception as e:
-        print(f"Error saving KB article {article_id}: {e}")
+        logger.error("Error saving KB article %s: %s", article_id, e)
         conn.rollback()
         return False
     finally:
@@ -249,7 +251,7 @@ def set_handoff_runtime_config(settings: Dict) -> bool:
         conn.commit()
         return True
     except Exception as e:
-        print(f"Error saving handoff runtime config: {e}")
+        logger.error("Error saving handoff runtime config: %s", e)
         conn.rollback()
         return False
     finally:

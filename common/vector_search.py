@@ -6,8 +6,11 @@ Fallback: in-memory numpy — used automatically if pgvector extension is not av
 import os
 import sys
 import json
+import logging
 import numpy as np
 from typing import List, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
@@ -32,7 +35,7 @@ CACHE_FILE = os.path.join(os.path.dirname(__file__), "kb_embeddings_cache.json")
 def get_model() -> SentenceTransformer:
     global _model
     if _model is None:
-        print("[VectorSearch] Loading embedding model...")
+        logger.info("Loading embedding model...")
         _model = SentenceTransformer(MODEL_NAME)
     return _model
 
@@ -53,7 +56,7 @@ def _pgvector_available() -> bool:
             _release_connection(conn)
     except Exception:
         _use_pgvector = False
-    print(f"[VectorSearch] pgvector available: {_use_pgvector}")
+    logger.info("pgvector available: %s", _use_pgvector)
     return _use_pgvector
 
 
@@ -114,7 +117,7 @@ def _pg_load_and_process() -> int:
     finally:
         _release_connection(conn)
 
-    print(f"[VectorSearch] Processing {len(articles)} articles...")
+    logger.info("Processing %d articles...", len(articles))
     all_chunks, all_texts = [], []
     for article_id, title, content, category in articles:
         if not content:
@@ -151,12 +154,12 @@ def _pg_load_and_process() -> int:
                 """
             )
         except Exception as idx_err:
-            print(f"[VectorSearch] Index rebuild note: {idx_err}")
+            logger.warning("Index rebuild note: %s", idx_err)
         conn.commit()
     finally:
         _release_connection(conn)
 
-    print(f"[VectorSearch] Stored {len(all_chunks)} chunks in pgvector.")
+    logger.info("Stored %d chunks in pgvector.", len(all_chunks))
     return len(all_chunks)
 
 
@@ -194,7 +197,7 @@ def _mem_load_and_process() -> int:
     _chunks = all_chunks
     _embeddings = embeddings
     _mem_save_cache()
-    print(f"[VectorSearch] In-memory: {len(_chunks)} chunks ready.")
+    logger.info("In-memory: %d chunks ready.", len(_chunks))
     return len(_chunks)
 
 
@@ -205,7 +208,7 @@ def _mem_save_cache():
             json.dump({"chunks": _chunks,
                        "embeddings": _embeddings.tolist() if _embeddings is not None else []}, f)
     except Exception as e:
-        print(f"[VectorSearch] Cache save error: {e}")
+        logger.warning("Cache save error: %s", e)
 
 
 def _mem_load_cache() -> bool:
@@ -220,7 +223,7 @@ def _mem_load_cache() -> bool:
         _embeddings = np.array(raw) if raw else None
         return bool(_chunks)
     except Exception as e:
-        print(f"[VectorSearch] Cache load error: {e}")
+        logger.warning("Cache load error: %s", e)
         return False
 
 
