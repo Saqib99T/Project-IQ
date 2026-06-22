@@ -21,7 +21,7 @@ from common.db._messages import (
     get_conversation_transcript, end_conversation,
 )
 from common.db._analytics import (
-    get_analytics_summary, get_recent_conversations,
+    get_analytics_summary, get_recent_conversations, get_deflection_metrics,
     get_app_list, get_chat_app, create_chat_app, update_chat_app, delete_chat_app,
 )
 from common.db._config import (
@@ -53,7 +53,7 @@ __all__ = [
     'log_conversation_start', 'log_message', 'log_intent',
     'log_feedback', 'log_action', 'get_conversation_transcript', 'end_conversation',
     # analytics
-    'get_analytics_summary', 'get_recent_conversations',
+    'get_analytics_summary', 'get_recent_conversations', 'get_deflection_metrics',
     'get_app_list', 'get_chat_app', 'create_chat_app', 'update_chat_app', 'delete_chat_app',
     # config
     'get_config', 'set_config', 'set_config_bulk',

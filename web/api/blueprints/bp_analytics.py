@@ -4,7 +4,7 @@ Routes: /admin/analytics/*, /analytics/satisfaction, /admin/analytics/satisfacti
 """
 import logging
 from flask import Blueprint, request, jsonify
-from common.analytics_store import get_analytics_summary, get_recent_conversations
+from common.analytics_store import get_analytics_summary, get_recent_conversations, get_deflection_metrics
 from common.conversation_db import get_app_list
 import web.api.shared as _s
 
@@ -49,6 +49,26 @@ def analytics_summary():
         app_id  = request.args.get('app_id') or None
         summary = get_analytics_summary(app_id=app_id, org_id=_s.caller_org_scope())
         return jsonify({"success": True, "data": summary})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+_DEFLECTION_WINDOWS = {'7 days', '30 days', '90 days'}
+
+@bp.route('/admin/analytics/deflection', methods=['GET'])
+@_s.require_iam_token
+def deflection_metrics():
+    """Bot-resolved vs escalated + KB deflection over a vetted window."""
+    try:
+        window = request.args.get('window', '30 days')
+        if window not in _DEFLECTION_WINDOWS:
+            window = '30 days'
+        data = get_deflection_metrics(
+            window=window,
+            org_id=_s.caller_org_scope(),
+            app_id=request.args.get('app_id') or None,
+        )
+        return jsonify({"success": True, "window": window, "data": data})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

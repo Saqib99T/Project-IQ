@@ -13,7 +13,8 @@ from .conversation_db import (
     log_action,
     get_analytics_summary,
     get_recent_conversations,
-    get_conversation_transcript
+    get_conversation_transcript,
+    get_deflection_metrics,
 )
 
 # Re-export all functions for backward compatibility
@@ -25,5 +26,6 @@ __all__ = [
     'log_action',
     'get_analytics_summary',
     'get_recent_conversations',
-    'get_conversation_transcript'
+    'get_conversation_transcript',
+    'get_deflection_metrics',
 ]

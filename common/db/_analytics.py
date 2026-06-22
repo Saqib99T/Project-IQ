@@ -6,6 +6,72 @@ from typing import Dict, List, Optional
 from psycopg2.extras import RealDictCursor
 from common.db._connection import _get_connection, _release_connection
 
+# Action names that mark a conversation as escalated (handed off / ticketed) or
+# as having engaged the knowledge base. Used by the deflection metrics.
+_ESCALATION_ACTIONS = ('action_request_handoff', 'action_create_ticket_from_form')
+_KB_ACTIONS = ('action_search_knowledge_base', 'action_search_kb_before_ticket')
+
+
+def _deflection_from_row(row: Dict) -> Dict:
+    """Pure: turn the deflection aggregate row into rates (testable without a DB)."""
+    row = row or {}
+    total = row.get('total_conversations') or 0
+    escalated = row.get('escalated') or 0
+    bot_resolved = row.get('bot_resolved') or 0
+    kb_engaged = row.get('kb_engaged') or 0
+    kb_deflected = row.get('kb_deflected') or 0
+    return {
+        'total_conversations': total,
+        'escalated': escalated,
+        'bot_resolved': bot_resolved,
+        'deflection_rate': round(bot_resolved / total * 100, 1) if total else 0.0,
+        'kb_engaged': kb_engaged,
+        'kb_deflected': kb_deflected,
+        'kb_deflection_rate': round(kb_deflected / kb_engaged * 100, 1) if kb_engaged else 0.0,
+    }
+
+
+def get_deflection_metrics(window: str = "30 days", org_id: str = None,
+                           app_id: str = None) -> Dict:
+    """Bot-resolved vs escalated + KB deflection over `window`.
+
+    A conversation is 'escalated' if it triggered a handoff or ticket-create
+    action, 'kb_engaged' if it ran a KB search, and 'kb_deflected' if it used
+    the KB but did NOT escalate. `window` is parameterized (::interval) so it's
+    injection-safe; callers should still pass a vetted value.
+    """
+    conn = _get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        where = ["a.timestamp > NOW() - %s::interval"]
+        params: List = [window]
+        join = ""
+        if org_id:
+            join = "JOIN conversations c ON c.id = a.conversation_id"
+            where.append("c.org_id = %s"); params.append(org_id)
+        if app_id and app_id != "all":
+            where.append("a.app_id = %s"); params.append(app_id)
+        cur.execute(f"""
+            WITH conv AS (
+                SELECT a.conversation_id,
+                       BOOL_OR(a.action_name IN %s) AS used_kb,
+                       BOOL_OR(a.action_name IN %s) AS escalated
+                FROM actions a {join}
+                WHERE {" AND ".join(where)}
+                GROUP BY a.conversation_id
+            )
+            SELECT COUNT(*)                                          AS total_conversations,
+                   COUNT(*) FILTER (WHERE escalated)                 AS escalated,
+                   COUNT(*) FILTER (WHERE NOT escalated)             AS bot_resolved,
+                   COUNT(*) FILTER (WHERE used_kb)                   AS kb_engaged,
+                   COUNT(*) FILTER (WHERE used_kb AND NOT escalated) AS kb_deflected
+            FROM conv
+        """, (_KB_ACTIONS, _ESCALATION_ACTIONS, *params))
+        return _deflection_from_row(cur.fetchone())
+    finally:
+        conn.rollback()
+        _release_connection(conn)
+
 
 def get_analytics_summary(app_id: str = None, org_id: str = None) -> Dict:
     """org_id scopes every figure to one tenant (None = all, for platform admins).
