@@ -660,6 +660,74 @@ def get_recent_logs():
 
 
 
+_REQUEST_ID_RE = __import__("re").compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+def _extract_trace_entries(lines, request_id, source):
+    """Parse log lines tagged `[req=<id>]` for one request into trace entries.
+
+    Pure (no IO) so it's unit-testable. Lines follow the structured format
+    `<asctime> [req=<id>] <LEVEL> <logger>: <message>` (see request_context).
+    """
+    entries = []
+    needle = f"req={request_id}"
+    for line in lines:
+        if needle not in line or "[req=" not in line:
+            continue
+        ts = line.split(" [req=", 1)[0].strip()
+        rest = line.split("] ", 1)[1] if "] " in line else line
+        level = "INFO"
+        parts = rest.split(None, 1)
+        if parts and parts[0] in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
+            level = parts[0]
+            rest = parts[1] if len(parts) > 1 else ""
+        logger_name, _, msg = rest.partition(": ")
+        entries.append({
+            "timestamp": ts,
+            "level": level,
+            "source": source,
+            "logger": logger_name.strip(),
+            "message": (msg or rest).strip()[:500],
+        })
+    return entries
+
+
+def get_request_trace(request_id):
+    """Reconstruct one turn across services by correlation id (X-Request-ID).
+
+    Scans the per-service log files for lines tagged `[req=<request_id>]` and
+    returns a single timeline sorted by timestamp — the conversation-trace view.
+    """
+    if not request_id or not _REQUEST_ID_RE.match(request_id):
+        return jsonify({"success": False, "error": "invalid request_id"}), 400
+    try:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        log_files = {
+            "rasa": os.path.join(base_path, "Log", "core.log"),
+            "actions": os.path.join(base_path, "Log", "actions.log"),
+            "admin": os.path.join(base_path, "Log", "admin_new.err"),
+        }
+        entries = []
+        for source, path in log_files.items():
+            if not os.path.exists(path):
+                continue
+            try:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    entries.extend(_extract_trace_entries(f.readlines(), request_id, source))
+            except Exception as e:
+                logger.warning("trace: error reading %s: %s", path, e)
+        entries.sort(key=lambda e: e["timestamp"])
+        return jsonify({
+            "success": True,
+            "request_id": request_id,
+            "count": len(entries),
+            "data": entries,
+        })
+    except Exception as e:
+        logger.error("Error in get_request_trace: %s", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 def service_health(service):
     """Check health of a specific service.
 

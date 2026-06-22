@@ -141,6 +141,12 @@ def _require_platform_admin():
 def diagnostics_log_sources():
     return _require_platform_admin() or _obs.diagnostics_log_sources()
 
+@bp.route('/admin/observability/trace/<request_id>', methods=['GET'])
+@_s.require_iam_token
+def observability_request_trace(request_id):
+    """Conversation trace: reconstruct one turn across services by X-Request-ID."""
+    return _require_platform_admin() or _obs.get_request_trace(request_id)
+
 @bp.route('/admin/diagnostics/logs', methods=['GET'])
 @_s.require_iam_token
 def diagnostics_logs():
