@@ -70,3 +70,4 @@ expo-app/*.apk
 expo-app/*.aab
 web/data/cache/
 common/kb_embeddings_cache.json
+common/intent_index_cache.npz

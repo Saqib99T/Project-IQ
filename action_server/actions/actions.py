@@ -16,3 +16,4 @@ from action_server.actions.actions_general      import *  # noqa: F401,F403
 from action_server.actions.actions_kb           import *  # noqa: F401,F403
 from action_server.actions.actions_feedback     import *  # noqa: F401,F403
 from action_server.actions.actions_handoff      import *  # noqa: F401,F403
+from action_server.actions.actions_fallback      import *  # noqa: F401,F403

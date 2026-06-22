@@ -578,6 +578,7 @@ I'm here to help you with your IT needs. Please login to manage tickets, or sear
 
 
 actions:
+  - action_embedding_fallback
   # ── Handoff actions ──────────────────────────────────────────────────
   - action_track_confidence
   - action_request_handoff

@@ -35,10 +35,10 @@ rules:
       - action: utter_out_of_scope
       - action: utter_ask_continue
 
-  - rule: Ask the user to rephrase whenever they send a message with low NLU confidence
+  - rule: Recover intent semantically whenever NLU confidence is low
     steps:
       - intent: nlu_fallback
-      - action: utter_please_rephrase
+      - action: action_embedding_fallback
 
   # --- FORM RULES (Ticket Creation) ---
   
