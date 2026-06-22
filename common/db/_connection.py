@@ -244,6 +244,21 @@ def _init_database():
             # operators — org membership + channel scope
             "ALTER TABLE operators ADD COLUMN IF NOT EXISTS org_id  TEXT",
             "ALTER TABLE operators ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'internal'",
+
+            # Canned responses / macros — operator saved replies (org-scoped;
+            # org_id NULL = shared across tenants). Free co-pilot feature, no LLM.
+            """CREATE TABLE IF NOT EXISTS canned_responses (
+                id SERIAL PRIMARY KEY,
+                org_id TEXT,
+                app_id TEXT,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                shortcut TEXT,
+                created_by TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_canned_org ON canned_responses(org_id, title)",
         ]
         for stmt in migrations:
             try: cursor.execute(stmt)

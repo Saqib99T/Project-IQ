@@ -88,6 +88,8 @@ export default function SessionView() {
     const [transferring, setTransferring] = useState(false)
     const [endedReason, setEndedReason] = useState(null)   // resolved | abandoned | closed
     const [histModal, setHistModal]   = useState(null)     // { title, sub, messages, loading }
+    const [canned, setCanned]         = useState(null)     // null = not loaded yet
+    const [showCanned, setShowCanned] = useState(false)
 
     const bottomRef   = useRef(null)
     const typingTimer = useRef(null)
@@ -231,6 +233,33 @@ export default function SessionView() {
         } finally {
             setDrafting(false)
         }
+    }
+
+    const loadCanned = useCallback(async () => {
+        try { const d = await call('/portal/api/canned'); setCanned(d.data || []) }
+        catch { setCanned([]) }
+    }, [call])
+
+    const toggleCanned = () => {
+        const next = !showCanned
+        setShowCanned(next)
+        if (next && canned === null) loadCanned()
+    }
+
+    const insertCanned = (body) => {
+        setInput(prev => (prev ? `${prev} ${body}` : body))
+        setShowCanned(false)
+    }
+
+    const saveCanned = async () => {
+        const body = input.trim()
+        if (!body) { alert('Type a reply first, then save it as a canned reply.'); return }
+        const title = prompt('Name this canned reply:')
+        if (!title) return
+        try {
+            await call('/portal/api/canned', { method: 'POST', body: JSON.stringify({ title, body }) })
+            setCanned(null); loadCanned()
+        } catch (e) { alert(`Save failed: ${e.message}`) }
     }
 
     const saveNote = (v) => {
@@ -379,9 +408,34 @@ export default function SessionView() {
                                     {sending ? '…' : 'Send'}
                                 </button>
                             </div>
-                            <button onClick={suggestReply} disabled={drafting} className="mt-1.5 text-xs text-primary hover:underline disabled:opacity-50">
-                                {drafting ? '✨ Thinking…' : '✨ Suggest reply'}
-                            </button>
+                            <div className="mt-1.5 flex items-center gap-4">
+                                <button onClick={suggestReply} disabled={drafting} className="text-xs text-primary hover:underline disabled:opacity-50">
+                                    {drafting ? '✨ Thinking…' : '✨ Suggest reply'}
+                                </button>
+                                <div className="relative">
+                                    <button onClick={toggleCanned} className="text-xs text-primary hover:underline">
+                                        📋 Canned replies
+                                    </button>
+                                    {showCanned && (
+                                        <div className="absolute bottom-6 left-0 z-10 w-72 max-h-64 overflow-y-auto rounded-lg border border-bordc bg-surface shadow-lg p-1">
+                                            <button onClick={saveCanned}
+                                                className="block w-full text-left px-2 py-1.5 rounded hover:bg-bg text-xs font-medium text-primary border-b border-bordc mb-1">
+                                                + Save current reply…
+                                            </button>
+                                            {canned === null && <div className="px-2 py-1.5 text-xs text-fgsubtle">Loading…</div>}
+                                            {canned && canned.length === 0 && <div className="px-2 py-1.5 text-xs text-fgsubtle">No saved replies yet.</div>}
+                                            {canned && canned.map(c => (
+                                                <button key={c.id} onClick={() => insertCanned(c.body)}
+                                                    title={c.body}
+                                                    className="block w-full text-left px-2 py-1.5 rounded hover:bg-bg">
+                                                    <span className="block text-xs font-medium text-fg">{c.title}</span>
+                                                    <span className="block text-[11px] text-fgsubtle truncate">{c.body}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </>
                     )}
                 </div>

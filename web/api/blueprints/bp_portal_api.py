@@ -7,6 +7,10 @@ get_org_filter() / get_operator_queue_filter().
 """
 from flask import Blueprint, request, jsonify, g
 import web.api.shared as _s
+from common.db._canned import (
+    list_canned_responses, create_canned_response,
+    update_canned_response, delete_canned_response,
+)
 
 bp = Blueprint('portal_api', __name__, url_prefix='/portal/api')
 
@@ -702,6 +706,54 @@ def portal_chat_send(**kwargs):
 
 
 # ── Operator: AI draft (Suggest reply) ────────────────────────────────────────
+
+# ── Canned responses / macros (free co-pilot — saved replies, no LLM) ───────────
+
+@bp.route('/canned', methods=['GET'])
+@_s.require_iam_token
+def portal_canned_list(**kwargs):
+    try:
+        return jsonify({'success': True, 'data': list_canned_responses(
+            org_id=_s.caller_org_scope(), app_id=request.args.get('app_id') or None)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/canned', methods=['POST'])
+@_s.require_iam_token
+def portal_canned_create(**kwargs):
+    try:
+        item = create_canned_response(
+            _s.caller_org_scope(), request.get_json(silent=True) or {},
+            created_by=(g.iam_user or {}).get('sub', ''))
+        return jsonify({'success': True, 'data': item}), 201
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/canned/<int:resp_id>', methods=['PUT'])
+@_s.require_iam_token
+def portal_canned_update(resp_id, **kwargs):
+    try:
+        ok = update_canned_response(resp_id, _s.caller_org_scope(), request.get_json(silent=True) or {})
+        return jsonify({'success': ok}), (200 if ok else 404)
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/canned/<int:resp_id>', methods=['DELETE'])
+@_s.require_iam_token
+def portal_canned_delete(resp_id, **kwargs):
+    try:
+        ok = delete_canned_response(resp_id, _s.caller_org_scope())
+        return jsonify({'success': ok}), (200 if ok else 404)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @bp.route('/ai-draft', methods=['POST'])
 @_s.require_iam_token
