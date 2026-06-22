@@ -24,8 +24,8 @@ def app():
     def _429(e):
         return jsonify(error="rate_limited"), 429
 
-    # 3 requests/minute so the test can trip it quickly.
-    rate_limiting.make_limiter(app, "3 per minute", storage_uri="memory://")
+    # 3 requests/minute so the test can trip it quickly (in-memory store).
+    rate_limiting.make_limiter(app, "3 per minute")
     return app
 
 

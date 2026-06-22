@@ -1,48 +1,56 @@
-"""Server-side rate limiting (Flask-Limiter).
+"""Server-side rate limiting — dependency-free (per-IP fixed-window).
+
+A custom limiter rather than Flask-Limiter: rasa 3.6 hard-pins `packaging<21`
+and the web app shares rasa's venv, so Flask-Limiter's dependency closure can't
+be installed alongside rasa. This uses only stdlib + the `redis` client already
+in requirements.
 
 Per-IP tiers: a lenient global default, a strict limit on the auth blueprint
-(brute-force protection), and a moderate limit on the chat blueprint. Storage is
-Redis when configured (survives multiple Gunicorn workers), else in-memory.
+(brute-force), and a moderate limit on the chat blueprint. Storage is Redis when
+configured (survives multiple Gunicorn workers), else an in-process dict.
+Health/status endpoints and CORS preflight (OPTIONS) are never limited.
+Over-limit → JSON 429 + Retry-After.
 
-Limits are configurable via an optional [RATELIMIT] section in app.config; sane
-defaults are used otherwise. Health/status endpoints and CORS preflight
-(OPTIONS) are never limited. Over-limit requests get a JSON 429 + Retry-After.
-
-NOTE: limits are keyed per client IP. Many users behind one corporate NAT share
-an IP, so the chat/default tiers are deliberately generous — tune in config.
+NOTE: keyed per client IP — users behind one corporate NAT share a budget, so
+the chat/default tiers are deliberately generous. Tune via [RATELIMIT] config.
 """
+import time
+import threading
 import logging
 
 from flask import request, jsonify
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 
 from common import config_manager
 
 logger = logging.getLogger(__name__)
 
-# Defaults (overridable via [RATELIMIT] in app.config). "per IP" applies to each.
 _DEFAULTS = {
     "enabled": True,
-    "default": "300 per minute",   # lenient catch-all
-    "auth":    "30 per minute",    # login/callback — brute-force guard
-    "chat":    "120 per minute",   # chat webhook + handoff — chatty but bounded
+    "default": "300 per minute",
+    "auth": "30 per minute",
+    "chat": "120 per minute",
 }
-
-# Paths never rate-limited (monitoring + health checks).
 _EXEMPT_PATHS = {"/api/status", "/health", "/health/rasa", "/health/actions", "/health/database"}
+_PERIODS = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
+
+
+def _parse_limit(text: str):
+    """'300 per minute' -> (300, 60). Tolerant of 'minute'/'minutes'."""
+    left, _, right = text.lower().partition("per")
+    n = int(left.strip())
+    period = right.strip().rstrip("s") or "minute"
+    return n, _PERIODS.get(period, 60)
 
 
 def _settings() -> dict:
     cfg = config_manager.load_config()
     if not cfg.has_section("RATELIMIT"):
         return dict(_DEFAULTS)
-    g = lambda k, d: cfg.get("RATELIMIT", k, fallback=d)
     return {
         "enabled": cfg.getboolean("RATELIMIT", "enabled", fallback=_DEFAULTS["enabled"]),
-        "default": g("default_limit", _DEFAULTS["default"]),
-        "auth":    g("auth_limit",    _DEFAULTS["auth"]),
-        "chat":    g("chat_limit",    _DEFAULTS["chat"]),
+        "default": cfg.get("RATELIMIT", "default_limit", fallback=_DEFAULTS["default"]),
+        "auth": cfg.get("RATELIMIT", "auth_limit", fallback=_DEFAULTS["auth"]),
+        "chat": cfg.get("RATELIMIT", "chat_limit", fallback=_DEFAULTS["chat"]),
     }
 
 
@@ -51,79 +59,109 @@ def client_ip() -> str:
     xff = request.headers.get("X-Forwarded-For", "")
     if xff:
         return xff.split(",")[0].strip()
-    return get_remote_address()
+    return request.remote_addr or "unknown"
 
 
 def should_exempt() -> bool:
-    """Skip CORS preflight and health/status endpoints."""
     if request.method == "OPTIONS":
         return True
     return request.path in _EXEMPT_PATHS
 
 
-def _storage_uri() -> str:
+# ── storage backends: hit(key, max_n, window) -> (allowed, retry_after_secs) ──
+class MemoryStore:
+    def __init__(self):
+        self._d = {}
+        self._lock = threading.Lock()
+
+    def hit(self, key, max_n, window):
+        now = time.time()
+        with self._lock:
+            count, start = self._d.get(key, (0, now))
+            if now - start >= window:
+                count, start = 0, now
+            count += 1
+            self._d[key] = (count, start)
+            if count > max_n:
+                return False, int(window - (now - start)) + 1
+            return True, 0
+
+
+class RedisStore:
+    def __init__(self, client):
+        self.r = client
+
+    def hit(self, key, max_n, window):
+        try:
+            count = self.r.incr(key)
+            if count == 1:
+                self.r.expire(key, window)
+            if count > max_n:
+                ttl = self.r.ttl(key)
+                return False, max(int(ttl), 1)
+            return True, 0
+        except Exception as e:  # never let a storage hiccup block traffic
+            logger.warning("rate-limit: redis store error (%s); allowing request", e)
+            return True, 0
+
+
+def _make_store():
     try:
         r = config_manager.get_redis_config()
         if r.get("enabled"):
-            auth = f":{r['password']}@" if r.get("password") else ""
-            return f"redis://{auth}{r['host']}:{r['port']}/{r['db']}"
-    except Exception as e:  # never block startup on storage detection
-        logger.warning("rate-limit: redis config unavailable (%s); using in-memory", e)
-    return "memory://"
+            import redis
+            client = redis.Redis(host=r["host"], port=r["port"], db=r["db"],
+                                 password=r.get("password") or None,
+                                 socket_timeout=2, socket_connect_timeout=2)
+            client.ping()
+            logger.info("rate limiting: using Redis store")
+            return RedisStore(client), "redis"
+    except Exception as e:
+        logger.warning("rate-limit: redis unavailable (%s); using in-memory store", e)
+    return MemoryStore(), "memory"
 
 
-def make_limiter(app, default_limit: str, storage_uri: str = "memory://") -> Limiter:
-    """Create + attach a Limiter (kept small so tests can build a throwaway one)."""
-    limiter = Limiter(
-        key_func=client_ip,
-        default_limits=[default_limit],
-        storage_uri=storage_uri,
-        headers_enabled=True,           # adds X-RateLimit-* and Retry-After
-        strategy="fixed-window",
-    )
-    limiter.request_filter(should_exempt)
-    limiter.init_app(app)
-    return limiter
+def _install(app, scope_limits: dict, store) -> None:
+    """Register the before_request enforcer. scope_limits maps blueprint name
+    (or 'default') -> (max_n, window_secs)."""
+    @app.before_request
+    def _enforce():
+        if should_exempt():
+            return None
+        scope = request.blueprint if request.blueprint in scope_limits else "default"
+        max_n, window = scope_limits[scope]
+        allowed, retry = store.hit(f"rl:{scope}:{client_ip()}", max_n, window)
+        if not allowed:
+            resp = jsonify({
+                "error": "rate_limited",
+                "message": "Too many requests. Please slow down and try again shortly.",
+            })
+            resp.status_code = 429
+            resp.headers["Retry-After"] = str(retry)
+            return resp
+        return None
 
 
-def init_rate_limiting(app) -> "Limiter | None":
+def make_limiter(app, default_limit: str, store=None):
+    """Minimal single-tier limiter (used by tests). Returns the store."""
+    store = store or MemoryStore()
+    _install(app, {"default": _parse_limit(default_limit)}, store)
+    return store
+
+
+def init_rate_limiting(app):
     """Wire rate limiting into the live app. No-op if disabled in config."""
     s = _settings()
     if not s["enabled"]:
         logger.info("rate limiting disabled via config")
         return None
-
-    storage = _storage_uri()
-    limiter = make_limiter(app, s["default"], storage)
-
-    # Stricter per-blueprint tiers (applies to every route in the blueprint).
-    try:
-        from web.api.blueprints.bp_auth import bp as bp_auth
-        limiter.limit(s["auth"])(bp_auth)
-    except Exception as e:
-        logger.warning("rate-limit: could not limit auth blueprint (%s)", e)
-    try:
-        from web.api.blueprints.bp_chat import bp as bp_chat
-        limiter.limit(s["chat"])(bp_chat)
-    except Exception as e:
-        logger.warning("rate-limit: could not limit chat blueprint (%s)", e)
-
-    @app.errorhandler(429)
-    def _too_many(e):
-        resp = jsonify({
-            "error": "rate_limited",
-            "message": "Too many requests. Please slow down and try again shortly.",
-            "detail": getattr(e, "description", None),
-        })
-        resp.status_code = 429
-        # Flask-Limiter sets Retry-After on the exception's response when headers
-        # are enabled; mirror it if present.
-        retry_after = getattr(getattr(e, "response", None), "headers", {}) or {}
-        if retry_after.get("Retry-After"):
-            resp.headers["Retry-After"] = retry_after["Retry-After"]
-        return resp
-
-    logger.info("rate limiting active (storage=%s, default=%s, auth=%s, chat=%s)",
-                "redis" if storage.startswith("redis") else "memory",
-                s["default"], s["auth"], s["chat"])
-    return limiter
+    store, kind = _make_store()
+    limits = {
+        "default": _parse_limit(s["default"]),
+        "auth": _parse_limit(s["auth"]),   # bp_auth = Blueprint('auth')
+        "chat": _parse_limit(s["chat"]),   # bp_chat = Blueprint('chat')
+    }
+    _install(app, limits, store)
+    logger.info("rate limiting active (store=%s, default=%s, auth=%s, chat=%s)",
+                kind, s["default"], s["auth"], s["chat"])
+    return store

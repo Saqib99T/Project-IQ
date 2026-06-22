@@ -11,7 +11,6 @@ pydantic==1.10.9
 requests>=2.31.0
 flask==3.0.0
 flask-cors==4.0.0
-flask-limiter>=3.5,<4   # server-side rate limiting (per-IP); Redis or in-memory backend
 werkzeug==3.0.1
 flask-socketio==5.3.6
 eventlet==0.35.2
