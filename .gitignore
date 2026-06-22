@@ -3,6 +3,7 @@
 .env.*
 !.env.infisical.template
 core/.rasa
+.rasa/
 .agent
 .claude
 
