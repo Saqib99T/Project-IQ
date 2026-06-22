@@ -484,20 +484,14 @@ def portal_conversation(conversation_id, **kwargs):
         except Exception:
             meta = None
 
-        # Messages — scoped to the current handoff window when we know queued_at.
-        if queued_at is not None:
-            cur.execute(
-                "SELECT sender, text, timestamp FROM messages "
-                "WHERE conversation_id = %s AND timestamp >= %s "
-                "ORDER BY timestamp ASC LIMIT 300",
-                (conversation_id, queued_at),
-            )
-        else:
-            cur.execute(
-                "SELECT sender, text, timestamp FROM messages "
-                "WHERE conversation_id = %s ORDER BY timestamp ASC LIMIT 300",
-                (conversation_id,),
-            )
+        # Each conversation row is ONE chat session, so the operator sees the
+        # FULL record (the whole bot conversation that led to the handoff), not
+        # just the post-queue window.
+        cur.execute(
+            "SELECT sender, text, timestamp FROM messages "
+            "WHERE conversation_id = %s ORDER BY timestamp ASC LIMIT 300",
+            (conversation_id,),
+        )
         msgs = []
         for m in cur.fetchall():
             d = dict(m)
@@ -516,19 +510,11 @@ def portal_conversation(conversation_id, **kwargs):
                 (m.get('text'), (m.get('timestamp') or '')[:19])
                 for m in msgs if m.get('sender') == 'operator'
             }
-            if queued_at is not None:
-                cur.execute(
-                    "SELECT 'operator' AS sender, message_text AS text, sent_at AS timestamp "
-                    "FROM operator_messages WHERE conversation_id = %s AND sent_at >= %s "
-                    "ORDER BY sent_at ASC",
-                    (conversation_id, queued_at),
-                )
-            else:
-                cur.execute(
-                    "SELECT 'operator' AS sender, message_text AS text, sent_at AS timestamp "
-                    "FROM operator_messages WHERE conversation_id = %s ORDER BY sent_at ASC",
-                    (conversation_id,),
-                )
+            cur.execute(
+                "SELECT 'operator' AS sender, message_text AS text, sent_at AS timestamp "
+                "FROM operator_messages WHERE conversation_id = %s ORDER BY sent_at ASC",
+                (conversation_id,),
+            )
             for m in cur.fetchall():
                 d = dict(m)
                 d['timestamp'] = d['timestamp'].isoformat() if d.get('timestamp') else None
