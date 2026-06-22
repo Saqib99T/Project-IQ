@@ -63,3 +63,4 @@ web/ui/dist-widget/modern-web-interface.css
 expo-app/*.apk
 expo-app/*.aab
 web/data/cache/
+common/kb_embeddings_cache.json
