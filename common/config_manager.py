@@ -161,6 +161,19 @@ def get_iam_config() -> Dict[str, str]:
     }
 
 
+def get_redis_config() -> Dict[str, Any]:
+    """Redis connection settings (caching, Socket.IO bus, rate-limit storage)."""
+    config = load_config()
+    return {
+        'enabled':  config.getboolean('REDIS', 'redis_enabled', fallback=False),
+        'host':     config.get('REDIS', 'redis_host', fallback='localhost'),
+        'port':     config.getint('REDIS', 'redis_port', fallback=6379),
+        'db':       config.getint('REDIS', 'redis_db', fallback=0),
+        'password': _env_secret('REDIS', 'redis_password',
+                                config.get('REDIS', 'redis_password', fallback='')),
+    }
+
+
 def get_itsm_config() -> Dict[str, str]:
     """Get itsm-service URL configuration."""
     config = load_config()

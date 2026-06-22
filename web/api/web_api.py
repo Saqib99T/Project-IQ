@@ -406,6 +406,13 @@ start_background_workers()
 from web.api.blueprints.register import register_blueprints
 register_blueprints(app)
 
+# Server-side rate limiting (per-IP; Redis if configured, else in-memory).
+try:
+    from web.api.rate_limiting import init_rate_limiting
+    init_rate_limiting(app)
+except Exception as _rl_err:  # never block startup on rate-limit setup
+    _logging.getLogger(__name__).warning("rate limiting not initialized: %s", _rl_err)
+
 
 if __name__ == '__main__':
     import os as _os
