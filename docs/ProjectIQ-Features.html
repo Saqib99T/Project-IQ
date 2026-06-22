@@ -178,6 +178,7 @@ footer span{color:#94a3b8}
     <div class="chip">📚 pgvector Knowledge Base</div>
     <div class="chip">⚙️ Automation Engine</div>
     <div class="chip">📱 Web + Mobile</div>
+    <div class="chip">🔎 End-to-end Tracing</div>
   </div>
   <div class="hero-stats">
     <div class="hstat"><div class="val violet">6</div><div class="lbl">Platform Ends</div></div>
@@ -248,6 +249,7 @@ footer span{color:#94a3b8}
         <li><b>AI draft assist</b> — suggested replies generated from the conversation</li>
         <li><b>Context package</b> — profile, masked transcript &amp; AI summary on accept</li>
         <li><b>Resolve / release / transfer</b> — close, return to bot, or hand to another agent</li>
+        <li><b>Work ITSM tickets</b> — open the user's tickets, change status &amp; priority, post comments — in-console</li>
         <li><b>Interaction history</b> — replay a user's past sessions to spot patterns</li>
         <li><b>Typing indicators</b> both ways, with private per-session notes</li>
         <li><b>Presence</b> — online / away / busy, with load-based auto-busy</li>
@@ -348,7 +350,7 @@ footer span{color:#94a3b8}
         <li>Guided <b>create-ticket form</b> — title, detail, category, priority, attachment</li>
         <li><b>Quick-issue chips</b> — "Laptop issue", "No internet", "Can't log in", "Printer", "Need access"</li>
         <li><b>List tickets</b> with a status filter (New, Processing, Pending, Approved, Solved, Closed)</li>
-        <li><b>Check status</b> by ticket ID; view comments &amp; attachments</li>
+        <li><b>Check status</b> by ticket ID — public comment history (with author names, shown before the created date) &amp; attachments</li>
         <li><b>Update &amp; close</b> tickets directly from the conversation</li>
         <li>Product shown on every ticket; attachments up to size limit</li>
       </ul>
@@ -458,6 +460,17 @@ footer span{color:#94a3b8}
       </ul>
     </div>
   </div>
+
+  <div class="wrap p2 mt3">
+    <div style="font-weight:800;margin-bottom:1rem">🎫 ITSM tickets — right in the console</div>
+    <ul class="cap-grid">
+      <li><b>Open the user's tickets</b> — a Tickets view inside the operator console, tenant-scoped</li>
+      <li><b>Change status &amp; priority</b> — inline edits saved straight to the ITSM service</li>
+      <li><b>Post comments</b> — public replies the requester sees, or internal agent-only notes</li>
+      <li><b>Requester &amp; assignee by name</b> — resolved from identity, not raw IDs</li>
+      <li><b>Agent-tier &amp; server-authorized</b> — operators map to the ITSM <em>agent</em> role; every change is checked server-side</li>
+    </ul>
+  </div>
 </div>
 </section>
 
@@ -485,7 +498,7 @@ footer span{color:#94a3b8}
         <tr><td><strong>Themes</strong></td><td>Brand the widget — colours, fonts, icons, layout</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Configuration</strong></td><td>Session timeouts, widget settings &amp; platform options</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Integrations</strong></td><td>Connect &amp; configure external services</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Observability</strong></td><td>Service health, queues &amp; system status monitoring</td><td><span class="pill pill-both">Both</span></td></tr>
+        <tr><td><strong>Observability</strong></td><td>Service health, queues &amp; system status; per-request correlation-ID tracing across services, with error alerting to admins</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Users</strong></td><td>Directory sourced live from IAM; create &amp; assign roles via Keycloak</td><td><span class="pill pill-sup">Super: any tenant</span></td></tr>
         <tr><td><strong>Organizations</strong></td><td>View &amp; manage tenant organizations across the platform</td><td><span class="pill pill-sup">Super only</span></td></tr>
       </tbody>
@@ -575,7 +588,7 @@ footer span{color:#94a3b8}
   <div class="sec-h">Real-time &amp; Self-Healing</div>
   <div class="sec-sub">A Socket.IO backbone keeps every client in sync, and background workers keep the queue fair, fresh and consistent — automatically.</div>
 
-  <div class="col2 mt3">
+  <div class="col3 mt3">
     <div class="card">
       <h4>⚡ Real-time backbone</h4>
       <ul class="cap-grid" style="grid-template-columns:1fr">
@@ -594,6 +607,15 @@ footer span{color:#94a3b8}
         <li><b>Priority boost</b> — nudges long-waiting items up to prevent starvation</li>
         <li><b>Heartbeat watchdog</b> — marks unresponsive operators offline</li>
         <li><b>Orphan-state healer</b> — repairs any conversation stuck between states</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>🔎 Tracing &amp; alerting</h4>
+      <ul class="cap-grid" style="grid-template-columns:1fr">
+        <li><b>End-to-end correlation IDs</b> — one request id threads admin API → NLU → action server → ITSM</li>
+        <li><b>Structured logging</b> — every line stamped <code>[req=…]</code>, so one grep reconstructs a whole turn</li>
+        <li><b>Error alerting</b> — ERROR-level events notify operators &amp; admins, deduplicated &amp; storm-capped</li>
+        <li><b>Honest error rate</b> — measured from real action failures, not guessed from bot wording</li>
       </ul>
     </div>
   </div>
@@ -764,7 +786,7 @@ footer span{color:#94a3b8}
 <div class="container">
   <div class="sec-eye">Quality Assurance</div>
   <div class="sec-h">Tested, Service by Service</div>
-  <div class="sec-sub">Every service ships with an executable, automated test suite — <b>295 tests in total, all green</b>. They're deterministic (no live database, NLU model or Keycloak needed) so they run locally and in CI with a single command.</div>
+  <div class="sec-sub">Every service ships with an executable, automated test suite — <b>295 tests in total, all green</b>. The core-platform suites are deterministic (no live database, NLU model or Keycloak needed); the ITSM suite runs against an ephemeral Postgres + Redis. Both run locally and on every push in <b>GitHub Actions</b>.</div>
 
   <div class="kpi-grid mt3">
     <div class="kpi"><div class="v green">295</div><div class="l">Total Tests</div><div class="d d-up">all passing</div></div>
@@ -805,7 +827,7 @@ footer span{color:#94a3b8}
       </tbody>
     </table>
   </div>
-  <div class="note"><strong>One command:</strong> the core-platform suites run with <code>python -m pytest tests/</code>; the ITSM microservice runs its own <code>pytest</code> suite on its own track. Network and data layers are mocked, so every suite is reproducible anywhere — including CI.</div>
+  <div class="note"><strong>Continuous integration:</strong> the core-platform suites run with <code>python -m pytest tests/</code> (network &amp; data layers mocked); the ITSM microservice runs its own <code>pytest</code> suite against ephemeral Postgres + Redis service containers. Each is wired to <strong>GitHub Actions</strong> and runs on every push — two repos, two pipelines.</div>
 </div>
 </section>
 
