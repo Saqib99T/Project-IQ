@@ -43,13 +43,22 @@ The Android build is published to **GitHub Releases**, not committed to git.
 
 ## Publishing artifacts (maintainers)
 
-When you cut a build worth distributing:
+Use **`scripts/publish_release.sh`** — it picks the newest `core/models/*.tar.gz`,
+uploads it as the stable asset `model.tar.gz` (+ `expo-app/ProjectIQ.apk` if
+present) to a GitHub Release, and prints the `RASA_MODEL_URL` /
+`RASA_MODEL_SHA256` to export. Dry-run by default:
 
-1. **Model** — upload the current `core/models/<name>.tar.gz` as an asset on a
-   GitHub Release (e.g. tag `model-latest`). Note its SHA-256
-   (`sha256sum <file>`) so devs can set `RASA_MODEL_SHA256`. Point
-   `RASA_MODEL_URL` (or the script's `--url`) at the asset.
-2. **APK** — attach `ProjectIQ.apk` to a versioned Release.
+```bash
+scripts/publish_release.sh             # preview (shows sha256 + planned gh commands)
+gh auth login                          # one-time, if not already
+scripts/publish_release.sh --apply     # publish to tag model-latest
+```
+
+Doing it by hand instead:
+1. **Model** — upload `core/models/<name>.tar.gz` as `model.tar.gz` on a Release
+   (tag `model-latest`); note its `sha256sum` for `RASA_MODEL_SHA256` and point
+   `RASA_MODEL_URL` at the asset.
+2. **APK** — attach `ProjectIQ.apk` to the Release.
 
 For private Release assets, the fetch script reads an optional bearer token from
 `RASA_MODEL_TOKEN` (environment only — never hardcode it).
