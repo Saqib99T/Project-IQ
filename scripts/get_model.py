@@ -98,7 +98,7 @@ def main() -> None:
 
     existing = _existing_models()
     if existing and not args.force:
-        print(f"✓ Model already present ({existing[-1].name}); skipping. Use --force to re-download.")
+        print(f"OK: model already present ({existing[-1].name}); skipping. Use --force to re-download.")
         return
 
     url = args.url
@@ -116,7 +116,7 @@ def main() -> None:
     os.close(fd)
     tmp = Path(tmp_name)
     try:
-        print(f"Downloading model from {url} …")
+        print(f"Downloading model from {url} ...")
         _download(url, tmp, token)
 
         if tmp.stat().st_size == 0:
@@ -127,7 +127,7 @@ def main() -> None:
             actual = _sha256(tmp)
             if actual != expected_sha:
                 _fail(f"SHA-256 mismatch — expected {expected_sha}, got {actual}")
-            print("✓ SHA-256 verified")
+            print("SHA-256 verified")
 
         # Derive a stable filename from the URL; ensure .tar.gz suffix.
         name = url.rstrip("/").split("/")[-1] or "fetched-model.tar.gz"
@@ -135,7 +135,7 @@ def main() -> None:
             name = "fetched-model.tar.gz"
         final = MODELS_DIR / name
         os.replace(tmp, final)  # atomic; tmp no longer exists
-        print(f"✓ Model ready: {final.relative_to(REPO_ROOT)}")
+        print(f"OK: model ready: {final.relative_to(REPO_ROOT)}")
         print("  Rasa loads the newest model in core/models/ automatically.")
     finally:
         if tmp.exists():
