@@ -64,9 +64,33 @@ def test_rating_intents_cover_one_to_five():
         assert f"rating_{n}" in intents
 
 
+def test_no_cross_intent_example_conflicts():
+    """No training phrase may be labeled with more than one intent — DIET cannot
+    learn a clean boundary otherwise. (Regression guard for the dedupe cleanup.)"""
+    import re
+    strip = lambda t: re.sub(r"\[([^\]]+)\](\([^)]*\)|\{[^}]*\})", r"\1", t).strip()
+    seen = {}
+    for item in _nlu_items():
+        intent = item.get("intent")
+        if not intent:
+            continue
+        for line in (item.get("examples") or "").splitlines():
+            line = line.strip()
+            if not line.startswith("- "):
+                continue
+            text = strip(line[2:])
+            if text:
+                seen.setdefault(text, set()).add(intent)
+    conflicts = {t: sorted(i) for t, i in seen.items() if len(i) > 1}
+    assert not conflicts, f"examples labeled with multiple intents: {conflicts}"
+
+
 # ── Domain consistency ───────────────────────────────────────────────────────
 def test_every_trained_intent_declared_in_domain():
-    undeclared = sorted(set(_nlu_intents()) - _domain_intent_names())
+    # Retrieval intents (e.g. "chitchat/how_are_you") are declared in the domain
+    # by their parent ("chitchat"), so compare on the parent before the slash.
+    trained_parents = {i.split("/", 1)[0] for i in _nlu_intents()}
+    undeclared = sorted(trained_parents - _domain_intent_names())
     assert not undeclared, f"intents trained but not declared in domain.yml: {undeclared}"
 
 

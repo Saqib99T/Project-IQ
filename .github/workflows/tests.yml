@@ -31,6 +31,10 @@ jobs:
       - name: Run test suites (Web API · Action Server · Common/IAM · NLU)
         run: python -m pytest tests/ --tb=short
 
+      - name: Validate Rasa training data (schema, undefined intents/actions, missing responses)
+        working-directory: core
+        run: python -m rasa data validate --config config.yml --domain domain.yml --data data
+
   lint-no-print:
     name: Lint — no new print() in runtime code
     runs-on: ubuntu-latest

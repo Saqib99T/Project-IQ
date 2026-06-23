@@ -2240,6 +2240,16 @@ nlu:
     - whatever
     - anything else
     - something random
+    - what's the meaning of life
+    - recommend me a movie
+    - book me a flight
+    - order a pizza
+    - what's the stock price of apple
+    - convert 100 dollars to euros
+    - translate hello to spanish
+    - tell me the news headlines
+    - lorem ipsum dolor sit amet
+    - 123 456 789
 
 # SHOW CHART
 - intent: show_chart

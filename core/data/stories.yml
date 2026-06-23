@@ -162,20 +162,6 @@ stories:
     - intent: submit_ticket_form
     - action: action_create_ticket_from_form
 
-- story: User provides all details - Ticket Form
-  steps:
-    - intent: create_ticket
-      entities:
-        - description: "my laptop not connecting to wifi"
-        - issue_type: "network"
-        - urgency: "high"
-    - action: action_search_kb_before_ticket
-    - intent: kb_not_helpful
-    - action: action_init_itsm_session
-    - action: utter_ticket_form
-    - intent: submit_ticket_form
-    - action: action_create_ticket_from_form
-
 - story: User asks for help
   steps:
     - intent: help
