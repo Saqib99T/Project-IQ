@@ -193,6 +193,7 @@ nlu:
     - username [admin](itsm_username)
     - login as [user1](itsm_username)
     - sign in as [tech](itsm_username)
+    - connect to my account
 
 # GOODBYE
 - intent: goodbye
@@ -320,10 +321,8 @@ nlu:
     - see you mate
     - I'm out
     - I'm done
-    - I'm finished
     - that's all
     - nothing else
-    - no more
     - stop chatting
 
 # CREATE TICKET
@@ -408,87 +407,6 @@ nlu:
     - log new ticket
     - add new ticket
     - raise new ticket
-    - generate new ticket
-    - initiate new ticket
-    - begin new ticket
-    - launch new ticket
-    - commence new ticket
-    - institute new ticket
-    - establish new ticket
-    - found new ticket
-    - form new ticket
-    - construct new ticket
-    - build new ticket
-    - produce new ticket
-    - compose new ticket
-    - draft new ticket
-    - write new ticket
-    - record new ticket
-    - enter new ticket
-    - input new ticket
-    - post new ticket
-    - send new ticket
-    - transmit new ticket
-    - dispatch new ticket
-    - forward new ticket
-    - hand in new ticket
-    - turn in new ticket
-    - give in new ticket
-    - deliver new ticket
-    - present new ticket
-    - offer new ticket
-    - tender new ticket
-    - propose new ticket
-    - suggest new ticket
-    - recommend new ticket
-    - advise new ticket
-    - request new ticket
-    - require new ticket
-    - demand new ticket
-    - ask for new ticket
-    - call for new ticket
-    - look for new ticket
-    - seek new ticket
-    - search for new ticket
-    - hunt for new ticket
-    - pursue new ticket
-    - chase new ticket
-    - track new ticket
-    - trail new ticket
-    - follow new ticket
-    - shadow new ticket
-    - dog new ticket
-    - hound new ticket
-    - bug new ticket
-    - pester new ticket
-    - plague new ticket
-    - torment new ticket
-    - torture new ticket
-    - harass new ticket
-    - harry new ticket
-    - badger new ticket
-    - nag new ticket
-    - annoy new ticket
-    - irritate new ticket
-    - bother new ticket
-    - disturb new ticket
-    - trouble new ticket
-    - worry new ticket
-    - upset new ticket
-    - distress new ticket
-    - alarm new ticket
-    - frighten new ticket
-    - scare new ticket
-    - terrify new ticket
-    - horrify new ticket
-    - shock new ticket
-    - appall new ticket
-    - disgust new ticket
-    - revolt new ticket
-    - repel new ticket
-    - sicken new ticket
-    - nausea new ticket
-    - nauseate new ticket
     - create incident
     - create problem
     - create request
@@ -679,7 +597,6 @@ nlu:
     - Mouse not responding
     - Keyboard broken
     - Email not working
-    - VPN disconnecting
     - Internet slow
     - Phone no dial tone
     - Monitor flickering
@@ -1093,7 +1010,6 @@ nlu:
     - [Closed](target_status) please
     - [Processing](target_status) now
     - [Solved](target_status) it is
-    - [New](target_status) ticket
     - [Approved](target_status) request
     - [Refused](target_status) request
     - [Observed](target_status) issue
@@ -1501,7 +1417,6 @@ nlu:
     - opt out
     - remove me
     - delete me
-    - stop it
     - quit it
     - cut it out
     - knock it off
@@ -1930,7 +1845,6 @@ nlu:
     - stop the ticket creation
     - cancel this
     - I want to stop
-    - never mind
     - just stop it
     - cancel that request
     - I don't want to proceed
@@ -1963,8 +1877,6 @@ nlu:
     - leave it
     - nevermind
     - no more
-    - not now
-    - later
     - don't
     - don't bother
     - don't continue
@@ -1996,8 +1908,6 @@ nlu:
     - back
     - home
     - main menu
-    - restart
-    - reset
 
 # ENTITY SYNONYMS
 - synonym: Hardware
@@ -2150,7 +2060,6 @@ nlu:
     - how do I use this
     - what are your functions
     - what are your features
-    - what are your capabilities
     - what are your abilities
     - what are your skills
     - what can you handle
@@ -2158,16 +2067,11 @@ nlu:
     - what can you support
     - what issues can you fix
     - what problems can you solve
-    - tell me about yourself
-    - who are you
-    - what are you
-    - are you a bot
     - are you a human
     - how do i upload a file?
     - can i attach a screenshot?
     - how to add an attachment
     - where is the upload button?
-    - attach file to ticket
     - tutorial
     - demo
     - examples
@@ -2274,7 +2178,6 @@ nlu:
     - explain yourself
     - what is your purpose
     - why are you here
-    - what are you for
 
 # LIST ATTACHMENTS
 - intent: list_attachments
@@ -2311,11 +2214,9 @@ nlu:
 - intent: out_of_scope
   examples: |
     - what's the weather like
-    - tell me a joke
     - what's 2+2
     - who won the game
     - what time is it
-    - how are you
     - what's for lunch
     - play music
     - tell me a story
@@ -2326,11 +2227,9 @@ nlu:
     - can you dance
     - sing me a song
     - what's trending
-    - tell me about yourself
     - are you human
     - how old are you
     - where do you live
-    - who created you
     - asdfghjkl
     - qwertyuiop
     - zzzzz
@@ -2710,10 +2609,7 @@ nlu:
     - none of them worked
     - no luck
     - no, none of these
-    - nope
-    - no
     - create ticket anyway
-    - just create a ticket
     - I want to create a ticket
     - let me create a ticket
     - proceed with ticket
@@ -2725,56 +2621,68 @@ nlu:
     - 1 star
     - 1
     - one star
-    - terrible
-    - awful
     - very bad
+    - 1 star
+    - one star
+    - rate it 1
+    - one out of five
+    - rating 1
+    - 1/5
 
 - intent: rating_2
   examples: |
     - 2 stars
     - 2
     - two stars
-    - bad
     - poor
-    - not good
+    - 2 stars
+    - two stars
+    - rate it 2
+    - two out of five
+    - rating 2
+    - 2/5
 
 - intent: rating_3
   examples: |
     - 3 stars
     - 3
     - three stars
-    - okay
     - average
     - mediocre
+    - 3 stars
+    - three stars
+    - rate it 3
+    - three out of five
+    - rating 3
+    - 3/5
 
 - intent: rating_4
   examples: |
     - 4 stars
     - 4
     - four stars
-    - good
     - nice
     - satisfied
+    - 4 stars
+    - four stars
+    - rate it 4
+    - four out of five
+    - rating 4
+    - 4/5
 
 - intent: rating_5
   examples: |
     - 5 stars
     - 5
     - five stars
-    - excellent
     - amazing
-    - perfect
-    - great
     - wonderful
-
-- intent: login
-  examples: |
-    - login
-    - sign in
-    - log me in
-    - I want to login
-    - authenticate
-    - connect to my account
+    - 5 stars
+    - five stars
+    - rate it 5
+    - five out of five
+    - rating 5
+    - 5/5
 
 - intent: upload_file
   examples: |
@@ -2832,7 +2740,6 @@ nlu:
     - yes I'll wait
     - I want to wait for an agent
     - connect me now
-    - yes please
     - sure connect me
 
 - intent: cancel_handoff
@@ -2859,17 +2766,23 @@ nlu:
     - I accept
     - I give my consent
     - yes that's fine
+    - yes you can share my chat history
+    - I'm okay with sharing my data
+    - go ahead and share my details
+    - consent granted
 
 - intent: deny_gdpr_consent
   examples: |
     - no I don't agree
     - I do not consent
     - no don't share
-    - I decline
     - no I don't want to share my history
-    - I refuse
     - no keep my data private
     - I don't agree
+    - please don't share my chat history
+    - do not share my personal data
+    - I withhold consent
+    - keep my conversation private
 
 - intent: accept_ticket_fallback
   examples: |
@@ -2880,3 +2793,106 @@ nlu:
     - ticket please
     - let me create a support ticket
     - I'll submit a ticket
+
+# ============================================================
+# SMALLTALK (chitchat) — open conversation, handled by the
+# ResponseSelector (retrieval intent). Keeps casual turns out
+# of out_of_scope / mis-routing.
+# ============================================================
+- intent: chitchat/how_are_you
+  examples: |
+    - how are you doing
+    - how's it going
+    - you ok?
+    - hope you're well
+    - how have you been
+    - how are you feeling today
+- intent: chitchat/who_are_you
+  examples: |
+    - who are you
+    - what are you
+    - what is your name
+    - tell me about yourself
+    - introduce yourself
+    - what should I call you
+    - who am I talking to
+- intent: chitchat/are_you_a_bot
+  examples: |
+    - are you a bot
+    - are you a robot
+    - am I talking to a human
+    - are you real
+    - are you a person
+    - is this a real agent
+    - are you human or AI
+- intent: chitchat/what_can_you_do
+  examples: |
+    - what can you do
+    - how can you help
+    - what are you for
+    - what do you do
+    - what can you help me with
+    - what are your capabilities
+    - how can you assist me
+    - what services do you offer
+- intent: chitchat/thanks
+  examples: |
+    - thank you so much
+    - much appreciated
+    - thanks for your help
+    - thanks for the help
+    - that was helpful thanks
+    - appreciate your help
+- intent: chitchat/joke
+  examples: |
+    - tell me a joke
+    - say something funny
+    - make me laugh
+    - do you know any jokes
+    - cheer me up
+    - got a joke
+- intent: chitchat/who_made_you
+  examples: |
+    - who made you
+    - who created you
+    - who built you
+    - who developed you
+    - which company made you
+    - who is behind you
+
+# ============================================================
+# FAQ — meta questions about the assistant / service itself
+# (NOT IT content — that is answered by the knowledge base).
+# ============================================================
+- intent: faq/what_is_this
+  examples: |
+    - what is this
+    - what is this service
+    - what is project iq
+    - what is this assistant
+    - what is this chat
+    - what is this tool for
+- intent: faq/support_hours
+  examples: |
+    - what are your support hours
+    - when are you available
+    - are you available 24/7
+    - what time is support open
+    - when can I reach support
+    - what are the working hours
+- intent: faq/languages
+  examples: |
+    - what languages do you speak
+    - do you support other languages
+    - can you speak spanish
+    - which languages do you understand
+    - do you speak french
+    - can I chat in arabic
+- intent: faq/data_privacy
+  examples: |
+    - is my data safe
+    - do you store my data
+    - is this conversation private
+    - what do you do with my information
+    - is my data secure
+    - do you share my data

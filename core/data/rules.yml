@@ -40,6 +40,16 @@ rules:
       - intent: nlu_fallback
       - action: action_embedding_fallback
 
+  - rule: Respond to smalltalk
+    steps:
+      - intent: chitchat
+      - action: utter_chitchat
+
+  - rule: Respond to service FAQ
+    steps:
+      - intent: faq
+      - action: utter_faq
+
   # --- FORM RULES (Ticket Creation) ---
   
   # --- FORM RULES (Ticket Creation) ---

@@ -43,6 +43,9 @@ intents:
   - confirm_gdpr_consent
   - deny_gdpr_consent
   - accept_ticket_fallback
+  # Retrieval intents (ResponseSelector) — smalltalk + service FAQ
+  - chitchat
+  - faq
 
 entities:
   - ticket_id
@@ -384,6 +387,32 @@ slots:
       - type: custom
 
 responses:
+  # ── Smalltalk (chitchat retrieval responses) ────────────────────────────
+  utter_chitchat/how_are_you:
+    - text: "I'm doing great and ready to help! 🙂 What can I do for you?"
+  utter_chitchat/who_are_you:
+    - text: "I'm the Project IQ assistant — I help with IT support: answering questions, creating and tracking tickets, and connecting you to a human agent when needed."
+  utter_chitchat/are_you_a_bot:
+    - text: "I'm an AI assistant 🤖. I can handle most IT support requests, and I'll connect you to a human agent whenever you need one."
+  utter_chitchat/what_can_you_do:
+    - text: "I can help you:\n• 🔍 Find answers in the knowledge base\n• 🎫 Create and track support tickets\n• 🔄 Update or close your tickets\n• 🧑‍💼 Connect you with a human agent\n\nWhat would you like to do?"
+  utter_chitchat/thanks:
+    - text: "You're welcome! 😊 Is there anything else I can help with?"
+  utter_chitchat/joke:
+    - text: "Why did the IT ticket go to therapy? It had too many unresolved issues. 😄 Now — how can I actually help?"
+  utter_chitchat/who_made_you:
+    - text: "I was built by the Project IQ team at 99 Technologies to help with IT support."
+
+  # ── Service FAQ (faq retrieval responses) ───────────────────────────────
+  utter_faq/what_is_this:
+    - text: "This is Project IQ — an AI-powered IT support assistant. Ask a question, raise a ticket, or get connected to an agent."
+  utter_faq/support_hours:
+    - text: "I'm available 24/7 for self-service help. Human agents are available during your organisation's support hours — I'll let you know wait times when you ask for one."
+  utter_faq/languages:
+    - text: "You can ask in several languages — I'll understand and search the knowledge base across languages, and reply in yours where supported."
+  utter_faq/data_privacy:
+    - text: "Your conversation is handled securely and used only to assist you. Sensitive details are masked, and you can request a human agent at any time."
+
   utter_greet:
     - text: "👋 **Hello! Welcome to Project IQ Bot!**
 

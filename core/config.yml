@@ -9,18 +9,24 @@ pipeline:
   - name: RegexFeaturizer
   - name: RegexEntityExtractor
   - name: LexicalSyntacticFeaturizer
+  # Word-level bag-of-words — generalises across paraphrases (was missing;
+  # only char n-grams were present, limiting DIET to sub-word signal).
+  - name: CountVectorsFeaturizer
+  # Char n-grams — robust to typos / morphology (kept).
   - name: CountVectorsFeaturizer
     analyzer: char_wb
     min_ngram: 1
     max_ngram: 4
   - name: DIETClassifier
-    epochs: 20
+    epochs: 100               # was 20 — default is 100; 20 badly under-trained
+    constrain_similarities: true
   - name: EntitySynonymMapper
-  - name: ResponseSelector
-    epochs: 20
+  - name: ResponseSelector     # handles all retrieval intents (faq/*, chitchat/*)
+    epochs: 100               # was 20
+    constrain_similarities: true
   - name: FallbackClassifier
-    threshold: 0.15
-    ambiguity_threshold: 0.1
+    threshold: 0.5            # was 0.15 — too low; bot never admitted uncertainty
+    ambiguity_threshold: 0.1  # → routes uncertain input to action_embedding_fallback
 
 policies:
   - name: MemoizationPolicy
