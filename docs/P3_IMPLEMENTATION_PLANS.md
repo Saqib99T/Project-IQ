@@ -152,3 +152,36 @@ behind a flag + start with SLA escalation (lowest risk).
 3. **SLA escalation (2a)** — wire a default rule on the existing breach→escalate path.
 4. **Approval workflows (3)** — self-contained itsm feature, real product value.
 5. Then the larger tracks: smart assignment (2b/2c), i18n (1b), integration marketplace (4b).
+
+---
+
+## Decision record — #4 inbound channels (Slack / Teams / WhatsApp): **DEFERRED** (2026-06-23)
+
+**Scope clarification.** #4 is *inbound conversational* channels (users chatting with
+the bot **from** Slack/Teams/WhatsApp) — distinct from 4b, which delivered **outbound**
+event notifications. Much larger.
+
+**Why deferred (not a code-only task):**
+- The bot does **not** use Rasa's channel connectors — messages flow through the custom
+  Flask + Socket.IO pipeline (`bp_chat`, `socketio_events`) where identity, product-scoped
+  sessions, handoff and ticket auth live. Each channel = a new **inbound adapter** into
+  that pipeline + an **outbound send path** back out.
+- Everything keys off **IAM SSO** (`sender_id = iam-{sub}-{product}-{epoch}`; ticket
+  actions require login). External channel users (Slack id / WhatsApp number) have no IAM
+  identity → need a **guest/KB-only mode** or an account-linking flow.
+- **External, slow, non-code blockers:** Slack app+token+signing secret (low friction);
+  Teams = Azure Bot Service + Bot Framework registration (heavy); WhatsApp = Meta Business
+  verification + number, or a BSP like Twilio (days–weeks). Plus public webhooks + per-tenant
+  channel credentials.
+
+**Gate to un-defer:** a concrete customer ask. Audience picks the channel — internal
+employees → Slack/Teams; external customers → WhatsApp.
+
+**Reusable core to build once (any channel):** (1) a channel-adapter layer over the Flask
+messaging pipeline; (2) a guest channel-session identity (e.g. `ch-{channel}-{externalid}-{tenant}`,
+KB + ticket-as-guest, no SSO); (3) per-channel outbound reply routing (handoff relay today
+only targets the widget socket); (4) per-tenant channel config — slots into the 4b
+marketplace as a new "Channels" category.
+
+**Recommended first channel when greenlit:** Slack (lowest friction, fits IT-support
+audience) as a thin spike, then extend to Teams/WhatsApp reusing the core.
