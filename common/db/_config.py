@@ -189,7 +189,8 @@ _HANDOFF_RUNTIME_DEFAULTS = {
         "hard_timeout_mins": 30, "timeout_action": "ask_user",
         "max_queue_depth": 50, "default_priority": 5
     },
-    "operators": {"default_max_concurrent": 3, "auto_busy_on_max_load": True},
+    "operators": {"default_max_concurrent": 3, "auto_busy_on_max_load": True,
+                  "auto_assign": False},
     "availability": {
         "no_agents_action": "offer_ticket", "after_hours_action": "create_ticket",
         "working_hours": {

@@ -244,3 +244,53 @@ def test_itsm_proxy_forwards_auth_and_tenant_headers():
 
 def test_itsm_proxy_base_url_is_http():
     assert bp_itsm_proxy._itsm_base_url().startswith("http")
+
+
+# ── Handoff auto-assign: least-loaded operator selection (P3 2c) ───────────────
+from web.api.impl.operator import _rank_auto_assign_candidates
+
+
+def test_auto_assign_picks_least_loaded():
+    ops = [
+        {"id": 1, "team": "Support", "current_load": 2},
+        {"id": 2, "team": "Support", "current_load": 0},
+        {"id": 3, "team": "Support", "current_load": 1},
+    ]
+    assert _rank_auto_assign_candidates(ops, "Support")["id"] == 2
+
+
+def test_auto_assign_tiebreak_by_id():
+    ops = [
+        {"id": 5, "team": "Support", "current_load": 1},
+        {"id": 2, "team": "Support", "current_load": 1},
+    ]
+    assert _rank_auto_assign_candidates(ops, "Support")["id"] == 2
+
+
+def test_auto_assign_filters_by_team_but_keeps_teamless():
+    ops = [
+        {"id": 1, "team": "Billing", "current_load": 0},
+        {"id": 2, "team": "Support", "current_load": 3},
+        {"id": 3, "team": None,      "current_load": 1},
+    ]
+    # Billing op is excluded; teamless op is eligible and least-loaded of the rest.
+    assert _rank_auto_assign_candidates(ops, "Support")["id"] == 3
+
+
+def test_auto_assign_none_when_no_eligible():
+    ops = [{"id": 1, "team": "Billing", "current_load": 0}]
+    assert _rank_auto_assign_candidates(ops, "Support") is None
+    assert _rank_auto_assign_candidates([], "Support") is None
+
+
+def test_auto_assign_no_target_team_considers_all():
+    ops = [
+        {"id": 1, "team": "Billing", "current_load": 2},
+        {"id": 2, "team": "Support", "current_load": 0},
+    ]
+    assert _rank_auto_assign_candidates(ops, None)["id"] == 2
+
+
+def test_handoff_config_default_auto_assign_off():
+    from common.db._config import _HANDOFF_RUNTIME_DEFAULTS
+    assert _HANDOFF_RUNTIME_DEFAULTS["operators"]["auto_assign"] is False

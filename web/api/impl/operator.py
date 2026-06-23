@@ -481,6 +481,106 @@ def internal_operators_available():
         return jsonify({'error': str(e)}), 500
 
 
+def _rank_auto_assign_candidates(candidates, target_team):
+    """Pure selection: from already-eligible operators (online, within shift,
+    under capacity, app-matched — as returned by get_available_operators), keep
+    those matching the target team (or with no team set), then pick fewest active
+    chats with a deterministic operator-id tiebreak. Returns the chosen operator
+    dict or None. Kept separate from DB/socket side effects so it is unit-testable."""
+    pool = candidates
+    if target_team:
+        pool = [o for o in pool if not o.get('team') or o.get('team') == target_team]
+    if not pool:
+        return None
+    return sorted(pool, key=lambda o: (o.get('current_load', 0), o['id']))[0]
+
+
+def _try_auto_assign(entry, app_id, target_team, required_skill):
+    """Opt-in (operators.auto_assign): on enqueue, hand a freshly-waiting item to
+    the least-loaded available operator instead of leaving it for a manual claim.
+    Reuses get_available_operators (online + within-shift + under capacity + app
+    match); picks fewest current chats, ties broken by operator id. No-op (returns
+    None) when disabled, when the item isn't waiting, or when nobody is free —
+    the item simply stays in the queue for manual claim. Best-effort: any failure
+    is swallowed so it can never block normal enqueue."""
+    try:
+        cfg = get_handoff_runtime_config_for_api()
+        if not cfg.get('operators', {}).get('auto_assign'):
+            return None
+        if entry.get('status') != 'waiting':
+            return None  # de-duped onto an existing waiting/assigned item
+
+        from common.conversation_db import get_available_operators
+        op = _rank_auto_assign_candidates(get_available_operators(app_id), target_team)
+        if not op:
+            return None
+        op_id = op['id']
+
+        conn = _get_connection()
+        try:
+            from psycopg2.extras import RealDictCursor
+            from datetime import datetime as _dt
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "UPDATE handoff_queue "
+                "SET status = 'assigned', operator_id = %s, assigned_at = %s, "
+                "wait_time_secs = EXTRACT(EPOCH FROM (NOW() - queued_at))::INT "
+                "WHERE id = %s AND status = 'waiting' "
+                "RETURNING *",
+                (op_id, _dt.now(), entry['id'])
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None  # raced — someone claimed it first
+            cursor.execute(
+                "UPDATE conversations SET handoff_state = 'assigned', assigned_operator_id = %s "
+                "WHERE id = %s",
+                (op_id, row['conversation_id'])
+            )
+            cursor.execute(
+                "INSERT INTO handoff_state_log "
+                "(conversation_id, from_state, to_state, triggered_by, triggered_by_id, note) "
+                "VALUES (%s, 'queued', 'assigned', 'system', %s, 'auto-assigned (least-loaded)')",
+                (row['conversation_id'], str(op_id))
+            )
+            conn.commit()
+        finally:
+            conn.rollback()
+            _release_connection(conn)
+
+        # Flip to busy if this assignment fills their last slot.
+        try:
+            from common.conversation_db import update_operator, get_operator_current_load
+            if (cfg['operators']['auto_busy_on_max_load']
+                    and get_operator_current_load(op_id) >= op.get('max_concurrent', 3)):
+                update_operator(op_id, status='busy')
+        except Exception:
+            pass
+
+        op_name = op.get('display_name', 'an agent')
+        emit_to_operator(op_id, 'session_assigned', {
+            'conversation_id': row['conversation_id'], 'queue_id': row['id'],
+            'sender_id': entry.get('sender_id'),
+        })
+        emit_to_user(entry.get('sender_id'), 'handoff_assigned', {
+            'conversation_id': row['conversation_id'],
+            'operator_name':   op_name,
+            'message': (
+                f"✅ {op_name} has joined the conversation. "
+                "You can now chat with them directly."
+            ),
+        })
+        _s.sio.emit('queue_item_updated', {
+            'queue_id': row['id'], 'status': 'assigned', 'operator_id': op_id,
+        }, room='queue_overview')
+        emit_queue_overview()
+        logger.info(f"[auto-assign] queue_id={row['id']} -> operator {op_id} ({op_name})")
+        return {'operator_id': op_id, 'operator_name': op_name, 'queue_id': row['id']}
+    except Exception as _ae:
+        logger.warning(f"[auto-assign] non-fatal failure: {_ae}")
+        return None
+
+
 def internal_queue_enqueue():
     try:
         from common.conversation_db import (
@@ -557,6 +657,19 @@ def internal_queue_enqueue():
 
         if entry is None:
             return jsonify({'error': 'Queue is full or enqueue failed'}), 503
+
+        assigned = _try_auto_assign(entry, app_id, target_team, required_skill)
+        if assigned:
+            return jsonify({
+                'success': True,
+                'queue_id': entry['id'],
+                'auto_assigned': True,
+                'operator_id': assigned['operator_id'],
+                'operator_name': assigned['operator_name'],
+                'position': 0,
+                'wait_secs': 0,
+                'wait_mins': 0,
+            })
 
         try:
             cfg = get_handoff_runtime_config_for_api()

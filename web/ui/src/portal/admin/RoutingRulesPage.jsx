@@ -136,21 +136,43 @@ export default function RoutingRulesPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError]   = useState(null)
     const [modal, setModal]   = useState(null) // null | 'new' | rule-object
+    const [autoAssign, setAutoAssign] = useState(false)
+    const [savingAuto, setSavingAuto] = useState(false)
 
     const fetchAll = async () => {
         setLoading(true)
         setError(null)
         try {
-            const [rulesData, queuesData] = await Promise.allSettled([
+            const [rulesData, queuesData, cfgData] = await Promise.allSettled([
                 call('/admin/handoff/routing'),
                 call('/admin/handoff/queues'),
+                call('/admin/handoff/config'),
             ])
             setRules(rulesData.status === 'fulfilled' ? (rulesData.value?.rules || rulesData.value || []) : [])
             setQueues(queuesData.status === 'fulfilled' ? (queuesData.value?.queues || queuesData.value || []) : [])
+            if (cfgData.status === 'fulfilled')
+                setAutoAssign(!!cfgData.value?.config?.operators?.auto_assign)
         } catch (e) {
             setError(e.message)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const toggleAutoAssign = async () => {
+        const next = !autoAssign
+        setSavingAuto(true)
+        setError(null)
+        try {
+            await call('/admin/handoff/config', {
+                method: 'PUT',
+                body: JSON.stringify({ operators: { auto_assign: next } }),
+            })
+            setAutoAssign(next)
+        } catch (e) {
+            setError(e.message)
+        } finally {
+            setSavingAuto(false)
         }
     }
 
@@ -191,6 +213,20 @@ export default function RoutingRulesPage() {
             </div>
 
             {error && <div className="card p-4 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm">{error}</div>}
+
+            <div className="card p-4 flex items-center justify-between">
+                <div className="pr-4">
+                    <p className="text-sm font-medium text-gray-900 dark:text-slate-100">Auto-assign to least-loaded operator</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                        When on, a new handoff is handed straight to the available operator with the fewest active chats
+                        (respecting team, capacity and shift) instead of waiting for a manual claim. When off, items stay in the queue.
+                    </p>
+                </div>
+                <button onClick={toggleAutoAssign} disabled={savingAuto}
+                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${autoAssign ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-600'}`}>
+                    <span className={`inline-block w-4 h-4 rounded-full bg-white dark:bg-slate-900 shadow transform transition-transform m-0.5 ${autoAssign ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+            </div>
 
             <div className="card overflow-hidden">
                 <table className="w-full text-sm">
