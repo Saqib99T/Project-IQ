@@ -217,7 +217,7 @@ export default function AdminLayout() {
                             <SidebarLink to="/admin/kb"            icon="📚" label="Knowledge Base" />
                             <SidebarLink to="/admin/studio"        icon="🧠" label="Bot Studio"     />
                             <SidebarLink to="/admin/themes"        icon="🎨" label="Themes"         />
-                            <SidebarLink to="/admin/integration"   icon="🔗" label="Integration"    />
+                            <SidebarLink to="/admin/integration"   icon="🔗" label="Integrations"   />
                             <SidebarLink to="/admin/firecrawl"     icon="🕷️" label="Firecrawl"      />
                             <SidebarLink to="/admin/observability" icon="🔭" label="Observability"  />
                             <SidebarLink to="/admin/diagnostics"   icon="🩺" label="Diagnostics"    />
