@@ -196,6 +196,7 @@ export default function AdminLayout() {
                     <SidebarLink to="/admin/analytics"     icon="📈" label="Analytics"     />
                     <SidebarLink to="/admin/history"       icon="🕓" label="History"        />
                     <SidebarLink to="/admin/monitor"       icon="📡" label="Live Monitor"   />
+                    <SidebarLink to="/admin/alerts"        icon="🔔" label="Alerts"          />
                     <SidebarLink to="/admin/users"         icon="👥" label="Users"           />
 
                     {/* ITSM section — tenant-scoped for org admins, all-tenant for super_admin */}

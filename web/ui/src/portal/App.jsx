@@ -27,6 +27,7 @@ import DiagnosticsPage from './admin/DiagnosticsPage'
 import InspectorPage from './admin/InspectorPage'
 import RoutingRulesPage from './admin/RoutingRulesPage'
 import LiveMonitorPage from './admin/LiveMonitorPage'
+import AlertsPage from './admin/AlertsPage'
 import ItsmLayout from './admin/itsm/ItsmLayout'
 import ItsmTicketsPage from './admin/itsm/ItsmTicketsPage'
 import ItsmTicketDetailPage from './admin/itsm/ItsmTicketDetailPage'
@@ -79,6 +80,7 @@ export default function App() {
                     <Route path="orgs"          element={<OrgsPage />} />
                     <Route path="history"       element={<HistoryPage />} />
                     <Route path="users"         element={<UsersPage />} />
+                    <Route path="alerts"        element={<AlertsPage />} />
 
                     {/* ITSM — tenant-scoped for org admins, all-tenant for super_admin */}
                     <Route path="itsm" element={<ItsmLayout />}>
