@@ -32,6 +32,13 @@ def get_kb_status():
                 from web.api.kb_cache_manager import kb_cache as _search_cache
                 return _search_cache.get_cache_info()
             info = eventlet.tpool.execute(_semantic_info)
+            # Active vector backend (pgvector | memory | keyword-only) — makes a
+            # silent fallback (e.g. pgvector down → keyword-only) visible.
+            try:
+                from common.vector_search import backend_mode
+                status['vector_backend'] = eventlet.tpool.execute(backend_mode)
+            except Exception:
+                status['vector_backend'] = 'unknown'
             status['refresh_interval'] = info.get('refresh_interval')
             status['model_info'] = {
                 'model_name': info.get('model_name'),

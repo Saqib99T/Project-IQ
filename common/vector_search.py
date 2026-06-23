@@ -60,6 +60,25 @@ def _pgvector_available() -> bool:
     return _use_pgvector
 
 
+def backend_mode() -> str:
+    """Which KB search backend is actually active — surfaces silent fallbacks.
+
+    'pgvector'     : persisted vector index (best).
+    'memory'       : in-memory vectors (sentence-transformers importable, no pgvector).
+    'keyword-only' : sentence-transformers unavailable → keyword search only.
+    """
+    try:
+        if _pgvector_available():
+            return 'pgvector'
+    except Exception:
+        pass
+    try:
+        import sentence_transformers  # noqa: F401
+        return 'memory'
+    except Exception:
+        return 'keyword-only'
+
+
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE) -> List[str]:
     if not text:
         return []

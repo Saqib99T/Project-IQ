@@ -168,6 +168,7 @@ export default function KnowledgeBasePage() {
     const [filter, setFilter]           = useState('')
     const [articlesLoading, setArticlesLoading] = useState(true)
     const [activeArticle, setActiveArticle]     = useState(null)
+    const [gaps, setGaps]                       = useState([])
     const filterDebounce = useRef(null)
     const pollRef = useRef(null)
 
@@ -178,6 +179,13 @@ export default function KnowledgeBasePage() {
         } catch (e) {
             setError(e.message)
         }
+    }, [call])
+
+    const loadGaps = useCallback(async () => {
+        try {
+            const d = await call('/admin/kb/gaps?days=7&limit=15')
+            if (d?.success) setGaps(d.data || [])
+        } catch { /* non-fatal — gaps are advisory */ }
     }, [call])
 
     const loadArticles = useCallback(async (p = 1, f = '') => {
@@ -197,7 +205,7 @@ export default function KnowledgeBasePage() {
     }, [call])
 
     useEffect(() => {
-        Promise.all([loadStatus(), loadArticles(1, '')])
+        Promise.all([loadStatus(), loadArticles(1, ''), loadGaps()])
             .catch(e => setError(e.message))
             .finally(() => setLoading(false))
 
@@ -342,7 +350,29 @@ export default function KnowledgeBasePage() {
                                 <span className="text-gray-500 dark:text-slate-400">Cache Size</span>
                                 <span className="font-medium text-gray-700 dark:text-slate-300">{status.cache_size_mb != null ? `${status.cache_size_mb.toFixed(1)} MB` : '—'}</span>
                             </div>
+                            <div className="flex justify-between items-center text-xs">
+                                <span className="text-gray-500 dark:text-slate-400">Search backend</span>
+                                <span className={`font-medium ${status.vector_backend === 'keyword-only' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-700 dark:text-slate-300'}`}>
+                                    {status.vector_backend || '—'}{status.vector_backend === 'keyword-only' ? ' ⚠️' : ''}
+                                </span>
+                            </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Knowledge gaps — top unanswered user queries (writers' to-do list) */}
+            {gaps.length > 0 && (
+                <div className="card p-5">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">Knowledge Gaps</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mb-3">Top user queries that returned no answer (last 7 days) — candidates for new articles.</p>
+                    <div className="divide-y divide-gray-100 dark:divide-slate-800">
+                        {gaps.map((g, i) => (
+                            <div key={i} className="flex items-center gap-3 py-1.5">
+                                <span className="text-sm text-gray-800 dark:text-slate-200 truncate flex-1">{g.query}</span>
+                                <span className="text-[11px] text-gray-400 dark:text-slate-500 shrink-0">{g.count}× · last {g.last_seen ? new Date(g.last_seen).toLocaleDateString() : ''}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
