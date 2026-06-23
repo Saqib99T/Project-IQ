@@ -18,26 +18,65 @@ if project_root not in sys.path:
 
 from sentence_transformers import SentenceTransformer
 
-MODEL_NAME   = "all-MiniLM-L6-v2"
+# Default embedder. paraphrase-multilingual-MiniLM-L12-v2 is multilingual
+# (~50 languages, incl. de/fr/es/ar) AND 384-dim — identical to the legacy
+# English all-MiniLM-L6-v2 — so the kb_chunks.embedding vector(384) column is
+# unchanged; switching models only requires a re-embed (rebuild index).
+# Overridable via [KNOWLEDGE_BASE] KB_SEMANTIC_MODEL.
+DEFAULT_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 EMBEDDING_DIM = 384
 CHUNK_SIZE   = 150  # words per chunk
+
+
+def _resolve_model_name() -> str:
+    try:
+        from common.config_manager import get_kb_config
+        return get_kb_config().get('semantic_model') or DEFAULT_MODEL
+    except Exception:
+        return DEFAULT_MODEL
+
+
+# Resolved lazily in get_model(); kept module-level for back-compat references.
+MODEL_NAME = _resolve_model_name()
 
 # ── Globals (in-memory fallback only) ────────────────────────────────────────
 _model: Optional[SentenceTransformer] = None
 _chunks: List[Dict] = []
 _embeddings = None
 _use_pgvector: Optional[bool] = None   # None = not yet detected
+_pg_model_verified = False             # True once kb_chunks confirmed built with the active model
 
 # Legacy cache file (only used by fallback path)
 CACHE_FILE = os.path.join(os.path.dirname(__file__), "kb_embeddings_cache.json")
 
 
 def get_model() -> SentenceTransformer:
-    global _model
+    global _model, MODEL_NAME
     if _model is None:
-        logger.info("Loading embedding model...")
+        MODEL_NAME = _resolve_model_name()
+        logger.info("Loading embedding model: %s", MODEL_NAME)
         _model = SentenceTransformer(MODEL_NAME)
     return _model
+
+
+_PG_MODEL_KEY = 'kb_embedding_model'
+
+
+def _persisted_pg_model() -> Optional[str]:
+    """Model name that the current kb_chunks vectors were built with (None if unknown)."""
+    try:
+        from common.db._config import get_config
+        return (get_config(_PG_MODEL_KEY) or {}).get(_PG_MODEL_KEY)
+    except Exception:
+        return None
+
+
+def _record_pg_model(name: str):
+    try:
+        from common.db._config import set_config
+        set_config(_PG_MODEL_KEY, name)
+    except Exception as e:
+        logger.warning("Could not record KB embedding model: %s", e)
 
 
 def _pgvector_available() -> bool:
@@ -178,6 +217,9 @@ def _pg_load_and_process() -> int:
     finally:
         _release_connection(conn)
 
+    global _pg_model_verified
+    _record_pg_model(_resolve_model_name())
+    _pg_model_verified = True
     logger.info("Stored %d chunks in pgvector.", len(all_chunks))
     return len(all_chunks)
 
@@ -224,7 +266,8 @@ def _mem_save_cache():
     global _chunks, _embeddings
     try:
         with open(CACHE_FILE, 'w') as f:
-            json.dump({"chunks": _chunks,
+            json.dump({"model": _resolve_model_name(),
+                       "chunks": _chunks,
                        "embeddings": _embeddings.tolist() if _embeddings is not None else []}, f)
     except Exception as e:
         logger.warning("Cache save error: %s", e)
@@ -237,6 +280,9 @@ def _mem_load_cache() -> bool:
     try:
         with open(CACHE_FILE) as f:
             data = json.load(f)
+        if data.get("model") and data.get("model") != _resolve_model_name():
+            logger.info("KB cache built with a different embedder; ignoring stale cache")
+            return False
         _chunks = data.get("chunks", [])
         raw = data.get("embeddings", [])
         _embeddings = np.array(raw) if raw else None
@@ -280,9 +326,26 @@ def load_and_process_articles() -> int:
 
 
 def ensure_loaded():
-    """Ensure search is ready. No-op for pgvector (DB is always available)."""
-    if not _pgvector_available():
-        _mem_ensure_loaded()
+    """Ensure search is ready. For pgvector, also guards against a stale index:
+    if kb_chunks was built with a different embedding model than the active one
+    (e.g. after the multilingual swap), querying new vectors against old ones
+    yields garbage — so re-embed once. The check is cached per process."""
+    global _pg_model_verified
+    if _pgvector_available():
+        if _pg_model_verified:
+            return
+        try:
+            active = _resolve_model_name()
+            if _persisted_pg_model() == active:
+                _pg_model_verified = True
+            else:
+                logger.warning("KB embedder changed -> '%s'; re-embedding kb_chunks", active)
+                _pg_load_and_process()   # sets _pg_model_verified
+        except Exception as e:
+            logger.warning("KB embedder verify/rebuild skipped: %s", e)
+            _pg_model_verified = True     # don't thrash on every query
+        return
+    _mem_ensure_loaded()
 
 
 def search(query: str, top_k: int = 1) -> List[Dict]:

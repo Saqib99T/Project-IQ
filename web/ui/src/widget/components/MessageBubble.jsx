@@ -138,7 +138,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                     style={isSystem ? { backgroundColor: dm.systemBg, color: dm.systemText } : {}}
                 >
                     <span className="text-lg leading-none mt-0.5">{isSystem ? '💬' : '⏰'}</span>
-                    <div className="prose prose-sm max-w-none prose-p:my-0">
+                    <div dir="auto" className="prose prose-sm max-w-none prose-p:my-0">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
                     </div>
                 </div>
@@ -184,9 +184,9 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                             : (!isBot ? { backgroundColor: dm.userBubble, color: dm.userText } : { color: isDark ? '#e5e7eb' : '#1f2937' })}
                     >
                         {isOperator ? (
-                            <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{message.text}</p>
+                            <p dir="auto" className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{message.text}</p>
                         ) : isBot ? (
-                            <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-table:my-2">
+                            <div dir="auto" className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-table:my-2">
                                 {/* Text content (suppressed when a structured ticket detail is shown) */}
                                 {message.text && !message.ticketDetail && (
                                     <ReactMarkdown
@@ -399,7 +399,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                 )}
                             </div>
                         ) : (
-                            <p className="whitespace-pre-wrap">{formatUserMessage(message.text)}</p>
+                            <p dir="auto" className="whitespace-pre-wrap">{formatUserMessage(message.text)}</p>
                         )}
                     </div>
 

@@ -80,23 +80,25 @@ class ActionEmbeddingFallback(Action):
                         return []
 
             # Weak or unmapped match → standard helpful default.
-            self._utter_default(dispatcher)
-            return []
+            self._utter_default(dispatcher, tracker)
+            from action_server.actions._i18n import lang_events
+            return lang_events(tracker)
         except Exception as e:  # never break the conversation on fallback
             logger.warning("embedding_fallback error: %s", e)
             try:
-                self._utter_default(dispatcher)
+                self._utter_default(dispatcher, tracker)
             except Exception:
                 pass
             return []
 
     @staticmethod
-    def _utter_default(dispatcher: CollectingDispatcher) -> None:
+    def _utter_default(dispatcher: CollectingDispatcher, tracker: Tracker = None) -> None:
+        from action_server.actions._i18n import t, resolve_lang
+        lang = resolve_lang(tracker) if tracker else "en"
         dispatcher.utter_message(
-            text="I'm not sure I understood. You can search the knowledge base "
-                 "or log in to manage your tickets.",
+            text=t("fallback_default", lang),
             buttons=[
-                {"title": "📚 Search Knowledge Base", "payload": "/ask_knowledge"},
-                {"title": "🔑 Login", "payload": "/login"},
+                {"title": t("btn_search_kb", lang), "payload": "/ask_knowledge"},
+                {"title": t("btn_login", lang), "payload": "/login"},
             ],
         )

@@ -181,6 +181,13 @@ slots:
     influence_conversation: false
     mappings: []
 
+  # Detected user language (en|de|fr|es|ar) — set by custom actions from the
+  # user's message text; persists so short follow-ups keep the same language.
+  user_lang:
+    type: text
+    influence_conversation: false
+    mappings: []
+
   # IAM identity slots — set from message metadata on each request
   iam_sub:
     type: text

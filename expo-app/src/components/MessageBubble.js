@@ -6,6 +6,12 @@ import { WebView } from 'react-native-webview';
 import { THEME } from '../config';
 import { useTheme } from '../context/ThemeContext';
 
+// Per-message RTL: render Arabic (and other RTL scripts) right-to-left. Mirrors
+// the web widget's dir="auto" — direction follows the message content so a
+// mixed-language chat stays correct without any global layout flip.
+const _RTL_RE = /[؀-ۿݐ-ݿࢠ-ࣿ֐-׿ﭐ-﷿ﹰ-﻿]/;
+const isRtlText = (text) => typeof text === 'string' && _RTL_RE.test(text);
+
 const PAYLOAD_LABELS = {
     '/create_ticket':          'Create a ticket',
     '/list_tickets':           'List my tickets',
@@ -100,8 +106,10 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
         Clipboard.setString(message.text || '');
     };
 
+    const rtl = isRtlText(message.text);
     const mdStyles = {
-        body: { color: THEME.text, fontSize: 14, lineHeight: 21, padding: 0, margin: 0 },
+        body: { color: THEME.text, fontSize: 14, lineHeight: 21, padding: 0, margin: 0,
+                ...(rtl ? { writingDirection: 'rtl', textAlign: 'right' } : {}) },
         strong: { fontWeight: '700' },
         em: { fontStyle: 'italic' },
         bullet_list: { marginLeft: 4, marginVertical: 2 },
@@ -127,7 +135,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
             <View style={styles.bannerWrapper}>
                 <View style={[styles.banner, isSystem ? styles.bannerSystem : styles.bannerWarning]}>
                     <Text style={styles.bannerIcon}>{isSystem ? '💬' : '⏰'}</Text>
-                    <Markdown style={{ body: { fontSize: 13, color: isSystem ? '#6b7280' : '#92400e', lineHeight: 20, flexShrink: 1 }, strong: { fontWeight: '700' } }}>
+                    <Markdown style={{ body: { fontSize: 13, color: isSystem ? '#6b7280' : '#92400e', lineHeight: 20, flexShrink: 1, ...(isRtlText(message.text) ? { writingDirection: 'rtl', textAlign: 'right' } : {}) }, strong: { fontWeight: '700' } }}>
                         {message.text}
                     </Markdown>
                 </View>

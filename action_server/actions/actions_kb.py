@@ -356,14 +356,17 @@ class ActionSearchKnowledgeBase(Action):
             except Exception:
                 pass
 
+            from action_server.actions._i18n import t, resolve_lang, lang_events
+            _lang = resolve_lang(tracker)
             dispatcher.utter_message(
-                text="I couldn't find a specific answer in our knowledge base for that question.\n\nWould you like to:",
+                text=t("kb_no_answer", _lang),
                 buttons=[
-                    {"title": "🎫 Create a support ticket", "payload": "/create_ticket"},
-                    {"title": "📋 See my tickets", "payload": "/list_tickets"},
-                    {"title": "❓ Get help", "payload": "/help"}
+                    {"title": t("btn_create_ticket", _lang), "payload": "/create_ticket"},
+                    {"title": t("btn_my_tickets", _lang), "payload": "/list_tickets"},
+                    {"title": t("btn_get_help", _lang), "payload": "/help"}
                 ]
             )
+            return lang_events(tracker, _lang)
 
         return []
 
