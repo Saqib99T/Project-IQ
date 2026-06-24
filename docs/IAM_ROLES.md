@@ -53,20 +53,24 @@ Platform-org users map via `_best_platform_role` → `platform_admin` /
 `platform_support`. The full realm+client role set is mirrored onto the
 `users.iam_roles` column for display/query (`synced_iam_roles`).
 
-## ⚠️ Known consistency risk (verify against Keycloak)
+## ✅ Resolved — client-vs-realm operator mapping (verified 2026-06-24)
 
-The **operator** role is read from **different places** by the two services:
+A live check against Keycloak (via the IAM admin API) confirmed the realm has
+**only** `super_admin`/`org_admin`; `operator`/`user`/`bot`/`admin` exist **only
+as client roles** on `project-iq` (capitalized: `Operator`/`User`/`Bot`/`Admin`).
+The two operator users carried client `Operator` but **no** realm `operator`.
 
-- **Bot** → client role **`Operator`** (`resource_access["project-iq"]`).
-- **itsm-service** → **realm** role **`operator`** (its map only consults realm roles).
+This was a real bug: itsm `_best_tenant_role` consulted **realm-only** roles
+case-sensitively, so operators defaulted to `end_user` (and bots to `end_user`)
+instead of `agent`/`service_account`. **Fixed** in `app/auth/dependencies.py`:
+both `_best_tenant_role` and `_best_platform_role` now match **case-insensitively**
+and are fed the **realm+client** role set (`synced_iam_roles`). So client
+`Operator` → `agent`, `Bot` → `service_account`, `Admin` → `admin`; realm
+`super_admin`/`org_admin` still → `admin`. Guarded by `tests/test_role_mapping.py`.
 
-So a user with only the *client* `Operator` role is an operator to the bot but
-maps to `end_user` in itsm-service. **Operators must carry the realm `operator`
-role as well** (or both services must read the same source). Action: confirm the
-Keycloak role setup grants operators the realm `operator` role; otherwise align
-one service to the other. The same applies to `Admin` (client) vs the realm
-`org_admin`/`super_admin` that itsm relies on — currently aligned because admins
-carry realm `org_admin`/`super_admin`.
+> The bot already reads client roles correctly via `extract_iam_user`, so no bot
+> change was needed. No Keycloak change required either — both services now agree
+> on the client-role source.
 
 ## Rule of thumb for new code
 
