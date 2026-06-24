@@ -171,23 +171,26 @@ footer span{color:#94a3b8}
   <p class="hero-sub">One platform, six connected experiences — an AI chatbot on the web <em>and</em> on mobile, a real-time operator console, tenant &amp; super-admin control planes, and a full multi-tenant ITSM service with automation, AI enrichment and reporting. Built for scale, isolation and extensibility.</p>
   <div class="hero-chips">
     <div class="chip">🤖 Conversational AI (NLU)</div>
+    <div class="chip">🌍 Multilingual + RTL</div>
     <div class="chip">🔐 IAM / Keycloak SSO</div>
     <div class="chip">🏢 Multi-Tenant</div>
     <div class="chip">🎫 ITSM Microservice</div>
     <div class="chip">🔄 Real-time Handoff</div>
     <div class="chip">📚 pgvector Knowledge Base</div>
     <div class="chip">⚙️ Automation Engine</div>
+    <div class="chip">🧩 Integration Marketplace</div>
+    <div class="chip">📊 Deflection Analytics</div>
     <div class="chip">📱 Web + Mobile</div>
     <div class="chip">🔎 End-to-end Tracing</div>
   </div>
   <div class="hero-stats">
     <div class="hstat"><div class="val violet">6</div><div class="lbl">Platform Ends</div></div>
-    <div class="hstat"><div class="val blue">40+</div><div class="lbl">Bot Skills</div></div>
-    <div class="hstat"><div class="val teal">16</div><div class="lbl">Admin Tools</div></div>
-    <div class="hstat"><div class="val amber">14</div><div class="lbl">ITSM Modules</div></div>
+    <div class="hstat"><div class="val blue">45+</div><div class="lbl">Bot Skills</div></div>
+    <div class="hstat"><div class="val teal">18</div><div class="lbl">Admin Tools</div></div>
+    <div class="hstat"><div class="val amber">5</div><div class="lbl">Bot Languages</div></div>
     <div class="hstat"><div class="val green">∞</div><div class="lbl">Isolated Tenants</div></div>
     <div class="hstat"><div class="val red">&lt;5ms</div><div class="lbl">Realtime Latency</div></div>
-    <div class="hstat"><div class="val violet">295</div><div class="lbl">Automated Tests</div></div>
+    <div class="hstat"><div class="val violet">448</div><div class="lbl">Automated Tests</div></div>
   </div>
 </div>
 
@@ -207,8 +210,10 @@ footer span{color:#94a3b8}
       </div>
       <div class="end-body"><ul class="end-feats">
         <li><b>Embeddable widget</b> — a self-styling Web Component added with one tag, on any site</li>
-        <li><b>Conversational AI</b> — 40+ skills: intents, entities, multi-turn dialogue, context</li>
+        <li><b>Conversational AI</b> — 45+ skills: intents, entities, multi-turn dialogue, smalltalk &amp; FAQ</li>
         <li><b>Knowledge Base answers</b> — semantic search with sources, images &amp; video tutorials</li>
+        <li><b>Multilingual</b> — cross-lingual KB retrieval + localized replies (EN/DE/FR/ES/AR) with auto-detect &amp; Arabic RTL</li>
+        <li><b>Smalltalk &amp; FAQ</b> — handles casual conversation, not just commands</li>
         <li><b>Self-service tickets</b> — create, list, filter, check status, update, close from chat</li>
         <li><b>Talk to a human</b> — one-tap handoff with live agent chat &amp; queue position</li>
         <li><b>Browser SSO</b> — silent Keycloak check-sso; product gate &amp; switcher</li>
@@ -246,6 +251,8 @@ footer span{color:#94a3b8}
       <div class="end-body"><ul class="end-feats">
         <li><b>Live handoff queue</b> — priority-ordered, with user name, product &amp; wait time</li>
         <li><b>One-click Accept</b> — instant bi-directional relay with capacity checks</li>
+        <li><b>Least-loaded auto-assign</b> — optional routing of new chats to the freest available agent</li>
+        <li><b>$0 co-pilot</b> — bot-replay draft + canned responses / macros for fast, consistent replies</li>
         <li><b>AI draft assist</b> — suggested replies generated from the conversation</li>
         <li><b>Context package</b> — profile, masked transcript &amp; AI summary on accept</li>
         <li><b>Resolve / release / transfer</b> — close, return to bot, or hand to another agent</li>
@@ -265,15 +272,15 @@ footer span{color:#94a3b8}
       </div>
       <div class="end-body"><ul class="end-feats">
         <li><b>Tenant-scoped analytics</b> — every metric, count &amp; figure filtered to the org</li>
-        <li><b>Conversations &amp; history</b> — only this tenant's data, never cross-tenant</li>
-        <li><b>Live monitor</b> — watch active conversations in real time</li>
-        <li><b>Conversation inspector</b> — drill into any transcript &amp; its metadata</li>
+        <li><b>Deflection analytics</b> — bot-resolved vs escalated + KB deflection rate</li>
+        <li><b>Alert inbox</b> — system-error &amp; handoff notifications, filterable, with a live badge</li>
+        <li><b>Conversation trace</b> — reconstruct any turn by request-id (Diagnostics)</li>
+        <li><b>Live monitor &amp; inspector</b> — watch active chats, drill into any transcript</li>
         <li><b>Operator management</b> — provision &amp; manage the org's agents</li>
-        <li><b>Routing rules</b> — intent/keyword/product-based queue routing &amp; priority</li>
-        <li><b>User directory</b> — the org's users, sourced live from IAM</li>
-        <li><b>Knowledge Base &amp; web ingestion</b> — manage articles, crawl sites</li>
-        <li><b>Branding &amp; config</b> — theme editor, session timeouts, widget settings</li>
-        <li><b>NLU Studio &amp; observability</b> — tune intents, monitor health</li>
+        <li><b>Routing rules + auto-assign</b> — intent/keyword/product routing, priority &amp; least-loaded toggle</li>
+        <li><b>Knowledge Base + health &amp; gaps</b> — articles, web ingestion, backend mode &amp; top unanswered queries</li>
+        <li><b>Integration marketplace</b> — connect Teams/webhooks; see connected services</li>
+        <li><b>Branding, config &amp; NLU Studio</b> — theme editor, timeouts, intent tuning, observability</li>
       </ul></div>
     </div>
 
@@ -302,15 +309,15 @@ footer span{color:#94a3b8}
       </div>
       <div class="end-body"><ul class="end-feats">
         <li><b>Full ticket lifecycle</b> — create, assign, comment, update, resolve, close</li>
-        <li><b>SLA policies &amp; business hours</b> — per-tenant targets &amp; compliance tracking</li>
-        <li><b>Teams &amp; assignment</b> — route &amp; balance work across support teams</li>
+        <li><b>Approval workflow</b> — change/access tickets gate on approver sign-off before transition</li>
+        <li><b>SLA + auto-escalation</b> — per-tenant targets; breaches auto-bump priority &amp; escalate</li>
+        <li><b>Smart assignment</b> — auto-assign to the least-loaded team member</li>
         <li><b>AI enrichment</b> — auto-classification &amp; duplicate detection with accept/reject</li>
         <li><b>Virtual agent</b> — streaming AI assistant (server-sent events)</li>
         <li><b>Automation engine</b> — no-code trigger → condition → action rules</li>
-        <li><b>Outbound webhooks</b> — push ticket events to external systems</li>
+        <li><b>Integrations</b> — outbound webhooks + Microsoft Teams via the marketplace catalog</li>
         <li><b>Reporting</b> — volumes, SLA, trends, asset counts, AI usage, team workload</li>
-        <li><b>Assets &amp; products</b> — asset registry; products synced from IAM</li>
-        <li><b>Row-level tenant isolation</b> — every record scoped to its org · 175/175 tests</li>
+        <li><b>Row-level tenant isolation</b> — every record scoped to its org · 251/251 tests</li>
       </ul></div>
     </div>
 
@@ -327,11 +334,13 @@ footer span{color:#94a3b8}
 
   <div class="subhead">🧠 Understanding &amp; conversation</div>
   <ul class="cap-grid">
-    <li><b>40+ intents</b> — greet, help, create / list / update / check / close ticket, view comments &amp; attachments, knowledge search, feedback, ratings, login, file upload, goodbye, and more</li>
+    <li><b>45+ intents</b> — greet, help, create / list / update / check / close ticket, view comments &amp; attachments, knowledge search, feedback, ratings, login, file upload, goodbye, and more</li>
+    <li><b>Smalltalk &amp; service FAQ</b> — dedicated retrieval intents (ResponseSelector) so casual turns get real answers, not fallbacks</li>
+    <li><b>Multilingual</b> — multilingual embedder for cross-lingual KB retrieval; per-message language auto-detect (EN/DE/FR/ES/AR) with localized replies &amp; Arabic right-to-left rendering</li>
     <li><b>Entity extraction &amp; slots</b> — captures ticket IDs, categories, statuses &amp; details mid-conversation</li>
     <li><b>Multi-turn dialogue</b> — guided forms, follow-ups and confirmations with context retained</li>
-    <li><b>Frustration &amp; low-confidence detection</b> — proactively offers a human when the user is stuck</li>
-    <li><b>Multi-action &amp; out-of-scope handling</b> — graceful fallback with helpful suggestions</li>
+    <li><b>Frustration &amp; low-confidence detection</b> — proactively offers a human; uncertain input routes to a semantic "did-you-mean" recovery</li>
+    <li><b>Clean, conflict-free training data</b> — deduplicated &amp; CI-guarded so intent boundaries stay sharp</li>
     <li><b>Verify resolution</b> — confirms the issue is solved before closing out</li>
   </ul>
 
@@ -421,6 +430,7 @@ footer span{color:#94a3b8}
       <ul class="cap-grid" style="grid-template-columns:1fr">
         <li><b>4 priority tiers</b> (Low / Normal / High / Urgent) with anti-starvation auto-boost</li>
         <li><b>Routing rules</b> — by intent, keyword or product → team, skill &amp; priority</li>
+        <li><b>Least-loaded auto-assign</b> — opt-in: new handoffs go to the freest online agent (respecting team, shift &amp; capacity)</li>
         <li><b>Live position &amp; wait estimate</b>, refreshed automatically</li>
         <li><b>Product &amp; channel scoping</b> — agents see only their assigned scope</li>
         <li><b>Capacity-aware accept</b> — blocks claims beyond max concurrent chats</li>
@@ -430,6 +440,7 @@ footer span{color:#94a3b8}
       <h4>💼 Live workspace</h4>
       <ul class="cap-grid" style="grid-template-columns:1fr">
         <li><b>Bi-directional chat</b> with optimistic send &amp; typing indicators both ways</li>
+        <li><b>$0 co-pilot</b> — replay the bot's drafted answer + a library of <b>canned responses / macros</b> for one-click consistent replies</li>
         <li><b>✨ Suggest reply</b> — AI draft from the user's last message</li>
         <li><b>Context panel</b> — profile, priority, product, trigger reason &amp; AI summary</li>
         <li><b>Private notes</b> — per-session, auto-saved, never sent to the user</li>
@@ -479,7 +490,7 @@ footer span{color:#94a3b8}
 <div class="container">
   <div class="sec-eye">🏢 Tenant Admin &amp; 👑 Super Admin</div>
   <div class="sec-h">The Control Plane</div>
-  <div class="sec-sub">Sixteen admin tools — tenant admins see their org, super admins see any tenant (or all) via the tenant switcher.</div>
+  <div class="sec-sub">Eighteen admin tools — tenant admins see their org, super admins see any tenant (or all) via the tenant switcher.</div>
 
   <div class="wrap mt3">
     <table class="tbl">
@@ -487,17 +498,19 @@ footer span{color:#94a3b8}
       <tbody>
         <tr><td><strong>Overview</strong></td><td>At-a-glance health: waiting, assigned, operators online, resolved today</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Analytics</strong></td><td>Volumes, resolution, satisfaction, handle time &amp; trend charts over 7/30/90 days, per product</td><td><span class="pill pill-both">Both</span></td></tr>
+        <tr><td><strong>Deflection Analytics</strong></td><td>Bot-resolved vs escalated, escalation rate &amp; KB deflection — proof of self-service value</td><td><span class="pill pill-both">Both</span></td></tr>
+        <tr><td><strong>Alerts</strong></td><td>Inbox of system-error &amp; handoff notifications — filter by type/time, search, mark-read, live unread badge</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Conversation History</strong></td><td>Browse past conversations with operator &amp; product context</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Inspector</strong></td><td>Deep-dive a single conversation — full transcript, intents &amp; metadata</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Live Monitor</strong></td><td>Watch active conversations stream in real time</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Operators</strong></td><td>Provision, configure &amp; manage support agents</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Routing Rules</strong></td><td>Define intent/keyword/product routing, target teams &amp; priority boosts</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Knowledge Base</strong></td><td>Manage articles, refresh the index &amp; rebuild embeddings</td><td><span class="pill pill-both">Both</span></td></tr>
+        <tr><td><strong>Routing Rules</strong></td><td>Define intent/keyword/product routing, target teams &amp; priority boosts; toggle least-loaded operator auto-assign</td><td><span class="pill pill-both">Both</span></td></tr>
+        <tr><td><strong>Knowledge Base</strong></td><td>Manage articles, refresh the index &amp; rebuild embeddings; backend-mode health badge &amp; a knowledge-gaps card of top unanswered queries</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Firecrawl Ingestion</strong></td><td>Crawl / scrape websites &amp; URLs into the knowledge base</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>NLU Studio</strong></td><td>Inspect &amp; tune intents and training data; retrain the model</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Themes</strong></td><td>Brand the widget — colours, fonts, icons, layout</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Configuration</strong></td><td>Session timeouts, widget settings &amp; platform options</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Integrations</strong></td><td>Connect &amp; configure external services</td><td><span class="pill pill-both">Both</span></td></tr>
+        <tr><td><strong>Integrations</strong></td><td>Marketplace — connect &amp; test Microsoft Teams / webhook notifications (per-event), see connected services (IAM/storage/email/AI) &amp; KB-source connectors, plus the widget-embed generator</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Observability</strong></td><td>Service health, queues &amp; system status; per-request correlation-ID tracing across services, with error alerting to admins</td><td><span class="pill pill-both">Both</span></td></tr>
         <tr><td><strong>Users</strong></td><td>Directory sourced live from IAM; create &amp; assign roles via Keycloak</td><td><span class="pill pill-sup">Super: any tenant</span></td></tr>
         <tr><td><strong>Organizations</strong></td><td>View &amp; manage tenant organizations across the platform</td><td><span class="pill pill-sup">Super only</span></td></tr>
@@ -521,12 +534,12 @@ footer span{color:#94a3b8}
       <div class="feat-desc">Full lifecycle — create, read, list &amp; filter, assign, comment, status transitions, resolve and close — with categories, priorities and product tagging.</div>
     </div>
     <div class="feat-card" style="--accent:linear-gradient(90deg,#2563eb,#60a5fa)">
-      <div class="feat-icon">⏱️</div><div class="feat-title">SLA &amp; Business Hours</div>
-      <div class="feat-desc">Per-tenant SLA policies and business-hours calendars, with compliance tracked and surfaced in reporting.</div>
+      <div class="feat-icon">⏱️</div><div class="feat-title">SLA &amp; Auto-Escalation</div>
+      <div class="feat-desc">Per-tenant SLA policies and business-hours calendars; a breach automatically bumps priority and records an escalation, with compliance tracked in reporting.</div>
     </div>
     <div class="feat-card" style="--accent:linear-gradient(90deg,#0d9488,#2dd4bf)">
-      <div class="feat-icon">👥</div><div class="feat-title">Teams &amp; Assignment</div>
-      <div class="feat-desc">Organize agents into teams, route &amp; balance work, and track per-team open volume and average age.</div>
+      <div class="feat-icon">👥</div><div class="feat-title">Teams &amp; Smart Assignment</div>
+      <div class="feat-desc">Organize agents into teams and route work; an <b>auto-assign</b> action hands new tickets to the least-loaded team member. Per-team open volume and average age tracked.</div>
     </div>
     <div class="feat-card" style="--accent:linear-gradient(90deg,#7c3aed,#a78bfa)">
       <div class="feat-icon">✨</div><div class="feat-title">AI Ticket Enrichment</div>
@@ -538,11 +551,15 @@ footer span{color:#94a3b8}
     </div>
     <div class="feat-card" style="--accent:linear-gradient(90deg,#16a34a,#4ade80)">
       <div class="feat-icon">⚙️</div><div class="feat-title">Automation Engine</div>
-      <div class="feat-desc">No-code rules: trigger → condition → action, with execution logs and a dry-run test that reports condition pass/fail before you go live.</div>
+      <div class="feat-desc">No-code rules: trigger → condition → action (assign team/user, auto-assign least-loaded, set priority, escalate, notify), with execution logs and a dry-run test.</div>
+    </div>
+    <div class="feat-card" style="--accent:linear-gradient(90deg,#0891b2,#22d3ee)">
+      <div class="feat-icon">✅</div><div class="feat-title">Approval Workflow</div>
+      <div class="feat-desc">Change &amp; access-request tickets enter <code>pending_approval</code>, open an approval and fire the trigger; a manager/approver decides via a dedicated endpoint that drives the validated transition — direct status edits are blocked.</div>
     </div>
     <div class="feat-card" style="--accent:linear-gradient(90deg,#dc2626,#f87171)">
-      <div class="feat-icon">🔔</div><div class="feat-title">Webhooks &amp; Notifications</div>
-      <div class="feat-desc">Inbound webhooks for external events, configurable outbound webhooks to push ticket events to other systems, and a per-user notification inbox with preferences.</div>
+      <div class="feat-icon">🧩</div><div class="feat-title">Integration Marketplace</div>
+      <div class="feat-desc">A catalog-driven marketplace on the webhook backbone: install <b>Microsoft Teams</b> (MessageCard) or signed generic webhooks, pick events, send a test &amp; view the delivery log. Inbound webhooks + a per-user notification inbox too.</div>
     </div>
     <div class="feat-card" style="--accent:linear-gradient(90deg,#0d9488,#4f46e5)">
       <div class="feat-icon">📊</div><div class="feat-title">Reporting</div>
@@ -576,7 +593,7 @@ footer span{color:#94a3b8}
       <span class="node fn-t">Tenant-scoped DB</span><span class="arr">→</span>
       <span class="node fn-b">Ticket + Product + SLA</span>
     </div>
-    <div class="note">Row-level tenant isolation on every request; the same service backs the Web &amp; Mobile chatbots, Operator, Tenant Admin and Super Admin ends — one source of truth, scoped automatically by the caller's identity. <strong>175 / 175 automated tests passing.</strong></div>
+    <div class="note">Row-level tenant isolation on every request; the same service backs the Web &amp; Mobile chatbots, Operator, Tenant Admin and Super Admin ends — one source of truth, scoped automatically by the caller's identity. <strong>251 / 251 automated tests passing.</strong></div>
   </div>
 </div>
 </section>
@@ -666,6 +683,8 @@ footer span{color:#94a3b8}
     <div class="card"><h4>🧱 Data integrity</h4><div style="font-size:.82rem;color:var(--c-muted)">Parameterized queries throughout; tenant identity sourced from the JWT, never the request body; row-level isolation in ITSM.</div></div>
     <div class="card"><h4>📝 Auditability</h4><div style="font-size:.82rem;color:var(--c-muted)">Handoff state-log records every transition; consent log; automation execution logs; AI token-usage accounting.</div></div>
     <div class="card"><h4>🗄️ Secure storage</h4><div style="font-size:.82rem;color:var(--c-muted)">Attachments via signed, expiring URLs proxied through the app port — object storage is never exposed directly to the browser.</div></div>
+    <div class="card"><h4>🚦 Rate limiting</h4><div style="font-size:.82rem;color:var(--c-muted)">Per-IP limits tiered by route (auth / chat / default), backed by Redis in production with an in-memory fallback — a dependency-free limiter, tunable by config.</div></div>
+    <div class="card"><h4>🔑 Secrets &amp; supply chain</h4><div style="font-size:.82rem;color:var(--c-muted)">No secrets in the repo — injected via env at runtime (<code>PIQ_*</code> overrides); Dependabot + weekly <code>pip-audit</code> in CI; signed Microsoft Teams payloads use the incoming-webhook URL as the secret.</div></div>
   </div>
 </div>
 </section>
@@ -786,13 +805,13 @@ footer span{color:#94a3b8}
 <div class="container">
   <div class="sec-eye">Quality Assurance</div>
   <div class="sec-h">Tested, Service by Service</div>
-  <div class="sec-sub">Every service ships with an executable, automated test suite — <b>295 tests in total, all green</b>. The core-platform suites are deterministic (no live database, NLU model or Keycloak needed); the ITSM suite runs against an ephemeral Postgres + Redis. Both run locally and on every push in <b>GitHub Actions</b>.</div>
+  <div class="sec-sub">Every service ships with an executable, automated test suite — <b>448 tests in total, all green</b>. The core-platform suites are deterministic (no live database, NLU model or Keycloak needed); the ITSM suite runs against an ephemeral Postgres + Redis. Both run locally and on every push in <b>GitHub Actions</b>, now joined by a <code>rasa data validate</code> gate and a guard that fails the build if any phrase is ever labelled with two intents.</div>
 
   <div class="kpi-grid mt3">
-    <div class="kpi"><div class="v green">295</div><div class="l">Total Tests</div><div class="d d-up">all passing</div></div>
-    <div class="kpi"><div class="v" style="color:#2dd4bf">5</div><div class="l">Service Suites</div></div>
-    <div class="kpi"><div class="v" style="color:#a78bfa">175</div><div class="l">ITSM API Tests</div></div>
-    <div class="kpi"><div class="v blue">120</div><div class="l">Core-Platform Tests</div></div>
+    <div class="kpi"><div class="v green">448</div><div class="l">Total Tests</div><div class="d d-up">all passing</div></div>
+    <div class="kpi"><div class="v" style="color:#2dd4bf">2</div><div class="l">Repos / CI Pipelines</div></div>
+    <div class="kpi"><div class="v" style="color:#a78bfa">251</div><div class="l">ITSM API Tests</div></div>
+    <div class="kpi"><div class="v blue">197</div><div class="l">Core-Platform Tests</div></div>
   </div>
 
   <div class="wrap mt3">
@@ -800,9 +819,9 @@ footer span{color:#94a3b8}
       <thead><tr><th>Service</th><th style="width:8%">Tests</th><th>Type</th><th>What's covered</th></tr></thead>
       <tbody>
         <tr>
-          <td><strong>🎫 ITSM Service</strong></td><td><b>175</b></td>
+          <td><strong>🎫 ITSM Service</strong></td><td><b>251</b></td>
           <td><span class="cap">Integration / API</span></td>
-          <td>Tickets, KB, assets, automation, reports, notifications, platform, virtual agent, in/outbound webhooks, GDPR &amp; reference data — RS256-JWT auth with row-level tenant isolation (async httpx + ASGI).</td>
+          <td>Tickets, KB, assets, automation, reports, notifications, platform, virtual agent, in/outbound webhooks, GDPR &amp; reference data — plus approval workflow, SLA auto-escalation, least-loaded auto-assign &amp; the Teams/marketplace catalog. RS256-JWT auth with row-level tenant isolation (async httpx + ASGI).</td>
         </tr>
         <tr>
           <td><strong>⚙️ Action Server</strong><div style="font-size:.74rem;color:var(--c-muted)">NLU custom actions</div></td><td><b>37</b></td>
@@ -815,14 +834,19 @@ footer span{color:#94a3b8}
           <td>Keycloak claim extraction, role flags &amp; product-role mapping, tenant-vs-platform-admin, channel resolution, org resolution across 4 claim shapes, and every config loader's contract.</td>
         </tr>
         <tr>
-          <td><strong>⚡ Web API</strong><div style="font-size:.74rem;color:var(--c-muted)">Flask backend</div></td><td><b>35</b></td>
+          <td><strong>⚡ Web API</strong><div style="font-size:.74rem;color:var(--c-muted)">Flask backend</div></td><td><b>41</b></td>
           <td><span class="cap">Unit</span></td>
-          <td>Real-time room routing &amp; emit (live-handoff delivery), the stdlib JWT (tamper/expiry/secret), multi-tenant scope &amp; operator-queue filters, role gating, password hashing, and the storage &amp; ITSM reverse proxies.</td>
+          <td>Real-time room routing &amp; emit (live-handoff delivery), the stdlib JWT (tamper/expiry/secret), multi-tenant scope &amp; operator-queue filters, role gating, password hashing, least-loaded operator auto-assign, and the storage &amp; ITSM reverse proxies.</td>
         </tr>
         <tr>
-          <td><strong>🧠 NLU / Conversation</strong><div style="font-size:.74rem;color:var(--c-muted)">Training &amp; dialogue data</div></td><td><b>17</b></td>
+          <td><strong>🧠 NLU / Conversation</strong><div style="font-size:.74rem;color:var(--c-muted)">Training &amp; dialogue data</div></td><td><b>18</b></td>
           <td><span class="cap">Data integrity</span></td>
-          <td>Intent inventory &amp; examples, every trained intent declared in the domain, response/slot/form integrity, no duplicate intents, stories &amp; rules present, and the pipeline &amp; policy config.</td>
+          <td>Intent inventory &amp; examples, every trained intent declared in the domain (incl. retrieval intents), response/slot/form integrity, <b>no cross-intent example conflicts</b>, stories &amp; rules present, and the pipeline &amp; policy config.</td>
+        </tr>
+        <tr>
+          <td><strong>🌍 Feature &amp; platform suites</strong><div style="font-size:.74rem;color:var(--c-muted)">i18n, analytics, tracing, security</div></td><td><b>~70</b></td>
+          <td><span class="cap">Unit</span></td>
+          <td>Language detection &amp; the bot localization catalog, deflection &amp; observability metric queries, canned responses, conversation-trace reconstruction, rate limiting, config/secret env-overrides and the semantic embedding fallback.</td>
         </tr>
       </tbody>
     </table>
