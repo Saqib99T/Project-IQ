@@ -59,7 +59,9 @@ def test_every_intent_block_has_examples():
 
 
 def test_rating_intents_cover_one_to_five():
-    intents = set(_nlu_intents())
+    # rating_1..5 are payload/button-driven (no NLU text examples — the live
+    # satisfaction flow uses 👍/👎); they must still be declared in the domain.
+    intents = _domain_intent_names()
     for n in range(1, 6):
         assert f"rating_{n}" in intents
 

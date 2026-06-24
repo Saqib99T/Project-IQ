@@ -2626,74 +2626,6 @@ nlu:
     - continue with ticket
 
 # Satisfaction Rating Intents
-- intent: rating_1
-  examples: |
-    - 1 star
-    - 1
-    - one star
-    - very bad
-    - 1 star
-    - one star
-    - rate it 1
-    - one out of five
-    - rating 1
-    - 1/5
-
-- intent: rating_2
-  examples: |
-    - 2 stars
-    - 2
-    - two stars
-    - poor
-    - 2 stars
-    - two stars
-    - rate it 2
-    - two out of five
-    - rating 2
-    - 2/5
-
-- intent: rating_3
-  examples: |
-    - 3 stars
-    - 3
-    - three stars
-    - average
-    - mediocre
-    - 3 stars
-    - three stars
-    - rate it 3
-    - three out of five
-    - rating 3
-    - 3/5
-
-- intent: rating_4
-  examples: |
-    - 4 stars
-    - 4
-    - four stars
-    - nice
-    - satisfied
-    - 4 stars
-    - four stars
-    - rate it 4
-    - four out of five
-    - rating 4
-    - 4/5
-
-- intent: rating_5
-  examples: |
-    - 5 stars
-    - 5
-    - five stars
-    - amazing
-    - wonderful
-    - 5 stars
-    - five stars
-    - rate it 5
-    - five out of five
-    - rating 5
-    - 5/5
-
 - intent: upload_file
   examples: |
     - upload file
@@ -2817,6 +2749,14 @@ nlu:
     - hope you're well
     - how have you been
     - how are you feeling today
+    - you doing alright
+    - how's your day going
+    - everything good on your end
+    - how do you feel today
+    - are you doing well
+    - is everything ok with you
+    - how's life treating you
+    - you good
 - intent: chitchat/who_are_you
   examples: |
     - who are you
@@ -2826,6 +2766,13 @@ nlu:
     - introduce yourself
     - what should I call you
     - who am I talking to
+    - may I know who you are
+    - tell me who you are
+    - what's your name
+    - what do they call you
+    - identify yourself
+    - whom am I chatting with
+    - what kind of assistant are you
 - intent: chitchat/are_you_a_bot
   examples: |
     - are you a bot
@@ -2835,6 +2782,13 @@ nlu:
     - are you a person
     - is this a real agent
     - are you human or AI
+    - are you automated
+    - is this a machine
+    - am I chatting with software
+    - are you an AI
+    - is this a chatbot
+    - are you computer generated
+    - is a human typing this
 - intent: chitchat/what_can_you_do
   examples: |
     - what can you do
@@ -2845,6 +2799,13 @@ nlu:
     - what are your capabilities
     - how can you assist me
     - what services do you offer
+    - what tasks can you handle
+    - show me what you can do
+    - what features do you have
+    - how are you useful
+    - what kind of help do you provide
+    - list what you can do
+    - what's your purpose
 - intent: chitchat/thanks
   examples: |
     - thank you so much
@@ -2853,6 +2814,13 @@ nlu:
     - thanks for the help
     - that was helpful thanks
     - appreciate your help
+    - thanks so much
+    - that was really helpful thank you
+    - really appreciate it
+    - cheers for the help
+    - thanks for sorting that out
+    - you've been a great help
+    - thanks a million
 - intent: chitchat/joke
   examples: |
     - tell me a joke
@@ -2861,6 +2829,13 @@ nlu:
     - do you know any jokes
     - cheer me up
     - got a joke
+    - got any jokes
+    - tell me something funny
+    - make me laugh
+    - do you know a good joke
+    - say something amusing
+    - entertain me
+    - lighten the mood
 - intent: chitchat/who_made_you
   examples: |
     - who made you
@@ -2869,6 +2844,13 @@ nlu:
     - who developed you
     - which company made you
     - who is behind you
+    - which company built you
+    - who is your creator
+    - who designed you
+    - who developed this bot
+    - who is behind this assistant
+    - what team made you
+    - who programmed you
 
 # ============================================================
 # FAQ — meta questions about the assistant / service itself
@@ -2882,6 +2864,12 @@ nlu:
     - what is this assistant
     - what is this chat
     - what is this tool for
+    - what's this platform
+    - explain what this is
+    - what does this system do
+    - what is this app for
+    - tell me about this service
+    - what's the purpose of this
 - intent: faq/support_hours
   examples: |
     - what are your support hours
@@ -2890,6 +2878,12 @@ nlu:
     - what time is support open
     - when can I reach support
     - what are the working hours
+    - when is support open
+    - what are your hours
+    - are agents available now
+    - do you work weekends
+    - what's your availability
+    - when can I get help from a person
 - intent: faq/languages
   examples: |
     - what languages do you speak
@@ -2898,6 +2892,12 @@ nlu:
     - which languages do you understand
     - do you speak french
     - can I chat in arabic
+    - which languages do you support
+    - can I write in french
+    - do you understand german
+    - can I chat in spanish
+    - do you speak arabic
+    - what languages can I use
 - intent: faq/data_privacy
   examples: |
     - is my data safe
@@ -2906,3 +2906,9 @@ nlu:
     - what do you do with my information
     - is my data secure
     - do you share my data
+    - how is my data handled
+    - do you keep my messages
+    - is this conversation confidential
+    - what happens to my data
+    - do you comply with gdpr
+    - is my information protected
