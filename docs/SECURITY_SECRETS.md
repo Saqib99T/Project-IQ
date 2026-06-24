@@ -88,3 +88,41 @@ verify before/after deploy:
 ```
 systemctl show project-iq-admin -p Environment   # confirm PIQ_* present
 ```
+
+## Status & verification (checked 2026-06-24)
+
+Re-verified the working tree — **all real secrets remain blank** in every
+tracked `app.config*` (`backend_client_secret`, `kb_bot_client_secret`,
+`operator_jwt_secret`, `smtp_password`, `llm_api_key`, `db_replica_password`
+are empty; the only non-blank values are dev defaults — `db_password = 12345`,
+`firecrawl_api_key = fc-selfhosted`). So nothing *new* has leaked since the last
+sweep; the **rotation actions in the section above are still outstanding** (they
+neutralize the *historical* commits and are unaffected by clearing the tree).
+
+Two changes since the original sweep:
+
+- **Operator-dashboard JWT (item 2) — surface being retired.** The operator
+  console moved to **IAM-only** auth: `bp_operator` and the legacy operator
+  dashboard were removed, and the portal now authenticates with the IAM token
+  via `/portal/api`. The operator-JWT *mint* path still lingers in
+  [bp_auth.py](../web/api/blueprints/bp_auth.py) (`get_operator_jwt_secret`),
+  so the committed secret is still worth rotating to neutralize the history
+  leak — but the live attack surface is shrinking, and once the mint path is
+  deleted the `PIQ_HANDOFF_OPERATOR_JWT_SECRET` var can be dropped entirely.
+
+- **New secret to *provision* (not exposed): `IAM_WEBHOOK_SECRET`** — the
+  itsm-service IAM lifecycle-webhook receiver
+  ([itsm-service `app/config.py`](../../itsm-service/app/config.py),
+  `app/api/v1/webhooks.py`) verifies an HMAC over the raw body using this
+  secret. It was **never committed with a real value** (`.env.example` ships the
+  placeholder `your-hmac-webhook-secret`), so it is **not** part of the exposure
+  above. Generate a strong random value
+  (`python -c "import secrets;print(secrets.token_urlsafe(48))"`), set it as
+  `IAM_WEBHOOK_SECRET` in the itsm-service environment, and configure the **same**
+  value on the Keycloak side that signs the events (see the IAM lifecycle
+  runbook). This is a *provisioning* step, not a rotation — track it with the
+  deploy, not this leak list.
+
+> **No live rotation was performed** in compiling this status — it is a checklist
+> only. Execute the numbered rotations in a controlled maintenance window
+> (rotating the operator-JWT and DB secrets forces re-login / reconnect).
