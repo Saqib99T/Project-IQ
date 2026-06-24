@@ -38,6 +38,40 @@ export function DepartmentsSection({ canManage, isPlatform }) {
 }
 
 // ---------------------------------------------------------------------------
+// Products  (IAM-synced + manual; IAM rows are locked from deletion)
+// ---------------------------------------------------------------------------
+
+export function ProductsSection({ canManage, isPlatform }) {
+    return (
+        <ReferenceDataManager
+            title="Products"
+            description="Your product catalogue. IAM-subscribed products sync in automatically (locked); add your own manual products too."
+            icon={Boxes}
+            listPath="/tenant/products?active_only=false"
+            createPath="/tenant/products"
+            itemPath={(id) => `/tenant/products/${id}`}
+            canManage={canManage}
+            isPlatform={isPlatform}
+            canDelete
+            canDeleteRow={(row) => row.source !== 'iam'}
+            columns={[
+                { key: 'slug', header: 'Slug', render: (r) => <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{r.slug}</span> },
+                {
+                    key: 'source', header: 'Source', width: '100px',
+                    render: (r) => r.source === 'iam'
+                        ? <Badge tone="indigo">IAM</Badge>
+                        : <Badge tone="gray">Manual</Badge>,
+                },
+            ]}
+            fields={[
+                { name: 'name', label: 'Name', required: true, placeholder: 'e.g. Billing Portal' },
+                { name: 'description', label: 'Description', type: 'textarea' },
+            ]}
+        />
+    )
+}
+
+// ---------------------------------------------------------------------------
 // Asset categories
 // ---------------------------------------------------------------------------
 

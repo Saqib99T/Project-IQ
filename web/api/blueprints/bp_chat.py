@@ -20,14 +20,30 @@ logger = logging.getLogger(__name__)
 @bp.route('/api/my-products', methods=['GET'])
 @_s.require_iam_token
 def my_products(**kwargs):
-    """Active subscribed products for the caller's org — feeds the chat product picker
-    (web + mobile). Resolved server-side via the IAM org subscriptions, since the
-    token doesn't carry the org's subscribed apps."""
+    """Products for the chat picker (web + mobile) = the tenant's ITSM catalogue
+    (IAM-synced + admin-added manual products). Falls back to the raw IAM
+    subscription list if itsm-service is unreachable or hasn't been synced yet,
+    so the picker never comes up empty."""
     from flask import g
+    import requests
+    from common.config_manager import get_itsm_config
     from common.iam_service import iam_list_org_subscribed_products
+
     org_id = (getattr(g, 'iam_user', None) or {}).get('org_id', '')
-    products = iam_list_org_subscribed_products(org_id)
-    return jsonify({'products': products, 'org_id': org_id})
+    token  = (request.headers.get('Authorization') or '').replace('Bearer ', '')
+    base   = get_itsm_config().get('service_url', 'http://127.0.0.1:8000').rstrip('/')
+    try:
+        r = requests.get(f"{base}/api/v1/tenant/products",
+                         headers={'Authorization': f'Bearer {token}'}, timeout=8)
+        if r.status_code == 200:
+            slugs = [p['slug'] for p in (r.json() or []) if p.get('slug')]
+            if slugs:  # empty => not synced yet; fall through to IAM
+                return jsonify({'products': slugs, 'org_id': org_id, 'source': 'itsm'})
+    except Exception as e:
+        logger.warning("my-products: itsm unreachable (%s); falling back to IAM", e)
+
+    return jsonify({'products': iam_list_org_subscribed_products(org_id),
+                    'org_id': org_id, 'source': 'iam'})
 
 
 # Display labels for product slugs — keep in sync with web/ui productLabels.js

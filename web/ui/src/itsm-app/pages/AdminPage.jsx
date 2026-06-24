@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import {
     Building2, Tags, Boxes, Layers, Truck, FolderTree, Hash, Users, ShieldCheck,
     Clock, Gauge, Workflow, Webhook, Wallet, ScrollText, BookOpen, Settings, Lock, FileWarning,
-    Info, ChevronDown, ChevronRight, FileText,
+    Info, ChevronDown, ChevronRight, FileText, Package,
 } from 'lucide-react'
 import { useIam } from '../../widget/hooks/useIam'
 import { useItsmTenant } from '../../shared/itsm/ItsmTenantContext'
@@ -24,7 +24,7 @@ import AuditLogSection from '../components/admin/AuditLogSection'
 import SystemLogsSection from '../components/admin/SystemLogsSection'
 // New reference-data sections
 import {
-    DepartmentsSection, AssetCategoriesSection, AssetTypesSection, VendorsSection,
+    DepartmentsSection, ProductsSection, AssetCategoriesSection, AssetTypesSection, VendorsSection,
     TicketCategoriesSection, KbTagsSection, KbCategoriesSection,
 } from '../components/admin/ReferenceDataSections'
 
@@ -34,6 +34,7 @@ const GROUPS = [
         id: 'organization', label: 'Organization',
         items: [
             { id: 'departments', label: 'Departments', icon: Building2, render: (c) => <DepartmentsSection canManage={c.isManager} isPlatform={c.isPlatform} /> },
+            { id: 'products', label: 'Products', icon: Package, render: (c) => <ProductsSection canManage={c.isManager} isPlatform={c.isPlatform} /> },
         ],
     },
     {

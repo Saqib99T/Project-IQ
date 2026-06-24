@@ -36,6 +36,9 @@ export default function ReferenceDataManager(cfg) {
         title, description, icon, listPath, itemPath,
         canDelete = true, canManage = true, hierarchical = false, isPlatform = false,
         columns = [], nameKey = 'name',
+        // Optional per-row delete guard (e.g. protect IAM-sourced products).
+        // Returns true if the given row may be deleted; defaults to all rows.
+        canDeleteRow = () => true,
     } = cfg
 
     const { get, post, patch, remove } = useItsmApi()
@@ -116,7 +119,7 @@ export default function ReferenceDataManager(cfg) {
                 return (
                     <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <IconButton icon={Pencil} label="Edit" size="sm" onClick={() => setEditing(row)} />
-                        {canDelete && (
+                        {canDelete && canDeleteRow(row) && (
                             <IconButton icon={Trash2} label="Delete" size="sm"
                                 className="hover:text-red-600 dark:hover:text-red-400"
                                 onClick={() => handleDelete(row)} />
