@@ -24,9 +24,6 @@ def _no_cache(response):
     return response
 
 
-def _operator_dir():
-    return os.path.join(_s.STATIC_DIR, 'operator')
-
 
 # ── Canonical app routes ──────────────────────────────────────────────────────
 
@@ -51,15 +48,12 @@ def serve_silent_check_sso():
 def serve_admin_redirect():
     return redirect('/portal/admin', code=301)
 
+# Legacy operator console (/opt/, operator-JWT) retired — the current console is
+# the IAM-token portal at /portal/. Redirect old bookmarks there (Q2 phase 1b).
 @bp.route('/opt')
-def serve_opt_redirect():
-    return redirect('/opt/', code=302)
-
 @bp.route('/opt/')
-def serve_opt():
-    resp = send_from_directory(_operator_dir(), 'index.html')
-    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    return resp
+def serve_opt_redirect():
+    return redirect('/portal/', code=301)
 
 
 # ── Portal SPA ───────────────────────────────────────────────────────────────

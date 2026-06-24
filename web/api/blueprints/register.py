@@ -55,7 +55,6 @@ def register_blueprints(app: Flask) -> None:
     from web.api.blueprints.bp_studio_inspector import bp as bp_studio_inspector
     from web.api.blueprints.bp_user_api         import bp as bp_user_api
     from web.api.blueprints.bp_chat             import bp as bp_chat
-    from web.api.blueprints.bp_operator         import bp as bp_operator
     from web.api.blueprints.bp_internal         import bp as bp_internal
     from web.api.blueprints.bp_admin_ops        import bp as bp_admin_ops
     from web.api.blueprints.bp_sessions         import bp as bp_sessions
@@ -79,7 +78,8 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(bp_studio_inspector)
     app.register_blueprint(bp_user_api)
     app.register_blueprint(bp_chat)
-    app.register_blueprint(bp_operator)
+    # bp_operator (operator-JWT /operator/* API) retired — the console runs
+    # entirely on the IAM token via bp_portal_api (Q2 phase 1b consolidation).
     app.register_blueprint(bp_internal)
     app.register_blueprint(bp_admin_ops)
     app.register_blueprint(bp_sessions)
