@@ -175,6 +175,11 @@ function MarketplaceTab() {
     const { call } = useApi()
     const tenants = useTenantDirectory(true)
     const tenantList = Object.entries(tenants)
+    // A non-empty directory means this is a platform user (super_admin) who must
+    // pick a tenant to scope into. Tenant admins (org_admin/Admin) get an empty
+    // directory — they operate on their OWN org, resolved from the JWT when
+    // tenantId stays null (useItsmApi(null) sends no X-Tenant-ID).
+    const isPlatform = tenantList.length > 0
     const [tenantId, setTenantId] = useState(null)
     const itsm = useItsmApi(tenantId)
 
@@ -184,8 +189,8 @@ function MarketplaceTab() {
     const [config, setConfig] = useState({})
     const [err, setErr] = useState(null)
 
-    // Auto-select the first tenant once the directory loads.
-    useEffect(() => { if (!tenantId && tenantList.length) setTenantId(tenantList[0][0]) }, [tenantList, tenantId])
+    // Platform users: auto-select the first tenant once the directory loads.
+    useEffect(() => { if (isPlatform && !tenantId && tenantList.length) setTenantId(tenantList[0][0]) }, [tenantList, tenantId, isPlatform])
 
     useEffect(() => {
         itsm.get('/integrations/catalog')
@@ -195,11 +200,13 @@ function MarketplaceTab() {
     }, [itsm, call])
 
     const loadEndpoints = useCallback(() => {
-        if (!tenantId) { setEndpoints([]); return }
+        // Platform users must pick a tenant first; tenant admins load their own
+        // org's endpoints directly (tenantId === null → JWT-resolved tenant).
+        if (isPlatform && !tenantId) { setEndpoints([]); return }
         itsm.get('/webhooks-config/endpoints', { page_size: 100 })
             .then(d => setEndpoints(d.items || []))
             .catch(e => setErr(e.message))
-    }, [itsm, tenantId])
+    }, [itsm, tenantId, isPlatform])
 
     useEffect(() => { loadEndpoints() }, [loadEndpoints])
 

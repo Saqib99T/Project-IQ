@@ -207,6 +207,8 @@ export default function AdminLayout() {
                     <SidebarLink to="/admin/itsm/assets"     icon="🖥️" label="Assets"         />
                     <SidebarLink to="/admin/itsm/kb"         icon="📖" label="Knowledge Base" />
                     <SidebarLink to="/admin/itsm/reports"    icon="📑" label="Reports"        />
+                    {/* Integrations — tenant admins self-serve their own org's webhooks/notifications */}
+                    <SidebarLink to="/admin/integration"     icon="🔗" label="Integrations"   />
 
                     {/* Platform section — 99Tech super_admin only; collapsed by default
                         since it's ~10 links most tenant admins never see/need */}
@@ -217,7 +219,6 @@ export default function AdminLayout() {
                             <SidebarLink to="/admin/kb"            icon="📚" label="Knowledge Base" />
                             <SidebarLink to="/admin/studio"        icon="🧠" label="Bot Studio"     />
                             <SidebarLink to="/admin/themes"        icon="🎨" label="Themes"         />
-                            <SidebarLink to="/admin/integration"   icon="🔗" label="Integrations"   />
                             <SidebarLink to="/admin/firecrawl"     icon="🕷️" label="Firecrawl"      />
                             <SidebarLink to="/admin/observability" icon="🔭" label="Observability"  />
                             <SidebarLink to="/admin/diagnostics"   icon="🩺" label="Diagnostics"    />

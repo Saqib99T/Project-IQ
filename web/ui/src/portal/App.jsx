@@ -93,12 +93,14 @@ export default function App() {
 
                     {/* Shared admin + operator routes */}
                     <Route path="monitor"       element={<AuthGuard roles={['Operator', 'Admin', 'super_admin', 'org_admin']}><LiveMonitorPage /></AuthGuard>} />
+                    {/* Integrations — tenant admins self-serve their own org's webhooks/notifications;
+                        super_admin can additionally scope to any tenant via the directory selector. */}
+                    <Route path="integration"   element={<AuthGuard roles={['super_admin', 'org_admin', 'Admin']}><IntegrationPage /></AuthGuard>} />
 
                     {/* Platform routes — super_admin only */}
                     <Route path="config"        element={<AuthGuard roles={['super_admin']}><ConfigPage /></AuthGuard>} />
                     <Route path="kb"            element={<AuthGuard roles={['super_admin']}><KnowledgeBasePage /></AuthGuard>} />
                     <Route path="studio"        element={<AuthGuard roles={['super_admin']}><StudioPage /></AuthGuard>} />
-                    <Route path="integration"   element={<AuthGuard roles={['super_admin']}><IntegrationPage /></AuthGuard>} />
                     <Route path="themes"        element={<AuthGuard roles={['super_admin']}><ThemesPage /></AuthGuard>} />
                     <Route path="firecrawl"     element={<AuthGuard roles={['super_admin']}><FirecrawlPage /></AuthGuard>} />
                     <Route path="observability" element={<AuthGuard roles={['super_admin']}><ObservabilityPage /></AuthGuard>} />
