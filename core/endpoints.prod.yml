@@ -1,6 +1,8 @@
 action_endpoint:
   url: "http://127.0.0.1:5055/webhook"
 
-tracker_store:
-  type: custom_tracker_store.CustomTrackerStore
-  url: "postgresql://YOUR_PROD_DB_USER:YOUR_PROD_DB_PASSWORD@YOUR_PROD_DB_HOST:5432/Chatbot"
+# No tracker_store configured -> Rasa uses InMemoryTrackerStore. Conversations
+# are persisted by the app's own logging layer (conversations/messages tables),
+# not Rasa's tracker store. (The previous custom_tracker_store.CustomTrackerStore
+# reference was dead — that module never existed — so this is a no-op cleanup.)
+# To enable Rasa-side persistence later, use the built-in SQL store (type: SQL).

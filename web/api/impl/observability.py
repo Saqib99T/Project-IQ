@@ -200,10 +200,12 @@ def system_status():
     health.append({'name': 'ML Platform', 'ok': bool(m),
                    'detail': f'v{m.group(1)}' if m else 'no response'})
 
-    # Admin API (self — check port directly, skip HTTP to avoid self-loop)
-    admin_up = 8181 in _listening_ports
-    health.append({'name': 'Admin API', 'ok': admin_up,
-                   'detail': 'listening' if admin_up else 'not listening'})
+    # Admin API (self): this code runs *inside* the admin process serving the
+    # request, so the admin is listening by definition. Don't rely on
+    # _listening_ports here — it's parsed from /proc/net/tcp (Linux-only) and is
+    # empty on non-Linux hosts (e.g. Windows dev), which would falsely report
+    # "not listening" even though we're clearly serving this very response.
+    health.append({'name': 'Admin API', 'ok': True, 'detail': 'listening'})
 
     # ITSM service (itsm-service FastAPI on :8000)
     itsm_code, itsm_body = _http_raw('127.0.0.1', 8000, '/api/v1/health')
