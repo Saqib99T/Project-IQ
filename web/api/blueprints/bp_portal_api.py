@@ -47,32 +47,36 @@ def _utc_iso_to_local(s):
 
 def _get_or_create_portal_operator(iam_sub: str, name: str, email: str,
                                    org_id: str = '', channel: str = 'internal') -> int:
-    """Return the integer operators.id for this IAM user, creating if needed."""
-    from common.conversation_db import _get_connection, _release_connection
-    from psycopg2.extras import RealDictCursor
-    conn = _get_connection()
-    try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute(
-            """
-            INSERT INTO operators
-                (username, display_name, password_hash, email, org_id, channel,
-                 status, max_concurrent, last_seen)
-            VALUES (%s, %s, 'iam-managed', %s, %s, %s, 'available', 3, NOW())
-            ON CONFLICT (username) DO UPDATE
-                SET last_seen = NOW(),
-                    email       = EXCLUDED.email,
-                    org_id      = EXCLUDED.org_id,
-                    channel     = EXCLUDED.channel
-            RETURNING id
-            """,
-            (email, name or email, email, org_id, channel),
+    """Return the integer operators.id for this IAM user.
+
+    The operator row is a thin IAM-keyed projection: it is keyed by `iam_sub`
+    (the IAM identity), NOT by username/email. A legacy row matched only by email
+    is linked to its iam_sub on first portal login (one-time migration), so every
+    operator ends up reliably tied to one IAM identity. Identity (name/email) is
+    refreshed from the token; the row holds operator runtime state (team,
+    capacity, presence). Mirrors the iam-login provisioning path."""
+    from common.db._handoff import (
+        get_operator_by_iam_sub, get_operator_by_email,
+        update_operator_iam_sub, update_operator_last_seen, update_operator_org,
+    )
+    from common.conversation_db import create_operator
+
+    op = get_operator_by_iam_sub(iam_sub)
+    if not op and email:
+        op = get_operator_by_email(email)
+        if op:
+            update_operator_iam_sub(op['id'], iam_sub)   # link the legacy row
+    if not op:
+        op_id = create_operator(
+            iam_sub=iam_sub, username=(email or iam_sub),
+            display_name=(name or email or iam_sub), password_hash='iam-managed',
+            email=email, team='Support', app_ids=[], max_concurrent=3,
         )
-        op_id = cur.fetchone()['id']
-        conn.commit()
-        return op_id
-    finally:
-        _release_connection(conn)
+    else:
+        op_id = op['id']
+        update_operator_last_seen(op_id)
+    update_operator_org(op_id, org_id or None, channel or 'internal')
+    return op_id
 
 
 # ── Queue ─────────────────────────────────────────────────────────────────────
