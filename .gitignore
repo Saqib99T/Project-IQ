@@ -42,6 +42,8 @@ backups/*.backup
 # Rasa
 core/models/*.tar.gz
 data/history/
+core/nlu_xval/
+core/results/
 
 # Firecrawl self-host (node_modules, build output, generated files)
 firecrawl-selfhost/
