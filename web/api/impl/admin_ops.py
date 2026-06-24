@@ -8,7 +8,7 @@ import logging
 from flask import request, jsonify
 
 import web.api.shared as _s
-from web.api.shared import hash_password, emit_queue_overview
+from web.api.shared import emit_queue_overview
 from web.api.impl.operator import (
     get_handoff_runtime_config_for_api,
     _apply_routing_rules,
@@ -39,16 +39,16 @@ def create_operator_endpoint():
         data = request.get_json(silent=True) or {}
         username     = (data.get('username') or '').strip().lower()
         display_name = (data.get('display_name') or '').strip()
-        password     = data.get('password') or ''
         if not username or not display_name:
             return jsonify({'error': 'username and display_name are required'}), 400
-        if password and len(password) < 8:
-            return jsonify({'error': 'Password must be at least 8 characters'}), 400
 
+        # Operators authenticate via IAM SSO only — no local passwords. The
+        # password_hash column is kept (NOT NULL) but always the 'iam-managed'
+        # sentinel; it is never used to authenticate.
         new_id = create_operator(
             username=username,
             display_name=display_name,
-            password_hash=hash_password(password) if password else 'iam-managed',
+            password_hash='iam-managed',
             email=data.get('email'),
             team=data.get('team'),
             app_ids=data.get('app_ids', []),
@@ -90,10 +90,7 @@ def update_operator_endpoint(operator_id):
                       'max_concurrent', 'shift_schedule', 'is_active', 'is_admin'):
             if field in data:
                 updates[field] = data[field]
-        if 'new_password' in data:
-            if len(data['new_password']) < 8:
-                return jsonify({'error': 'Password must be at least 8 characters'}), 400
-            updates['password_hash'] = hash_password(data['new_password'])
+        # 'new_password' is intentionally ignored — operators are IAM-SSO only.
         if not updates:
             return jsonify({'error': 'No valid fields to update'}), 400
         update_operator(operator_id, **updates)

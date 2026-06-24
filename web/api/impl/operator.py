@@ -26,7 +26,6 @@ from web.api.shared import (
     jwt_encode, jwt_decode,
     get_operator_jwt_secret, get_operator_jwt_expiry_hours,
     emit_to_user, emit_to_operator, emit_queue_overview,
-    hash_password, verify_password,
 )
 from common.conversation_db import _get_connection, _release_connection
 
