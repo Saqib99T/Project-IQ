@@ -842,40 +842,61 @@ def portal_user_history(sender_id, **kwargs):
 
     limit = min(int(request.args.get('limit', 11)), 25)
 
-    parts = sender_id.split('-')
-    if len(parts) >= 3 and parts[0] == 'user':
-        app_id_part = parts[1]
-        remaining   = parts[2:]
-        if len(remaining) > 1 and re.match(r'^[0-9a-z]{6,12}$', remaining[-1]):
-            username_parts = remaining[:-1]
-        else:
-            username_parts = remaining
-        sender_pattern = f"user-{app_id_part}-{'-'.join(username_parts)}%"
-        use_pattern    = True
-    else:
-        sender_pattern = sender_id
-        use_pattern    = False
-
     conn = _get_connection()
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        where_clause = "c.sender_id LIKE %s" if use_pattern else "c.sender_id = %s"
+
+        # Resolve a STABLE user key so we find the user's other sessions across
+        # products/epochs. Sessions are now keyed iam-{sub}-{product}-{epoch}, so
+        # an exact sender_id match would only ever return the current session
+        # (→ "No previous sessions"). conversations.user_id holds the IAM sub and
+        # is identical across all of a user's sessions — match on that.
+        cur.execute(
+            "SELECT user_id FROM conversations WHERE sender_id = %s ORDER BY id DESC LIMIT 1",
+            (sender_id,),
+        )
+        urow = cur.fetchone()
+        user_id = (urow or {}).get('user_id')
+
+        if user_id:
+            match_clause, match_param = "c.user_id = %s", user_id
+        else:
+            # Legacy guest senders: user-{appId}-{username}-{suffix}
+            parts = sender_id.split('-')
+            if len(parts) >= 3 and parts[0] == 'user':
+                app_id_part = parts[1]
+                remaining   = parts[2:]
+                if len(remaining) > 1 and re.match(r'^[0-9a-z]{6,12}$', remaining[-1]):
+                    username_parts = remaining[:-1]
+                else:
+                    username_parts = remaining
+                match_clause = "c.sender_id LIKE %s"
+                match_param  = f"user-{app_id_part}-{'-'.join(username_parts)}%"
+            else:
+                match_clause, match_param = "c.sender_id = %s", sender_id
+
         cur.execute(
             f"""
             SELECT hq.id AS queue_id, hq.conversation_id, hq.status AS handoff_status,
                    hq.queued_at, hq.resolved_at, hq.abandoned_at, hq.trigger_reason,
                    hq.closing_note, c.app_id, c.sender_id,
-                   (SELECT text FROM messages
-                     WHERE conversation_id = c.id AND sender = 'user'
-                       AND timestamp >= hq.queued_at
-                     ORDER BY timestamp ASC LIMIT 1) AS first_user_msg
+                   COALESCE(
+                     (SELECT text FROM messages
+                       WHERE conversation_id = c.id AND sender = 'user'
+                         AND text NOT LIKE '/%%' AND timestamp >= hq.queued_at
+                       ORDER BY timestamp ASC LIMIT 1),
+                     (SELECT text FROM messages
+                       WHERE conversation_id = c.id AND sender = 'user'
+                         AND text NOT LIKE '/%%'
+                       ORDER BY timestamp ASC LIMIT 1)
+                   ) AS first_user_msg
             FROM handoff_queue hq
             JOIN conversations c ON c.id = hq.conversation_id
-            WHERE {where_clause}
+            WHERE {match_clause}
             ORDER BY hq.queued_at DESC NULLS LAST
             LIMIT %s
             """,
-            (sender_pattern, limit),
+            (match_param, limit),
         )
         rows = cur.fetchall()
     finally:
