@@ -870,8 +870,12 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         }
     };
 
-    // Handle Logout - returns to guest mode
-    const handleLogout = () => {
+    // Local-only sign-out: tears down the widget's signed-in state (cookies,
+    // session markers, messages) and drops back to guest. Does NOT call
+    // iam.logout() — used by both the explicit Logout button (which then also
+    // signs out of Keycloak) and the external-logout detector below (where IAM
+    // has already ended the session elsewhere).
+    const signOutLocal = ({ external = false } = {}) => {
         // End handoff under current senderId via both Socket.IO and REST
         emitUserEndSession();
         fetch(`${ADMIN_API_URL}/handoff/end`, {
@@ -881,6 +885,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         }).catch(() => {});
         setIsAuthenticated(false);
         setIsGuest(true);
+        setShowProfile(false);
         sessionEndedRef.current = false;
         setSessionEnded(false);
         setAuthUser('');
@@ -897,12 +902,39 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         const freshId = uuidv4();
         setCookie(getStorageKey(appId, 'senderId'), freshId);
         setSenderId(freshId);
-        setMessages([{ id: 'init', sender: 'bot', text: `You've been signed out. Continuing as guest.\n\n📚 You can still search the Knowledge Base!\n🔑 Sign in anytime for full ticket features.` }]);
+        setMessages([{ id: 'init', sender: 'bot', text: external
+            ? `You've been signed out.\n\n📚 You can still search the Knowledge Base!\n🔑 Sign in anytime for full ticket features.`
+            : `You've been signed out. Continuing as guest.\n\n📚 You can still search the Knowledge Base!\n🔑 Sign in anytime for full ticket features.` }]);
+    };
+
+    // Handle Logout - returns to guest mode
+    const handleLogout = () => {
+        signOutLocal({ external: false });
         // If authenticated via IAM, sign out of Keycloak too
         if (iamAuthenticated) {
             iam.logout({ redirectUri: window.location.href });
         }
     };
+
+    // External-logout detector. The widget's signed-in state is restored from a
+    // cookie and otherwise only changes on the explicit Logout button — so when
+    // IAM ends the session elsewhere (logout in another tab / the IAM app, or a
+    // revoked/expired SSO session) the widget would keep showing the user as
+    // logged in. useIam() flips iam.isAuthenticated to false in that case (it
+    // actively re-validates on focus/poll); here we mirror that into the
+    // widget. Covers both the live case and a stale cookie restored on reload.
+    const externalLogoutHandledRef = useRef(false);
+    useEffect(() => {
+        if (iam.isLoading) return;                 // wait for check-sso to settle
+        if (iamAuthenticated) { externalLogoutHandledRef.current = false; return; }
+        if (externalLogoutHandledRef.current) return;
+        const cookieAuthed = getCookie(getStorageKey(appId, 'isAuthenticated')) === 'true';
+        if (isAuthenticated || cookieAuthed) {
+            externalLogoutHandledRef.current = true;
+            signOutLocal({ external: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [iamAuthenticated, iam.isLoading, appId]);
 
     const handleEndSession = () => {
         emitUserEndSession();

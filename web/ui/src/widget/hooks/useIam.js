@@ -103,6 +103,16 @@ export function useIam() {
     const [token, setToken]                     = useState(null);
     const refreshTimer = useRef(null);
 
+    // Flip the widget to a clean logged-out (guest) state. Used both when the
+    // user logs out here and when we detect an *external* IAM logout (below).
+    const applyLoggedOut = useCallback((kc) => {
+        if (refreshTimer.current) clearTimeout(refreshTimer.current);
+        try { kc?.clearToken(); } catch { /* ignore */ }
+        setIsAuthenticated(false);
+        setUser(null);
+        setToken(null);
+    }, []);
+
     const scheduleRefresh = useCallback((kc) => {
         if (refreshTimer.current) clearTimeout(refreshTimer.current);
         const exp = kc.tokenParsed?.exp;
@@ -117,10 +127,13 @@ export function useIam() {
                     scheduleRefresh(kc);
                 }
             } catch {
-                kc.login();
+                // Refresh-token exchange failed → the SSO session is gone
+                // (logged out / revoked / expired). Don't hijack the host page
+                // with kc.login(); just show the logged-out widget UI.
+                applyLoggedOut(kc);
             }
         }, msUntilRefresh);
-    }, []);
+    }, [applyLoggedOut]);
 
     useEffect(() => {
         const kc = getOrCreateKc();
@@ -168,16 +181,44 @@ export function useIam() {
             setUser(parseUser(kc));
             scheduleRefresh(kc);
         };
-        kc.onAuthLogout = () => {
-            setIsAuthenticated(false);
-            setUser(null);
-            setToken(null);
+        kc.onAuthLogout = () => applyLoggedOut(kc);
+
+        // ── External-logout detection ──────────────────────────────────────
+        // This widget is embedded cross-origin, so Keycloak's login-status
+        // iframe is disabled (checkLoginIframe: false — it needs third-party
+        // cookies the browser blocks). That means an IAM logout in another tab
+        // is NOT pushed to us, and the widget keeps showing the user as logged
+        // in on its still-valid access token. So we actively re-validate the
+        // SSO session: whenever the tab regains focus/visibility (and on a slow
+        // poll), force a refresh-token exchange. If IAM ended the session the
+        // exchange fails and we flip to logged-out. A large minValidity forces
+        // a real server round-trip every call (not a no-op on a still-valid
+        // access token), which is what surfaces the revoked session.
+        let validating = false;
+        const validateSession = async () => {
+            if (validating || !kc.authenticated) return;
+            validating = true;
+            try {
+                await kc.updateToken(Number.MAX_SAFE_INTEGER);
+                // onAuthRefreshSuccess already updated token/user state.
+            } catch {
+                applyLoggedOut(kc);
+            } finally {
+                validating = false;
+            }
         };
+        const onVisible = () => { if (document.visibilityState === 'visible') validateSession(); };
+        document.addEventListener('visibilitychange', onVisible);
+        window.addEventListener('focus', validateSession);
+        const sessionPoll = setInterval(validateSession, 60000);
 
         return () => {
             if (refreshTimer.current) clearTimeout(refreshTimer.current);
+            document.removeEventListener('visibilitychange', onVisible);
+            window.removeEventListener('focus', validateSession);
+            clearInterval(sessionPoll);
         };
-    }, [scheduleRefresh]);
+    }, [scheduleRefresh, applyLoggedOut]);
 
     const login = useCallback(async (opts = {}) => {
         const kc = getOrCreateKc();
