@@ -43,20 +43,24 @@ function MessageBubble({ msg }) {
     const isOperator = msg.role === 'operator' || msg.sender === 'operator'
     const isBot      = msg.role === 'bot' || msg.sender === 'bot'
     const isUser     = !isOperator && !isBot
+    // Operator-console perspective: the customer (user) sits on the LEFT, the
+    // support side (bot + operator) on the RIGHT — so the transcript reads as a
+    // real two-sided chat instead of every message stacking on one side.
+    const onRight = !isUser
     return (
-        <div className={`flex ${isOperator ? 'justify-end' : 'justify-start'}`}>
+        <div className={`flex ${onRight ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                 isOperator
                     ? 'bg-primary text-primary-fg rounded-br-sm'
                     : isBot
-                        ? 'bg-surface2 text-fgmuted rounded-bl-sm'
+                        ? 'bg-surface2 text-fgmuted rounded-br-sm'
                         : 'bg-surface border border-bordc text-fg rounded-bl-sm'
             }`}>
                 {!isOperator && (
                     <p className="text-xs font-semibold mb-0.5 opacity-60">{isBot ? 'Bot' : 'User'}</p>
                 )}
                 <p className="whitespace-pre-wrap break-words">{isUser ? fmtPayload(msg.text) : msg.text}</p>
-                <p className={`text-xs mt-1 opacity-60 ${isOperator ? 'text-right' : ''}`}>
+                <p className={`text-xs mt-1 opacity-60 ${onRight ? 'text-right' : ''}`}>
                     {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                 </p>
             </div>
