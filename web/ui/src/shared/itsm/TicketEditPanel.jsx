@@ -23,8 +23,16 @@ export default function TicketEditPanel({ ticket, onUpdated }) {
 
     const { data: users }  = useItsmResource(() => get('/tenant/users', { limit: 100 }), [get])
     const { data: teams }  = useItsmResource(() => get('/tenant/teams'), [get])
+    // Only offer statuses the state machine actually allows from the current one
+    // (plus the current status itself). Picking an unreachable status otherwise
+    // returns a 409 "Cannot transition from X to Y". Reloads when status changes.
+    const { data: trans }  = useItsmResource(
+        () => get(`/tickets/${ticket.id}/transitions`), [get, ticket.id, ticket.status])
     const userList = users?.items || []
     const teamList = teams || []
+    const statusOptions = trans?.valid
+        ? [ticket.status, ...trans.valid.filter(s => s !== ticket.status)]
+        : STATUSES
 
     const save = async (field, value) => {
         if (!value && (field === 'assignee_id' || field === 'team_id')) return
@@ -52,7 +60,7 @@ export default function TicketEditPanel({ ticket, onUpdated }) {
                         className="select text-sm" value={ticket.status} disabled={saving === 'status'}
                         onChange={e => save('status', e.target.value)}
                     >
-                        {STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+                        {statusOptions.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
                     </select>
                 </label>
                 <label className="block space-y-1">
