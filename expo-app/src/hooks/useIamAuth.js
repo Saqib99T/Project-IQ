@@ -242,20 +242,26 @@ export function useIamAuth(iamConfig) {
         };
     }, []); // eslint-disable-line
 
-    // Keep the session alive across backgrounding. JS timers are paused/throttled
-    // while the app is backgrounded, so the scheduled refresh may never fire —
-    // instead, refresh on every return to the foreground if the access token is
-    // at/near expiry. With the offline_access refresh token this keeps the user
-    // signed in indefinitely (no expiry while the refresh token stays valid).
+    // Keep the session alive across backgrounding AND detect an external logout.
+    // JS timers are paused/throttled while backgrounded, so the scheduled refresh
+    // may never fire. On every return to the foreground we force a refresh-token
+    // exchange (throttled) — this both re-arms the session and surfaces a
+    // server-side revoke: refreshSession() logs out on invalid_grant, so a logout
+    // on another device / the IAM app reflects promptly instead of lingering
+    // until the access token expires. It's a no-op for guests (no stored refresh
+    // token), and a *successful* refresh keeps the user signed in indefinitely
+    // while the offline_access refresh token stays valid.
+    const lastFgCheckRef = useRef(0);
     useEffect(() => {
         const sub = AppState.addEventListener('change', (state) => {
             if (state !== 'active') return;
-            const exp = tokenExpiry(token);
-            if (token && exp && exp > Date.now() + 120_000) return; // still fresh
-            refreshSession(); // expired / near-expiry / unknown → refresh (no-op for guests)
+            const now = Date.now();
+            if (now - lastFgCheckRef.current < 30_000) return; // throttle rapid app-switching
+            lastFgCheckRef.current = now;
+            refreshSession();
         });
         return () => sub.remove();
-    }, [token, refreshSession]); // eslint-disable-line
+    }, [refreshSession]); // eslint-disable-line
 
     const clearStoredTokens = async () => {
         await SecureStore.deleteItemAsync(KEY_ACCESS).catch(() => {});
