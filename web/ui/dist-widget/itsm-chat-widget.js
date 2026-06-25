@@ -41155,10 +41155,13 @@ Please select a product below to get started.`;
       }
     }, [isOpen]);
     const fetchUserHistory = async (search2 = "") => {
-      if (!authUser) return;
+      const iamSub = iam.user?.sub;
+      if (!authUser && !iamSub) return;
       setHistoryLoading(true);
       try {
-        const params = new URLSearchParams({ user_name: authUser });
+        const params = new URLSearchParams();
+        if (iamSub) params.set("user_id", iamSub);
+        if (authUser) params.set("user_name", authUser);
         if (search2) params.set("search", search2);
         const res = await fetch(`${ADMIN_API_URL$1}/api/user/conversations?${params}`);
         const data = await res.json();

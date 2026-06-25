@@ -843,10 +843,15 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
 
     // Fetch conversation history list from DB
     const fetchUserHistory = async (search = '') => {
-        if (!authUser) return;
+        const iamSub = iam.user?.sub;
+        if (!authUser && !iamSub) return;
         setHistoryLoading(true);
         try {
-            const params = new URLSearchParams({ user_name: authUser });
+            const params = new URLSearchParams();
+            // Prefer the stable IAM sub (matches conversations.user_id on every
+            // session); send the display name too as a best-effort fallback.
+            if (iamSub)   params.set('user_id', iamSub);
+            if (authUser) params.set('user_name', authUser);
             if (search) params.set('search', search);
             const res  = await fetch(`${ADMIN_API_URL}/api/user/conversations?${params}`);
             const data = await res.json();
