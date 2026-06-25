@@ -40692,8 +40692,13 @@ How can I help you today?`;
       channel: iam.user?.organization_id ? "internal" : void 0,
       iam_token: iam.token || void 0,
       session_token: getCookie(getStorageKey(appId, "glpiSessionToken")) || void 0,
+      // Per-session epoch so the server keys THIS session's conversation
+      // record to the same id the widget uses (iam-{sub}-{product}-{epoch}).
+      // Without it the server drops the epoch and every session collapses
+      // into one conversation → operator sees the whole history.
+      session_epoch: sessionEpoch || void 0,
       ...extra
-    }), [selectedProductId, appId, authUser, isAuthenticated, iamAuthenticated, iam.user]);
+    }), [selectedProductId, appId, authUser, isAuthenticated, iamAuthenticated, iam.user, sessionEpoch]);
     const darkBg = "#111827";
     const darkText = "#f9fafb";
     const effectiveBg = isDarkMode ? darkBg : bgColor;

@@ -299,6 +299,24 @@ def chat_webhook_proxy():
                 _pid_meta = metadata.get('product_id')
                 if _pid_meta:
                     sender_id = f"iam-{iam_user['sub']}-{_pid_meta}"
+                # Per-SESSION epoch: the widget mints a fresh epoch on every login
+                # and on "new conversation", embeds it in its senderId AND its
+                # socket room (user:iam-{sub}-{product}-{epoch}). Preserve it here
+                # so each session is its OWN conversation record — otherwise every
+                # session for a user+product collapses into one row and the
+                # operator's transcript shows the user's entire history instead of
+                # just this session (the "dozens of messages" bug). Identity stays
+                # token-derived; we only append the benign, sanitised client epoch.
+                # Source: metadata.session_epoch (preferred), else parse it off the
+                # client's own senderId so older widgets keep working.
+                import re as _re
+                _epoch = str(metadata.get('session_epoch') or '').strip()
+                if not _epoch:
+                    _client_sender = str(data.get('sender') or '')
+                    if _client_sender.startswith(sender_id + '-'):
+                        _epoch = _client_sender[len(sender_id) + 1:]
+                if _epoch and _re.fullmatch(r'[A-Za-z0-9]{1,40}', _epoch):
+                    sender_id = f"{sender_id}-{_epoch}"
                 # CRITICAL: forward this canonical id to Rasa too. The widget
                 # starts a session under a random guest UUID and only flips to
                 # iam-{sub}(-product) after IAM/product resolve, so without this

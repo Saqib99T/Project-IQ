@@ -274,8 +274,13 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         channel:          iam.user?.organization_id ? 'internal' : undefined,
         iam_token:        iam.token || undefined,
         session_token:    getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined,
+        // Per-session epoch so the server keys THIS session's conversation
+        // record to the same id the widget uses (iam-{sub}-{product}-{epoch}).
+        // Without it the server drops the epoch and every session collapses
+        // into one conversation → operator sees the whole history.
+        session_epoch:    sessionEpoch || undefined,
         ...extra,
-    }), [selectedProductId, appId, authUser, isAuthenticated, iamAuthenticated, iam.user]);
+    }), [selectedProductId, appId, authUser, isAuthenticated, iamAuthenticated, iam.user, sessionEpoch]);
 
     const darkBg      = '#111827';
     const darkText    = '#f9fafb';
