@@ -4,6 +4,7 @@ import { useItsmTenant } from '../../../shared/itsm/ItsmTenantContext'
 import { useItsmPermissions } from '../../../shared/itsm/useItsmPermissions'
 import { StatusBadge, PriorityBadge, LoadingSpinner, ErrorBanner } from '../../../shared/itsm/primitives'
 import TicketEditPanel from '../../../shared/itsm/TicketEditPanel'
+import TicketSlaPanel from '../../../shared/itsm/TicketSlaPanel'
 import CommentsSection from '../../../shared/itsm/CommentsSection'
 
 function formatDate(iso) {
@@ -17,7 +18,7 @@ export default function ItsmTicketDetailPage() {
     const location = useLocation()
     const { tenantId } = useItsmTenant()
     const { get } = useItsmApi(tenantId)
-    const { isAgent } = useItsmPermissions()
+    const { isAgent, isManager } = useItsmPermissions()
 
     // Route-aware: this page renders under both /admin/itsm/tickets/:id and
     // /operator/tickets/:id — send "Back" to the right list.
@@ -55,6 +56,12 @@ export default function ItsmTicketDetailPage() {
                     {isAgent && (
                         <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
                             <TicketEditPanel ticket={ticket} onUpdated={reload} />
+                        </div>
+                    )}
+
+                    {isAgent && (
+                        <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
+                            <TicketSlaPanel ticketId={ticket.id} canManage={isManager} />
                         </div>
                     )}
 

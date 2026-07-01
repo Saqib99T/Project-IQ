@@ -14,6 +14,7 @@ import { PageHeader } from '../../shared/itsm/ui'
 import AutomationRulesSection from '../components/admin/AutomationRulesSection'
 import WebhooksSection from '../components/admin/WebhooksSection'
 import SlaPoliciesSection from '../components/admin/SlaPoliciesSection'
+import SlaAgreementsSection from '../components/admin/SlaAgreementsSection'
 import TeamsSection from '../components/admin/TeamsSection'
 import KbSpacesSection from '../components/admin/KbSpacesSection'
 import KbArticlesSection from '../components/admin/KbArticlesSection'
@@ -41,7 +42,8 @@ const GROUPS = [
         id: 'service-catalog', label: 'Service Catalog',
         items: [
             { id: 'ticket-categories', label: 'Ticket Categories', icon: Tags, render: (c) => <TicketCategoriesSection canManage={c.isManager} isPlatform={c.isPlatform} /> },
-            { id: 'sla', label: 'SLA Policies', icon: Gauge, tenantScoped: true, render: () => <SlaPoliciesSection /> },
+            { id: 'sla-agreements', label: 'SLA / OLA / UC', icon: Gauge, adminOnly: true, tenantScoped: true, render: () => <SlaAgreementsSection /> },
+            { id: 'sla', label: 'SLA Policies (legacy)', icon: Gauge, tenantScoped: true, render: () => <SlaPoliciesSection /> },
             { id: 'business-hours', label: 'Business Hours', icon: Clock, adminOnly: true, tenantScoped: true, render: () => <BusinessHoursSection /> },
         ],
     },

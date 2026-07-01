@@ -9,6 +9,8 @@ import { useItsmTenant, ItsmTenantScope } from '../../shared/itsm/ItsmTenantCont
 import { StatusBadge, PriorityBadge, TenantBadge, LoadingSpinner, ErrorBanner } from '../../shared/itsm/primitives'
 import { Button, IconButton, Badge, Breadcrumb, Tabs, useConfirm } from '../../shared/itsm/ui'
 import TicketEditPanel from '../../shared/itsm/TicketEditPanel'
+import TicketSlaPanel from '../../shared/itsm/TicketSlaPanel'
+import { useItsmPermissions } from '../../shared/itsm/useItsmPermissions'
 import CommentsSection from '../../shared/itsm/CommentsSection'
 import WatchersSection from '../components/WatchersSection'
 import AttachmentsSection from '../components/AttachmentsSection'
@@ -80,6 +82,7 @@ export default function TicketDetailPage() {
     const { ticketId } = useParams()
     const navigate = useNavigate()
     const { get } = useItsmApi()
+    const { isManager: canManage } = useItsmPermissions()
     const { tenantId } = useItsmTenant()
     const { isPlatformOrg } = useOutletContext() || {}
     const confirm = useConfirm()
@@ -198,6 +201,8 @@ export default function TicketDetailPage() {
                             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Manage</h3>
                             <TicketEditPanel ticket={ticket} onUpdated={reload} />
                         </div>
+
+                        <TicketSlaPanel ticketId={ticket.id} canManage={canManage} />
                     </aside>
                 </div>
             )}
