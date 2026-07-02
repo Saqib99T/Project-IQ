@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
     Ticket, MonitorSmartphone, BookOpen, BarChart3, Bot, Bell, Settings,
-    LogOut, Moon, Sun, Check, Palette,
+    LogOut, Moon, Sun, Check, Palette, Siren,
 } from 'lucide-react'
 import { useIam } from '../widget/hooks/useIam'
 import { useTheme, BRAND_META } from '../portal/useTheme'
@@ -139,6 +139,7 @@ function ItsmAppLayoutInner({ isPlatformOrg }) {
                     <SidebarLink to="/assets"    icon={MonitorSmartphone} label="Assets" />
                     <SidebarLink to="/kb"        icon={BookOpen}          label="Knowledge Base" />
                     <SidebarLink to="/reports"   icon={BarChart3}         label="Reports" />
+                    <SidebarLink to="/incidents" icon={Siren}             label="Incidents" />
                     {/* Virtual Agent temporarily disabled (re-enable once the AI provider key is restored) */}
                     <SidebarLink to="/notifications" icon={Bell}          label="Notifications" />
                     {canAdminister && <SidebarLink to="/admin" icon={Settings} label="Administration" />}
