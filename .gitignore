@@ -73,3 +73,7 @@ expo-app/*.aab
 web/data/cache/
 common/kb_embeddings_cache.json
 common/intent_index_cache.npz
+
+# Local database backups (contain live data / secrets — never commit)
+DB Backup/
+*.dump

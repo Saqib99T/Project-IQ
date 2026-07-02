@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import {
     Building2, Tags, Boxes, Layers, Truck, FolderTree, Hash, Users, ShieldCheck,
     Clock, Gauge, Workflow, Webhook, Wallet, ScrollText, BookOpen, Settings, Lock, FileWarning,
-    Info, ChevronDown, ChevronRight, FileText, Package, Siren,
+    Info, ChevronDown, ChevronRight, FileText, Package, Siren, Activity,
 } from 'lucide-react'
 import { useIam } from '../../widget/hooks/useIam'
 import { useItsmTenant } from '../../shared/itsm/ItsmTenantContext'
@@ -16,6 +16,7 @@ import WebhooksSection from '../components/admin/WebhooksSection'
 import SlaPoliciesSection from '../components/admin/SlaPoliciesSection'
 import SlaAgreementsSection from '../components/admin/SlaAgreementsSection'
 import OnCallSection from '../components/admin/OnCallSection'
+import SloSection from '../components/admin/SloSection'
 import TeamsSection from '../components/admin/TeamsSection'
 import KbSpacesSection from '../components/admin/KbSpacesSection'
 import KbArticlesSection from '../components/admin/KbArticlesSection'
@@ -52,6 +53,7 @@ const GROUPS = [
         id: 'oncall-sre', label: 'On-Call & SRE',
         items: [
             { id: 'oncall', label: 'On-Call / Escalation', icon: Siren, adminOnly: true, tenantScoped: true, render: () => <OnCallSection /> },
+            { id: 'reliability', label: 'Reliability (SLO)', icon: Activity, adminOnly: true, tenantScoped: true, render: () => <SloSection /> },
         ],
     },
     {
