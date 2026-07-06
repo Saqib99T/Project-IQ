@@ -60,6 +60,9 @@ function parseUser(tokenPayload, clientId = 'project-iq') {
         const realmRoles = t.realm_access?.roles || [];
         return {
             sub:             t.sub,
+            // Keycloak session id — used to start a fresh chat-session record
+            // (epoch bump) on each new login. `sid` on newer realms, else session_state.
+            sid:             t.sid || t.session_state || '',
             username:        t.preferred_username || '',
             email:           t.email || '',
             name:            t.name || `${t.given_name || ''} ${t.family_name || ''}`.trim(),

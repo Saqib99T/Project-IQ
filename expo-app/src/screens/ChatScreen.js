@@ -74,6 +74,8 @@ const ChatScreen = ({ navigation }) => {
                     if (!s.connected) { try { s.connect(); } catch { /* noop */ } }
                     try { s.emit('join_user', { sender_id: senderId }); } catch { /* noop */ }
                 }
+                // Back-fill operator messages that arrived while suspended.
+                try { backfillOperatorMessages(); } catch { /* noop */ }
                 if (awayMs > BIOMETRIC_BG_THRESHOLD_MS && iam.isAuthenticated) {
                     const ok = await authenticateWithBiometric();
                     if (!ok) iam.logout().catch(() => {});
@@ -99,10 +101,32 @@ const ChatScreen = ({ navigation }) => {
     const isAuthenticatedRef = useRef(false);
     const sessionTokenRef = useRef(null);
     const socketRef = useRef(null);
+    const lastOpTsRef = useRef(null);   // watermark for operator-message back-fill
     const opTypingTimer = useRef(null);
     const [ready, setReady] = useState(false);
     const [appId, setAppIdState] = useState('IT');
     const appIdRef = useRef('IT');
+
+    // ── Per-session epoch (mirrors the web widget) ─────────────────────────────
+    // Each chat session is its OWN history record. A signed-in user's id is
+    // iam-{sub}-{product}-{epoch}; the epoch bumps on a fresh login (IAM sid
+    // changes) and on New Conversation / Clear, but is stable across relaunches
+    // so a reload stays in the same session. The server keys the conversation
+    // record off session_epoch (sent in metadata) to match this id exactly.
+    const sessionEpochRef = useRef('');
+    const newEpoch = () => `s${Date.now().toString(36)}`;
+    const iamSenderId = async (product, sub, { bump = false } = {}) => {
+        const storedSid = await storage.getItem(product, 'sessionSid');
+        const curSid = iam.user?.sid || '';
+        let ep = await storage.getItem(product, 'sessionEpoch');
+        if (bump || !ep || (curSid && curSid !== storedSid)) {
+            ep = newEpoch();
+            await storage.setItem(product, 'sessionEpoch', ep);
+            if (curSid) await storage.setItem(product, 'sessionSid', curSid);
+        }
+        sessionEpochRef.current = ep;
+        return `iam-${sub}-${product}-${ep}`;
+    };
 
     // Session ended state
     const [sessionEnded, setSessionEnded] = useState(false);
@@ -265,9 +289,17 @@ const ChatScreen = ({ navigation }) => {
         setAppIdState(targetAppId);
 
         let sid = await storage.getItem(targetAppId, 'senderId');
-        if (!sid) {
-            sid = uuidv4();
+        // Signed-in: (re)derive the epoch-scoped id so a fresh login (new IAM
+        // sid) starts a new record, while a relaunch keeps the same one.
+        if (iam.user?.sub) {
+            sid = await iamSenderId(targetAppId, iam.user.sub);
             await storage.setItem(targetAppId, 'senderId', sid);
+        } else {
+            sessionEpochRef.current = (await storage.getItem(targetAppId, 'sessionEpoch')) || '';
+            if (!sid) {
+                sid = uuidv4();
+                await storage.setItem(targetAppId, 'senderId', sid);
+            }
         }
         setSenderId(sid);
 
@@ -429,6 +461,7 @@ const ChatScreen = ({ navigation }) => {
 
             socket.on('connect', () => {
                 socket.emit('join_user', { sender_id: senderId });
+                backfillOperatorMessages();   // recover any operator messages missed while disconnected
                 // Restore handoff state after reconnect
                 fetch(`${adminBase}/handoff/status/${encodeURIComponent(senderId)}`)
                     .then(r => r.json())
@@ -479,6 +512,7 @@ const ChatScreen = ({ navigation }) => {
 
             socket.on('operator_message', (d) => {
                 if (d.sender_id && d.sender_id !== senderId) return;
+                if (d.timestamp) lastOpTsRef.current = d.timestamp;   // advance back-fill watermark
                 setMessages(prev => [...prev, {
                     id: uuidv4(),
                     sender: 'operator',
@@ -560,6 +594,31 @@ const ChatScreen = ({ navigation }) => {
     // On Android, adjustResize (AndroidManifest) resizes the window when keyboard opens.
     // FlatList onLayout fires when its height changes → scroll to show latest messages.
 
+    // Back-fill operator messages from the DB (source of truth) that we missed
+    // while the socket was asleep. Appends only ones newer than the watermark,
+    // so it's safe to call on every (re)connect and foreground. Mirrors web.
+    const backfillOperatorMessages = async () => {
+        if (!senderId) return;
+        try {
+            const adminBase = await getAdminBaseUrl();
+            const res  = await fetch(`${adminBase}/api/user/conversation/${encodeURIComponent(senderId)}/messages`);
+            const data = await res.json();
+            if (!data?.success || !Array.isArray(data.data)) return;
+            const watermark = lastOpTsRef.current ? new Date(lastOpTsRef.current).getTime() : 0;
+            const fresh = data.data.filter(m =>
+                m.sender === 'operator' && m.text &&
+                m.timestamp && new Date(m.timestamp).getTime() > watermark
+            );
+            if (!fresh.length) return;
+            const maxTs = Math.max(...fresh.map(m => new Date(m.timestamp).getTime()));
+            lastOpTsRef.current = new Date(maxTs).toISOString();
+            setMessages(prev => [
+                ...prev,
+                ...fresh.map(m => ({ id: uuidv4(), sender: 'operator', text: m.text, timestamp: m.timestamp })),
+            ]);
+        } catch { /* non-fatal — socket will catch up, or next foreground retries */ }
+    };
+
     // API helper
     const sendToRasa = async (message) => {
         const currentAppId = appIdRef.current || await getAppId();
@@ -586,6 +645,10 @@ const ChatScreen = ({ navigation }) => {
             meta.iam_token    = authToken || undefined;
         }
         meta.is_authenticated = !!(isAuthenticatedRef.current || iam.user);
+        // Per-session epoch so the server keys THIS session's conversation record
+        // to the same id we use locally (iam-{sub}-{product}-{epoch}). Without it
+        // the server drops the epoch and every session collapses into one record.
+        if (sessionEpochRef.current) meta.session_epoch = sessionEpochRef.current;
         const headers = { 'Content-Type': 'application/json' };
         if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
         const response = await fetch(webhookUrl, {
@@ -792,6 +855,10 @@ const ChatScreen = ({ navigation }) => {
         await storage.removeItem(appIdRef.current, 'isAuthenticated');
         await storage.removeItem(appIdRef.current, 'authUser');
         await storage.clearMessages(appIdRef.current);
+        // Drop the session epoch so the next login starts a fresh record.
+        sessionEpochRef.current = '';
+        await storage.removeItem(appIdRef.current, 'sessionEpoch');
+        await storage.removeItem(appIdRef.current, 'sessionSid');
         const freshId = uuidv4();
         await storage.setItem(appIdRef.current, 'senderId', freshId);
         setSenderId(freshId);
@@ -846,7 +913,11 @@ const ChatScreen = ({ navigation }) => {
         warningShownRef.current = false;
         await storage.clearMessages(appIdRef.current);
         await storage.removeItem(appIdRef.current, 'senderId');
-        const newId = uuidv4();
+        // Signed-in: keep identity, bump the epoch → a NEW history record under
+        // iam-{sub}-{product}-{epoch}. Guest: a fresh anonymous id.
+        const newId = iam.user?.sub
+            ? await iamSenderId(appIdRef.current, iam.user.sub, { bump: true })
+            : uuidv4();
         await storage.setItem(appIdRef.current, 'senderId', newId);
         setSenderId(newId);
         setSessionEnded(false);
@@ -864,7 +935,7 @@ const ChatScreen = ({ navigation }) => {
         appIdRef.current = product;
         setAppIdState(product);
         const sub = iam.user?.sub;
-        let sid = sub ? `iam-${sub}-${product}` : await storage.getItem(product, 'senderId');
+        let sid = sub ? await iamSenderId(product, sub) : await storage.getItem(product, 'senderId');
         if (!sid) { sid = uuidv4(); }
         setSenderId(sid);
         await storage.setItem('__global__', 'selectedProduct', product).catch(() => {});
@@ -924,7 +995,9 @@ const ChatScreen = ({ navigation }) => {
                 text: 'Clear', style: 'destructive', onPress: async () => {
                     await storage.clearMessages(appIdRef.current);
                     await storage.removeItem(appIdRef.current, 'senderId');
-                    const newId = uuidv4();
+                    const newId = iam.user?.sub
+                        ? await iamSenderId(appIdRef.current, iam.user.sub, { bump: true })
+                        : uuidv4();
                     await storage.setItem(appIdRef.current, 'senderId', newId);
                     setSenderId(newId);
                     setMessages([{ id: 'init', sender: 'bot', text: `Hello! Welcome to ${TITLE}. How can I help you?` }]);
@@ -994,24 +1067,45 @@ const ChatScreen = ({ navigation }) => {
         finally { setSessionLoading(false); }
     };
 
-    // File attachment
+    // File attachment — read the bytes and send them (base64), matching the web
+    // widget's payload: /upload_file{"file_name","file_data"}. copyToCacheDirectory
+    // gives a readable uri; fetch→blob→FileReader yields base64 with no extra dep.
     const handleFileAttach = async () => {
         try {
-            const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: false });
+            const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
             if (result.canceled) return;
             const file = result.assets[0];
             if (file.size > 2 * 1024 * 1024) {
                 Alert.alert('File too large', 'Please select a file under 2MB.');
                 return;
             }
-            const userMsg = { id: uuidv4(), sender: senderId, text: `📎 ${file.name}` };
-            setMessages(prev => [...prev, userMsg]);
             setIsLoading(true);
             lastActivityRef.current = Date.now();
-            const data = await sendToRasa(`/upload_file{"filename": "${file.name}"}`);
+            // Read the file into base64 (no expo-file-system needed).
+            let base64 = null;
+            try {
+                const resp = await fetch(file.uri);
+                const blob = await resp.blob();
+                base64 = await new Promise((res, rej) => {
+                    const r = new FileReader();
+                    r.onload = () => res(String(r.result).split(',')[1] || null);
+                    r.onerror = rej;
+                    r.readAsDataURL(blob);
+                });
+            } catch (readErr) { console.warn('File read failed, sending metadata only:', readErr); }
+
+            const userMsg = { id: uuidv4(), sender: senderId, text: `📎 Uploading ${file.name}…` };
+            setMessages(prev => [...prev, userMsg]);
+            const entities = base64
+                ? { file_name: file.name, file_data: base64 }
+                : { file_name: file.name };
+            const data = await sendToRasa(`/upload_file${JSON.stringify(entities)}`);
             const responses = processResponse(data);
             if (responses.length > 0) setMessages(prev => [...prev, ...responses]);
-        } catch (e) { console.error('File attach error:', e); }
+        } catch (e) {
+            console.error('File attach error:', e);
+            setMessages(prev => [...prev, { id: uuidv4(), sender: 'bot', text: '⚠️ Upload failed.' }]);
+        }
         finally { setIsLoading(false); }
     };
 

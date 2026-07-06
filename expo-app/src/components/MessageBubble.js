@@ -10,6 +10,32 @@ import { useTheme } from '../context/ThemeContext';
 // the web widget's dir="auto" — direction follows the message content so a
 // mixed-language chat stays correct without any global layout flip.
 const _RTL_RE = /[؀-ۿݐ-ݿࢠ-ࣿ֐-׿ﭐ-﷿ﹰ-﻿]/;
+
+// In-WebView SVG drawer for line / area / pie charts (no react-native-svg dep).
+// Reads a JSON blob `D` and renders into #c, legend into #l — mirrors the web
+// ChartRenderer's line/area/pie output.
+const _CHART_DRAWER = "var W=300,H=180,P=28;function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}document.getElementById('t').textContent=D.title||'';var svg='',lg='';if(D.type==='pie'){var data=(D.datasets[0]||{}).data||[];var tot=data.reduce(function(a,b){return a+(+b||0)},0)||1;var cx=90,cy=90,r=70,a0=-Math.PI/2,paths='';for(var i=0;i<data.length;i++){var frac=(+data[i]||0)/tot,a1=a0+frac*2*Math.PI,x0=cx+r*Math.cos(a0),y0=cy+r*Math.sin(a0),x1=cx+r*Math.cos(a1),y1=cy+r*Math.sin(a1),large=frac>0.5?1:0,col=D.palette[i%D.palette.length];paths+='<path d=\"M'+cx+','+cy+' L'+x0.toFixed(1)+','+y0.toFixed(1)+' A'+r+','+r+' 0 '+large+' 1 '+x1.toFixed(1)+','+y1.toFixed(1)+' Z\" fill=\"'+col+'\"/>';a0=a1;lg+='<span><i style=\"background:'+col+'\"></i>'+esc(D.labels[i]||('#'+(i+1)))+' '+Math.round(frac*100)+'%</span>';}svg='<svg viewBox=\"0 0 180 180\" height=\"170\">'+paths+'</svg>';}else{var all=[];D.datasets.forEach(function(ds){(ds.data||[]).forEach(function(v){all.push(+v||0);});});var mn=Math.min.apply(null,all.concat(0)),mx=Math.max.apply(null,all.concat(1)),rng=(mx-mn)||1,n=D.labels.length||((D.datasets[0]||{}).data||[]).length,cw=W-P*2,ch=H-P*2;function X(i){return P+(n<=1?cw/2:cw*i/(n-1));}function Y(v){return P+ch-((v-mn)/rng)*ch;}var grid='';for(var g=0;g<=4;g++){var yy=P+ch*g/4;grid+='<line x1=\"'+P+'\" y1=\"'+yy+'\" x2=\"'+(W-P)+'\" y2=\"'+yy+'\" stroke=\"'+D.grid+'\" stroke-width=\"1\"/>';}var series='';D.datasets.forEach(function(ds,di){var col=D.palette[di%D.palette.length],d=ds.data||[],pts=d.map(function(v,i){return X(i).toFixed(1)+','+Y(+v||0).toFixed(1);}).join(' ');if(D.type==='area'&&d.length){series+='<polygon points=\"'+X(0).toFixed(1)+','+(P+ch)+' '+pts+' '+X(d.length-1).toFixed(1)+','+(P+ch)+'\" fill=\"'+col+'\" opacity=\"0.15\"/>';}series+='<polyline points=\"'+pts+'\" fill=\"none\" stroke=\"'+col+'\" stroke-width=\"2\"/>';d.forEach(function(v,i){series+='<circle cx=\"'+X(i).toFixed(1)+'\" cy=\"'+Y(+v||0).toFixed(1)+'\" r=\"2.5\" fill=\"'+col+'\"/>';});if(ds.label){lg+='<span><i style=\"background:'+col+'\"></i>'+esc(ds.label)+'</span>';}});var xl='';for(var i=0;i<n;i++){xl+='<text x=\"'+X(i).toFixed(1)+'\" y=\"'+(H-8)+'\" fill=\"'+D.fg+'\" font-size=\"8\" text-anchor=\"middle\">'+esc(D.labels[i]||'')+'</text>';}svg='<svg viewBox=\"0 0 '+W+' '+H+'\" height=\"170\">'+grid+series+xl+'</svg>';}document.getElementById('c').innerHTML=svg;document.getElementById('l').innerHTML=lg;";
+
+function chartHtml(chart, isDark) {
+    const bg = isDark ? '#1e2533' : '#ffffff';
+    const fg = isDark ? '#e5e7eb' : '#334155';
+    const grid = isDark ? '#2e3a4e' : '#e5e7eb';
+    const palette = ['#7c3aed', '#2563eb', '#0d9488', '#d97706', '#dc2626', '#16a34a'];
+    const datasets = (chart.datasets && chart.datasets.length)
+        ? chart.datasets
+        : [{ label: chart.title || '', data: chart.data || [] }];
+    const payload = JSON.stringify({
+        type: (chart.type || 'line').toLowerCase(),
+        labels: chart.labels || [], datasets, title: chart.title || '', palette, fg, grid,
+    });
+    return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">'
+        + '<style>html,body{margin:0;padding:0;background:' + bg + ';overflow:hidden;font-family:system-ui,sans-serif}'
+        + '#t{color:' + fg + ';font-size:12px;font-weight:600;padding:6px 8px 0}svg{display:block;width:100%}'
+        + '.lg{color:' + fg + ';font-size:10px;display:flex;flex-wrap:wrap;gap:8px;padding:2px 8px 6px}'
+        + '.lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:middle}</style></head>'
+        + '<body><div id="t"></div><div id="c"></div><div id="l" class="lg"></div>'
+        + '<script>var D=' + payload + ';' + _CHART_DRAWER + '</script></body></html>';
+}
 const isRtlText = (text) => typeof text === 'string' && _RTL_RE.test(text);
 
 const PAYLOAD_LABELS = {
@@ -90,7 +116,7 @@ const extractYouTubeInfo = (video) => {
 };
 
 const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFeedback, apiBaseUrl = '' }) => {
-    const { theme: THEME } = useTheme();
+    const { theme: THEME, isDark } = useTheme();
     const styles = useMemo(() => makeStyles(THEME), [THEME]);
     const [feedbackGiven, setFeedbackGiven] = useState(initialFeedback || null);
     const isBot = message.sender === 'bot';
@@ -300,18 +326,30 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
 
                     {/* Chart — inline bar chart */}
                     {chartData && (
-                        <View style={styles.chartContainer}>
-                            {chartData.title ? <Text style={styles.chartTitle}>{chartData.title}</Text> : null}
-                            {(chartData.labels || []).map((label, i) => (
-                                <View key={i} style={styles.chartRow}>
-                                    <Text style={styles.chartLabel} numberOfLines={1}>{label}</Text>
-                                    <View style={styles.chartBarTrack}>
-                                        <View style={[styles.chartBar, { width: `${Math.round(((chartData.data?.[i] || 0) / chartMax) * 100)}%` }]} />
-                                    </View>
-                                    <Text style={styles.chartValue}>{chartData.data?.[i]}</Text>
+                        ['line', 'area', 'pie'].includes((chartData.type || '').toLowerCase())
+                            ? (
+                                <View style={{ height: 220, marginTop: 6, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: THEME.border }}>
+                                    <WebView
+                                        originWhitelist={['*']}
+                                        scrollEnabled={false}
+                                        style={{ backgroundColor: 'transparent' }}
+                                        source={{ html: chartHtml(chartData, isDark) }}
+                                    />
                                 </View>
-                            ))}
-                        </View>
+                            ) : (
+                                <View style={styles.chartContainer}>
+                                    {chartData.title ? <Text style={styles.chartTitle}>{chartData.title}</Text> : null}
+                                    {(chartData.labels || []).map((label, i) => (
+                                        <View key={i} style={styles.chartRow}>
+                                            <Text style={styles.chartLabel} numberOfLines={1}>{label}</Text>
+                                            <View style={styles.chartBarTrack}>
+                                                <View style={[styles.chartBar, { width: `${Math.round(((chartData.data?.[i] || 0) / chartMax) * 100)}%` }]} />
+                                            </View>
+                                            <Text style={styles.chartValue}>{chartData.data?.[i]}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )
                     )}
 
                     {/* Action buttons — wrapping layout, hidden in readonly */}
