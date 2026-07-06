@@ -297,6 +297,11 @@ const ChatScreen = ({ navigation }) => {
         if (savedFeedback) {
             try { setFeedbackMap(JSON.parse(savedFeedback)); } catch { /* ignore */ }
         }
+
+        // Privacy notice — show once per product until the user acknowledges it
+        // (mirrors the web widget's consent popup).
+        const privacyDismissed = await storage.getItem(targetAppId, 'privacyDismissed');
+        if (privacyDismissed !== 'true') setShowPrivacyConsent(true);
     };
 
     // Track keyboard visibility to eliminate the bottom inset gap when open
@@ -598,7 +603,7 @@ const ChatScreen = ({ navigation }) => {
         let lastText = null;
         for (const msg of data) {
             if (msg.text) {
-                lastText = { id: uuidv4(), sender: 'bot', text: msg.text, buttons: msg.buttons, chart: msg.chart || msg.custom?.chart, video: msg.custom?.video, ticket_form: msg.custom?.ticket_form, ticketList: msg.custom?.ticket_list };
+                lastText = { id: uuidv4(), sender: 'bot', text: msg.text, buttons: msg.buttons, chart: msg.chart || msg.custom?.chart, video: msg.custom?.video, ticket_form: msg.custom?.ticket_form, ticketList: msg.custom?.ticket_list, ticketDetail: msg.custom?.ticket_detail };
                 processed.push(lastText);
             } else if (msg.custom?.chart && lastText) { lastText.chart = msg.custom.chart; }
             else if (msg.custom?.chart) { processed.push({ id: uuidv4(), sender: 'bot', text: '', chart: msg.custom.chart }); }
@@ -608,6 +613,8 @@ const ChatScreen = ({ navigation }) => {
             else if (msg.custom?.ticket_form) { processed.push({ id: uuidv4(), sender: 'bot', text: '', ticket_form: msg.custom.ticket_form }); }
             else if (msg.custom?.ticket_list && lastText) { lastText.ticketList = msg.custom.ticket_list; }
             else if (msg.custom?.ticket_list) { processed.push({ id: uuidv4(), sender: 'bot', text: '', ticketList: msg.custom.ticket_list }); }
+            else if (msg.custom?.ticket_detail && lastText) { lastText.ticketDetail = msg.custom.ticket_detail; }
+            else if (msg.custom?.ticket_detail) { processed.push({ id: uuidv4(), sender: 'bot', text: '', ticketDetail: msg.custom.ticket_detail }); }
             else if (msg.image) { processed.push({ id: uuidv4(), sender: 'bot', text: `![image](${msg.image})` }); }
         }
 
@@ -961,6 +968,9 @@ const ChatScreen = ({ navigation }) => {
             // Use preferred_username (stored in DB), not display name
             const historyUserName = iam.user?.username || authUser;
             const params = new URLSearchParams({ user_name: historyUserName });
+            // Also key on the IAM subject (matches conversations.user_id) so records
+            // are found even when the display name differs from preferred_username.
+            if (iam.user?.sub) params.set('user_id', iam.user.sub);
             if (search) params.set('search', search);
             const res  = await fetch(`${adminBase}/api/user/conversations?${params}`);
             const resp = await res.json();

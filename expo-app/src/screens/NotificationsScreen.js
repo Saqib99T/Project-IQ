@@ -52,7 +52,14 @@ const NotificationsScreen = ({ navigation, route }) => {
         }
     }, [userId]);
 
-    useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+    // Fetch on mount, then poll while the screen is open so it stays current
+    // without a manual pull (the always-mounted header badge is socket-live;
+    // this keeps the drill-in list fresh too).
+    useEffect(() => {
+        fetchNotifications();
+        const id = setInterval(() => fetchNotifications(true), 20000);
+        return () => clearInterval(id);
+    }, [fetchNotifications]);
 
     const markRead = async (id) => {
         try {

@@ -249,6 +249,55 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
                         </View>
                     )}
 
+                    {/* Structured ticket detail — badges + title + comments + attachments (mirrors web) */}
+                    {message.ticketDetail && (
+                        <View style={{ marginTop: 4, borderWidth: 1, borderColor: THEME.border, borderRadius: 8, padding: 10, backgroundColor: THEME.background, gap: 6 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                                <Text style={{ fontSize: 13, fontWeight: '700', color: THEME.text }}>Ticket {message.ticketDetail.ref}:</Text>
+                                {message.ticketDetail.status ? (
+                                    <Text style={{ fontSize: 10, fontWeight: '600', color: THEME.primary, backgroundColor: THEME.primary + '15', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{message.ticketDetail.status}</Text>
+                                ) : null}
+                                {message.ticketDetail.priority ? (
+                                    <Text style={{ fontSize: 10, fontWeight: '600', color: '#b45309', backgroundColor: '#b4530915', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{message.ticketDetail.priority}</Text>
+                                ) : null}
+                            </View>
+                            {[['Title', message.ticketDetail.title], ['Product', message.ticketDetail.product], ['Created', message.ticketDetail.created], ['Updated', message.ticketDetail.updated]].map(([lbl, val]) => (
+                                val ? (
+                                    <View key={lbl} style={{ flexDirection: 'row', gap: 8 }}>
+                                        <Text style={{ minWidth: 58, fontSize: 12, fontWeight: '600', color: THEME.textSecondary }}>{lbl}</Text>
+                                        <Text style={{ flex: 1, fontSize: 12, color: THEME.text }}>{val}</Text>
+                                    </View>
+                                ) : null
+                            ))}
+                            {(message.ticketDetail.comments || []).length > 0 && (
+                                <View style={{ gap: 6, marginTop: 2 }}>
+                                    <Text style={{ fontSize: 11, fontWeight: '600', color: THEME.textSecondary }}>💬 Comments</Text>
+                                    {message.ticketDetail.comments.map((c, i) => (
+                                        <View key={i} style={{ borderLeftWidth: 2, borderLeftColor: THEME.border, paddingLeft: 8 }}>
+                                            <Text style={{ fontSize: 10, fontWeight: '600', color: THEME.textSecondary }}>{c.author}{c.date ? ` · ${c.date}` : ''}</Text>
+                                            <Text style={{ fontSize: 12, color: THEME.text }}>{c.body}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                            {(message.ticketDetail.attachments || []).length > 0 && (
+                                <View style={{ marginTop: 2, gap: 4 }}>
+                                    <Text style={{ fontSize: 11, fontWeight: '600', color: THEME.textSecondary }}>📎 Attachments</Text>
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                                        {message.ticketDetail.attachments.filter(a => a.url && (a.mime || '').startsWith('image/')).map((a, i) => (
+                                            <Image key={i} source={{ uri: a.url }} style={{ width: 76, height: 76, borderRadius: 6, borderWidth: 1, borderColor: THEME.border }} />
+                                        ))}
+                                    </View>
+                                    {message.ticketDetail.attachments.filter(a => !(a.url && (a.mime || '').startsWith('image/'))).map((a, i) => (
+                                        a.url
+                                            ? <Text key={i} style={{ fontSize: 12, color: THEME.primary }} onPress={() => Linking.openURL(a.url)}>{a.filename}</Text>
+                                            : <Text key={i} style={{ fontSize: 12, color: THEME.text }}>{a.filename}</Text>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    )}
+
                     {/* Chart — inline bar chart */}
                     {chartData && (
                         <View style={styles.chartContainer}>
