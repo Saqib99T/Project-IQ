@@ -184,7 +184,11 @@ def build2(slug, tid):
 emit("-- PIQ demo seed PHASE 2 (Phase 9 SLO + remaining entities). Idempotent.")
 emit("SET app.bypass_rls = 'on';")
 emit("BEGIN;")
+import sys as _sys
+_only = set(_sys.argv[1].split(",")) if len(_sys.argv) > 1 else None
 for slug, tid in TENANTS:
+    if _only and slug not in _only:
+        continue
     if tid is None:
         tid = u("tenant:" + slug)
     emit("\n-- ===== TENANT %s =====" % slug)

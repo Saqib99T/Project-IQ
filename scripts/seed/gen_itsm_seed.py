@@ -397,7 +397,11 @@ INC_NO = 0
 emit("-- PIQ demo seed for itsm_db (generated). Idempotent via ON CONFLICT DO NOTHING.")
 emit("SET app.bypass_rls = 'on';")
 emit("BEGIN;")
+import sys as _sys
+_only = set(_sys.argv[1].split(",")) if len(_sys.argv) > 1 else None
 for slug, tid, org, name, create in TENANTS:
+    if _only and slug not in _only:
+        continue
     if tid is None:
         tid = u("tenant:"+slug)
     emit("\n-- ===== TENANT: %s (%s) =====" % (name, tid))
