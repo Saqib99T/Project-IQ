@@ -182,6 +182,9 @@ footer span{color:#94a3b8}
     <div class="chip">📊 Deflection Analytics</div>
     <div class="chip">📱 Web + Mobile</div>
     <div class="chip">🔎 End-to-end Tracing</div>
+    <div class="chip">⏱️ SLA / OLA / UC</div>
+    <div class="chip">🚨 On-Call &amp; Incidents</div>
+    <div class="chip">📈 SLO / Error Budgets</div>
   </div>
   <div class="hero-stats">
     <div class="hstat"><div class="val violet">6</div><div class="lbl">Platform Ends</div></div>
@@ -190,7 +193,7 @@ footer span{color:#94a3b8}
     <div class="hstat"><div class="val amber">5</div><div class="lbl">Bot Languages</div></div>
     <div class="hstat"><div class="val green">∞</div><div class="lbl">Isolated Tenants</div></div>
     <div class="hstat"><div class="val red">&lt;5ms</div><div class="lbl">Realtime Latency</div></div>
-    <div class="hstat"><div class="val violet">448</div><div class="lbl">Automated Tests</div></div>
+    <div class="hstat"><div class="val violet">567</div><div class="lbl">Automated Tests</div></div>
   </div>
 </div>
 
@@ -310,14 +313,16 @@ footer span{color:#94a3b8}
       <div class="end-body"><ul class="end-feats">
         <li><b>Full ticket lifecycle</b> — create, assign, comment, update, resolve, close</li>
         <li><b>Approval workflow</b> — change/access tickets gate on approver sign-off before transition</li>
-        <li><b>SLA + auto-escalation</b> — per-tenant targets; breaches auto-bump priority &amp; escalate</li>
+        <li><b>SLA / OLA / UC engine</b> — agreements with per-metric targets, coverage-window clocks, breach attribution &amp; AI breach prediction</li>
+        <li><b>On-call &amp; incidents</b> — rotations, escalation policies, alert triage, incident command (IC/comms/ops/scribe) &amp; post-incident review</li>
+        <li><b>SLO &amp; error budgets</b> — telemetry-fed reliability targets with multi-window burn-rate paging</li>
         <li><b>Smart assignment</b> — auto-assign to the least-loaded team member</li>
         <li><b>AI enrichment</b> — auto-classification &amp; duplicate detection with accept/reject</li>
         <li><b>Virtual agent</b> — streaming AI assistant (server-sent events)</li>
         <li><b>Automation engine</b> — no-code trigger → condition → action rules</li>
         <li><b>Integrations</b> — outbound webhooks + Microsoft Teams via the marketplace catalog</li>
-        <li><b>Reporting</b> — volumes, SLA, trends, asset counts, AI usage, team workload</li>
-        <li><b>Row-level tenant isolation</b> — every record scoped to its org · 251/251 tests</li>
+        <li><b>Reporting</b> — volumes, SLA compliance, MTTR, on-call load, trends, asset counts, AI usage, team workload</li>
+        <li><b>Row-level tenant isolation</b> — every record scoped to its org · 370/370 tests</li>
       </ul></div>
     </div>
 
@@ -525,8 +530,8 @@ footer span{color:#94a3b8}
 <section class="section" id="itsm">
 <div class="container">
   <div class="sec-eye">🎫 ITSM End</div>
-  <div class="sec-h">A Full ITSM Service — Not Just Tickets</div>
-  <div class="sec-sub">A dedicated FastAPI microservice owns the service-management domain: independently deployable, independently scalable, multi-tenant to the core.</div>
+  <div class="sec-h">A Full ITSM + SRE Service — Not Just Tickets</div>
+  <div class="sec-sub">A dedicated FastAPI microservice owns the service-management domain — now spanning <b>SLA/SLO governance</b> and PagerDuty-style <b>on-call &amp; incident response</b>: independently deployable, independently scalable, multi-tenant to the core.</div>
 
   <div class="feat-grid mt3">
     <div class="feat-card" style="--accent:linear-gradient(90deg,#d97706,#ea580c)">
@@ -534,8 +539,20 @@ footer span{color:#94a3b8}
       <div class="feat-desc">Full lifecycle — create, read, list &amp; filter, assign, comment, status transitions, resolve and close — with categories, priorities and product tagging.</div>
     </div>
     <div class="feat-card" style="--accent:linear-gradient(90deg,#2563eb,#60a5fa)">
-      <div class="feat-icon">⏱️</div><div class="feat-title">SLA &amp; Auto-Escalation</div>
-      <div class="feat-desc">Per-tenant SLA policies and business-hours calendars; a breach automatically bumps priority and records an escalation, with compliance tracked in reporting.</div>
+      <div class="feat-icon">⏱️</div><div class="feat-title">SLA / OLA / UC Engine (SLM)</div>
+      <div class="feat-desc">Agreements of three kinds — customer <b>SLA</b>, internal <b>OLA</b>, vendor <b>UC</b> — each with per-metric <b>targets</b> (first-response, resolution, time-to-mitigate…). Priority-ordered <b>rules</b> auto-attach the right agreement; a per-ticket <b>clock</b> counts only inside its <b>coverage window</b> (24×7 or business hours), warns at 50/75/90%, then meets or breaches. Breaches are <b>attributed</b> down the OLA/UC chain, and an <b>AI predictor</b> flags likely breaches before they happen.</div>
+    </div>
+    <div class="feat-card" style="--accent:linear-gradient(90deg,#dc2626,#f97316)">
+      <div class="feat-icon">🚨</div><div class="feat-title">On-Call &amp; Escalation</div>
+      <div class="feat-desc">PagerDuty-style on-call: <b>services</b>, <b>severity levels</b>, and rotating <b>schedules</b> (daily / weekly / follow-the-sun) whose current responder is resolved on the fly. <b>Escalation policies</b> step a page from the on-call schedule → a user → a team with timeouts, and <b>alerts</b> dedup, route and auto-escalate until acknowledged. Contact methods per responder; heartbeats catch silent failures.</div>
+    </div>
+    <div class="feat-card" style="--accent:linear-gradient(90deg,#b91c1c,#ef4444)">
+      <div class="feat-icon">🧯</div><div class="feat-title">Incident Response</div>
+      <div class="feat-desc">Declare an incident from an alert or by hand, staff it with the four <b>roles</b> (IC / comms / ops / scribe), and drive a validated <b>lifecycle</b> (declared → investigating → identified → monitoring → resolved → postmortem → closed). Every change lands on an immutable <b>timeline</b>; audience-scoped <b>status updates</b> (internal / stakeholder / public); <b>blast-radius</b> from the CMDB; and a templated <b>PIR / retrospective</b> with action items that push to follow-up tickets.</div>
+    </div>
+    <div class="feat-card" style="--accent:linear-gradient(90deg,#0d9488,#22d3ee)">
+      <div class="feat-icon">📈</div><div class="feat-title">SLO &amp; Error Budgets <span class="ftag ftag-teal" style="vertical-align:middle">NEW</span></div>
+      <div class="feat-desc">The SRE reliability layer: define an <b>SLO</b> (e.g. 99.9% availability over 28 days) on a service, fed by an <b>SLI</b> source (internal metric, push API, uptime probe, Prometheus/Datadog). The engine derives the <b>error budget</b>, current SLI and <b>burn rate</b> live, and fires <b>multi-window burn alerts</b> — fast-burn pages on-call, slow-burn opens a ticket — through the same on-call rails.</div>
     </div>
     <div class="feat-card" style="--accent:linear-gradient(90deg,#0d9488,#2dd4bf)">
       <div class="feat-icon">👥</div><div class="feat-title">Teams &amp; Smart Assignment</div>
@@ -593,7 +610,7 @@ footer span{color:#94a3b8}
       <span class="node fn-t">Tenant-scoped DB</span><span class="arr">→</span>
       <span class="node fn-b">Ticket + Product + SLA</span>
     </div>
-    <div class="note">Row-level tenant isolation on every request; the same service backs the Web &amp; Mobile chatbots, Operator, Tenant Admin and Super Admin ends — one source of truth, scoped automatically by the caller's identity. <strong>251 / 251 automated tests passing.</strong></div>
+    <div class="note">Row-level tenant isolation on every request; the same service backs the Web &amp; Mobile chatbots, Operator, Tenant Admin and Super Admin ends — one source of truth, scoped automatically by the caller's identity. <strong>370 / 370 automated tests passing.</strong></div>
   </div>
 </div>
 </section>
@@ -805,12 +822,12 @@ footer span{color:#94a3b8}
 <div class="container">
   <div class="sec-eye">Quality Assurance</div>
   <div class="sec-h">Tested, Service by Service</div>
-  <div class="sec-sub">Every service ships with an executable, automated test suite — <b>448 tests in total, all green</b>. The core-platform suites are deterministic (no live database, NLU model or Keycloak needed); the ITSM suite runs against an ephemeral Postgres + Redis. Both run locally and on every push in <b>GitHub Actions</b>, now joined by a <code>rasa data validate</code> gate and a guard that fails the build if any phrase is ever labelled with two intents.</div>
+  <div class="sec-sub">Every service ships with an executable, automated test suite — <b>567 tests in total, all green</b>. The core-platform suites are deterministic (no live database, NLU model or Keycloak needed); the ITSM suite runs against an ephemeral Postgres + Redis. Both run locally and on every push in <b>GitHub Actions</b>, now joined by a <code>rasa data validate</code> gate and a guard that fails the build if any phrase is ever labelled with two intents.</div>
 
   <div class="kpi-grid mt3">
-    <div class="kpi"><div class="v green">448</div><div class="l">Total Tests</div><div class="d d-up">all passing</div></div>
+    <div class="kpi"><div class="v green">567</div><div class="l">Total Tests</div><div class="d d-up">all passing</div></div>
     <div class="kpi"><div class="v" style="color:#2dd4bf">2</div><div class="l">Repos / CI Pipelines</div></div>
-    <div class="kpi"><div class="v" style="color:#a78bfa">251</div><div class="l">ITSM API Tests</div></div>
+    <div class="kpi"><div class="v" style="color:#a78bfa">370</div><div class="l">ITSM API Tests</div></div>
     <div class="kpi"><div class="v blue">197</div><div class="l">Core-Platform Tests</div></div>
   </div>
 
@@ -819,9 +836,9 @@ footer span{color:#94a3b8}
       <thead><tr><th>Service</th><th style="width:8%">Tests</th><th>Type</th><th>What's covered</th></tr></thead>
       <tbody>
         <tr>
-          <td><strong>🎫 ITSM Service</strong></td><td><b>251</b></td>
+          <td><strong>🎫 ITSM Service</strong></td><td><b>370</b></td>
           <td><span class="cap">Integration / API</span></td>
-          <td>Tickets, KB, assets, automation, reports, notifications, platform, virtual agent, in/outbound webhooks, GDPR &amp; reference data — plus approval workflow, SLA auto-escalation, least-loaded auto-assign &amp; the Teams/marketplace catalog. RS256-JWT auth with row-level tenant isolation (async httpx + ASGI).</td>
+          <td>Tickets, KB, assets, automation, reports, notifications, platform, virtual agent, in/outbound webhooks, GDPR &amp; reference data — plus the full <b>SLA/OLA/UC engine</b> (coverage windows, instances, breach attribution, AI prediction), <b>on-call</b> (schedules, escalation, alerts), <b>incident response</b> (roles, timeline, PIR) and the <b>SLO / error-budget</b> module (burn-rate alerts). RS256-JWT auth with row-level tenant isolation, incl. an RLS fail-open regression (async httpx + ASGI).</td>
         </tr>
         <tr>
           <td><strong>⚙️ Action Server</strong><div style="font-size:.74rem;color:var(--c-muted)">NLU custom actions</div></td><td><b>37</b></td>

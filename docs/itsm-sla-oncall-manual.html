@@ -426,12 +426,30 @@
     <div class="card">
       <h3 class="mod">How to use it — define an SLO</h3>
       <p class="where">📍 <b>Administration → On-Call &amp; SRE → <span class="path">Reliability (SLO)</span></b> &nbsp;·&nbsp; tabs: Error Budget · SLOs · SLI Sources</p>
+      <p style="font-size:14.5px;margin:0 0 4px"><b>Prerequisite (one-time):</b> an SLO measures an on-call <b>service</b>, so create one first — On-Call / Escalation → <b>Services</b> → “+ Add service” (e.g. <span class="mono-inline">Payments API</span>). The demo already has two.</p>
+
+      <p class="sub">Path A — zero-setup SLO (recommended first)</p>
       <ol class="steps">
-        <li>On <b>SLI Sources</b>, add a source. The easy start is <span class="mono-inline">internal_metric</span> → <span class="mono-inline">uptime</span> (works immediately, no monitor to wire up).</li>
-        <li>On <b>SLOs</b>, create an objective: pick the service, the SLI source, a target % and a window. Add a <b>fast-burn</b> and/or <b>slow-burn</b> rule so it can page.</li>
-        <li>Watch the <b>Error Budget</b> board: each service shows its budget-remaining gauge, current SLI vs target, live burn rate and a <span class="pill p-good">meeting</span> / <span class="pill p-crit">at&nbsp;risk</span> pill.</li>
-        <li>Use <b>simulate healthy / simulate outage</b> on an SLO to see the gauge move and a fast-burn rule fire an alert into the Incidents inbox.</li>
+        <li>On <b>SLI Sources</b>, add a source: name it, type <span class="mono-inline">internal_metric</span>, metric <span class="mono-inline">uptime</span> (or <span class="mono-inline">incident_free</span> / <span class="mono-inline">ticket_sla_compliance</span>) → “+ Add source”. Computed from data you already own — nothing to wire up.</li>
+        <li>On <b>SLOs</b>, fill the row — name, <b>service</b>, <b>SLI source</b>, <b>target %</b> (e.g. 99.9), <b>window</b> (e.g. rolling_28d) → “+ Add SLO”.</li>
+        <li>On the new SLO card, click <b>+ fast-burn</b> and <b>+ slow-burn</b> so it can alert (fast → pages on-call, slow → opens a ticket).</li>
+        <li><b>Done.</b> A 5-minute background job samples the SLI into buckets; the budget %, live SLI and burn rate compute automatically and show on the card + the <b>Error Budget</b> board — no further action.</li>
       </ol>
+
+      <p class="sub">Path B — feed real numbers (external monitor / your app)</p>
+      <ol class="steps">
+        <li>Create the source as <span class="mono-inline">push_api</span> (or <span class="mono-inline">http_uptime_check</span> with a URL), then the SLO as above.</li>
+        <li>Have your monitoring/app POST buckets: <span class="mono-inline">POST /api/v1/slo/{id}/measurements {"good_count":…, "total_count":…}</span>. Each POST recomputes budget/burn and evaluates the rules immediately.</li>
+      </ol>
+
+      <p class="sub">Operate &amp; respond</p>
+      <ol class="steps">
+        <li><b>Read the Error Budget board</b> — one card per SLO: budget-remaining gauge (🟢 &gt;20% · 🟠 &lt;20% · 🔴 ≤0), SLI vs target, live burn, and a <span class="pill p-good">meeting</span> / <span class="pill p-crit">at&nbsp;risk</span> pill.</li>
+        <li><b>When it burns</b> — a fast-burn rule raises an alert on the service and <b>pages the on-call</b> (via the escalation policy); you declare an incident and fix it; on recovery the burn alert <b>auto-clears</b>. A slow burn opens a ticket instead.</li>
+        <li><b>Try the loop now</b> — hit <b>simulate outage</b> on an SLO card → the gauge drops to red and a <span class="mono-inline">slo_burn</span> alert lands in <b>Incidents 🚨 → Alerts</b>; <b>simulate healthy</b> reverses it.</li>
+        <li><b>Verify</b> — <span class="mono-inline">GET /api/v1/slo/reports/error-budget</span> (or <span class="mono-inline">…/objectives/{id}/status</span>) returns live SLI %, budget remaining and burn rate.</li>
+      </ol>
+
       <p style="font-size:14.5px;margin-top:4px"><b>How it relates to SLA:</b> the SLA sits <em>on top</em> and is deliberately looser (e.g. customer 99.5% + credits) so your internal SLO (99.9%) trips first — you react before the contract breaks.</p>
     </div>
   </div>

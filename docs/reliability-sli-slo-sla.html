@@ -1,0 +1,257 @@
+<title>Reliability Explained — SLI, SLO, SLA in ProjectIQ</title>
+<style>
+  :root{
+    --ground:#f6f7f9; --ink:#0f172a; --muted:#5b6678; --faint:#8792a6;
+    --surface:#fff; --hair:#e3e8ef; --wash:#eef1f5;
+    --accent:#0f766e; --accent-ink:#0b5850; --accent-wash:#eafaf6;
+    --good:#047857; --good-wash:#e7f6ef; --warn:#b45309; --warn-wash:#fbf1e3;
+    --crit:#be123c; --crit-wash:#fdecef; --info:#1e5fb0; --info-wash:#e9f1fb;
+    --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.62;font-size:16px}
+  .wrap{max-width:860px;margin:0 auto;padding:0 22px}
+  h1,h2,h3{line-height:1.2;text-wrap:balance;margin:0}
+  code,.m{font-family:var(--mono);font-size:.85em}
+  .mi{font-family:var(--mono);font-size:.82em;background:var(--wash);border:1px solid var(--hair);border-radius:5px;padding:.05em .38em;white-space:nowrap}
+  header.top{background:linear-gradient(180deg,#0f2b28,#123c37);color:#eafaf6;padding:50px 0 40px;border-bottom:3px solid var(--accent)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#7fd8c9;margin:0 0 12px}
+  header.top h1{font-size:31px;font-weight:680;color:#fff;max-width:640px}
+  header.top p{margin:14px 0 0;color:#cfe9e3;max-width:600px}
+  section{padding:34px 0;border-top:1px solid var(--hair)}
+  .kick{font-family:var(--mono);font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--accent-ink);margin:0 0 8px;display:flex;gap:9px;align-items:center}
+  .kick::before{content:"";width:20px;height:2px;background:var(--accent)}
+  h2.s{font-size:22px;font-weight:660;letter-spacing:-.01em;margin-bottom:14px}
+  h3.s{font-size:16px;font-weight:640;margin:18px 0 8px}
+  p{margin:0 0 13px} .lead{max-width:66ch}
+  .three{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:6px 0}
+  .def{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:16px 18px;border-top:3px solid var(--tone,var(--accent))}
+  .def .t{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .def .n{font-size:18px;font-weight:680;margin:2px 0 6px}
+  .def p{font-size:14px;margin:0;color:var(--ink)}
+  .def.sli{--tone:var(--info)} .def.slo{--tone:var(--accent)} .def.sla{--tone:var(--warn)}
+  .pyramid{background:#0f2b28;color:#dff3ee;border-radius:12px;padding:20px 22px;font-family:var(--mono);font-size:13.5px;overflow-x:auto}
+  .pyramid b{color:#fff} .pyramid .c{color:#7fd8c9}
+  .callout{background:var(--accent-wash);border:1px solid #bfe7df;border-left:4px solid var(--accent);border-radius:10px;padding:15px 18px;margin:14px 0}
+  .callout h3{color:var(--accent-ink);font-size:15px;margin:0 0 6px}
+  .callout p{margin:0;font-size:14.5px}
+  .tw{overflow-x:auto;border:1px solid var(--hair);border-radius:10px;margin:10px 0}
+  table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--wash);vertical-align:top}
+  thead th{background:#fafbfc;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  tbody tr:last-child td{border-bottom:none}
+  .num{font-variant-numeric:tabular-nums}
+  .calc{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:4px 20px;margin:12px 0}
+  .calc .row{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px dashed var(--hair);font-size:14.5px}
+  .calc .row:last-child{border-bottom:none}
+  .calc .row .lab{color:var(--muted)} .calc .row .val{font-family:var(--mono);font-weight:600;text-align:right}
+  .calc .row.big .val{font-size:17px;color:var(--accent-ink)}
+  .gauge{height:12px;border-radius:999px;background:var(--wash);overflow:hidden;margin:6px 0}
+  .gauge > span{display:block;height:100%}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:2px 9px;border-radius:999px;font-weight:600;border:1px solid transparent}
+  .pg{background:var(--good-wash);color:var(--good);border-color:#bfe3d0}
+  .pw{background:var(--warn-wash);color:var(--warn);border-color:#eccf9f}
+  .pc{background:var(--crit-wash);color:var(--crit);border-color:#f2bcc7}
+  .pi{background:var(--info-wash);color:var(--info);border-color:#bcd6f2}
+  ol.steps{list-style:none;counter-reset:s;margin:8px 0;padding:0;display:flex;flex-direction:column;gap:11px}
+  ol.steps li{counter-increment:s;position:relative;padding-left:40px;font-size:14.5px}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:26px;height:26px;background:var(--accent);color:#fff;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:13px;font-weight:600}
+  ul.tick{list-style:none;padding:0;margin:8px 0} ul.tick li{padding-left:22px;position:relative;font-size:14.5px;margin:5px 0}
+  ul.tick li::before{content:"▸";position:absolute;left:2px;color:var(--accent)}
+  .flow{display:flex;flex-wrap:wrap;gap:7px;align-items:center;font-family:var(--mono);font-size:12.5px;margin:8px 0}
+  .flow .n{background:var(--wash);border:1px solid var(--hair);border-radius:7px;padding:5px 10px;font-weight:600}
+  .flow .a{color:var(--faint)}
+  footer{padding:30px 0 56px;color:var(--faint);font-size:13px}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">ProjectIQ · Reliability</p>
+    <h1>SLI, SLO &amp; SLA — how reliability actually works</h1>
+    <p>Three letters people mix up constantly. Here's what each one is, how they stack, and a complete worked example on a real service — the <b>Payments API</b> that's live in your demo data right now.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="kick">The three terms</p>
+    <h2 class="s">One measurement, one target, one promise</h2>
+    <p class="lead">They describe the same thing at three levels: what you <em>measure</em>, what you <em>aim for</em>, and what you <em>promise</em>.</p>
+    <div class="three">
+      <div class="def sli">
+        <div class="t">SLI — Indicator</div>
+        <div class="n">What's happening</div>
+        <p>A number you <b>measure</b>: <span class="mi">good ÷ valid</span> events. e.g. "% of Payments requests that were fast &amp; successful." Pure fact, no opinion.</p>
+      </div>
+      <div class="def slo">
+        <div class="t">SLO — Objective</div>
+        <div class="n">What you aim for</div>
+        <p>Your <b>internal target</b> on that SLI, over a window. e.g. "99.9% over 28 days." The goal you hold yourself to — and alert on.</p>
+      </div>
+      <div class="def sla">
+        <div class="t">SLA — Agreement</div>
+        <div class="n">What you promise</div>
+        <p>The <b>external contract</b> with a customer, <em>with consequences</em> (credits/penalties). Deliberately looser, e.g. "99.5% or we refund."</p>
+      </div>
+    </div>
+
+    <div class="pyramid">
+      <b>SLI</b>  <span class="c">the measurement</span>   →   <b>SLO</b> <span class="c">your target (stricter)</span>   →   <b>SLA</b> <span class="c">the promise (looser)</span><br><br>
+      99.5% &lt;──────────── 99.9% ────────────&gt; 99.94%<br>
+      <span class="c">SLA floor</span>        <span class="c">SLO target</span>        <span class="c">current SLI</span>
+    </div>
+
+    <div class="callout">
+      <h3>The one rule that ties them together</h3>
+      <p><b>SLA &lt; SLO ≤ SLI (when healthy).</b> You set the SLO <em>stricter</em> than the SLA on purpose, so your own alarm (SLO) trips <em>before</em> the customer contract (SLA) is ever at risk. You react to an internal miss; the customer never sees a breach.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="kick">Two more words you need</p>
+    <h2 class="s">Error budget &amp; burn rate</h2>
+    <ul class="tick">
+      <li><b>Error budget</b> = <span class="mi">100% − SLO</span>. If the SLO is 99.9%, you're <em>allowed</em> to fail 0.1% of the time. That 0.1% is a budget you get to spend — on deploys, experiments, the occasional blip.</li>
+      <li><b>Burn rate</b> = how fast you're spending it, relative to "on pace." <span class="mi">1×</span> = you'll spend exactly the whole budget by the end of the window. <span class="mi">14.4×</span> = the entire 28-day budget gone in ~2 days.</li>
+    </ul>
+    <p>Reliability engineering is really just <b>budget management</b>: spend it deliberately, alert when you're burning it too fast, and freeze risky changes when it runs out.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="kick">Complete worked example</p>
+    <h2 class="s">The Payments API, end to end</h2>
+    <p class="lead">This is the exact service seeded in your ProjectIQ demo. Let's build its reliability story from scratch.</p>
+
+    <h3 class="s">Step 1 — Pick the SLI (what "good" means)</h3>
+    <p>For an availability SLI we count a request as <b>good</b> when it is <span class="mi">HTTP 2xx/3xx AND latency &lt; 300 ms</span>. The SLI is then:</p>
+    <div class="calc">
+      <div class="row big"><span class="lab">SLI (availability)</span><span class="val">good requests ÷ valid requests</span></div>
+    </div>
+
+    <h3 class="s">Step 2 — Set the SLO (the target + window)</h3>
+    <div class="calc">
+      <div class="row"><span class="lab">Objective</span><span class="val">99.9% availability</span></div>
+      <div class="row"><span class="lab">Window</span><span class="val">rolling 28 days</span></div>
+      <div class="row"><span class="lab">Traffic in window</span><span class="val num">10,000,000 requests</span></div>
+    </div>
+
+    <h3 class="s">Step 3 — Derive the error budget (the math)</h3>
+    <div class="calc">
+      <div class="row"><span class="lab">Allowed failure rate = 100% − 99.9%</span><span class="val">0.1%</span></div>
+      <div class="row big"><span class="lab">Error budget = 0.1% × 10,000,000</span><span class="val">10,000 failures</span></div>
+    </div>
+    <p style="font-size:14.5px;color:var(--muted)">So over 28 days you may "spend" up to <b>10,000</b> failed requests and still hit the SLO.</p>
+
+    <h3 class="s">Step 4 — Watch it spend (mid-window snapshot)</h3>
+    <p>Two weeks in, monitoring has recorded <b>6,500</b> failures so far:</p>
+    <div class="calc">
+      <div class="row"><span class="lab">Budget consumed = 6,500 ÷ 10,000</span><span class="val">65%</span></div>
+      <div class="row"><span class="lab">Budget remaining</span><span class="val">35% · 3,500 failures</span></div>
+      <div class="row big"><span class="lab">Current SLI = (10,000,000−6,500) ÷ 10,000,000</span><span class="val">99.935% <span class="pill pg">meeting</span></span></div>
+    </div>
+    <div class="gauge"><span style="width:35%;background:var(--good)"></span></div>
+    <p style="font-size:13px;color:var(--muted);margin-top:2px">Error budget remaining: 35% — healthy (SLI 99.935% ≥ target 99.9%).</p>
+
+    <h3 class="s">Step 5 — Layer the SLA on top</h3>
+    <p>You promise <b>customers</b> 99.5% availability, with service credits if you miss. Because your <b>SLO (99.9%)</b> is far stricter, the SLI would have to fall a long way — spending <em>5×</em> the SLO budget — before the 99.5% contract is even threatened. Your internal alarms fire with huge margin to spare.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>&nbsp;</th><th>SLI</th><th>SLO</th><th>SLA</th></tr></thead>
+        <tbody>
+          <tr><td><b>What</b></td><td>measurement</td><td>internal target</td><td>external promise</td></tr>
+          <tr><td><b>Audience</b></td><td>engineers</td><td>engineers</td><td>customer</td></tr>
+          <tr><td><b>Value (Payments)</b></td><td class="num">99.935%</td><td class="num">99.9%</td><td class="num">99.5%</td></tr>
+          <tr><td><b>Miss = </b></td><td>—</td><td>alert / page / freeze</td><td>refund / penalty + reputation</td></tr>
+          <tr><td><b>Set by</b></td><td>what you can measure</td><td>you (stricter than SLA)</td><td>sales/contract (looser)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="kick">The clever part</p>
+    <h2 class="s">Burn-rate alerts — page on the fire, ticket on the leak</h2>
+    <p class="lead">A raw "SLI below 99.9%" alert is useless — by the time a 28-day average dips, you're already deep in trouble, and tiny blips would page you at 3am. Instead you alert on <b>burn rate</b> over <b>two windows at once</b> (the Google-SRE pattern):</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Alert</th><th>Condition</th><th>Burn</th><th>Action in ProjectIQ</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill pc">fast&nbsp;burn</span></td><td>~2% of budget in 1 hour</td><td class="num">≈ 14.4×</td><td><b>Pages the on-call</b> engineer via the escalation policy</td></tr>
+          <tr><td><span class="pill pw">slow&nbsp;burn</span></td><td>~10% of budget in 6 hours</td><td class="num">≈ 6×</td><td><b>Opens a ticket</b> — no 3am page</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>Why two windows?</b> The <em>long</em> window proves the problem is real (not a 30-second blip); the <em>short</em> window proves it's <em>still happening right now</em> (so a recovered incident auto-clears). Both must exceed the threshold to fire. When budget hits zero, the <b>error-budget policy</b> kicks in: a <b>change-freeze</b> until reliability recovers.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="kick">How ProjectIQ implements it</p>
+    <h2 class="s">Concept → system</h2>
+    <div class="flow">
+      <span class="n">SLI source</span><span class="a">▸</span>
+      <span class="n">SLO objective</span><span class="a">▸</span>
+      <span class="n">measurements (5-min buckets)</span><span class="a">▸</span>
+      <span class="n">budget / burn (derived)</span><span class="a">▸</span>
+      <span class="n">burn alert</span><span class="a">▸</span>
+      <span class="n">page / ticket</span>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Concept</th><th>In ProjectIQ</th></tr></thead>
+        <tbody>
+          <tr><td><b>SLI source</b></td><td><span class="mi">sli_sources</span> — where the number comes from: <span class="mi">internal_metric</span> (free — computed from data you already own: uptime, incident-free time, ticket-SLA compliance), <span class="mi">push_api</span>, <span class="mi">http_uptime_check</span>, or Prometheus/Datadog.</td></tr>
+          <tr><td><b>SLO</b></td><td><span class="mi">slo_objectives</span> — service + SLI source + <span class="mi">target_pct</span> + <span class="mi">window</span>.</td></tr>
+          <tr><td><b>Measurements</b></td><td><span class="mi">slo_measurements</span> — a Celery beat samples <span class="mi">good/total</span> every 5 min into immutable time buckets.</td></tr>
+          <tr><td><b>Budget / SLI / burn</b></td><td><b>Derived live</b> from the buckets over the window — never stored, so they're always consistent and reproducible.</td></tr>
+          <tr><td><b>Burn alerts</b></td><td><span class="mi">slo_burn_alerts</span> — multi-window rules that fire through <b>Module B</b> (on-call): fast → page, slow → ticket.</td></tr>
+          <tr><td><b>Where you see it</b></td><td>Admin → <b>On-Call &amp; SRE → Reliability (SLO)</b>: an error-budget board with a gauge per service, plus SLO and SLI-source editors.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="kick">Live scenario</p>
+    <h2 class="s">A bad deploy, minute by minute</h2>
+    <ol class="steps">
+      <li><b>16:00</b> — A config deploy ships. Payments starts returning 503s. The SLI for the current 5-min bucket craters (good/total ≈ 0/300).</li>
+      <li><b>16:05–16:10</b> — The beat records more bad buckets. Over the last 5 min <em>and</em> the last hour, the error ratio is ~100% vs an allowed 0.1% → burn rate ≫ 14.4×.</li>
+      <li><b>16:10</b> — <span class="pill pc">fast burn</span> fires. ProjectIQ raises an alert on the <b>Payments API</b> service and <b>pages the on-call</b> engineer (schedule → escalates to the manager if unacked in 15 min).</li>
+      <li><b>16:12</b> — The engineer <b>declares an incident</b> (SEV2), takes the IC role, and rolls back the deploy.</li>
+      <li><b>16:25</b> — 5xx stops. New buckets are healthy; the <em>short</em>-window burn drops below threshold → the burn alert <b>auto-clears</b>.</li>
+      <li><b>Aftermath</b> — Those 25 minutes cost a chunk of budget (say it jumps to 78% consumed). Still under 100%, so no freeze — but a <b>retrospective</b> + action items are logged. The customer <b>SLA (99.5%) was never breached</b>, because the SLO alarm fired with margin to spare.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="kick">In your system right now</p>
+    <h2 class="s">Go look at it</h2>
+    <p class="lead">The demo seed has two SLOs so you can see both states side by side on the Reliability board:</p>
+    <ul class="tick">
+      <li><b>Payments API availability</b> — target 99.9%, current SLI <b>99.94%</b> → <span class="pill pg">meeting</span>, budget gauge in the green.</li>
+      <li><b>Web Platform availability</b> — target 99.5%, current SLI <b>99.35%</b> → <span class="pill pc">at&nbsp;risk</span>, budget gauge in the red (SLI below target).</li>
+    </ul>
+    <p>Open <b>Administration → On-Call &amp; SRE → Reliability (SLO) → Error Budget</b>, then hit <b>“simulate outage”</b> on an SLO to watch the gauge move and a burn alert land in the Incidents inbox.</p>
+    <div class="callout">
+      <h3>One-line summary</h3>
+      <p><b>SLI</b> is the thermometer, <b>SLO</b> is the temperature you promise yourself, <b>SLA</b> is the temperature you promise the customer — and the <b>error budget</b> is how much fever you can run before you stop shipping and start fixing.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">ProjectIQ — Reliability primer. SLI/SLO/SLA + error budgets, with the Payments API demo. Engine: <span class="m">sli_sources → slo_objectives → slo_measurements → slo_burn_alerts</span> (Phase 9).</div>
+</footer>
