@@ -65,7 +65,14 @@ function ObjectiveCard({ slo, onChanged }) {
     const { data: rules, reload: reloadRules } = useItsmResource(() => get(`/slo/objectives/${slo.id}/burn-alerts`), [get, slo.id])
     const st = status || {}
 
-    const addBurn = async (kind) => { try { await post(`/slo/objectives/${slo.id}/burn-alerts`, { kind }); reloadRules() } catch { /* ignore */ } }
+    const [burnBusy, setBurnBusy] = useState(false)
+    const addBurn = async (kind) => {
+        if (burnBusy) return
+        setBurnBusy(true)
+        try { await post(`/slo/objectives/${slo.id}/burn-alerts`, { kind }); reloadRules() }
+        catch { /* ignore */ }
+        finally { setBurnBusy(false) }
+    }
     const simulate = async (good, total) => { try { await post(`/slo/${slo.id}/measurements`, { good_count: good, total_count: total }); reload(); reloadRules() } catch { /* ignore */ } }
 
     return (
@@ -91,8 +98,8 @@ function ObjectiveCard({ slo, onChanged }) {
                 ))}
                 {(rules || []).length === 0 && (
                     <>
-                        <button onClick={() => addBurn('fast_burn')} className="btn-ghost text-[11px]">+ fast-burn</button>
-                        <button onClick={() => addBurn('slow_burn')} className="btn-ghost text-[11px]">+ slow-burn</button>
+                        <button onClick={() => addBurn('fast_burn')} disabled={burnBusy} className="btn-ghost text-[11px]">+ fast-burn</button>
+                        <button onClick={() => addBurn('slow_burn')} disabled={burnBusy} className="btn-ghost text-[11px]">+ slow-burn</button>
                     </>
                 )}
                 <span className="text-[11px] text-slate-300">|</span>
@@ -110,14 +117,17 @@ function ObjectivesTab() {
     const { data: sources } = useItsmResource(() => get('/slo/sources'), [get])
     const [f, setF] = useState({ name: '', service_id: '', sli_source_id: '', target_pct: 99.9, window: 'rolling_28d' })
     const [error, setError] = useState(null)
+    const [busy, setBusy] = useState(false)
     const list = data || []
 
     const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
     const create = async () => {
-        if (!f.name.trim() || !f.service_id || !f.sli_source_id) return
+        if (busy || !f.name.trim() || !f.service_id || !f.sli_source_id) return
+        setBusy(true)
         setError(null)
         try { await post('/slo/objectives', { ...f, target_pct: parseFloat(f.target_pct) }); setF({ ...f, name: '' }); reload() }
         catch (e) { setError(e) }
+        finally { setBusy(false) }
     }
     return (
         <div className="space-y-3">
@@ -135,7 +145,7 @@ function ObjectivesTab() {
                 <select className="input text-sm" value={f.window} onChange={set('window')}>
                     {['rolling_7d', 'rolling_28d', 'rolling_30d', 'calendar_month', 'quarter'].map(w => <option key={w} value={w}>{w}</option>)}
                 </select>
-                <button className="btn-primary text-xs" onClick={create} disabled={!f.name.trim() || !f.service_id || !f.sli_source_id}>+ Add SLO</button>
+                <button className="btn-primary text-xs" onClick={create} disabled={busy || !f.name.trim() || !f.service_id || !f.sli_source_id}>{busy ? 'Adding…' : '+ Add SLO'}</button>
             </div>
             {(services || []).length === 0 && <p className="text-xs text-amber-600">Create an on-call Service first (On-Call / Escalation → Services).</p>}
             {(sources || []).length === 0 && <p className="text-xs text-amber-600">Create an SLI source first (Sources tab).</p>}
@@ -156,14 +166,17 @@ function SourcesTab() {
     const [type, setType] = useState('internal_metric')
     const [metric, setMetric] = useState('uptime')
     const [error, setError] = useState(null)
+    const [busy, setBusy] = useState(false)
     const list = data || []
 
     const create = async () => {
-        if (!name.trim()) return
+        if (busy || !name.trim()) return
+        setBusy(true)
         setError(null)
         const config = type === 'internal_metric' ? { metric } : null
         try { await post('/slo/sources', { name, type, config }); setName(''); reload() }
         catch (e) { setError(e) }
+        finally { setBusy(false) }
     }
     return (
         <div className="space-y-3">
@@ -177,7 +190,7 @@ function SourcesTab() {
                         {['uptime', 'incident_free', 'ticket_sla_compliance'].map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                 )}
-                <button className="btn-primary text-xs" onClick={create} disabled={!name.trim()}>+ Add source</button>
+                <button className="btn-primary text-xs" onClick={create} disabled={busy || !name.trim()}>{busy ? 'Adding…' : '+ Add source'}</button>
             </div>
             <p className="text-xs text-slate-400"><b>internal_metric</b> is computed from data you already own (no external monitor). <b>push_api</b> accepts pushed counts. Others need a backend wired.</p>
             {error && <ErrorBanner message={error.message} />}
