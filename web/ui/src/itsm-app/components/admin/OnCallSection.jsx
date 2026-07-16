@@ -1,6 +1,27 @@
 import { useState } from 'react'
-import { useItsmApi, useItsmResource } from '../../../shared/itsm/useItsmApi'
+import { useItsmApi, useItsmResource, useUserDirectory } from '../../../shared/itsm/useItsmApi'
 import { LoadingSpinner, ErrorBanner, EmptyState } from '../../../shared/itsm/primitives'
+
+// Small checkbox list of tenant users — replaces free-text user-id entry
+// wherever an admin needs to pick one or more people (nobody has user ids
+// memorized). `selected` is a Set of user ids; `onToggle(id)` flips one.
+function UserPicker({ selected, onToggle, emptyHint }) {
+    const users = useUserDirectory()
+    const entries = Object.entries(users)
+    if (entries.length === 0) {
+        return <p className="text-xs text-slate-400 italic">{emptyHint || 'No users found for this tenant yet.'}</p>
+    }
+    return (
+        <div className="max-h-36 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
+            {entries.map(([id, name]) => (
+                <label key={id} className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer">
+                    <input type="checkbox" checked={selected.has(id)} onChange={() => onToggle(id)} className="rounded" />
+                    {name}
+                </label>
+            ))}
+        </div>
+    )
+}
 
 // ── Services ──────────────────────────────────────────────────────────────────
 
@@ -50,32 +71,54 @@ function ServicesTab() {
 // ── Schedules ─────────────────────────────────────────────────────────────────
 
 function ScheduleCard({ sch, onChanged }) {
-    const { get, post } = useItsmApi()
+    const { get, post, remove } = useItsmApi()
     const { data: full, reload } = useItsmResource(() => get(`/on-call/schedules/${sch.id}`), [get, sch.id])
+    const users = useUserDirectory()
     const [onCall, setOnCall] = useState(null)
-    const [participants, setParticipants] = useState('')
+    const [selected, setSelected] = useState(() => new Set())
     const layers = full?.layers || []
 
+    const toggle = (id) => setSelected(prev => {
+        const next = new Set(prev)
+        next.has(id) ? next.delete(id) : next.add(id)
+        return next
+    })
     const whoNow = async () => {
         try { const r = await get(`/on-call/schedules/${sch.id}/preview`); setOnCall(r) } catch { /* ignore */ }
     }
     const addLayer = async () => {
-        const ids = participants.split(',').map(s => s.trim()).filter(Boolean)
-        try { await post(`/on-call/schedules/${sch.id}/layers`, { layer_rank: layers.length + 1, participants: ids }); setParticipants(''); reload() } catch { /* ignore */ }
+        const ids = [...selected]
+        try { await post(`/on-call/schedules/${sch.id}/layers`, { layer_rank: layers.length + 1, participants: ids }); setSelected(new Set()); reload() } catch { /* ignore */ }
+    }
+    const removeLayer = async (layerId) => {
+        try { await remove(`/on-call/schedules/${sch.id}/layers/${layerId}`); reload() } catch { /* ignore */ }
+    }
+    const deleteSchedule = async () => {
+        if (!window.confirm(`Delete schedule "${sch.name}"? Any escalation step pointing at it will stop working.`)) return
+        try { await remove(`/on-call/schedules/${sch.id}`); onChanged() } catch { /* ignore */ }
     }
     return (
         <li className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 space-y-2">
             <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{sch.name} <span className="text-xs text-slate-400">· {sch.rotation_type}</span></span>
-                <button onClick={whoNow} className="text-xs text-blue-600 hover:underline">who's on call?</button>
+                <div className="flex items-center gap-3">
+                    <button onClick={whoNow} className="text-xs text-blue-600 hover:underline">who's on call?</button>
+                    <button onClick={deleteSchedule} className="text-xs text-red-500 hover:underline">delete</button>
+                </div>
             </div>
             {onCall && (
-                <p className="text-xs text-slate-500">Primary now: <span className="font-mono">{onCall.primary_user_id?.slice(0, 8) || '—'}</span></p>
+                <p className="text-xs text-slate-500">Primary now: <span className="font-medium">{users[onCall.primary_user_id] || onCall.primary_user_id || '—'}</span></p>
             )}
-            <div className="text-xs text-slate-500">{layers.length} layer(s)</div>
-            <div className="flex items-center gap-2">
-                <input className="input text-xs flex-1" placeholder="participant user-ids (comma-sep)" value={participants} onChange={e => setParticipants(e.target.value)} />
-                <button className="btn-ghost text-xs" onClick={addLayer} disabled={!participants.trim()}>+ layer</button>
+            {layers.map(l => (
+                <p key={l.id} className="text-xs text-slate-500 flex items-center gap-2">
+                    <span>Layer {l.layer_rank}: {(l.participants || []).map(id => users[id] || id.slice(0, 8)).join(', ') || '—'}</span>
+                    <button onClick={() => removeLayer(l.id)} className="text-red-400 hover:underline">remove</button>
+                </p>
+            ))}
+            <div className="space-y-1.5">
+                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Add layer — pick who's in the rotation</p>
+                <UserPicker selected={selected} onToggle={toggle} />
+                <button className="btn-ghost text-xs" onClick={addLayer} disabled={selected.size === 0}>+ layer ({selected.size} selected)</button>
             </div>
         </li>
     )
@@ -118,13 +161,14 @@ function SchedulesTab() {
 function PolicyCard({ pol }) {
     const { get, post } = useItsmApi()
     const { data: full, reload } = useItsmResource(() => get(`/on-call/escalation-policies`), [get])
+    const users = useUserDirectory()
     const [test, setTest] = useState(null)
     const me = (full || []).find(p => p.id === pol.id) || pol
     const [uid, setUid] = useState('')
 
     const addStep = async () => {
-        if (!uid.trim()) return
-        try { await post(`/on-call/escalation-policies/${pol.id}/steps`, { position: (me.steps?.length || 0) + 1, target_type: 'user', target_id: uid.trim(), timeout_minutes: 15 }); setUid(''); reload() } catch { /* ignore */ }
+        if (!uid) return
+        try { await post(`/on-call/escalation-policies/${pol.id}/steps`, { position: (me.steps?.length || 0) + 1, target_type: 'user', target_id: uid, timeout_minutes: 15 }); setUid(''); reload() } catch { /* ignore */ }
     }
     const runTest = async () => { try { setTest(await post(`/on-call/escalation-policies/${pol.id}/test`, {})) } catch { /* ignore */ } }
     return (
@@ -133,10 +177,16 @@ function PolicyCard({ pol }) {
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{me.name} <span className="text-xs text-slate-400">· {me.steps?.length || 0} steps</span></span>
                 <button onClick={runTest} className="text-xs text-blue-600 hover:underline">test</button>
             </div>
-            {test && <div className="text-xs text-slate-500">{test.steps.map(s => `#${s.position} ${s.target_type}→${(s.would_page[0] || '—').slice(0, 8)}`).join(' · ')}</div>}
+            {test && <div className="text-xs text-slate-500">{test.steps.map(s => `#${s.position} ${s.target_type}→${users[s.would_page[0]] || (s.would_page[0] || '—').slice(0, 8)}`).join(' · ')}</div>}
+            {(me.steps || []).map(s => (
+                <p key={s.id} className="text-xs text-slate-500">Step {s.position}: {s.target_type === 'user' ? (users[s.target_id] || s.target_id.slice(0, 8)) : s.target_type} · {s.timeout_minutes}m timeout</p>
+            ))}
             <div className="flex items-center gap-2">
-                <input className="input text-xs flex-1" placeholder="step target user-id" value={uid} onChange={e => setUid(e.target.value)} />
-                <button className="btn-ghost text-xs" onClick={addStep} disabled={!uid.trim()}>+ step (user)</button>
+                <select className="input text-xs flex-1" value={uid} onChange={e => setUid(e.target.value)}>
+                    <option value="">Escalate to…</option>
+                    {Object.entries(users).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                </select>
+                <button className="btn-ghost text-xs" onClick={addStep} disabled={!uid}>+ step (user)</button>
             </div>
         </li>
     )

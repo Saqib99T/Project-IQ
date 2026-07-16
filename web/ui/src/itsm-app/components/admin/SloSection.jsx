@@ -3,6 +3,12 @@ import { useItsmApi, useItsmResource } from '../../../shared/itsm/useItsmApi'
 import { LoadingSpinner, ErrorBanner, EmptyState } from '../../../shared/itsm/primitives'
 
 // Budget gauge: remaining % as a coloured bar (green >20, amber >0, red ≤0).
+// `remaining` is consumed-budget expressed as a % and is NOT capped server-side
+// (burning 1000x a tiny allowed-error budget legitimately computes to -99900%)
+// — the bar width is already clamped to 0-100, so the label must match it,
+// otherwise a blown-out SLO shows an empty red bar next to a nonsense number.
+// The burn-rate figure shown alongside this (e.g. "1000x") is what actually
+// conveys how far over budget things are; this label just says "gone" past 0.
 function BudgetGauge({ remaining }) {
     if (remaining == null) return <span className="text-xs text-slate-400">no data yet</span>
     const clamped = Math.max(0, Math.min(100, remaining))
@@ -12,7 +18,7 @@ function BudgetGauge({ remaining }) {
             <div className="h-2 w-32 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                 <div className={`h-full ${tone}`} style={{ width: `${clamped}%` }} />
             </div>
-            <span className="text-xs font-mono tabular-nums text-slate-600 dark:text-slate-300">{remaining}%</span>
+            <span className="text-xs font-mono tabular-nums text-slate-600 dark:text-slate-300">{clamped}%</span>
         </div>
     )
 }

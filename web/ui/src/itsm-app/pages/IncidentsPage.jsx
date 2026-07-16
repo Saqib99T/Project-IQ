@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useItsmApi } from '../../shared/itsm/useItsmApi'
+import { useItsmApi, useUserDirectory } from '../../shared/itsm/useItsmApi'
 import { LoadingSpinner, ErrorBanner, EmptyState } from '../../shared/itsm/primitives'
 import { PageHeader } from '../../shared/itsm/ui'
 
@@ -29,7 +29,13 @@ function AlertsTab() {
         try { await post(`/alerts/${id}/${action}`, {}); load() } catch (e) { setError(e) }
     }
     const declare = async (a) => {
-        try { await post('/incidents', { title: a.title, source_alert_id: a.id }); load() } catch (e) { setError(e) }
+        // Carry the alert's own service forward — without this, the incident
+        // never attaches to a service, so it can't flip that service's
+        // internal_metric SLO (uptime/incident_free) to "bad" even though this
+        // is exactly the path a burn-alert-triggered declare goes through.
+        const body = { title: a.title, source_alert_id: a.id }
+        if (a.service_id) body.affected_service_ids = [a.service_id]
+        try { await post('/incidents', body); load() } catch (e) { setError(e) }
     }
 
     if (error) return <ErrorBanner message={error.message} />
@@ -58,8 +64,10 @@ function AlertsTab() {
 
 function IncidentDetail({ incidentId, onChanged }) {
     const { get, post } = useItsmApi()
+    const users = useUserDirectory()
     const [inc, setInc] = useState(null)
     const [timeline, setTimeline] = useState([])
+    const [roles, setRoles] = useState([])
     const [status, setStatus] = useState('')
     const [roleUser, setRoleUser] = useState('')
     const [role, setRole] = useState('ic')
@@ -69,6 +77,7 @@ function IncidentDetail({ incidentId, onChanged }) {
     const load = useCallback(() => {
         get(`/incidents/${incidentId}`).then(setInc).catch(setError)
         get(`/incidents/${incidentId}/timeline`).then(d => setTimeline(d.events || [])).catch(() => {})
+        get(`/incidents/${incidentId}/roles`).then(d => setRoles(d.roles || [])).catch(() => {})
     }, [get, incidentId])
     useEffect(() => { load() }, [load])
 
@@ -78,8 +87,8 @@ function IncidentDetail({ incidentId, onChanged }) {
         catch (e) { setError(e) }
     }
     const assignRole = async () => {
-        if (!roleUser.trim()) return
-        try { await post(`/incidents/${incidentId}/assign-role`, { role, user_id: roleUser.trim() }); setRoleUser(''); load() }
+        if (!roleUser) return
+        try { await post(`/incidents/${incidentId}/assign-role`, { role, user_id: roleUser }); setRoleUser(''); load() }
         catch (e) { setError(e) }
     }
     const postUpdate = async () => {
@@ -108,12 +117,20 @@ function IncidentDetail({ incidentId, onChanged }) {
                 <button className="btn-ghost text-xs" onClick={genPir}>Generate PIR draft</button>
             </div>
 
+            {roles.length > 0 && (
+                <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+                    {roles.map(r => <span key={r.role}><b className="text-slate-700 dark:text-slate-300 uppercase">{r.role}</b> {users[r.user_id] || r.user_id.slice(0, 8)}</span>)}
+                </div>
+            )}
             <div className="flex items-end gap-2">
                 <select className="input text-xs" value={role} onChange={e => setRole(e.target.value)}>
                     {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
-                <input className="input text-xs flex-1" placeholder="assign user-id" value={roleUser} onChange={e => setRoleUser(e.target.value)} />
-                <button className="btn-ghost text-xs" onClick={assignRole} disabled={!roleUser.trim()}>Assign</button>
+                <select className="input text-xs flex-1" value={roleUser} onChange={e => setRoleUser(e.target.value)}>
+                    <option value="">Assign to…</option>
+                    {Object.entries(users).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                </select>
+                <button className="btn-ghost text-xs" onClick={assignRole} disabled={!roleUser}>Assign</button>
             </div>
 
             <div className="flex items-end gap-2">
@@ -127,7 +144,9 @@ function IncidentDetail({ incidentId, onChanged }) {
                     {timeline.map((e, i) => (
                         <li key={i} className="text-xs text-slate-500">
                             <span className="text-slate-400">{e.at ? new Date(e.at).toLocaleTimeString() : ''}</span> · {e.event_type}
-                            {e.data?.to ? ` → ${e.data.to}` : ''}{e.data?.role ? ` (${e.data.role})` : ''}
+                            {e.data?.to ? ` → ${e.data.to}` : ''}
+                            {e.data?.role ? ` (${e.data.role})` : ''}
+                            {e.data?.user_id ? ` → ${users[e.data.user_id] || e.data.user_id.slice(0, 8)}` : ''}
                         </li>
                     ))}
                 </ul>

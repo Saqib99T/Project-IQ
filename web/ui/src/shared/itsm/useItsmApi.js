@@ -15,8 +15,14 @@ import { useItsmTenant } from './ItsmTenantContext'
  * under a tenant-aware layout get X-Tenant-ID "for free" via plain useItsmApi().
  * Pass `null` explicitly to force the cross-tenant view regardless of context.
  */
+// Module-level (not per-hook-instance) guard: useItsmApi() is called from many
+// components at once, and a real token expiry can make several of them 401 in
+// the same tick. Without this, each would independently call kc.login() and
+// race to redirect the page.
+let _reauthing = false
+
 export function useItsmApi(explicitTenantId) {
-    const { kc } = useIam()
+    const { kc, login } = useIam()
     const { tenantId: contextTenantId } = useItsmTenant()
     const tenantId = explicitTenantId !== undefined ? explicitTenantId : contextTenantId
 
@@ -37,6 +43,20 @@ export function useItsmApi(explicitTenantId) {
             const message = (errBody && typeof errBody === 'object')
                 ? (errBody.message || errBody.code)
                 : (errBody || body.detail)
+            // 401 means the Keycloak session backing this tab is gone (expired
+            // refresh token, revoked session, etc.) — no retry or error banner
+            // will fix that. Send the user through login instead of surfacing
+            // the raw backend string ("Authorization token is required"),
+            // which reads like a broken app rather than an expired session.
+            if (resp.status === 401) {
+                if (!_reauthing) {
+                    _reauthing = true
+                    login({ redirectUri: window.location.href })
+                }
+                const err = new Error('Your session has expired — redirecting you to log in again…')
+                err.status = 401
+                throw err
+            }
             const err = new Error(message || `HTTP ${resp.status}`)
             err.status = resp.status
             err.code = (errBody && typeof errBody === 'object') ? errBody.code : undefined
@@ -44,7 +64,7 @@ export function useItsmApi(explicitTenantId) {
         }
         if (resp.status === 204) return null
         return resp.json()
-    }, [kc, tenantId])
+    }, [kc, login, tenantId])
 
     const get    = useCallback((path, params, options) => call(withQuery(path, params), options), [call])
     const post   = useCallback((path, body)   => call(path, { method: 'POST',  body: JSON.stringify(body) }), [call])
@@ -95,15 +115,27 @@ export function useUserDirectory() {
 
     useEffect(() => {
         let cancelled = false
-        get('/tenant/users', { limit: 200 })
-            .then(data => {
-                if (cancelled) return
+        // GET /tenant/users caps `limit` at 100 server-side (422 above that) —
+        // page through with `cursor` instead of requesting one big batch, so
+        // tenants with over 100 people still resolve every name. Bounded to 20
+        // pages (2000 users) as a sane backstop against ever looping forever.
+        const loadAll = async () => {
+            const acc = {}
+            let cursor
+            for (let page = 0; page < 20; page++) {
+                const data = await get('/tenant/users', { limit: 100, cursor })
                 const users = data?.items || data?.users || []
-                setById(Object.fromEntries(users.map(u => {
+                for (const u of users) {
                     const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || u.id
-                    return [u.id, name]
-                })))
-            })
+                    acc[u.id] = name
+                }
+                cursor = data?.next_cursor
+                if (!cursor || users.length === 0) break
+            }
+            return acc
+        }
+        loadAll()
+            .then(acc => { if (!cancelled) setById(acc) })
             .catch(() => { /* not permitted for this role — fall back to ids */ })
         return () => { cancelled = true }
     }, [get])
