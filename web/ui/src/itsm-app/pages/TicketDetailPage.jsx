@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useOutletContext } from 'react-router-dom'
 import {
     ArrowLeft, ArrowUpCircle, Trash2, RefreshCw, MessageSquare, History,
-    Paperclip, MonitorSmartphone, Eye, Tag,
+    Paperclip, MonitorSmartphone, Eye, Tag, Video,
 } from 'lucide-react'
 import { useItsmApi, useItsmResource, useTenantDirectory, useUserDirectory } from '../../shared/itsm/useItsmApi'
 import { useItsmTenant, ItsmTenantScope } from '../../shared/itsm/ItsmTenantContext'
@@ -19,6 +19,7 @@ import TicketTagsSection from '../components/TicketTagsSection'
 import LinkedAssetsSection from '../components/LinkedAssetsSection'
 import TicketHistorySection from '../components/TicketHistorySection'
 import AiAssistSection from '../components/AiAssistSection'
+import RecordingsSection from '../components/RecordingsSection'
 
 function formatDate(iso) {
     if (!iso) return '—'
@@ -120,6 +121,7 @@ export default function TicketDetailPage() {
         { id: 'comments', label: 'Comments', icon: MessageSquare },
         { id: 'history', label: 'History', icon: History },
         { id: 'attachments', label: 'Attachments', icon: Paperclip },
+        { id: 'recordings', label: 'Recordings', icon: Video },
         { id: 'assets', label: 'Linked Assets', icon: MonitorSmartphone },
         { id: 'watchers', label: 'Watchers', icon: Eye },
         { id: 'tags', label: 'Tags', icon: Tag },
@@ -163,6 +165,7 @@ export default function TicketDetailPage() {
                                 {tab === 'comments' && <CommentsSection ticketId={ticket.id} />}
                                 {tab === 'history' && <TicketHistorySection ticketId={ticket.id} />}
                                 {tab === 'attachments' && <AttachmentsSection ticketId={ticket.id} />}
+                                {tab === 'recordings' && <RecordingsSection ticketId={ticket.id} />}
                                 {tab === 'assets' && <LinkedAssetsSection ticketId={ticket.id} />}
                                 {tab === 'watchers' && <WatchersSection ticketId={ticket.id} />}
                                 {tab === 'tags' && <TicketTagsSection ticketId={ticket.id} />}

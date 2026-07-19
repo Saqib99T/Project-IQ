@@ -17,6 +17,7 @@ import SlaPoliciesSection from '../components/admin/SlaPoliciesSection'
 import SlaAgreementsSection from '../components/admin/SlaAgreementsSection'
 import OnCallSection from '../components/admin/OnCallSection'
 import SloSection from '../components/admin/SloSection'
+import RcaPolicySection from '../components/admin/RcaPolicySection'
 import TeamsSection from '../components/admin/TeamsSection'
 import KbSpacesSection from '../components/admin/KbSpacesSection'
 import KbArticlesSection from '../components/admin/KbArticlesSection'
@@ -54,6 +55,7 @@ const GROUPS = [
         items: [
             { id: 'oncall', label: 'On-Call / Escalation', icon: Siren, adminOnly: true, tenantScoped: true, render: () => <OnCallSection /> },
             { id: 'reliability', label: 'Reliability (SLO)', icon: Activity, adminOnly: true, tenantScoped: true, render: () => <SloSection /> },
+            { id: 'rca-policies', label: 'RCA Governance', icon: FileWarning, adminOnly: false, tenantScoped: true, render: () => <RcaPolicySection /> },
         ],
     },
     {

@@ -51,6 +51,37 @@ export function BreakdownBars({ data, total }) {
     )
 }
 
+export function RcaComplianceSection({ get }) {
+    const { data: summary, loading, error } = useItsmResource(() => get('/dashboards/rca/summary'), [get])
+    const { data: pipeline } = useItsmResource(() => get('/dashboards/rca/pipeline'), [get])
+    const { data: recordings } = useItsmResource(() => get('/dashboards/recordings/summary'), [get])
+    if (loading) return <Section title="RCA & Recording Compliance (last 30 days)"><LoadingSpinner /></Section>
+    if (error) return <Section title="RCA & Recording Compliance (last 30 days)"><ErrorBanner message={error.message} /></Section>
+    if (!summary) return null
+    return (
+        <Section title="RCA & Recording Compliance (last 30 days)">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard label="RCAs required" value={summary.required_count} />
+                <StatCard label="Compliance" value={summary.compliance_pct != null ? `${summary.compliance_pct}%` : '—'} />
+                <StatCard label="Overdue" value={summary.overdue_count} />
+                <StatCard label="Action items overdue" value={summary.action_items_overdue_count} />
+            </div>
+            {pipeline?.pipeline && Object.keys(pipeline.pipeline).length > 0 && (
+                <div className="pt-2">
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">RCA pipeline by status</p>
+                    <BreakdownBars data={pipeline.pipeline} />
+                </div>
+            )}
+            {recordings && (
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                    <StatCard label="Recordings linked" value={recordings.recordings} />
+                    <StatCard label="Linked as RCA evidence" value={recordings.linked_to_rca} />
+                </div>
+            )}
+        </Section>
+    )
+}
+
 export function DateRangeFilter({ startDate, endDate, onChange }) {
     return (
         <div className="flex items-center gap-2 flex-wrap">

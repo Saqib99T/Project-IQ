@@ -12,6 +12,7 @@ import {
     TeamWorkloadSection,
     KbTopArticlesSection,
     AiUsageSection,
+    RcaComplianceSection,
 } from '../../shared/itsm/reportSections'
 
 export default function ReportsPage() {
@@ -48,6 +49,7 @@ export default function ReportsPage() {
             <AssetSummarySection get={get} />
             <KbTopArticlesSection get={get} />
             <AiUsageSection get={get} range={range} />
+            <RcaComplianceSection get={get} />
         </div>
     )
 }

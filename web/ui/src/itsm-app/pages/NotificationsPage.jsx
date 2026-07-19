@@ -13,8 +13,26 @@ const NOTIFICATION_TYPES = [
     { value: 'kb_article_published', label: 'KB article published' },
     { value: 'mention', label: 'Mention' },
     { value: 'system', label: 'System' },
+    { value: 'recording_linked', label: 'Recording linked' },
+    { value: 'recording_required_missing', label: 'Required recording missing' },
+    { value: 'recording_inaccessible', label: 'Recording inaccessible' },
+    { value: 'recording_consent_missing', label: 'Recording consent missing' },
+    { value: 'recording_summary_ready', label: 'Recording summary ready' },
+    { value: 'rca_required', label: 'RCA required' },
+    { value: 'rca_due_soon', label: 'RCA due soon' },
+    { value: 'rca_overdue', label: 'RCA overdue' },
+    { value: 'rca_submitted', label: 'RCA submitted' },
+    { value: 'rca_rejected', label: 'RCA rejected' },
+    { value: 'rca_approved', label: 'RCA approved' },
+    { value: 'rca_action_assigned', label: 'RCA action item assigned' },
+    { value: 'rca_action_overdue', label: 'RCA action item overdue' },
+    { value: 'rca_completed', label: 'RCA completed' },
 ]
 
+// rca_case/support_recording notifications aren't deep-linkable yet — the
+// notification only carries the RCA/recording's own id, not its parent
+// incident/ticket, so there's no route to send the user to. They render as
+// plain (non-clickable) text, same as any other entity_type not listed here.
 const ENTITY_ROUTES = { ticket: '/tickets', asset: '/assets', kb_article: '/kb' }
 
 function formatDate(iso) {

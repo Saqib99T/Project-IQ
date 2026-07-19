@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useItsmApi, useUserDirectory } from '../../shared/itsm/useItsmApi'
 import { LoadingSpinner, ErrorBanner, EmptyState } from '../../shared/itsm/primitives'
 import { PageHeader } from '../../shared/itsm/ui'
+import RcaPanel from '../components/RcaPanel'
 
 const INCIDENT_STATUSES = ['investigating', 'identified', 'monitoring', 'resolved', 'postmortem', 'closed', 'cancelled']
 const ROLES = ['ic', 'comms', 'ops', 'scribe']
@@ -151,6 +152,8 @@ function IncidentDetail({ incidentId, onChanged }) {
                     ))}
                 </ul>
             </div>
+
+            <RcaPanel incidentId={incidentId} incidentTitle={inc.title} />
         </div>
     )
 }
