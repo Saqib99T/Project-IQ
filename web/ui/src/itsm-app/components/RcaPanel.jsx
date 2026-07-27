@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useItsmApi, useItsmResource, useUserDirectory } from '../../shared/itsm/useItsmApi'
 import { LoadingSpinner, ErrorBanner } from '../../shared/itsm/primitives'
 import { useItsmPermissions } from '../../shared/itsm/useItsmPermissions'
@@ -234,11 +234,27 @@ export default function RcaPanel({ incidentId, incidentTitle }) {
     )
     const rca = (data?.items || [])[0]
     const [creating, setCreating] = useState(false)
+    // setCreating(true)/disabled={creating} only takes effect on the NEXT
+    // render — a fast double-click can fire createRca twice before that
+    // render happens. A ref updates synchronously, so it closes that gap.
+    const creatingRef = useRef(false)
 
     const createRca = async () => {
+        if (creatingRef.current) return
+        creatingRef.current = true
         setCreating(true)
-        try { await post('/rca', { title: `RCA for ${incidentTitle}`, incident_id: incidentId }); reload() }
-        catch { /* ignore */ } finally { setCreating(false) }
+        try {
+            await post('/rca', { title: `RCA for ${incidentTitle}`, incident_id: incidentId })
+        } catch (e) {
+            // 409 means one already exists (incident_id is unique per RCA) —
+            // reload anyway so the UI syncs to the real state instead of
+            // repeatedly offering "+ Create RCA" for an incident that already
+            // has one (can happen after a stale reload or a double-click).
+            if (e.status !== 409) { creatingRef.current = false; setCreating(false); return }
+        }
+        await reload()
+        creatingRef.current = false
+        setCreating(false)
     }
 
     if (loading) return <LoadingSpinner />

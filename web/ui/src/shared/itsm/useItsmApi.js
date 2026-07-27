@@ -108,12 +108,24 @@ export function useTenantDirectory(enabled) {
  * assignee UUIDs into human names on detail pages. Backed by GET /tenant/users
  * (manager/admin only) — agents/end-users get a 403 which is swallowed, leaving
  * an empty map so callers gracefully fall back to showing the raw id.
+ *
+ * Pass the entity's own tenant_id (e.g. `useUserDirectory(incident?.tenant_id)`)
+ * when rendering inside a platform user's cross-tenant "All tenants" view —
+ * without it, this inherits the ambient (null) tenant context and 403s outright
+ * rather than degrading to raw ids, since /tenant/users has no cross-tenant mode.
+ *
+ * `skip` (e.g. `{ skip: !incident }`) suppresses the fetch entirely until the
+ * caller actually has a tenantId to pass — otherwise a cross-tenant caller
+ * fires one request that's guaranteed to 403 (no tenant known yet) before the
+ * follow-up with the real tenantId, which is just console noise to a degree
+ * worth avoiding rather than "harmless but ugly".
  */
-export function useUserDirectory() {
-    const { get } = useItsmApi()
+export function useUserDirectory(tenantId, { skip = false } = {}) {
+    const { get } = useItsmApi(tenantId)
     const [byId, setById] = useState({})
 
     useEffect(() => {
+        if (skip) return
         let cancelled = false
         // GET /tenant/users caps `limit` at 100 server-side (422 above that) —
         // page through with `cursor` instead of requesting one big batch, so
@@ -198,7 +210,7 @@ export async function uploadToPresignedUrl(uploadUrl, file) {
     if (!resp.ok) throw new Error(`Upload failed: HTTP ${resp.status}`)
 }
 
-function withQuery(path, params) {
+export function withQuery(path, params) {
     if (!params) return path
     const qs = new URLSearchParams(
         Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')

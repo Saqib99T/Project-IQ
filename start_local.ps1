@@ -38,12 +38,15 @@ Start-Process -FilePath $PythonExe -ArgumentList "-m", "rasa", "run", "--enable-
     -WindowStyle Hidden
 Start-Sleep -Seconds 5
 
-# Admin Server
+# Admin Server (web/api/web_api.py — the admin.api.admin_api module this used
+# to run was removed in a refactor; this must be run from web/api as its cwd,
+# matching web/start_web.bat)
 Write-Host "Starting Admin Server (Port 8181)..." -ForegroundColor Green
+$WebApiDir = Join-Path $PSScriptRoot "web\api"
 $env:APP_PROFILE = "local"
-Start-Process -FilePath $PythonExe -ArgumentList "-m", "admin.api.admin_api" `
-    -WorkingDirectory $PSScriptRoot `
-    -RedirectStandardOutput "Log/admin.log" -RedirectStandardError "Log/admin.err" `
+Start-Process -FilePath $PythonExe -ArgumentList "web_api.py" `
+    -WorkingDirectory $WebApiDir `
+    -RedirectStandardOutput "$PSScriptRoot\Log\web_api.log" -RedirectStandardError "$PSScriptRoot\Log\web_api.err" `
     -WindowStyle Hidden
 Start-Sleep -Seconds 3
 

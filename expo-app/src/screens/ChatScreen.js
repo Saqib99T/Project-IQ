@@ -21,6 +21,10 @@ import QuickActions from '../components/QuickActions';
 import LoginModal from '../components/LoginModal';
 import { TicketFilterModal, TicketIdModal, TicketFormModal } from '../components/TicketModals';
 import SessionFeedbackModal from '../components/SessionFeedbackModal';
+import RecordingsModal from '../components/RecordingsModal';
+import RcaSummaryModal from '../components/RcaSummaryModal';
+import { createItsmApi } from '../services/itsmApi';
+import { isManagerUser } from '../utils/itsmPermissions';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -48,6 +52,9 @@ const ChatScreen = ({ navigation }) => {
     // ── IAM Authentication ────────────────────────────────────────────────────
     const iam = useIamAuth(IAM_CONFIG);
     const { authenticateWithBiometric } = useBiometric();
+    // Read-mostly ITSM REST client (RCA/Recordings parity with the web app) —
+    // goes through the same itsm-service proxy the web widget uses.
+    const itsmApi = useMemo(() => createItsmApi(iam.getFreshToken), [iam.getFreshToken]);
 
     // Prompt biometric ONLY after the app was genuinely backgrounded for a while
     // — not on brief `inactive` flickers (system dialogs, the push-permission
@@ -254,6 +261,12 @@ const ChatScreen = ({ navigation }) => {
     const [showFilter, setShowFilter] = useState(false);
     const [showTicketId, setShowTicketId] = useState(false);
     const [showTicketForm, setShowTicketForm] = useState(false);
+    // Resolved ticket (real itsm-service UUID) for the RCA/Recordings modals —
+    // "View Ticket" only ever gives us a human ticket_number, so it's resolved
+    // via GET /tickets/by-number/{n} before either modal can be opened.
+    const [resolvedTicket, setResolvedTicket] = useState(null);
+    const [showRecordings, setShowRecordings] = useState(false);
+    const [showRcaSummary, setShowRcaSummary] = useState(false);
     const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
     const [feedbackLoading, setFeedbackLoading] = useState(false);
@@ -1024,6 +1037,30 @@ const ChatScreen = ({ navigation }) => {
     // Ticket ID
     const handleTicketIdSubmit = (id) => {
         handleButtonClick(`/check_status{"ticket_id":"${id}"}`);
+        openTicketActionsFor(id);
+    };
+
+    // Resolve a human ticket number to its itsm-service UUID, then offer the
+    // RCA/Recordings actions the web app has on IncidentsPage/ticket detail —
+    // silently no-ops if the number doesn't resolve (e.g. a Rasa-only ticket
+    // reference, or the user isn't authenticated against itsm-service yet).
+    const openTicketActionsFor = async (ticketNumber) => {
+        if (!iam.isAuthenticated) return;
+        try {
+            const ticket = await itsmApi.get(`/tickets/by-number/${encodeURIComponent(ticketNumber)}`);
+            setResolvedTicket(ticket);
+            Alert.alert(
+                `Ticket #${ticket.ticket_number}`,
+                ticket.title,
+                [
+                    { text: 'View Recordings', onPress: () => setShowRecordings(true) },
+                    { text: 'View RCA', onPress: () => setShowRcaSummary(true) },
+                    { text: 'Cancel', style: 'cancel' },
+                ],
+            );
+        } catch (e) {
+            console.log('[ITSM] ticket-number resolution skipped:', e.message);
+        }
     };
 
     // Ticket FormSubmit
@@ -1212,7 +1249,7 @@ const ChatScreen = ({ navigation }) => {
                 {(isAuthenticated || iam.isAuthenticated) && (
                     <TouchableOpacity
                         style={[styles.headerIconBtn, { marginRight: 0 }]}
-                        onPress={() => navigation.navigate('Notifications', { userId: senderId })}
+                        onPress={() => navigation.navigate('Notifications', { userId: senderId, getToken: iam.isAuthenticated ? iam.getFreshToken : null })}
                     >
                         <View>
                             <Ionicons name="notifications-outline" size={23} color={THEME.text} />
@@ -1497,6 +1534,19 @@ const ChatScreen = ({ navigation }) => {
                 onClose={() => setShowFeedback(false)}
                 onSubmit={handleSessionFeedback}
                 isLoading={feedbackLoading}
+            />
+            <RecordingsModal
+                visible={showRecordings}
+                onClose={() => setShowRecordings(false)}
+                ticketId={resolvedTicket?.id}
+                itsmApi={itsmApi}
+            />
+            <RcaSummaryModal
+                visible={showRcaSummary}
+                onClose={() => setShowRcaSummary(false)}
+                ticketId={resolvedTicket?.id}
+                itsmApi={itsmApi}
+                canManage={isManagerUser(iam.user)}
             />
 
             {/* User Menu Dropdown */}

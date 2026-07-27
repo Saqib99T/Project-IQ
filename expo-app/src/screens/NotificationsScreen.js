@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
     StyleSheet, ActivityIndicator, RefreshControl,
@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../config';
 import { getAdminBaseUrl } from '../config';
+import { createItsmApi } from '../services/itsmApi';
 
 const TYPE_ICONS = {
     ticket_created:   'ticket-outline',
@@ -14,7 +15,38 @@ const TYPE_ICONS = {
     handoff_assigned: 'chatbubble-ellipses-outline',
     handoff_ended:    'checkmark-circle-outline',
     ticket_update:    'refresh-circle-outline',
+    // itsm-service notifications (specs/08 RCA governance + support recordings
+    // — same 14 types shown on web's NotificationsPage; these aren't
+    // deep-linkable there either, so tapping just marks read, matching web).
+    ticket_assigned:             'ticket-outline',
+    ticket_updated:               'refresh-circle-outline',
+    ticket_commented:             'chatbubble-outline',
+    ticket_sla_warning:           'warning-outline',
+    ticket_sla_breached:         'alert-circle-outline',
+    asset_maintenance_due:       'construct-outline',
+    kb_article_published:        'book-outline',
+    mention:                     'at-outline',
+    system:                      'information-circle-outline',
+    recording_linked:            'videocam-outline',
+    recording_required_missing:  'videocam-off-outline',
+    recording_inaccessible:      'alert-circle-outline',
+    recording_consent_missing:   'shield-outline',
+    recording_summary_ready:     'document-text-outline',
+    rca_required:                'flag-outline',
+    rca_due_soon:                'time-outline',
+    rca_overdue:                 'warning-outline',
+    rca_submitted:               'paper-plane-outline',
+    rca_rejected:                'close-circle-outline',
+    rca_approved:                'checkmark-done-outline',
+    rca_action_assigned:         'person-add-outline',
+    rca_action_overdue:          'warning-outline',
+    rca_completed:               'checkmark-circle-outline',
 };
+
+// Notifications fetched from itsm-service (RCA/recordings/tickets) are kept
+// in the same merged feed as the chatbot/handoff notifications above, but
+// namespaced by id so mark-read can be routed to the right backend.
+const ITSM_PREFIX = 'itsm-';
 
 function relativeTime(iso) {
     const diff = Date.now() - new Date(iso).getTime();
@@ -27,7 +59,8 @@ function relativeTime(iso) {
 }
 
 const NotificationsScreen = ({ navigation, route }) => {
-    const { userId } = route.params || {};
+    const { userId, getToken } = route.params || {};
+    const itsmApi = useMemo(() => (getToken ? createItsmApi(getToken) : null), [getToken]);
     const [notifications, setNotifications] = useState([]);
     const [unread, setUnread]               = useState(0);
     const [loading, setLoading]             = useState(true);
@@ -40,17 +73,39 @@ const NotificationsScreen = ({ navigation, route }) => {
             const base = await getAdminBaseUrl();
             const res  = await fetch(`${base}/notifications?sender_id=${encodeURIComponent(userId)}`);
             const data = await res.json();
-            if (data.success) {
-                setNotifications(data.data);
-                setUnread(data.unread_count);
+            const chatbotItems = data.success ? data.data : [];
+            const chatbotUnread = data.success ? data.unread_count : 0;
+
+            let itsmItems = [];
+            let itsmUnread = 0;
+            if (itsmApi) {
+                try {
+                    const itsmData = await itsmApi.get('/notifications', { limit: 50 });
+                    itsmItems = (itsmData.items || []).map(n => ({
+                        id: `${ITSM_PREFIX}${n.id}`,
+                        type: n.type,
+                        title: n.title,
+                        body: n.body,
+                        created_at: n.created_at,
+                        read: n.is_read,
+                    }));
+                    itsmUnread = itsmItems.filter(n => !n.read).length;
+                } catch (e) {
+                    console.warn('[Notifications] itsm-service fetch error', e.message);
+                }
             }
+
+            const merged = [...chatbotItems, ...itsmItems]
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            setNotifications(merged);
+            setUnread(chatbotUnread + itsmUnread);
         } catch (e) {
             console.warn('[Notifications] fetch error', e);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [userId]);
+    }, [userId, itsmApi]);
 
     // Fetch on mount, then poll while the screen is open so it stays current
     // without a manual pull (the always-mounted header badge is socket-live;
@@ -63,8 +118,13 @@ const NotificationsScreen = ({ navigation, route }) => {
 
     const markRead = async (id) => {
         try {
-            const base = await getAdminBaseUrl();
-            await fetch(`${base}/notifications/${id}/read`, { method: 'POST' });
+            if (String(id).startsWith(ITSM_PREFIX)) {
+                if (!itsmApi) return;
+                await itsmApi.patch('/notifications/mark-read', { ids: [String(id).slice(ITSM_PREFIX.length)] });
+            } else {
+                const base = await getAdminBaseUrl();
+                await fetch(`${base}/notifications/${id}/read`, { method: 'POST' });
+            }
             setNotifications(prev =>
                 prev.map(n => n.id === id ? { ...n, read: true } : n)
             );
@@ -75,7 +135,10 @@ const NotificationsScreen = ({ navigation, route }) => {
     const markAllRead = async () => {
         try {
             const base = await getAdminBaseUrl();
-            await fetch(`${base}/notifications/read-all`, { method: 'POST' });
+            await Promise.all([
+                fetch(`${base}/notifications/read-all`, { method: 'POST' }),
+                itsmApi ? itsmApi.patch('/notifications/mark-read', { all: true }) : Promise.resolve(),
+            ]);
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
             setUnread(0);
         } catch {}

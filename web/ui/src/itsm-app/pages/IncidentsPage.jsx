@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useItsmApi, useUserDirectory } from '../../shared/itsm/useItsmApi'
+import { ItsmTenantScope } from '../../shared/itsm/ItsmTenantContext'
 import { LoadingSpinner, ErrorBanner, EmptyState } from '../../shared/itsm/primitives'
 import { PageHeader } from '../../shared/itsm/ui'
 import RcaPanel from '../components/RcaPanel'
@@ -65,8 +66,14 @@ function AlertsTab() {
 
 function IncidentDetail({ incidentId, onChanged }) {
     const { get, post } = useItsmApi()
-    const users = useUserDirectory()
     const [inc, setInc] = useState(null)
+    // Mutating actions need the incident's OWN tenant — a platform user's
+    // cross-tenant "All tenants" view carries no X-Tenant-ID by default, which
+    // 403s writes ("Tenant context required") even though reads (scoped via
+    // the backend's cross-tenant _scope() fallback) already succeeded above.
+    // Mirrors TicketDetailPage's explicit useItsmApi(ticket?.tenant_id) pattern.
+    const { post: scopedPost } = useItsmApi(inc?.tenant_id)
+    const users = useUserDirectory(inc?.tenant_id)
     const [timeline, setTimeline] = useState([])
     const [roles, setRoles] = useState([])
     const [status, setStatus] = useState('')
@@ -84,21 +91,22 @@ function IncidentDetail({ incidentId, onChanged }) {
 
     const changeStatus = async () => {
         if (!status) return
-        try { await post(`/incidents/${incidentId}/change-status`, { status }); setStatus(''); load(); onChanged?.() }
+        try { await scopedPost(`/incidents/${incidentId}/change-status`, { status }); setStatus(''); load(); onChanged?.() }
         catch (e) { setError(e) }
     }
     const assignRole = async () => {
         if (!roleUser) return
-        try { await post(`/incidents/${incidentId}/assign-role`, { role, user_id: roleUser }); setRoleUser(''); load() }
+        try { await scopedPost(`/incidents/${incidentId}/assign-role`, { role, user_id: roleUser }); setRoleUser(''); load() }
         catch (e) { setError(e) }
     }
     const postUpdate = async () => {
         if (!update.trim()) return
-        try { await post(`/incidents/${incidentId}/status-updates`, { body: update, audience: 'public' }); setUpdate(''); load() }
+        try { await scopedPost(`/incidents/${incidentId}/status-updates`, { body: update, audience: 'public' }); setUpdate(''); load() }
         catch (e) { setError(e) }
     }
-    const genPir = async () => { try { await post(`/incidents/${incidentId}/pir-draft`, {}); load() } catch (e) { setError(e) } }
+    const genPir = async () => { try { await scopedPost(`/incidents/${incidentId}/pir-draft`, {}); load() } catch (e) { setError(e) } }
 
+    if (error && !inc) return <ErrorBanner message={error.message} />
     if (!inc) return <LoadingSpinner />
     return (
         <div className="space-y-3 text-sm">
@@ -153,23 +161,53 @@ function IncidentDetail({ incidentId, onChanged }) {
                 </ul>
             </div>
 
-            <RcaPanel incidentId={incidentId} incidentTitle={inc.title} />
+            <ItsmTenantScope tenantId={inc.tenant_id}>
+                <RcaPanel incidentId={incidentId} incidentTitle={inc.title} />
+            </ItsmTenantScope>
         </div>
     )
 }
 
 // ── Incidents tab (master/detail) ─────────────────────────────────────────────
-
-function IncidentsTab() {
+// Exported (not just used internally) so it can be unit-tested directly
+// without needing to render the whole page/tab chrome.
+export function IncidentsTab() {
     const { get } = useItsmApi()
-    const [incidents, setIncidents] = useState(null)
-    const [selected, setSelected] = useState(null)
+    // `incidents`/`selected` are stored TOGETHER with the `get` reference they
+    // were fetched under. IncidentDetail is a child that reads the SAME
+    // ambient tenant context via its own useItsmApi(), so on a tenant switch
+    // it would independently re-fire its own fetch for whatever incidentId it
+    // currently has — the OLD tenant's selection — under the NEW tenant
+    // scope. A fix that clears the selection in a sibling useEffect can't
+    // reliably close that gap: React runs a CHILD's effects before its
+    // PARENT's effects within the same commit, so IncidentDetail's stale
+    // fetch fires before this component's own "clear" effect ever runs.
+    // Deriving staleness DURING RENDER instead sidesteps effect ordering
+    // entirely — the very first render after `get` changes already treats the
+    // old data as gone, before IncidentDetail ever gets a chance to mount
+    // with a mismatched incidentId.
+    const [state, setState] = useState({ get: null, incidents: null, selected: null })
     const [error, setError] = useState(null)
+    const isStale = state.get !== get
+    const incidents = isStale ? null : state.incidents
+    const selected = isStale ? null : state.selected
 
     const load = useCallback(() => {
-        get('/incidents').then(d => { setIncidents(d); if (!selected && d.length) setSelected(d[0].id) }).catch(setError)
-    }, [get, selected])
+        get('/incidents').then(d => {
+            setState(prev => ({
+                get,
+                incidents: d,
+                // Re-validate the previous selection against the fresh list —
+                // e.g. switching tenants reloads this list, and a selection
+                // from the previous tenant would otherwise keep pointing at
+                // an incident id that's no longer in scope (404 on fetch).
+                selected: (prev.selected && d.some(i => i.id === prev.selected)) ? prev.selected : (d[0]?.id ?? null),
+            }))
+        }).catch(setError)
+    }, [get])
     useEffect(() => { load() }, [load])
+
+    const setSelected = (id) => setState(prev => ({ ...prev, selected: id }))
 
     if (error) return <ErrorBanner message={error.message} />
     if (incidents === null) return <LoadingSpinner />
