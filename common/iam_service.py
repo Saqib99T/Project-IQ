@@ -79,6 +79,10 @@ def verify_iam_token(token: str) -> dict:
             algorithms=["RS256"],
             options={"verify_aud": False},
             issuer=f"{cfg['keycloak_url']}/realms/{cfg['realm']}",
+            # PyJWT defaults to zero tolerance on iat/exp/nbf; a few seconds of
+            # clock drift between this host and the IAM server otherwise makes
+            # every freshly-minted token look "not yet valid".
+            leeway=10,
         )
         return claims
     except IamTokenError:

@@ -2,7 +2,8 @@
 
 **Complete, service-by-service process with exact commands.** Verified against
 the live prod host on **2026-07-05**. Supersedes the delta-only
-[DEPLOY_V4_SLA_ONCALL.md](DEPLOY_V4_SLA_ONCALL.md) for full cutovers.
+[DEPLOY_V4_SLA_ONCALL.md](Backup/DEPLOY_V4_SLA_ONCALL.md) for full cutovers
+(archived — kept for historical reference only).
 
 > **Golden rules:** back up first · migrations run as the DB **owner** · prod
 > uses **`docker-compose` v1** (hyphen), not `docker compose` · deploy is

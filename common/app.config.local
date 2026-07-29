@@ -18,6 +18,13 @@ rasa_action_url = http://127.0.0.1:5055/webhook
 admin_port = 8181
 cors_origins = *
 
+[RATELIMIT]
+# Loosened for local demo-automation testing (Playwright drives many rapid
+# logins/page loads in quick succession) — not representative of prod limits.
+default_limit = 3000 per minute
+auth_limit = 600 per minute
+chat_limit = 1200 per minute
+
 [WIDGET]
 widget_title = IT Support [LOCAL]
 widget_subtitle = How can I help you today?

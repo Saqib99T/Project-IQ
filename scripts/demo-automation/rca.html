@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>IQ-ITSM Demo — RCA Reliability &amp; Governance</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="/dashboard.css">
+</head>
+<body>
+  <div class="brandbar"><div class="mark"></div><div class="word">IQ-ITSM <span>· Demo Automation</span></div></div>
+  <header>
+    <div class="eyebrow">Governance Deep Dive</div>
+    <h1>RCA — Reliability &amp; Governance</h1>
+    <p>The policy builder that auto-requires an RCA by rule, a fully completed RCA on a real incident (11/11 evidence items provided, both CAPA actions verified before it's allowed to say "completed"), and two real "why is this one stuck" examples — a consent-disputed recording blocking one RCA, an inaccessible recording behind an overdue one.</p>
+    <nav class="pages">
+      <a href="/dashboard.html">All cases</a>
+      <a href="/features.html">Overall features</a>
+      <a href="/sla.html">SLI / SLO / SLA</a>
+      <a href="/rca.html" class="active">RCA Governance</a>
+    </nav>
+  </header>
+  <main>
+    <div class="grid" id="grid"></div>
+  </main>
+  <footer>Served by <code>server.js</code> on this machine — <code>npm run dashboard</code>. Runs use the real logins in <code>docs/full-app-demo-script.html</code> against your local stack.</footer>
+
+<script>window.__DEMO_PAGE__ = { keys: ['rca'] };</script>
+<script src="/dashboard.js"></script>
+</body>
+</html>

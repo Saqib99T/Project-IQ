@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>IQ-ITSM Demo — SLI / SLO / SLA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="/dashboard.css">
+</head>
+<body>
+  <div class="brandbar"><div class="mark"></div><div class="word">IQ-ITSM <span>· Demo Automation</span></div></div>
+  <header>
+    <div class="eyebrow">Reliability Deep Dive</div>
+    <h1>SLA / OLA / UC — and the separate SLI/SLO reliability layer</h1>
+    <p>The ticket-SLA engine end to end (agreements → targets → matching rules → coverage windows → the live at-risk board → a real breached ticket's SLA panel with an override) and then the deliberately separate SLI/SLO error-budget layer (error budget → SLO definitions with live burn-rate simulation → SLI sources).</p>
+    <nav class="pages">
+      <a href="/dashboard.html">All cases</a>
+      <a href="/features.html">Overall features</a>
+      <a href="/sla.html" class="active">SLI / SLO / SLA</a>
+      <a href="/rca.html">RCA Governance</a>
+    </nav>
+  </header>
+  <main>
+    <div class="grid" id="grid"></div>
+  </main>
+  <footer>Served by <code>server.js</code> on this machine — <code>npm run dashboard</code>. Runs use the real logins in <code>docs/full-app-demo-script.html</code> against your local stack.</footer>
+
+<script>window.__DEMO_PAGE__ = { keys: ['sla'] };</script>
+<script src="/dashboard.js"></script>
+</body>
+</html>

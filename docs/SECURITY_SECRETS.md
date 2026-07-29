@@ -72,6 +72,18 @@ from history — **rotation is what neutralizes the exposure.**
    are low-risk, but treat them as sensitive and rely on the redacted doc going
    forward.
 
+6. **Apple private key** (`docs/Backup/AuthKey_KAT7LHZC7V.p8`, a PKCS8 EC key —
+   the naming convention Apple uses for APNs/MusicKit/Sign-in-with-Apple auth
+   keys) — committed 2026-06-10 ("just backup"), found 2026-07-29, not
+   previously tracked here. Still present in the working tree as of this
+   writing — owner is rotating on their own timeline.
+   → In the Apple Developer portal, revoke the key with this Key ID
+   (`KAT7LHZC7V`) and issue a replacement; update wherever the old key was
+   configured (APNs cert config, CI secrets, etc.).
+   → Once rotated, delete `docs/Backup/AuthKey_KAT7LHZC7V.p8` from the working
+   tree — rotation neutralizes the exposure, same as every item above; the
+   file removal is just cleanup, not the fix.
+
 > **Optional, heavier:** purge the values from git history with `git filter-repo`
 > (rewrites history → everyone re-clones). Rotation above is sufficient to
 > neutralize the leak; do this only if policy requires scrubbing history.

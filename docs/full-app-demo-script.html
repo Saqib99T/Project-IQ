@@ -1,0 +1,318 @@
+<title>Full Application Demo — Presenter Script</title>
+<style>
+  :root{
+    --bg:#F6F7FB; --surface:#FFFFFF; --surface-2:#EEF1F7; --border:#DCE1EC;
+    --text:#151E2E; --text-dim:#57657C; --text-faint:#8592A8;
+    --accent:#3457D5; --accent-ink:#2745B0; --accent-soft:#E8EDFC;
+    --good:#0E7A5B; --good-soft:#E3F5EE;
+    --warn:#9A6400; --warn-soft:#FBF0DA;
+    --live:#C4460A; --live-soft:#FDEEE4;
+    --stub:#6D4FC7; --stub-soft:#EFE9FB;
+    --mono: ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,"SF Mono",Menlo,monospace;
+    --sans: -apple-system,BlinkMacSystemFont,"Segoe UI",ui-sans-serif,system-ui,sans-serif;
+    --radius:8px; --shadow:0 1px 2px rgba(21,30,46,.06), 0 6px 20px -8px rgba(21,30,46,.10);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0A0E17; --surface:#121826; --surface-2:#1A2233; --border:#28324A;
+      --text:#E7EBF4; --text-dim:#9AA6BE; --text-faint:#69759090;
+      --accent:#7691FF; --accent-ink:#AEBEFF; --accent-soft:rgba(118,145,255,.14);
+      --good:#3FD3A3; --good-soft:rgba(63,211,163,.12);
+      --warn:#F3B94E; --warn-soft:rgba(243,185,78,.12);
+      --live:#FF8A65; --live-soft:rgba(255,138,101,.14);
+      --stub:#B39CF0; --stub-soft:rgba(179,156,240,.14);
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0A0E17; --surface:#121826; --surface-2:#1A2233; --border:#28324A;
+    --text:#E7EBF4; --text-dim:#9AA6BE; --text-faint:#69759090;
+    --accent:#7691FF; --accent-ink:#AEBEFF; --accent-soft:rgba(118,145,255,.14);
+    --good:#3FD3A3; --good-soft:rgba(63,211,163,.12);
+    --warn:#F3B94E; --warn-soft:rgba(243,185,78,.12);
+    --live:#FF8A65; --live-soft:rgba(255,138,101,.14);
+    --stub:#B39CF0; --stub-soft:rgba(179,156,240,.14);
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.55);
+  }
+  :root[data-theme="light"]{
+    --bg:#F6F7FB; --surface:#FFFFFF; --surface-2:#EEF1F7; --border:#DCE1EC;
+    --text:#151E2E; --text-dim:#57657C; --text-faint:#8592A8;
+    --accent:#3457D5; --accent-ink:#2745B0; --accent-soft:#E8EDFC;
+    --good:#0E7A5B; --good-soft:#E3F5EE;
+    --warn:#9A6400; --warn-soft:#FBF0DA;
+    --live:#C4460A; --live-soft:#FDEEE4;
+    --stub:#6D4FC7; --stub-soft:#EFE9FB;
+    --shadow:0 1px 2px rgba(21,30,46,.06), 0 6px 20px -8px rgba(21,30,46,.10);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:var(--sans); font-size:16px; line-height:1.6;}
+  ::selection{background:var(--accent-soft); color:var(--accent-ink);}
+  a{color:var(--accent-ink);}
+  h1,h2,h3,h4{font-family:var(--sans); font-weight:700; letter-spacing:-0.01em; text-wrap:balance; margin:0;}
+  code,.mono{font-family:var(--mono);}
+  p{margin:0 0 0.8rem;}
+
+  .shell{display:grid; grid-template-columns:250px minmax(0,1fr); max-width:1180px; margin:0 auto;}
+  .masthead{grid-column:1/-1; border-bottom:1px solid var(--border); padding:2.2rem clamp(1.25rem,3vw,2.5rem) 1.6rem;}
+  .eyebrow{font-family:var(--mono); font-size:.75rem; letter-spacing:.09em; text-transform:uppercase; color:var(--accent-ink); font-weight:600;}
+  .masthead h1{font-size:clamp(1.6rem,3vw,2.15rem); margin-top:.4rem;}
+  .masthead p.lede{color:var(--text-dim); max-width:68ch; margin-top:.6rem; font-size:1.02rem;}
+  .meta{display:flex; gap:1.4rem; flex-wrap:wrap; margin-top:1rem; font-family:var(--mono); font-size:.82rem; color:var(--text-faint);}
+  .meta b{color:var(--text-dim);}
+
+  .rail{border-right:1px solid var(--border); padding:1.6rem 1rem; align-self:start; position:sticky; top:0; max-height:100vh; overflow-y:auto;}
+  .rail-title{font-family:var(--mono); font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); padding:0 .6rem; margin:1.1rem 0 .4rem;}
+  .rail-title:first-child{margin-top:0;}
+  .navlink{display:block; padding:.4rem .6rem; border-radius:6px; font-size:.88rem; color:var(--text-dim); font-weight:500; text-decoration:none;}
+  .navlink:hover{background:var(--surface-2); color:var(--text);}
+
+  main{padding:2.2rem clamp(1.25rem,3vw,2.5rem) 5rem; min-width:0;}
+  section{margin-bottom:3rem; scroll-margin-top:1.2rem;}
+
+  .callout{border-left:3px solid var(--stub); background:var(--stub-soft); border-radius:0 var(--radius) var(--radius) 0; padding:.9rem 1.1rem; margin:1.1rem 0; font-size:.92rem;}
+  .callout .k{font-family:var(--mono); font-size:.68rem; letter-spacing:.07em; text-transform:uppercase; color:var(--stub); display:block; margin-bottom:.35rem; font-weight:700;}
+  .callout.warn{border-left-color:var(--warn); background:var(--warn-soft);} .callout.warn .k{color:var(--warn);}
+
+  .table-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); margin:1rem 0 1.4rem;}
+  table{border-collapse:collapse; width:100%; font-size:.88rem;}
+  th{text-align:left; font-family:var(--mono); font-weight:600; font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; color:var(--text-faint); background:var(--surface-2); padding:.6rem .85rem; border-bottom:1px solid var(--border); white-space:nowrap;}
+  td{padding:.6rem .85rem; border-bottom:1px solid var(--border); vertical-align:top; color:var(--text-dim);}
+  tr:last-child td{border-bottom:none;}
+  td.who{color:var(--text); font-weight:600; white-space:nowrap;}
+  td.email{font-family:var(--mono); color:var(--accent-ink); white-space:nowrap;}
+
+  .act{border:1px solid var(--border); border-radius:12px; background:var(--surface); box-shadow:var(--shadow); margin:1.6rem 0; overflow:hidden;}
+  .act-head{padding:1.3rem 1.5rem; border-bottom:1px solid var(--border); background:var(--surface-2);}
+  .act-num{font-family:var(--mono); color:var(--text-faint); font-size:.85rem;}
+  .act-head h2{font-size:1.35rem; margin-top:.3rem;}
+  .act-meta{display:flex; gap:1rem; flex-wrap:wrap; margin-top:.6rem; font-size:.85rem;}
+  .chip{font-family:var(--mono); font-size:.74rem; padding:.22rem .6rem; border-radius:99px; background:var(--accent-soft); color:var(--accent-ink);}
+  .act-body{padding:1.4rem 1.5rem;}
+
+  ol.steps{margin:0; padding-left:1.4rem; display:grid; gap:1rem;}
+  ol.steps li{padding-left:.3rem;}
+  ol.steps b{color:var(--text); font-weight:700;}
+  .say{background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:.6rem .9rem; margin-top:.5rem; font-size:.88rem; font-style:italic; color:var(--text-dim);}
+  .say::before{content:"\201C SAY: "; font-style:normal; font-weight:700; color:var(--accent-ink); font-family:var(--mono); font-size:.72rem; letter-spacing:.03em; text-transform:uppercase;}
+  .path{font-family:var(--mono); font-size:.86rem; color:var(--accent-ink); background:var(--accent-soft); padding:.1rem .4rem; border-radius:4px;}
+
+  .fallback{margin-top:.9rem; padding-top:.8rem; border-top:1px dashed var(--border); font-size:.85rem; color:var(--text-faint);}
+  .fallback b{color:var(--text-dim);}
+
+  h3.h-block{font-size:1rem; margin:1.4rem 0 .5rem;}
+  ul.plain{margin:0 0 .8rem; padding-left:1.2rem;}
+  ul.plain li{margin-bottom:.35rem; color:var(--text-dim);}
+
+  footer.page-foot{border-top:1px solid var(--border); padding:1.4rem clamp(1.25rem,3vw,2.5rem); color:var(--text-faint); font-size:.82rem; grid-column:1/-1;}
+
+  @media (max-width:860px){
+    .shell{grid-template-columns:1fr;}
+    .rail{position:static; max-height:none; border-right:none; border-bottom:1px solid var(--border); display:flex; overflow-x:auto; gap:1rem; padding:1rem;}
+  }
+</style>
+
+<div class="shell">
+  <header class="masthead">
+    <div class="eyebrow">Internal · Presenter Reference — do not project this page</div>
+    <h1>Full Application Demo — Presenter Script</h1>
+    <p class="lede">A role-by-role, click-by-click runbook covering all four personas across every surface of the app — chat widget, operator console, ITSM app, and the admin/platform portal. Built around real logins, not narration.</p>
+    <div class="meta">
+      <span><b>Runtime</b> ~35–40 min + Q&amp;A</span>
+      <span><b>Base URL</b> <span class="mono">http://&lt;host&gt;:8181</span></span>
+      <span><b>Tenants used</b> Blue Team (primary), Green Team (cross-tenant reveal)</span>
+    </div>
+  </header>
+
+  <nav class="rail" aria-label="Script sections">
+    <div class="rail-title">Prep</div>
+    <a class="navlink" href="#preflight">Pre-flight checklist</a>
+    <a class="navlink" href="#creds">Login credentials</a>
+    <div class="rail-title">Acts</div>
+    <a class="navlink" href="#act1">Act 1 — Tenant User</a>
+    <a class="navlink" href="#act2">Act 2 — Tenant Operator</a>
+    <a class="navlink" href="#act3">Act 3 — Tenant Admin</a>
+    <a class="navlink" href="#act4">Act 4 — Super Admin</a>
+    <div class="rail-title">Wrap</div>
+    <a class="navlink" href="#mobile">Mobile (bonus beat)</a>
+    <a class="navlink" href="#closing">Closing &amp; recap</a>
+  </nav>
+
+  <main>
+
+    <section id="preflight">
+      <h2 style="font-size:1.15rem;">Pre-flight checklist (do this before the audience joins)</h2>
+      <ul class="plain" style="margin-top:.8rem;">
+        <li><b>itsm-service stack up:</b> <span class="mono">docker compose up -d db redis minio api</span> from <span class="mono">D:\99T\Code\itsm-service</span> — confirm <span class="mono">curl :8000/api/v1/health</span> returns 200.</li>
+        <li><b>Demo data present:</b> re-run the three seed scripts if this is a fresh DB (<span class="mono">scripts/seed/DEMO_DATA_SUMMARY.md</span>) — Act 3's RCA walkthrough depends on the 5-stage pipeline seeded on the Blue Team tenant.</li>
+        <li><b>web_api / portal / itsm-app / widget running</b> on port 8181 (<span class="mono">start_local.ps1</span> or your usual local launch).</li>
+        <li><b>Four separate browser sessions ready</b> — use 4 browser profiles or 4 incognito windows, one per persona. IAM SSO cookies will otherwise clobber each other mid-demo.</li>
+        <li><b>Open the seeded incident directly if possible</b> — Blue Team's "Payments API outage" (RCA‑2026‑0001) — so Act 3 doesn't burn time navigating.</li>
+      </ul>
+      <div class="callout">
+        <span class="k">Rehearse it unattended first</span>
+        <span class="mono">scripts/demo-automation/</span> is a Playwright suite that plays through all four acts against the real app with these exact logins — <span class="mono">npm run all</span> from that folder. It doubles as a pre-flight check (if it fails, the live demo will too) and records a <span class="mono">.webm</span> video per act under <span class="mono">recordings/</span> as a fallback if you'd rather not risk live-clicking. See that folder's README for setup.
+      </div>
+    </section>
+
+    <section id="creds">
+      <h2 style="font-size:1.15rem;">Login credentials</h2>
+      <p style="color:var(--text-dim); margin-top:.6rem;">Local dev/demo environment only. This table is for your reference only; never show this page to the audience. Verified live (2026‑07‑29) by exchanging each account's password for a real Keycloak token and inspecting its claims — not guessed.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Persona</th><th>Email</th><th>Password</th><th>Tenant (org)</th><th>Client role</th><th>Realm role</th><th>Log in at</th></tr></thead>
+          <tbody>
+            <tr><td class="who">Tenant User</td><td class="email">blue.bot@example.com</td><td class="mono">password</td><td>blue-team</td><td class="mono">Bot</td><td>—</td><td class="mono">/bot, /itsm</td></tr>
+            <tr><td class="who">Tenant Operator</td><td class="email">blue.opt@example.com</td><td class="mono">password</td><td>blue-team</td><td class="mono">Operator</td><td>—</td><td class="mono">/portal, /itsm</td></tr>
+            <tr><td class="who">Tenant Admin</td><td class="email">blue@example.com</td><td class="mono">password</td><td>blue-team</td><td class="mono">Admin</td><td class="mono">org_admin</td><td class="mono">/portal, /itsm</td></tr>
+            <tr><td class="who">Super Admin</td><td class="email">projectiq-admin@99technologies.com</td><td class="mono">password</td><td>99-tech-dev (platform org)</td><td>— (none)</td><td class="mono">org_admin</td><td class="mono">/portal</td></tr>
+            <tr><td class="who" style="color:var(--text-faint);">— cross-tenant reveal —</td><td class="email">green.bot@ / green.opt@ / green@example1.com</td><td class="mono">password</td><td>green-teem</td><td class="mono">Bot / Operator / Admin</td><td>(green@example1.com is org_admin)</td><td class="mono">same</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <span class="k">Two things worth knowing, confirmed by the live token check</span>
+        <b>Every account's token carries <span class="mono">products: ["itsm"]</span></b>, so all four should reach <span class="path">/itsm</span> as well as their primary surface — <b>blue.bot</b> and <b>blue.opt</b> weren't explicitly called out as ITSM logins but do carry the right claims for it (blue.bot has no elevated role → falls through to end_user; Operator is server-mapped to the agent tier). <b>The Super Admin account has no <span class="mono">super_admin</span> role at all</b> — its platform access comes from being <span class="mono">org_admin</span> of the platform org itself (<span class="mono">99-tech-dev</span>), which the portal's <span class="mono">isPlatformAdmin</span> check treats as equivalent. Still worth a 2‑minute UI click-through the morning of, but the identity/role wiring itself is confirmed, not assumed.
+      </div>
+    </section>
+
+    <!-- ================= ACT 1 ================= -->
+    <section id="act1">
+      <div class="act">
+        <div class="act-head">
+          <div class="act-num">ACT 1 of 4</div>
+          <h2>Tenant User — "I have a problem"</h2>
+          <div class="act-meta">
+            <span class="chip">~6 min</span>
+            <span class="chip">blue.bot@example.com</span>
+            <span class="chip">Chat widget</span>
+          </div>
+        </div>
+        <div class="act-body">
+          <ol class="steps">
+            <li>Open <span class="path">/bot</span>, sign in with <span class="mono">blue.bot@example.com</span>. If a product picker appears, pick one — sessions are scoped per product.
+              <div class="say">This is the same chat surface an employee sees embedded in their intranet — signed in via single sign-on, not a separate password.</div>
+            </li>
+            <li>Ask a real question the KB covers (e.g. "how do I connect to the VPN?") — let the bot answer from the knowledge base with quick-reply buttons, not a ticket.
+              <div class="say">Most requests never need a human — bot-first, ticket only when it's actually needed.</div>
+            </li>
+            <li>Trigger ticket creation — either ask something outside the KB or use the ticket quick-issue chips. Fill the form (title, a quick-issue chip, priority) and submit. <b>Note the ticket number</b> — Act 2/3 reopen this exact ticket.</li>
+            <li>Ask for a human — trigger handoff (e.g. "talk to a person" or let a low-confidence reply escalate). Show the queued state: position, estimated wait.
+              <div class="say">This is the exact moment we'll pick up from the other side of the screen in Act 2.</div>
+            </li>
+          </ol>
+          <div class="fallback"><b>If handoff won't trigger:</b> most bot flows have an explicit "talk to a human" quick-reply — use that instead of relying on low-confidence detection.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ACT 2 ================= -->
+    <section id="act2">
+      <div class="act">
+        <div class="act-head">
+          <div class="act-num">ACT 2 of 4</div>
+          <h2>Tenant Operator — "I handle it"</h2>
+          <div class="act-meta">
+            <span class="chip">~8 min</span>
+            <span class="chip">blue.opt@example.com</span>
+            <span class="chip">Operator Console</span>
+            <span class="chip">ITSM (agent)</span>
+          </div>
+        </div>
+        <div class="act-body">
+          <ol class="steps">
+            <li>New browser session → <span class="path">/portal</span>, sign in with <span class="mono">blue.opt@example.com</span>. This routes straight to the Operator Console.</li>
+            <li><b>Queue</b> — show the waiting session from Act 1: trigger reason, priority badge, wait time, product badge. Click <b>Accept</b> to claim it.</li>
+            <li><b>Session view</b> — reply to the user's message; open the <b>Canned</b> panel and send one; then try the <b>AI-draft</b> co-pilot — generate a suggested reply, edit it, send.
+              <div class="say">Nothing here is fully automated — the operator always reviews and sends. AI drafts, it doesn't decide.</div>
+            </li>
+            <li>Click <b>Resolve</b>. Switch back to the Act‑1 window to show the star-rating prompt that appears for the user.</li>
+            <li>Back in the Operator Console, open the <b>ITSM Tickets</b> tab and pull up the ticket created in Act 1 by number. Add an <b>internal note</b> (the internal/public toggle only appears at agent tier and above — end_user never sees it) and change its status.
+              <div class="say">Same login, same person — this is the ITSM "agent" tier, not a separate system.</div>
+            </li>
+            <li>Point out the ticket's live <b>SLA panel</b> — countdown, % consumed — visible to everyone, but only agent+ can act on it.</li>
+          </ol>
+          <div class="fallback"><b>If the AI-draft button is empty/slow:</b> it's budget-gated and async — have a canned response ready as the fallback beat.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ACT 3 ================= -->
+    <section id="act3">
+      <div class="act">
+        <div class="act-head">
+          <div class="act-num">ACT 3 of 4</div>
+          <h2>Tenant Admin — "I run the operation"</h2>
+          <div class="act-meta">
+            <span class="chip">~12 min — the centerpiece</span>
+            <span class="chip">blue@example.com</span>
+            <span class="chip">Portal</span>
+            <span class="chip">ITSM (admin)</span>
+          </div>
+        </div>
+        <div class="act-body">
+          <ol class="steps">
+            <li>New browser session → <span class="path">/portal</span>, sign in with <span class="mono">blue@example.com</span>. Tour quickly: <b>Analytics</b>, <b>History</b> (cross-session interaction log), <b>Live Monitor</b>, <b>Users</b> (invite/manage own org).</li>
+            <li><b>Integrations</b> — open the self-serve marketplace. Show a connected service card (SSO/storage/email — read-only status) and then configure a webhook connector (Teams or generic) — URL, secret, event checkboxes.
+              <div class="say">This used to be platform-only. Tenant admins can wire their own integrations now, scoped to just their org.</div>
+            </li>
+            <li>Switch to <span class="path">/itsm</span>, same login. Open <b>Administration</b> and walk the groups: Service Catalog (SLA/OLA/UC), On-Call &amp; SRE (On-Call/Escalation, Reliability (SLO), RCA Governance), People &amp; Access, Automation. Point out the lock icons — some sections stay admin-only even for a manager tier.</li>
+            <li><b>Reliability (SLO)</b> — show the error-budget gauge on the seeded Payments/Web services (one meeting target, one at-risk) and a burn-rate rule.</li>
+            <li><b>Incidents</b> — open the <b>Payments API outage</b> incident, scroll to the <b>RCA panel</b>. This is RCA‑2026‑0001: full evidence checklist provided, both action items verified, AI draft accepted.
+              <div class="say">This is the whole point of RCA governance — not a text box, a workflow. Evidence, approval, tracked actions, all before it's allowed to say "completed."</div>
+            </li>
+            <li>Jump to the Admin → <b>RCA Governance</b> screen. Open the <b>pipeline/dashboard</b> view and show the other four seeded RCAs in different states — actions_in_progress with an overdue action item, under_review blocked on a consent-disputed recording, overdue with an inaccessible recording, and one the manager waived with a reason on record.
+              <div class="say">Five real records, five different places in the lifecycle — this isn't a demo of one happy path, it's what an actual queue looks like.</div>
+            </li>
+            <li>Open ticket <b>#90008</b> ("Payroll app slow"), go to the <b>Recordings</b> tab — show the linked recording flagged sensitive, its AI summary skipped for consent reasons. Then open ticket <b>#90001</b> and show a normal, fully-summarized recording for contrast.</li>
+            <li><b>Reports</b> — scroll to the RCA/recording compliance stats added there.</li>
+          </ol>
+          <div class="fallback"><b>If this act runs long:</b> it's fine — this is the centerpiece. Trim Act 4 instead, not this one.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ACT 4 ================= -->
+    <section id="act4">
+      <div class="act">
+        <div class="act-head">
+          <div class="act-num">ACT 4 of 4</div>
+          <h2>Super Admin — "I run the platform"</h2>
+          <div class="act-meta">
+            <span class="chip">~6 min</span>
+            <span class="chip">projectiq-admin@99technologies.com</span>
+            <span class="chip">Portal — Platform group</span>
+          </div>
+        </div>
+        <div class="act-body">
+          <ol class="steps">
+            <li>New browser session → <span class="path">/portal</span>, sign in with <span class="mono">projectiq-admin@99technologies.com</span>. Point out the extra sidebar group that only this login sees: <b>Platform</b> — Organizations, Configuration, Knowledge Base, Bot Studio, Themes, Observability, Diagnostics, Inspector, Routing Rules.</li>
+            <li><b>Organizations</b> — the cross-tenant list (read-only, no "create org" button — tenants provision via a signed IAM webhook, not this UI). Point out Blue Team and Green Team side by side with independent waiting/assigned/resolved stats.</li>
+            <li>Use the <b>tenant switcher</b> in the header — flip from Blue Team to Green Team. Everything reloads scoped to Green — different tickets, different users, same product.
+              <div class="say">This is the whole multi-tenant guarantee in one click — row-level security, not just a UI filter.</div>
+            </li>
+            <li><b>Routing Rules</b> — show a handoff routing rule (match intent/keyword/app → target queue + priority boost) — platform-level, shapes every tenant's queue behavior.</li>
+            <li>Brief mention only (don't deep-dive): <b>Bot Studio</b>, <b>Observability</b>, <b>Config</b> — these are platform engineering surfaces, not usually demo material for a business audience.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section id="mobile">
+      <h2 style="font-size:1.15rem;">Bonus beat — mobile (30 seconds, optional)</h2>
+      <p style="margin-top:.6rem; color:var(--text-dim);">The Expo mobile app mirrors the chat widget (same IAM SSO, same handoff flow) and adds one manager-only touch worth a single screenshot or 30-second live moment: from a ticket's "View Ticket" action, a manager-tier login can review and <b>Approve / Reject / Waive</b> an RCA right from their phone. It has no admin/platform surface at all — position it as "support access from your pocket," not a fifth persona.</p>
+    </section>
+
+    <section id="closing">
+      <h2 style="font-size:1.15rem;">Closing &amp; recap (2–3 min)</h2>
+      <p style="margin-top:.6rem; color:var(--text-dim);">One ticket, one thread: an employee asked a question in Act 1, an operator resolved it live in Act 2, an admin turned a real incident into a governed RCA with tracked evidence and actions in Act 3, and a platform admin showed the isolation and control that makes all of it safe to run across many tenants at once in Act 4. Same login system end to end — no separate "admin app."</p>
+      <p style="color:var(--text-dim);">Full written reference: <span class="mono">docs/full-application-guide.html</span>. Reliability/RCA deep dive: <span class="mono">docs/reliability-rca-governance-guide.html</span>.</p>
+    </section>
+
+  </main>
+
+  <footer class="page-foot">
+    Presenter reference only — contains real login identifiers for a dev/demo environment. Do not publish or project this file. Built from live code research on <span class="mono">V3‑improve</span>, 2026‑07‑29.
+  </footer>
+</div>

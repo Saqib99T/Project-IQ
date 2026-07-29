@@ -1,0 +1,375 @@
+<title>Full Application Guide — By Role</title>
+<style>
+  :root{
+    --bg:#F6F7FB; --surface:#FFFFFF; --surface-2:#EEF1F7; --border:#DCE1EC;
+    --text:#151E2E; --text-dim:#57657C; --text-faint:#8592A8;
+    --accent:#3457D5; --accent-ink:#2745B0; --accent-soft:#E8EDFC;
+    --good:#0E7A5B; --good-soft:#E3F5EE;
+    --warn:#9A6400; --warn-soft:#FBF0DA;
+    --stub:#6D4FC7; --stub-soft:#EFE9FB;
+    --mono: ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,"SF Mono",Menlo,monospace;
+    --sans: -apple-system,BlinkMacSystemFont,"Segoe UI",ui-sans-serif,system-ui,sans-serif;
+    --radius:8px; --shadow:0 1px 2px rgba(21,30,46,.06), 0 6px 20px -8px rgba(21,30,46,.10);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0A0E17; --surface:#121826; --surface-2:#1A2233; --border:#28324A;
+      --text:#E7EBF4; --text-dim:#9AA6BE; --text-faint:#69759090;
+      --accent:#7691FF; --accent-ink:#AEBEFF; --accent-soft:rgba(118,145,255,.14);
+      --good:#3FD3A3; --good-soft:rgba(63,211,163,.12);
+      --warn:#F3B94E; --warn-soft:rgba(243,185,78,.12);
+      --stub:#B39CF0; --stub-soft:rgba(179,156,240,.14);
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0A0E17; --surface:#121826; --surface-2:#1A2233; --border:#28324A;
+    --text:#E7EBF4; --text-dim:#9AA6BE; --text-faint:#69759090;
+    --accent:#7691FF; --accent-ink:#AEBEFF; --accent-soft:rgba(118,145,255,.14);
+    --good:#3FD3A3; --good-soft:rgba(63,211,163,.12);
+    --warn:#F3B94E; --warn-soft:rgba(243,185,78,.12);
+    --stub:#B39CF0; --stub-soft:rgba(179,156,240,.14);
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.55);
+  }
+  :root[data-theme="light"]{
+    --bg:#F6F7FB; --surface:#FFFFFF; --surface-2:#EEF1F7; --border:#DCE1EC;
+    --text:#151E2E; --text-dim:#57657C; --text-faint:#8592A8;
+    --accent:#3457D5; --accent-ink:#2745B0; --accent-soft:#E8EDFC;
+    --good:#0E7A5B; --good-soft:#E3F5EE;
+    --warn:#9A6400; --warn-soft:#FBF0DA;
+    --stub:#6D4FC7; --stub-soft:#EFE9FB;
+    --shadow:0 1px 2px rgba(21,30,46,.06), 0 6px 20px -8px rgba(21,30,46,.10);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:var(--sans); font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;}
+  ::selection{background:var(--accent-soft); color:var(--accent-ink);}
+  a{color:var(--accent-ink); text-decoration:none;} a:hover{text-decoration:underline;}
+  a:focus-visible, button:focus-visible, .navlink:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px;}
+  h1,h2,h3,h4{font-family:var(--sans); font-weight:700; letter-spacing:-0.01em; text-wrap:balance; margin:0;}
+  code,.mono{font-family:var(--mono);}
+  p{margin:0 0 .9rem;}
+
+  .shell{display:grid; grid-template-columns:242px minmax(0,1fr); gap:0; max-width:1180px; margin:0 auto;}
+  .masthead{grid-column:1/-1; border-bottom:1px solid var(--border); padding:2.2rem clamp(1.25rem,3vw,2.5rem) 1.6rem;}
+  .eyebrow{font-family:var(--mono); font-size:.75rem; letter-spacing:.09em; text-transform:uppercase; color:var(--accent-ink); font-weight:600;}
+  .masthead h1{font-size:clamp(1.6rem,3vw,2.15rem); margin-top:.4rem;}
+  .masthead p.lede{color:var(--text-dim); max-width:66ch; margin-top:.6rem; font-size:1.02rem;}
+
+  .rail{border-right:1px solid var(--border); padding:1.6rem 1rem; align-self:start; position:sticky; top:0; max-height:100vh; overflow-y:auto;}
+  .rail-group{margin-bottom:1.3rem;}
+  .rail-title{font-family:var(--mono); font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); padding:0 .6rem; margin-bottom:.4rem;}
+  .navlink{display:block; padding:.4rem .6rem; border-radius:6px; font-size:.88rem; color:var(--text-dim); font-weight:500;}
+  .navlink:hover{background:var(--surface-2); color:var(--text); text-decoration:none;}
+
+  main{padding:2.2rem clamp(1.25rem,3vw,2.5rem) 5rem; min-width:0;}
+  section{margin-bottom:3rem; scroll-margin-top:1.2rem;}
+  section.persona{margin-bottom:3.6rem;}
+
+  .p-head{display:flex; align-items:baseline; gap:.7rem; flex-wrap:wrap; border-bottom:1px solid var(--border); padding-bottom:.9rem; margin-bottom:1.2rem;}
+  .p-num{font-family:var(--mono); color:var(--text-faint); font-size:.95rem;}
+  .p-head h2{font-size:1.4rem;}
+  .p-sub{color:var(--text-dim); font-size:.95rem; margin-top:.35rem; max-width:74ch;}
+
+  .pill{display:inline-flex; align-items:center; gap:.35rem; font-family:var(--mono); font-size:.72rem; font-weight:600; padding:.22rem .55rem; border-radius:99px; white-space:nowrap;}
+  .pill::before{content:""; width:6px; height:6px; border-radius:50%; display:inline-block;}
+  .pill.role{background:var(--accent-soft); color:var(--accent-ink);} .pill.role::before{background:var(--accent);}
+  .pill.surface{background:var(--good-soft); color:var(--good);} .pill.surface::before{background:var(--good);}
+  .pill.no{background:var(--stub-soft); color:var(--stub);} .pill.no::before{background:var(--stub);}
+
+  h3.h-block{font-size:1rem; margin:1.6rem 0 .6rem;}
+  h3.h-block .mono{color:var(--text-faint); font-weight:500; font-size:.85em; margin-left:.4rem;}
+
+  ul.feature-list{margin:0 0 1rem; padding-left:0; list-style:none; display:grid; gap:.5rem;}
+  ul.feature-list li{padding-left:1.15rem; position:relative; color:var(--text); font-size:.96rem;}
+  ul.feature-list li::before{content:"—"; position:absolute; left:0; color:var(--text-faint);}
+  ul.feature-list b{font-weight:600;}
+
+  .where{display:flex; align-items:flex-start; gap:.6rem; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:.85rem 1rem; margin:1.1rem 0; font-size:.9rem;}
+  .where .k{font-family:var(--mono); font-size:.68rem; letter-spacing:.07em; text-transform:uppercase; color:var(--text-faint); display:block; margin-bottom:.25rem;}
+  .crumb{font-family:var(--mono); font-size:.86rem;} .crumb .sep{color:var(--text-faint); margin:0 .15rem;}
+
+  .table-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); margin:.9rem 0 1.2rem;}
+  table{border-collapse:collapse; width:100%; font-size:.85rem;}
+  th{text-align:left; font-family:var(--mono); font-weight:600; font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; color:var(--text-faint); background:var(--surface-2); padding:.55rem .8rem; border-bottom:1px solid var(--border); white-space:nowrap;}
+  td{padding:.5rem .8rem; border-bottom:1px solid var(--border); vertical-align:top; color:var(--text-dim);}
+  tr:last-child td{border-bottom:none;}
+  td.k{font-family:var(--mono); color:var(--accent-ink); white-space:nowrap;}
+  td.who{color:var(--text); font-weight:600; white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--stub); background:var(--stub-soft); border-radius:0 var(--radius) var(--radius) 0; padding:.85rem 1rem; margin:1.1rem 0; font-size:.92rem;}
+  .callout .k{font-family:var(--mono); font-size:.68rem; letter-spacing:.07em; text-transform:uppercase; color:var(--stub); display:block; margin-bottom:.35rem; font-weight:700;}
+  .callout ul{margin:0; padding-left:1.1rem;} .callout li{margin-bottom:.3rem;} .callout li:last-child{margin-bottom:0;}
+
+  .grid-nav{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:.9rem; margin:1rem 0;}
+  .nav-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:.95rem 1.1rem; box-shadow:var(--shadow);}
+  .nav-card h4{font-size:.92rem; margin-bottom:.5rem;}
+  .nav-card .crumb{display:block; color:var(--text-dim); margin-bottom:.2rem;}
+  .nav-card .crumb b{color:var(--text); font-weight:600;}
+
+  dl.glossary{display:grid; gap:.9rem; margin:0;}
+  dl.glossary div{display:grid; grid-template-columns:150px minmax(0,1fr); gap:.9rem; align-items:baseline;}
+  dl.glossary dt{font-family:var(--mono); font-weight:700; font-size:.85rem; color:var(--accent-ink);}
+  dl.glossary dd{margin:0; color:var(--text-dim); font-size:.92rem;}
+
+  footer.page-foot{border-top:1px solid var(--border); padding:1.4rem clamp(1.25rem,3vw,2.5rem); color:var(--text-faint); font-size:.82rem; grid-column:1/-1;}
+
+  @media (max-width:860px){
+    .shell{grid-template-columns:1fr;}
+    .rail{position:static; max-height:none; border-right:none; border-bottom:1px solid var(--border); display:flex; overflow-x:auto; gap:1.2rem; padding:1rem;}
+    .rail-group{margin-bottom:0; flex:0 0 auto;}
+    dl.glossary div{grid-template-columns:1fr;}
+  }
+</style>
+
+<div class="shell">
+  <header class="masthead">
+    <div class="eyebrow">IQ‑ITSM · Full Application Reference</div>
+    <h1>The whole product, by who's using it</h1>
+    <p class="lede">Four roles, one identity system, four very different views: a tenant user asking for help, a tenant operator answering it, a tenant admin running the operation, and a super admin running the platform underneath every tenant. Grounded in the actual code and a live login check against each role — not the aspirational spec.</p>
+  </header>
+
+  <nav class="rail" aria-label="Guide sections">
+    <div class="rail-group">
+      <div class="rail-title">Orient</div>
+      <a class="navlink" href="#overview">Overview</a>
+      <a class="navlink" href="#identity">One identity, four surfaces</a>
+    </div>
+    <div class="rail-group">
+      <div class="rail-title">Personas</div>
+      <a class="navlink" href="#p-user">01 · Tenant User</a>
+      <a class="navlink" href="#p-operator">02 · Tenant Operator</a>
+      <a class="navlink" href="#p-admin">03 · Tenant Admin</a>
+      <a class="navlink" href="#p-super">04 · Super Admin</a>
+    </div>
+    <div class="rail-group">
+      <div class="rail-title">Reference</div>
+      <a class="navlink" href="#mobile">Mobile</a>
+      <a class="navlink" href="#nav-map">Where to find it</a>
+      <a class="navlink" href="#glossary">Glossary</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="overview">
+      <h2 style="font-size:1.15rem;">Overview</h2>
+      <div style="margin-top:.7rem; max-width:76ch;">
+        <p>The product has three web surfaces sharing one Keycloak-backed identity (realm <span class="mono">99-iam</span>, client <span class="mono">project-iq</span>) — the <b>chat widget</b> (<span class="mono">/bot</span>), the <b>ITSM app</b> (<span class="mono">/itsm</span>), and the <b>portal</b> (<span class="mono">/portal</span>, which itself contains both the operator console and the tenant/platform admin screens) — plus an Expo <b>mobile app</b> that mirrors the widget. Nobody has a separate password per surface: what a login can do is entirely a function of the IAM roles baked into their token.</p>
+        <p>This guide is organized by the four roles that actually matter to a demo or a rollout, not by every intermediate ITSM tier (there's also <span class="mono">team_lead</span>, functionally between agent and manager, differentiated mostly server-side rather than in the UI — not covered as its own section).</p>
+      </div>
+    </section>
+
+    <section id="identity">
+      <h2 style="font-size:1.15rem;">One identity, four surfaces</h2>
+      <p style="margin-top:.6rem; color:var(--text-dim); max-width:76ch;">Every login's Keycloak token carries a <span class="mono">project-iq</span> client role and a tenant <span class="mono">organization</span> claim; the backend on each surface reads the same token and projects it onto that surface's own role vocabulary. There's no separate "admin app" — it's one token, read four different ways.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Persona</th><th>project-iq client role</th><th>Realm role</th><th>→ ITSM tier</th><th>→ Portal access</th></tr></thead>
+          <tbody>
+            <tr><td class="who">Tenant User</td><td class="k">Bot</td><td>—</td><td>end_user (default — no elevated role matches)</td><td>—</td></tr>
+            <tr><td class="who">Tenant Operator</td><td class="k">Operator</td><td>—</td><td>agent</td><td>Operator Console</td></tr>
+            <tr><td class="who">Tenant Admin</td><td class="k">Admin</td><td class="k">org_admin</td><td>admin</td><td>tenant Admin (Organization + ITSM + Integrations groups)</td></tr>
+            <tr><td class="who">Super Admin</td><td>— (none)</td><td class="k">org_admin</td><td>admin (via platform bypass)</td><td><b>Platform</b> group (cross-tenant)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <span class="k">The super admin surprise</span>
+        Platform access isn't a <span class="mono">super_admin</span> role at all in this environment — it's granted to anyone who is <span class="mono">org_admin</span> of the platform org itself. The portal's <span class="mono">isPlatformAdmin</span> check treats "admin of the platform's own org" as equivalent to a global super admin, and lets that identity bypass every other role gate.
+      </div>
+    </section>
+
+    <!-- ============ PERSONA 1 — TENANT USER ============ -->
+    <section class="persona" id="p-user">
+      <div class="p-head">
+        <span class="p-num">01</span>
+        <h2>Tenant User</h2>
+        <span class="pill role">end_user</span>
+      </div>
+      <p class="p-sub">The employee asking for help. Signed in via SSO, no admin surface, no ticket-management controls — just get an answer or get connected to a person.</p>
+
+      <h3 class="h-block">Chat widget <span class="mono">/bot</span></h3>
+      <ul class="feature-list">
+        <li><b>Bot-first Q&amp;A</b> — messages go to the KB/NLU engine first; replies come with quick-reply buttons, KB article cards, and charts, not just text.</li>
+        <li><b>Product-scoped sessions</b> — a picker gates chat until a product is chosen; each session id encodes user + product + a login epoch, so a fresh sign-in always starts a clean history record.</li>
+        <li><b>Ticket creation from chat</b> — quick-issue chips, title/detail/category/priority, one file attachment (max 1MB), confirm before submit.</li>
+        <li><b>Human handoff</b> — request a person anytime; see queue position and a live wait estimate; live typing indicator once connected; star-rating after resolution.</li>
+        <li><b>Session history</b> — browse and reopen past conversations; missed operator messages back-fill on reconnect.</li>
+        <li><b>Guardrails</b> — profanity/PII/SSN/credit-card/length input filtering before anything is sent.</li>
+      </ul>
+
+      <h3 class="h-block">ITSM app <span class="mono">/itsm</span></h3>
+      <ul class="feature-list">
+        <li><b>Same sidebar as everyone</b> — Tickets, Assets, Knowledge Base, Reports, Incidents, Notifications — minus the Administration link. Reports and Incidents aren't nav-gated at all, so an end_user's sidebar looks nearly identical to an admin's.</li>
+        <li><b>Create and track own tickets</b> — title/description/type/priority only; no assignee field.</li>
+        <li><b>Comments are always public</b> — no internal-note toggle; that only appears at agent tier.</li>
+        <li><b>SLA clocks and RCA are read-only</b> — visible, not actionable.</li>
+      </ul>
+
+      <div class="where">
+        <div style="flex:1;">
+          <span class="k">Where to find it</span>
+          <span class="crumb">Chat widget <span class="sep">›</span> <b>/bot</b></span><br>
+          <span class="crumb">ITSM app <span class="sep">›</span> <b>/itsm</b> (same identity, no elevated role)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PERSONA 2 — TENANT OPERATOR ============ -->
+    <section class="persona" id="p-operator">
+      <div class="p-head">
+        <span class="p-num">02</span>
+        <h2>Tenant Operator</h2>
+        <span class="pill role">Operator → agent tier</span>
+      </div>
+      <p class="p-sub">The IAM <span class="mono">Operator</span> client role is server-mapped onto the ITSM <span class="mono">agent</span> tier — same login, same person, two role vocabularies. Not a separate identity from an ITSM "agent"; it's the same one, viewed from two surfaces.</p>
+
+      <h3 class="h-block">Operator Console <span class="mono">/portal</span> (routes at /operator/*)</h3>
+      <ul class="feature-list">
+        <li><b>Queue</b> — waiting conversations with trigger reason (user request, low confidence, frustration detected), priority, wait time, product; claim with one click.</li>
+        <li><b>Session view</b> — two-sided live transcript, typing indicator, resolve/release/transfer to another operator, session notes.</li>
+        <li><b>Canned responses</b> — reusable replies, managed per operator.</li>
+        <li><b>AI-draft co-pilot</b> — a suggested reply the operator reviews, edits, and sends — never auto-sent.</li>
+        <li><b>Presence</b> — Available/Away/Busy/Offline status with a heartbeat.</li>
+        <li><b>ITSM Tickets tab</b> — work ITSM tickets without leaving the console.</li>
+      </ul>
+
+      <h3 class="h-block">ITSM app <span class="mono">/itsm</span> — agent tier</h3>
+      <ul class="feature-list">
+        <li><b>Internal/public comment toggle</b> — the one capability that appears exactly at this tier and not below.</li>
+        <li><b>Ticket edits</b> — status, assignee, team, priority (server-enforced at agent-or-above; note below).</li>
+        <li><b>Still no Administration link</b> — that only appears from manager tier up.</li>
+      </ul>
+
+      <div class="callout">
+        <span class="k">A gap worth knowing about</span>
+        The ticket edit panel (status/assignee/team/priority) is <b>not hidden client-side</b> for lower roles — it renders for everyone, and an end_user's edit attempt is rejected server-side (403). Cosmetic only, but worth knowing before a demo so a stray click doesn't look like a bug.
+      </div>
+
+      <div class="where">
+        <div style="flex:1;">
+          <span class="k">Where to find it</span>
+          <span class="crumb">Portal <span class="sep">›</span> <b>Operator Console</b> (auto-routed on login)</span><br>
+          <span class="crumb">ITSM app <span class="sep">›</span> <b>/itsm</b> — same login, agent tier</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PERSONA 3 — TENANT ADMIN ============ -->
+    <section class="persona" id="p-admin">
+      <div class="p-head">
+        <span class="p-num">03</span>
+        <h2>Tenant Admin</h2>
+        <span class="pill role">org_admin → admin tier</span>
+      </div>
+      <p class="p-sub">Everything a tenant owns and can self-serve — pinned hard to their own org server-side. No cross-tenant visibility, no tenant switcher; those only appear for the platform identity.</p>
+
+      <h3 class="h-block">Portal admin <span class="mono">/portal</span> (routes at /admin/*)</h3>
+      <ul class="feature-list">
+        <li><b>Organization group</b> — Overview, Analytics, History (cross-session interaction log), Live Monitor, Alerts, Users (invite/manage own-org users only — can't grant Admin role or target another org).</li>
+        <li><b>ITSM group</b> — shortcuts into Tickets/Assets/Knowledge Base/Reports.</li>
+        <li><b>Integrations marketplace</b> — self-serve since a 2026 change (previously platform-only): connected-service status cards (SSO, storage, email, AI) plus installable webhook connectors (Microsoft Teams, generic webhook) with HMAC-signed delivery, scoped automatically to their own org.</li>
+      </ul>
+
+      <h3 class="h-block">ITSM app <span class="mono">/itsm</span> — full admin</h3>
+      <p style="color:var(--text-dim);">The Administration menu, in full — everything below the manager tier still has locked (admin-only) items shown greyed out with a tooltip; a true admin login unlocks all of it.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Group</th><th>Sections</th></tr></thead>
+          <tbody>
+            <tr><td class="who">Organization</td><td>Departments, Products</td></tr>
+            <tr><td class="who">Service Catalog</td><td>Ticket Categories, SLA / OLA / UC, SLA Policies (legacy), Business Hours</td></tr>
+            <tr><td class="who">On‑Call &amp; SRE</td><td>On‑Call / Escalation, Reliability (SLO), RCA Governance</td></tr>
+            <tr><td class="who">Asset Configuration</td><td>Asset Categories, Asset Types, Vendors</td></tr>
+            <tr><td class="who">Knowledge Base</td><td>Articles, Spaces, Categories, Tags</td></tr>
+            <tr><td class="who">People &amp; Access</td><td>Teams, Users (role management)</td></tr>
+            <tr><td class="who">Automation</td><td>Automation Rules, Webhooks</td></tr>
+            <tr><td class="who">Platform &amp; AI</td><td>AI Budget, Audit Log, System Logs</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="feature-list">
+        <li><b>SLA override + RCA approve/reject/waive</b> — the two capabilities that appear exactly at manager tier and up (an admin login has both).</li>
+        <li><b>Full Reliability (SLO)</b> — error-budget gauges, burn-rate rules, SLI sources.</li>
+      </ul>
+
+      <div class="where">
+        <div style="flex:1;">
+          <span class="k">Where to find it</span>
+          <span class="crumb">Portal <span class="sep">›</span> <b>/admin</b></span><br>
+          <span class="crumb">ITSM app <span class="sep">›</span> <b>/itsm</b> <span class="sep">›</span> Administration</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PERSONA 4 — SUPER ADMIN ============ -->
+    <section class="persona" id="p-super">
+      <div class="p-head">
+        <span class="p-num">04</span>
+        <h2>Super Admin</h2>
+        <span class="pill role">platform_admin (via platform-org membership)</span>
+      </div>
+      <p class="p-sub">Cross-tenant reach, granted to anyone who's <span class="mono">org_admin</span> of the platform's own organization — not a distinct realm role. One extra sidebar group appears; everything else the tenant admin already had access to, this identity also bypasses into.</p>
+
+      <h3 class="h-block">Portal — Platform group <span class="mono">/portal</span></h3>
+      <ul class="feature-list">
+        <li><b>Organizations</b> — every tenant, side by side, with waiting/assigned/resolved/last-activity stats. Read-only — no "create org" button anywhere.</li>
+        <li><b>Tenant switcher</b> — a header dropdown (invisible to a tenant admin) that reloads the whole portal scoped to a chosen org.</li>
+        <li><b>Routing Rules</b> — handoff routing by intent/keyword/app/entity/regex → target queue + priority boost. Platform-wide, shapes every tenant's queue.</li>
+        <li><b>Configuration, Knowledge Base, Bot Studio, Themes, Firecrawl, Observability, Diagnostics, Inspector</b> — platform engineering surfaces (handoff/session/SMTP/Redis/LLM/KB config, widget theming, crawler management, system health). Not usually demo material for a business audience, but exist and are platform-only.</li>
+      </ul>
+
+      <div class="callout">
+        <span class="k">Tenant provisioning is not a UI action</span>
+        There's no "create tenant" screen anywhere, including here. New tenants are provisioned by a signed IAM lifecycle webhook (a <span class="mono">product.subscribed</span> event) — idempotent, keyed on the IAM org id, and it also seeds default SLAs/sequences/a "General" KB space. Don't demo tenant creation through the UI; it doesn't exist by design.
+      </div>
+
+      <div class="where">
+        <div style="flex:1;">
+          <span class="k">Where to find it</span>
+          <span class="crumb">Portal <span class="sep">›</span> sidebar <span class="sep">›</span> <b>Platform</b> group (only visible to this identity)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MOBILE ============ -->
+    <section id="mobile">
+      <h2 style="font-size:1.15rem;">Mobile (Expo app)</h2>
+      <p style="margin-top:.6rem; color:var(--text-dim); max-width:76ch;">Four screens total — Chat, Notifications, Profile, Settings. The chat screen is a faithful mirror of the widget: same IAM SSO (Keycloak PKCE, biometric re-lock after backgrounding), same handoff flow, same guardrails. From a ticket's "View Ticket" action it resolves a ticket number to its record and offers Recordings/RCA modals — any signed-in user can view recordings and submit an RCA, but <b>Approve / Reject / Waive stays gated to manager-tier logins</b>, checked the same way the web app checks it. There is <b>no admin or platform surface on mobile at all</b> — it's end-user plus one manager-only touch, not a fifth persona.</p>
+    </section>
+
+    <!-- ============ NAV MAP ============ -->
+    <section id="nav-map">
+      <h2 style="font-size:1.15rem;">Where to find it, at a glance</h2>
+      <div class="grid-nav">
+        <div class="nav-card"><h4>Ask for help</h4><span class="crumb">Chat widget <b>›</b> /bot</span></div>
+        <div class="nav-card"><h4>Answer live chats</h4><span class="crumb">Portal <b>›</b> Operator Console</span></div>
+        <div class="nav-card"><h4>Work a ticket</h4><span class="crumb">ITSM app <b>›</b> /itsm <b>›</b> Tickets</span></div>
+        <div class="nav-card"><h4>Configure SLA/OLA/UC</h4><span class="crumb">ITSM app <b>›</b> Administration <b>›</b> Service Catalog</span></div>
+        <div class="nav-card"><h4>RCA governance</h4><span class="crumb">ITSM app <b>›</b> Administration <b>›</b> On‑Call &amp; SRE</span></div>
+        <div class="nav-card"><h4>Tenant integrations</h4><span class="crumb">Portal <b>›</b> Admin <b>›</b> Integrations</span></div>
+        <div class="nav-card"><h4>Cross-tenant view</h4><span class="crumb">Portal <b>›</b> Platform <b>›</b> Organizations</span></div>
+        <div class="nav-card"><h4>Handoff routing rules</h4><span class="crumb">Portal <b>›</b> Platform <b>›</b> Routing Rules</span></div>
+      </div>
+    </section>
+
+    <!-- ============ GLOSSARY ============ -->
+    <section id="glossary">
+      <h2 style="font-size:1.15rem;">Glossary</h2>
+      <dl class="glossary" style="margin-top:1rem;">
+        <div><dt>IAM</dt><dd>The shared Keycloak identity provider (realm <span class="mono">99-iam</span>, client <span class="mono">project-iq</span>) every surface authenticates against — no local passwords anywhere in the product.</dd></div>
+        <div><dt>Client role</dt><dd>A <span class="mono">project-iq</span>-scoped Keycloak role (<span class="mono">Bot</span>, <span class="mono">Operator</span>, <span class="mono">Admin</span>) — the primary signal each surface reads to decide tier.</dd></div>
+        <div><dt>Realm role</dt><dd>A Keycloak role not scoped to one client — <span class="mono">org_admin</span> is the one that matters here, driving both ITSM admin tier and (for the platform org) platform access.</dd></div>
+        <div><dt>Organization claim</dt><dd>The tenant(s) a token is scoped to — what makes row-level tenant isolation possible without a separate login per tenant.</dd></div>
+        <div><dt>Products claim</dt><dd>Which product(s) — e.g. <span class="mono">itsm</span> — a token is authorized for; gates the product picker in chat and cross-surface access.</dd></div>
+        <div><dt>Handoff</dt><dd>The bot-to-human escalation path: <span class="mono">bot_active → queued → assigned</span>, driven by Socket.IO events.</dd></div>
+        <div><dt>Platform bypass</dt><dd>The portal's <span class="mono">isPlatformAdmin</span> check — true for the <span class="mono">super_admin</span> role <i>or</i> for an <span class="mono">org_admin</span> of the platform's own org — and grants access past every other role gate.</dd></div>
+      </dl>
+    </section>
+  </main>
+
+  <footer class="page-foot">
+    Sourced from live code research across itsm-service + Project-IQ-V2, plus a live Keycloak token check against six real accounts, on <span class="mono">V3‑improve</span>, 2026‑07‑29. Companion docs: <span class="mono">full-app-demo-script.html</span> (presenter runbook) and <span class="mono">full-app-demo-deck.html</span> (audience deck).
+  </footer>
+</div>

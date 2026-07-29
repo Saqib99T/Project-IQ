@@ -33,6 +33,22 @@ Per tenant ×3 unless noted. **Identical shape in each of the 3 tenants.**
 
 Populated so no configured screen is empty (totals ×3 tenants): **AI SLA breach predictions** (6), **sla_metrics_daily** compliance history (21), **notifications** + preferences (18), **maintenance windows** (3), **status page config + subscriptions**, **workflows** (3), **schedule overrides** (3), **KB feedback + tag assignments + ticket→KB links**, **ticket approvals** (the pending-approval change ticket) + **escalations**, **alert routing rules** + **heartbeats**, **user→department assignments** (24), and **SLA underpinning** (OLA underpins the SLA resolution target).
 
+### Phase-3 seed — Support Recording + RCA Governance ([seed_itsm_phase3.sql](seed_itsm_phase3.sql), generator [gen_itsm_seed3.py](gen_itsm_seed3.py))
+
+Loaded **2026-07-29**, covering the specs/08 Phase 1+2 module (migrations `0034`-`0036`), which postdates the Phase-1/2 seed above. One recording+RCA pipeline per tenant spanning every lifecycle stage, wired onto **existing** Phase-1 tickets/incident so nothing dangles:
+
+| RCA | Status | Source | Story |
+|---|---|---|---|
+| RCA‑2026‑0001 | **completed** | incident "Payments API outage" | Elevates the existing published retrospective into a governed RCA: full evidence checklist provided, both action items verified/done, AI draft accepted. Evidence includes a bridge-call recording linked directly to the RCA (no ticket — incident-only). |
+| RCA‑2026‑0002 | **actions_in_progress** | ticket #90005 "Intermittent packet loss" | Approved with 2 CAPA items — one verified done, one **overdue** (not yet closed) — showing why an approved RCA still isn't complete. Recording evidence attached and summarized. |
+| RCA‑2026‑0003 | **under_review** | ticket #90008 "Payroll app slow" | Submitted but blocked: 3 of 11 evidence-checklist items still missing (recording summary, asset impact, customer comms) because the linked recording has **disputed consent** + `contains_pii` sensitivity, so its AI summary was skipped. |
+| RCA‑2026‑0004 | **overdue** | ticket #90002 "Office VPN down" | Required but untouched past its due date; linked recording is **inaccessible** (expired OneDrive link) with consent missing — a realistic reason nobody's started the draft. |
+| RCA‑2026‑0005 | **waived** | ticket #90009 "Printer jamming" | Manager-waived with a recorded reason (isolated hardware fault); evidence checklist mixes `provided` + `waived` items. |
+
+Also per tenant: **3 RCA policies** (major-incident, SLA-breach, repeat-incident triggers) for the policy-builder screen; **1 plain non-RCA recording** (ticket #90001) for the everyday "attach a call" flow; a **tenant recording policy** singleton; and a realistic **recording access log** (view/open/summary/restrict/download) across all 5 recordings. Orphan-FK checks = 0.
+
+**Note on dates:** Phase-1/2 rows anchor to **2026‑07‑02**; Phase‑3 RCA due dates/history anchor to **2026‑07‑29** (load date) so "overdue"/"under review"/"in progress" read as live rather than stale — the two epochs are independent and don't need to match.
+
 **Cross-module wiring (realistic references):**
 - Tickets → requester/assignee (users), team, category, department; some tickets have SLA instances tied to a target + agreement, plus comments, history and tags.
 - Incident "Payments API outage" ← source alert `al4`, affected service `Payments API`, staffed with 4 incident roles, full timeline, published retrospective + 2 action items.
@@ -66,8 +82,12 @@ tickets line up across both databases.
 
 ```bash
 # itsm_db (idempotent — safe to re-run)
-python scripts/seed/gen_itsm_seed.py > scripts/seed/seed_itsm.sql   # PYTHONUTF8=1 on Windows
-cat scripts/seed/seed_itsm.sql | docker exec -i itsm-service-db-1 psql -U itsm_user -d itsm_db -v ON_ERROR_STOP=1
+python scripts/seed/gen_itsm_seed.py  > scripts/seed/seed_itsm.sql          # PYTHONUTF8=1 on Windows
+python scripts/seed/gen_itsm_seed2.py > scripts/seed/seed_itsm_phase2.sql
+python scripts/seed/gen_itsm_seed3.py > scripts/seed/seed_itsm_phase3.sql
+cat scripts/seed/seed_itsm.sql        | docker exec -i itsm-service-db-1 psql -U itsm_user -d itsm_db -v ON_ERROR_STOP=1
+cat scripts/seed/seed_itsm_phase2.sql | docker exec -i itsm-service-db-1 psql -U itsm_user -d itsm_db -v ON_ERROR_STOP=1
+cat scripts/seed/seed_itsm_phase3.sql | docker exec -i itsm-service-db-1 psql -U itsm_user -d itsm_db -v ON_ERROR_STOP=1
 
 # Chatbot (idempotent guard)
 cat scripts/seed/seed_chatbot.sql | docker exec -i itsm-service-db-1 psql -U itsm_user -d Chatbot -v ON_ERROR_STOP=1
