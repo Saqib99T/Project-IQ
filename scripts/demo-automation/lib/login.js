@@ -20,7 +20,11 @@ async function completeKeycloakForm(page, email, password) {
   // keep a websocket open (chat, live queue) so the page never truly idles and
   // the wait just eats the whole test timeout. 'domcontentloaded' + a short
   // settle pause is the reliable signal here.
-  await page.waitForURL((url) => url.hostname === 'localhost', { timeout: 20_000 });
+  //
+  // "back on our app" means "no longer on Keycloak's hostname" — not
+  // hardcoded to 'localhost', since DEMO_BASE_URL can point this at the live
+  // prod host instead (see playwright.config.js).
+  await page.waitForURL((url) => url.hostname !== 'id.dev.iam.99technologies.com', { timeout: 20_000 });
   await page.waitForLoadState('domcontentloaded').catch(() => {});
   await page.waitForTimeout(1200);
 }
