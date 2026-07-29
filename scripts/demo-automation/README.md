@@ -163,22 +163,42 @@ anything other than a local/dev profile.
   tickets) — Act 2 targets the "My Sessions" list by its real `href` pattern
   rather than by visible text, since a same-text queue entry and older sessions
   can otherwise make a text-based click ambiguous. Each `act1`/`all` run also
-  leaves behind one more "Laptop reboots randomly during video calls" ticket on
-  the Blue Team tenant — harmless, but if the tickets list gets noisy, it's safe
-  to delete the extras (they're all obviously same-titled and recent).
+  creates a ticket titled "Laptop reboots randomly during video calls (demo run
+  &lt;timestamp&gt;)" — the timestamp suffix (added after a batch of 11
+  identically-titled tickets and 22 stale chat sessions built up and became
+  confusing) makes repeated runs distinguishable at a glance. It's still one new
+  ticket + chat session per run with no auto-cleanup, so periodically delete the
+  extras on the Blue Team tenant if the lists get noisy.
 - **A narration bubble can shadow a real locator** — see the `clear(page)` note
   above. If a new narrated flow fails with a "strict mode violation: resolved to
   2 elements" pointing at your own bubble text, that's why.
 
 ## Recording &amp; playback settings
 
-- Resolution is full-HD (`1920×1080`, `playwright.config.js`) for every full-page
-  app (Acts 2–4, `sla`, `rca`) so recordings match a real monitor 1:1 with no
-  letterboxing. **Act 1 is the one exception** — the chat widget is a small
-  floating box on a deliberately blank "mockup host site" (there to prove it's
-  embeddable), so full-HD there would mostly show empty backdrop. It overrides
+- Resolution is `1200×675` (`FULL_PAGE_VIEWPORT` in `playwright.config.js`) for
+  every full-page app (Acts 2–4, `sla`, `rca`) so recordings match the rendered
+  content 1:1 with no letterboxing. It used to be a full `1920×1080`, but a
+  headed browser window is the viewport *plus* OS tab/title-bar chrome — on a
+  common 1920×1080-at-125%-scaling Windows laptop (working area 1536×816) even
+  `1440×810` still produced an 882px-tall window, 66px too tall, pushing it off
+  the bottom of the screen during `--headed` runs. `1200×675` measures at
+  1216×764 — comfortably under 816 with margin to spare. `launchOptions.args:
+  ['--window-position=0,0']` additionally pins the window to the screen's
+  top-left corner so it doesn't restore an off-screen position from a previous
+  run. **Act 1 is the one exception** — the chat widget is a small floating box
+  on a deliberately blank "mockup host site" (there to prove it's embeddable),
+  so a full-page viewport there would mostly show empty backdrop. It overrides
   to a tight `460×700` viewport via `test.use({...})` at the top of
   `act1-tenant-user.spec.js`, sized to the widget's own footprint.
+- **Headed runs show a fake cursor + click ripple** (`lib/cursor.js`,
+  `injectFakeCursor`). Playwright's synthetic clicks don't render any visible
+  pointer, which made `--headed` runs hard to follow — this injects a small
+  DOM overlay via `page.addInitScript()` (so it survives every navigation in
+  the login flows) that listens to real `mousemove`/`mousedown` DOM events;
+  Playwright's CDP-level input genuinely fires those, so no per-action hook is
+  needed. All three `lib/login.js` entry points (`loginItsm`, `loginPortal`,
+  `loginWidget`) call it before their first `page.goto()`, so every act gets it
+  automatically.
 - **Never spread `devices['Desktop Chrome']` into a project's `use` without
   re-asserting viewport afterward** — that device descriptor carries its own
   (smaller) viewport, which silently overrides whatever you set at the

@@ -1,6 +1,7 @@
 // Shared Keycloak login helpers — drive the real 99-iam SSO flow (no mocking).
 // All three surfaces (/portal, /itsm, /bot) redirect to the same Keycloak
 // instance/realm/client; only how you *get to* that redirect differs.
+import { injectFakeCursor } from './cursor.js';
 
 const DEMO_PASSWORD = 'password';
 
@@ -40,6 +41,7 @@ async function raceLoginOutcomes(page, signInTrigger) {
  * earlier loginPortal call for the same person), it completes silently and
  * lands straight in the app — detect that and skip the form entirely. */
 export async function loginItsm(page, email, password = DEMO_PASSWORD) {
+  await injectFakeCursor(page);
   await page.goto('/itsm');
   await raceLoginOutcomes(page, page.getByText(/sign in/i));
   if (/id\.dev\.iam\.99technologies\.com/.test(page.url())) {
@@ -50,6 +52,7 @@ export async function loginItsm(page, email, password = DEMO_PASSWORD) {
 /** /portal shows a "Sign in with Project IQ" card first — unless a session
  * already exists, in which case it goes straight to /portal/admin etc. */
 export async function loginPortal(page, email, password = DEMO_PASSWORD) {
+  await injectFakeCursor(page);
   await page.goto('/portal');
   const signInBtn = page.getByText(/sign in with project iq/i);
   await raceLoginOutcomes(page, signInBtn);
@@ -65,6 +68,7 @@ export async function loginPortal(page, email, password = DEMO_PASSWORD) {
 
 /** /bot is a floating widget: open it, open the login prompt, then IAM sign-in. */
 export async function loginWidget(page, email, password = DEMO_PASSWORD) {
+  await injectFakeCursor(page);
   await page.goto('/bot');
   await openWidget(page);
   await page.locator('button[title="Login"]').click();
