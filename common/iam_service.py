@@ -52,21 +52,60 @@ def _get_iam_cfg():
     return get_iam_config()
 
 
+def _make_jwks_client(jwks_url: str, proxy: str):
+    """Build the PyJWKClient, optionally routing its fetch through a proxy.
+
+    PyJWKClient.fetch_data() uses raw urllib with no proxy support at all.
+    IAM_JWKS_PROXY (unset by default) lets it go through one instead — e.g. a
+    reverse SSH tunnel's SOCKS endpoint from a host that can actually reach
+    IAM_JWKS_URL, when this host's own network can't. Overriding just this one
+    method (rather than monkey-patching the socket layer process-wide) keeps
+    the change scoped to this single HTTP call.
+    """
+    import jwt
+
+    if not proxy:
+        return jwt.PyJWKClient(
+            jwks_url, cache_jwk_set=True, lifespan=_JWKS_TTL,
+            timeout=_JWKS_FETCH_TIMEOUT,
+        )
+
+    class _ProxiedPyJWKClient(jwt.PyJWKClient):
+        def fetch_data(self):
+            import requests
+            try:
+                resp = requests.get(
+                    self.uri, headers=self.headers, timeout=self.timeout,
+                    proxies={'https': proxy, 'http': proxy},
+                )
+                resp.raise_for_status()
+                jwk_set = resp.json()
+            except Exception as e:
+                raise jwt.exceptions.PyJWKClientConnectionError(
+                    f'Fail to fetch data from the url, err: "{e}"'
+                ) from e
+            if self.jwk_set_cache is not None:
+                self.jwk_set_cache.put(jwk_set)
+            return jwk_set
+
+    return _ProxiedPyJWKClient(
+        jwks_url, cache_jwk_set=True, lifespan=_JWKS_TTL,
+        timeout=_JWKS_FETCH_TIMEOUT,
+    )
+
+
 def _get_jwks_client():
     """Return a cached PyJWKClient, refreshing if older than TTL."""
     global _jwks_client, _jwks_loaded_at
+    import os
 
     now = time.time()
     with _jwks_lock:
         if _jwks_client is None or (now - _jwks_loaded_at) > _JWKS_TTL:
             try:
-                import jwt
                 cfg = _get_iam_cfg()
                 jwks_url = f"{cfg['keycloak_url']}/realms/{cfg['realm']}/protocol/openid-connect/certs"
-                _jwks_client = jwt.PyJWKClient(
-                    jwks_url, cache_jwk_set=True, lifespan=_JWKS_TTL,
-                    timeout=_JWKS_FETCH_TIMEOUT,
-                )
+                _jwks_client = _make_jwks_client(jwks_url, os.environ.get('IAM_JWKS_PROXY', ''))
                 _jwks_loaded_at = now
                 logger.info(f"[IAM] JWKS client initialised — {jwks_url}")
             except Exception as e:

@@ -33,13 +33,18 @@ test('Act 1 — Tenant User asks for help', async ({ page }) => {
   await test.step('Create a ticket from chat', async () => {
     await clear(page);
     await page.getByText(/^create ticket$/i).first().click();
-    await page.waitForTimeout(2800);
+    // The bot reply that opens this form is an NLU round trip — its latency
+    // varies a lot by environment (a loaded/cold-started server can take well
+    // over the ~2.8s this used to hardcode), so wait for the actual field
+    // instead of guessing a fixed delay.
+    const titleInput = page.locator('input[name="title"]');
+    await titleInput.waitFor({ state: 'visible', timeout: 20_000 });
 
     // Each run creates a fresh ticket — no cleanup step reuses a prior one — so
     // give every run's title a distinct marker. Otherwise repeated demo runs
     // pile up visually-identical tickets with nothing to tell them apart.
     const runStamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
-    await page.locator('input[name="title"]').fill(`Laptop reboots randomly during video calls (demo run ${runStamp})`);
+    await titleInput.fill(`Laptop reboots randomly during video calls (demo run ${runStamp})`);
     await page.locator('textarea[name="detail"]').fill('Started this week — happens roughly once a day, always during a Teams call. Fans spin up hard right before it happens.');
     await page.locator('select[name="category"]').selectOption({ label: 'Hardware' }).catch(() => {});
     await page.locator('select[name="priority"]').selectOption({ label: 'Medium' }).catch(() => {});
