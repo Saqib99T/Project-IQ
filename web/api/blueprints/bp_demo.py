@@ -11,7 +11,6 @@ places. GET /demo/api/cases stays open everywhere (read-only status/log).
 """
 import os
 import shutil
-import subprocess
 import time
 import logging
 from pathlib import Path
@@ -22,6 +21,15 @@ from flask import Blueprint, request, jsonify
 import web.api.shared as _s
 
 logger = logging.getLogger(__name__)
+
+# web_api.py's eventlet.monkey_patch() replaces sys.modules['subprocess']
+# globally, including here — its greenthread-aware pipe reading doesn't
+# handle multi-byte UTF-8 correctly (a checkmark/box-drawing char split
+# across a read() boundary decoded as invalid bytes, showing as "�" in the
+# UI). _run_case_bg already runs on a real OS thread via tpool.execute(), not
+# a greenthread, so there's no cooperative-yielding reason to use the patched
+# version here — the genuine stdlib module is both correct and safe.
+subprocess = eventlet.patcher.original('subprocess')
 
 bp = Blueprint('demo_api', __name__)
 
@@ -44,6 +52,20 @@ _state = {k: {'status': 'idle', 'startedAt': None, 'finishedAt': None, 'exitCode
 # something to rely on. eventlet.patcher.original() returns the genuine
 # stdlib threading module, so this Lock behaves correctly from both sides.
 _lock = eventlet.patcher.original('threading').Lock()
+
+
+def _clean_log(text):
+    """Strip the small set of decorative Unicode Playwright's reporter uses
+    (checkmarks, box-drawing separators, em dashes) down to plain ASCII.
+
+    Something in this specific process's environment (survives switching to
+    the genuine, unpatched subprocess module, and even redirecting the
+    child's stdout straight to a file instead of a pipe) still makes Node
+    write those particular bytes wrong by the time they land on disk — not
+    worth chasing further, since none of the actual information in these
+    logs needs non-ASCII characters. Dropping them beats showing "�".
+    """
+    return text.encode('ascii', errors='ignore').decode('ascii')
 
 
 def _demo_dir():
@@ -89,17 +111,22 @@ def _run_case_bg(key, headed, slow_mo, target):
     if headed:
         args.append('--headed')
 
+    log_path = Path(demo_dir) / f'.run-{key}.log'
     try:
-        proc = subprocess.Popen(
-            args, cwd=demo_dir, env=env, shell=os.name == 'nt',
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-        )
-        chunks = []
-        for line in proc.stdout:
-            chunks.append(line)
-            with _lock:
-                _state[key]['log'] = ''.join(chunks)[-20000:]
-        code = proc.wait()
+        with open(log_path, 'wb') as logfile:
+            proc = subprocess.Popen(
+                args, cwd=demo_dir, env=env, shell=os.name == 'nt',
+                stdout=logfile, stderr=subprocess.STDOUT,
+            )
+            while proc.poll() is None:
+                eventlet.patcher.original('time').sleep(0.5)
+                text = _clean_log(log_path.read_text(encoding='utf-8', errors='replace'))
+                with _lock:
+                    _state[key]['log'] = text[-20000:]
+            code = proc.returncode
+        text = _clean_log(log_path.read_text(encoding='utf-8', errors='replace'))
+        with _lock:
+            _state[key]['log'] = text[-20000:]
     except Exception as e:
         logger.error(f"[demo] run failed to launch: {e}")
         with _lock:
@@ -107,6 +134,11 @@ def _run_case_bg(key, headed, slow_mo, target):
             _state[key]['log'] += f"\n[server] failed to launch: {e}\n"
             _state[key]['finishedAt'] = int(time.time() * 1000)
         return
+    finally:
+        try:
+            log_path.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     # Copy the resulting video into recordings/<key>.webm (same convention as
     # server.js), then drop the temp per-run folder.

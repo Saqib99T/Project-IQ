@@ -44,8 +44,8 @@ function buildCard(key, c) {
       <button class="run" data-role="runbtn">▶ Run</button>
       <label class="target-toggle">
         <select data-role="target">
-          <option value="local">Local</option>
-          <option value="live" selected>Live (prod)</option>
+          <option value="local" selected>Local</option>
+          <option value="live">Live</option>
         </select>
       </label>
       <label><input type="checkbox" data-role="headed" checked> Open Browser</label>
