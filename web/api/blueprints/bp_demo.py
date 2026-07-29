@@ -12,11 +12,12 @@ places. GET /demo/api/cases stays open everywhere (read-only status/log).
 import os
 import shutil
 import subprocess
-import threading
 import time
 import logging
 from pathlib import Path
 
+import eventlet
+from eventlet import tpool
 from flask import Blueprint, request, jsonify
 import web.api.shared as _s
 
@@ -34,7 +35,13 @@ CASES = {
 }
 
 _state = {k: {'status': 'idle', 'startedAt': None, 'finishedAt': None, 'exitCode': None, 'log': ''} for k in CASES}
-_lock = threading.Lock()
+# web_api.py calls eventlet.monkey_patch() at import time, which replaces
+# threading.Lock with a greenthread-aware one. That's fine on its own, but
+# _run_case_bg below runs inside tpool.execute() — a REAL OS thread outside
+# the greenthread hub — and mixing a green lock across that boundary isn't
+# something to rely on. eventlet.patcher.original() returns the genuine
+# stdlib threading module, so this Lock behaves correctly from both sides.
+_lock = eventlet.patcher.original('threading').Lock()
 
 
 def _demo_dir():
@@ -126,5 +133,13 @@ def demo_run():
     with _lock:
         if _state[key]['status'] == 'running':
             return jsonify({'ok': True}), 202
-    threading.Thread(target=_run_case_bg, args=(key, headed, slow_mo), daemon=True).start()
+    # Spawning the test + reading its output is genuinely blocking work (a
+    # real OS pipe read). eventlet.monkey_patch() doesn't make that safe to
+    # run directly on a greenthread — it would stall the whole server's
+    # request loop for the run's entire duration (this is exactly what broke
+    # earlier: every other page load, including the test's own navigation to
+    # this same server, hung until the run finished). tpool.execute() hands
+    # it to a real worker thread instead; eventlet.spawn() just fires that
+    # off without the request handler waiting for it to finish.
+    eventlet.spawn(tpool.execute, _run_case_bg, key, headed, slow_mo)
     return jsonify({'ok': True}), 202
