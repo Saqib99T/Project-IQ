@@ -2,16 +2,14 @@
 // `window.__DEMO_PAGE__ = { keys: [...] }` (keys = which cases to show, or
 // omit/null for "all") before loading this script.
 //
-// Two backends can serve this same page: locally, server.js exposes
-// GET /api/cases + POST /api/run with no auth at all (fine — only reachable
-// from localhost). On prod, the Flask admin app exposes the same two routes
-// under /demo/, but POST /demo/api/run requires an X-Demo-Secret header
-// (server-configured; unset = the endpoint 503s and this page falls back to
-// STATIC_MODE) — anyone could otherwise spawn test runs on a public box.
-// All fetches below use *relative* paths so the same file works mounted at
-// the site root (local) or under /demo/ (prod). STATIC_CASES + STATIC_MODE
-// let this same page degrade to read-only video playback if neither backend
-// answers, instead of shipping a second copy of this file.
+// Locally, server.js exposes GET /api/cases + POST /api/run (spawns real
+// Playwright runs, live status, re-recording) — that's the "run the live
+// demo" mode, and it's local-only on purpose. On prod, only the static files
+// (this page, dashboard.css, recordings/*.webm) are hosted — no run-trigger
+// endpoint exists there at all, so /api/cases 404s and STATIC_CASES /
+// STATIC_MODE below render the same page as read-only video playback
+// instead. All fetches use *relative* paths so this one file works mounted
+// at the site root (local) or under /demo/ (prod).
 
 const { keys: WANTED_KEYS = null } = window.__DEMO_PAGE__ || {};
 const grid = document.getElementById('grid');
@@ -57,34 +55,14 @@ function buildCard(key, c) {
   return el;
 }
 
-function demoSecretHeaders() {
-  const secret = localStorage.getItem('demoRunSecret') || '';
-  return { 'Content-Type': 'application/json', 'X-Demo-Secret': secret };
-}
-
 async function triggerRun(key, el) {
   const headed = el.querySelector('[data-role="headed"]').checked;
   const slowMo = Number(el.querySelector('[data-role="slowmo"]').value) || 0;
-  const body = JSON.stringify({ key, headed, slowMo });
-
-  let res = await fetch('api/run', { method: 'POST', headers: demoSecretHeaders(), body });
-  if (res.status === 401) {
-    // Locally this never happens (server.js doesn't check the header at
-    // all); on prod it means no/wrong passphrase is stored yet — ask once.
-    const secret = prompt('Enter the demo run passphrase:');
-    if (!secret) return;
-    localStorage.setItem('demoRunSecret', secret);
-    res = await fetch('api/run', { method: 'POST', headers: demoSecretHeaders(), body });
-  }
-  if (res.status === 401) {
-    localStorage.removeItem('demoRunSecret');
-    alert('Incorrect passphrase.');
-    return;
-  }
-  if (res.status === 503) {
-    alert('Live re-runs are not enabled on this server.');
-    return;
-  }
+  await fetch('api/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, headed, slowMo }),
+  });
   poll();
 }
 

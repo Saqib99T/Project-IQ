@@ -63,7 +63,6 @@ def register_blueprints(app: Flask) -> None:
     from web.api.blueprints.bp_portal_api         import bp as bp_portal_api
     from web.api.blueprints.bp_itsm_proxy         import bp as bp_itsm_proxy
     from web.api.blueprints.bp_storage_proxy       import bp as bp_storage_proxy
-    from web.api.blueprints.bp_demo                import bp as bp_demo
 
     # Register in dependency order — most specific first to avoid catch-all conflicts
     app.register_blueprint(bp_portal_api)
@@ -84,7 +83,6 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(bp_internal)
     app.register_blueprint(bp_admin_ops)
     app.register_blueprint(bp_sessions)
-    app.register_blueprint(bp_demo)
     # Static files last — its /<path:filename> catch-all must not shadow API routes
     app.register_blueprint(bp_static)
 
