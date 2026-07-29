@@ -29,6 +29,18 @@ _jwks_lock = threading.Lock()
 _jwks_client = None
 _jwks_loaded_at: float = 0.0
 _JWKS_TTL = 600  # 10 minutes
+_JWKS_FETCH_TIMEOUT = 3  # seconds. PyJWKClient defaults to 30s — if the IAM
+# host is briefly unreachable, that 30s lands on every single authenticated
+# request's response time (chat messages, ticket actions, ...), since a
+# failed fetch isn't cached and so gets retried in full on the very next call.
+
+# Short backoff after a failed fetch: skip re-attempting the network call
+# entirely for this long, so an unreachable IAM host degrades to a fast,
+# consistent failure instead of a slow one repeated on every request. Still
+# retries automatically once the backoff elapses, so recovery is automatic.
+_JWKS_FAILURE_BACKOFF = 30  # seconds
+_jwks_last_failure: float = 0.0
+_jwks_last_error: str = ''
 
 
 class IamTokenError(Exception):
@@ -51,7 +63,10 @@ def _get_jwks_client():
                 import jwt
                 cfg = _get_iam_cfg()
                 jwks_url = f"{cfg['keycloak_url']}/realms/{cfg['realm']}/protocol/openid-connect/certs"
-                _jwks_client = jwt.PyJWKClient(jwks_url, cache_jwk_set=True, lifespan=_JWKS_TTL)
+                _jwks_client = jwt.PyJWKClient(
+                    jwks_url, cache_jwk_set=True, lifespan=_JWKS_TTL,
+                    timeout=_JWKS_FETCH_TIMEOUT,
+                )
                 _jwks_loaded_at = now
                 logger.info(f"[IAM] JWKS client initialised — {jwks_url}")
             except Exception as e:
@@ -66,13 +81,29 @@ def verify_iam_token(token: str) -> dict:
     Returns decoded claims dict on success.
     Raises IamTokenError on failure.
     """
+    global _jwks_last_failure, _jwks_last_error
     if not token:
         raise IamTokenError("No token provided")
+
+    now = time.time()
+    if _jwks_last_failure and (now - _jwks_last_failure) < _JWKS_FAILURE_BACKOFF:
+        raise IamTokenError(f"IAM JWKS temporarily unavailable: {_jwks_last_error}")
+
+    import jwt
+    client = _get_jwks_client()
+    cfg    = _get_iam_cfg()
+
     try:
-        import jwt
-        client = _get_jwks_client()
-        cfg    = _get_iam_cfg()
+        # This is the network-shaped step — an unreachable IAM host times out
+        # here (fetching the key set), not in jwt.decode() below. Keep it in
+        # its own try so only *this* failure trips the backoff.
         signing_key = client.get_signing_key_from_jwt(token)
+    except Exception as e:
+        _jwks_last_failure = time.time()
+        _jwks_last_error = str(e)
+        raise IamTokenError(f"Invalid token: {e}")
+
+    try:
         claims = jwt.decode(
             token,
             signing_key.key,
@@ -84,11 +115,15 @@ def verify_iam_token(token: str) -> dict:
             # every freshly-minted token look "not yet valid".
             leeway=10,
         )
-        return claims
-    except IamTokenError:
-        raise
     except Exception as e:
+        # A bad/expired/malformed token is a fact about this one request, not
+        # evidence the IAM host is unreachable — must not trip the backoff,
+        # or one guest's garbage token would reject every other user's valid
+        # one for the next 30s.
         raise IamTokenError(f"Invalid token: {e}")
+
+    _jwks_last_failure = 0.0
+    return claims
 
 
 def extract_iam_user(claims: dict) -> dict:
