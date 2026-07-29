@@ -122,6 +122,14 @@ def _demo_dir():
     return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(_s.STATIC_DIR))), 'scripts', 'demo-automation')
 
 @bp.route('/demo')
+def serve_demo_redirect():
+    # dashboard.html's asset refs are deliberately relative (not root-absolute)
+    # so the same files work mounted at the site root (local dev) or under
+    # /demo/ (here). Relative paths resolve against the bare "/demo" (no
+    # trailing slash) as if "demo" were a filename in the site root, breaking
+    # every asset — redirect to the directory form first, same as /admin below.
+    return redirect('/demo/', code=301)
+
 @bp.route('/demo/')
 def serve_demo_root():
     return send_from_directory(_demo_dir(), 'dashboard.html')
