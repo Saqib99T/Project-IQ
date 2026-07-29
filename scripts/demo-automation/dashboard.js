@@ -44,11 +44,11 @@ function buildCard(key, c) {
       <button class="run" data-role="runbtn">▶ Run</button>
       <label class="target-toggle">
         <select data-role="target">
-          <option value="local">Target: Local</option>
-          <option value="live" selected>Target: Live (prod)</option>
+          <option value="local">Local</option>
+          <option value="live" selected>Live (prod)</option>
         </select>
       </label>
-      <label><input type="checkbox" data-role="headed" checked> Headed (visible browser)</label>
+      <label><input type="checkbox" data-role="headed" checked> Open Browser</label>
       <label>SlowMo <input type="number" data-role="slowmo" value="250" min="0" step="50"> ms</label>
     </div>
     <pre class="log" data-role="log"></pre>
