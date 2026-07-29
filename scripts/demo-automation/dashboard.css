@@ -102,6 +102,8 @@ main{padding:2.2rem clamp(1.25rem,4vw,3rem) 5rem; max-width:1240px; margin:0 aut
 .badge.passed::before{background:var(--good);}
 .badge.failed{background:var(--bad-soft); color:var(--bad);}
 .badge.failed::before{background:var(--bad);}
+.badge.live-tag{background:var(--warn-soft); color:var(--warn);}
+.badge.live-tag::before{background:var(--warn);}
 .spinner{
   display:inline-block; width:10px; height:10px; border:2px solid var(--accent-ink);
   border-top-color:transparent; border-radius:50%; animation:spin .7s linear infinite;
@@ -135,6 +137,12 @@ input[type=number]{
   border-radius:6px; padding:.32rem .5rem; font-family:var(--mono); font-size:.82rem;
 }
 input[type=number]:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent);}
+select[data-role="target"]{
+  background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+  border-radius:6px; padding:.32rem .55rem; font-family:var(--sans); font-size:.82rem;
+  cursor:pointer;
+}
+select[data-role="target"]:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent);}
 
 button.run{
   font-family:var(--sans); font-weight:700; font-size:.88rem; border:none; border-radius:var(--radius-sm);

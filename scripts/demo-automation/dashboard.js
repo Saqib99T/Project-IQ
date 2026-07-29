@@ -42,6 +42,12 @@ function buildCard(key, c) {
     ${STATIC_MODE ? '' : `
     <div class="row">
       <button class="run" data-role="runbtn">▶ Run</button>
+      <label class="target-toggle">
+        <select data-role="target">
+          <option value="local">Target: Local</option>
+          <option value="live">Target: Live (prod)</option>
+        </select>
+      </label>
       <label><input type="checkbox" data-role="headed"> Headed (visible browser)</label>
       <label>SlowMo <input type="number" data-role="slowmo" value="250" min="0" step="50"> ms</label>
     </div>
@@ -58,10 +64,11 @@ function buildCard(key, c) {
 async function triggerRun(key, el) {
   const headed = el.querySelector('[data-role="headed"]').checked;
   const slowMo = Number(el.querySelector('[data-role="slowmo"]').value) || 0;
+  const target = el.querySelector('[data-role="target"]').value;
   await fetch('api/run', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ key, headed, slowMo }),
+    body: JSON.stringify({ key, headed, slowMo, target }),
   });
   poll();
 }
@@ -93,7 +100,8 @@ async function poll() {
   for (const [key, c] of entries) {
     if (!cards[key]) cards[key] = buildCard(key, c);
     const el = cards[key];
-    el.querySelector('[data-role="badge"]').innerHTML = fmtBadge(c.status);
+    const targetTag = c.status !== 'idle' && c.target === 'live' ? ' <span class="badge live-tag">live</span>' : '';
+    el.querySelector('[data-role="badge"]').innerHTML = fmtBadge(c.status) + targetTag;
     const runBtn = el.querySelector('[data-role="runbtn"]');
     runBtn.disabled = c.status === 'running';
     runBtn.textContent = c.status === 'running' ? '● Running…' : '▶ Run';

@@ -19,7 +19,13 @@ export default defineConfig({
   retries: 0,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'report' }]],
   use: {
-    baseURL: 'http://localhost:8181',
+    // DEMO_BASE_URL lets a run target the live prod app instead of this
+    // machine's own local stack — the browser still runs right here (that's
+    // what makes it reliable: no remote tunnel, no remote Node version
+    // mismatch), it just drives a different URL. Verified: Keycloak's
+    // registered redirect_uri allows the prod origin too, so login works
+    // identically either way.
+    baseURL: process.env.DEMO_BASE_URL || 'http://localhost:8181',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: { mode: 'on', size: FULL_PAGE_VIEWPORT },

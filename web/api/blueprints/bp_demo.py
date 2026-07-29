@@ -34,7 +34,9 @@ CASES = {
     'rca': {'spec': 'tests/flow-rca-governance.spec.js', 'title': 'Flow · RCA Governance', 'desc': 'Policy builder, a completed RCA (evidence + actions), recording-blocked RCAs.'},
 }
 
-_state = {k: {'status': 'idle', 'startedAt': None, 'finishedAt': None, 'exitCode': None, 'log': ''} for k in CASES}
+LIVE_BASE_URL = 'http://198.233.100.77:8181'
+
+_state = {k: {'status': 'idle', 'startedAt': None, 'finishedAt': None, 'exitCode': None, 'log': '', 'target': 'local'} for k in CASES}
 # web_api.py calls eventlet.monkey_patch() at import time, which replaces
 # threading.Lock with a greenthread-aware one. That's fine on its own, but
 # _run_case_bg below runs inside tpool.execute() — a REAL OS thread outside
@@ -67,15 +69,21 @@ def demo_cases():
     return jsonify(out)
 
 
-def _run_case_bg(key, headed, slow_mo):
+def _run_case_bg(key, headed, slow_mo, target):
     demo_dir = _demo_dir()
     spec = CASES[key]['spec']
     env = dict(os.environ)
     if slow_mo:
         env['SLOWMO'] = str(slow_mo)
+    if target == 'live':
+        # The browser still runs right here — only the URL it drives changes.
+        # No remote tunnel, no remote Node-version mismatch; Keycloak's
+        # registered redirect_uri allows this origin too, so login behaves
+        # identically to the local target.
+        env['DEMO_BASE_URL'] = LIVE_BASE_URL
 
     with _lock:
-        _state[key] = {'status': 'running', 'startedAt': int(time.time() * 1000), 'finishedAt': None, 'exitCode': None, 'log': ''}
+        _state[key] = {'status': 'running', 'startedAt': int(time.time() * 1000), 'finishedAt': None, 'exitCode': None, 'log': '', 'target': target}
 
     args = ['npx', 'playwright', 'test', spec, '--workers=1']
     if headed:
@@ -130,6 +138,9 @@ def demo_run():
         return jsonify({'error': 'unknown case'}), 400
     headed = bool(body.get('headed'))
     slow_mo = int(body.get('slowMo') or 0)
+    target = body.get('target') or 'local'
+    if target not in ('local', 'live'):
+        return jsonify({'error': 'target must be "local" or "live"'}), 400
     with _lock:
         if _state[key]['status'] == 'running':
             return jsonify({'ok': True}), 202
@@ -141,5 +152,5 @@ def demo_run():
     # this same server, hung until the run finished). tpool.execute() hands
     # it to a real worker thread instead; eventlet.spawn() just fires that
     # off without the request handler waiting for it to finish.
-    eventlet.spawn(tpool.execute, _run_case_bg, key, headed, slow_mo)
+    eventlet.spawn(tpool.execute, _run_case_bg, key, headed, slow_mo, target)
     return jsonify({'ok': True}), 202

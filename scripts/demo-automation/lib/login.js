@@ -91,7 +91,13 @@ export async function pickProductIfPrompted(page, label = 'Project IQ') {
 /** Opens the chat widget bubble if it isn't already expanded. */
 export async function openWidget(page) {
   const launcher = page.locator('.cursor-pointer').last();
-  if (await launcher.isVisible().catch(() => false)) {
+  // isVisible() is an instantaneous check, not a wait — against a target
+  // with real network latency (e.g. the "live" prod target) the launcher
+  // can simply not have rendered yet at this exact instant, silently
+  // skipping the click and leaving the widget panel collapsed for the rest
+  // of the flow. waitFor() polls instead, so slower page settles still work.
+  const appeared = await launcher.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false);
+  if (appeared) {
     await launcher.click();
     await page.waitForTimeout(600);
   }
