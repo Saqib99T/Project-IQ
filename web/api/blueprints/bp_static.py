@@ -109,6 +109,32 @@ def serve_itsm(path):
     return _serve_itsm_shell()
 
 
+# ── Live demo dashboard (playback-only) ───────────────────────────────────────
+# Serves the narrated recordings + case pages from scripts/demo-automation as
+# plain static files. Deliberately NOT the Node dashboard (server.js) that
+# runs locally for authoring these — that process exposes a POST /api/run
+# endpoint that spawns `npx playwright test` as a child process, which would
+# be unauthenticated remote code execution if reachable by any prod visitor.
+# This route only ever reads files (html/css/js/webm) off disk; dashboard.js
+# itself detects the missing /api/* backend here and falls back to read-only
+# video playback with the run controls hidden.
+def _demo_dir():
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(_s.STATIC_DIR))), 'scripts', 'demo-automation')
+
+@bp.route('/demo')
+@bp.route('/demo/')
+def serve_demo_root():
+    return send_from_directory(_demo_dir(), 'dashboard.html')
+
+@bp.route('/demo/<path:path>')
+def serve_demo(path):
+    demo_dir = _demo_dir()
+    candidate = os.path.join(demo_dir, path)
+    if os.path.isfile(candidate):
+        return send_from_directory(demo_dir, path)
+    return 'Not found', 404
+
+
 # ── Static asset fallback ─────────────────────────────────────────────────────
 # Serves: /web/js/*.js  /web/components/*.html  /operator/*
 #         /glpi-chat-widget.js  /modern-web-interface.css  /assets/*

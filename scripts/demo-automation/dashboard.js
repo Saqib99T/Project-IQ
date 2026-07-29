@@ -1,10 +1,30 @@
 // Shared client logic for every dashboard page. Each HTML page sets
 // `window.__DEMO_PAGE__ = { keys: [...] }` (keys = which cases to show, or
 // omit/null for "all") before loading this script.
+//
+// Two backends can serve this same page: locally, server.js exposes
+// GET /api/cases + POST /api/run (spawns real Playwright runs, live status,
+// re-recording). On prod, only the static files (this page, dashboard.css,
+// recordings/*.webm) are hosted — there is deliberately no run-trigger
+// endpoint there (spawning test processes for any public visitor would be
+// unauthenticated RCE). STATIC_CASES + STATIC_MODE below let the exact same
+// page degrade to read-only video playback when /api/cases isn't reachable,
+// instead of shipping a second copy of this file.
 
 const { keys: WANTED_KEYS = null } = window.__DEMO_PAGE__ || {};
 const grid = document.getElementById('grid');
 let cards = {};
+let STATIC_MODE = false;
+let pollTimer = null;
+
+const STATIC_CASES = {
+  act1: { title: 'Act 1 · Tenant User', desc: 'Chat widget — KB question, ticket creation, human handoff.' },
+  act2: { title: 'Act 2 · Tenant Operator', desc: 'Claims the live chat, resolves it, works the same ticket at agent tier.' },
+  act3: { title: 'Act 3 · Tenant Admin', desc: 'Portal + ITSM admin, integrations, the RCA lifecycle — the centerpiece.' },
+  act4: { title: 'Act 4 · Super Admin', desc: 'Cross-tenant Organizations, the tenant switcher, platform routing rules.' },
+  sla: { title: 'Flow · SLA / OLA / UC + SLI/SLO Reliability', desc: 'Agreements, targets, rules, coverage, at-risk board, ticket SLA panel, error budgets.' },
+  rca: { title: 'Flow · RCA Governance', desc: 'Policy builder, a completed RCA (evidence + actions), recording-blocked RCAs.' },
+};
 
 function fmtBadge(status) {
   const map = { idle: 'Idle', running: 'Running', passed: 'Passed', failed: 'Failed' };
@@ -16,17 +36,21 @@ function buildCard(key, c) {
   const el = document.createElement('div');
   el.className = 'card';
   el.innerHTML = `
-    <h2>${c.title} <span data-role="badge">${fmtBadge(c.status)}</span></h2>
+    <h2>${c.title} ${STATIC_MODE ? '' : `<span data-role="badge">${fmtBadge(c.status)}</span>`}</h2>
     <p class="desc">${c.desc}</p>
-    <div data-role="video-wrap">${c.hasRecording ? `<div class="video-frame"><video controls src="/recordings/${key}.webm?t=${c.finishedAt || 0}"></video></div>` : '<div class="novideo">No recording yet — run it once.</div>'}</div>
+    <div data-role="video-wrap">${c.hasRecording ? `<div class="video-frame"><video controls src="recordings/${key}.webm?t=${c.finishedAt || 0}"></video></div>` : '<div class="novideo">No recording yet — run it once.</div>'}</div>
+    ${STATIC_MODE ? '' : `
     <div class="row">
       <button class="run" data-role="runbtn">▶ Run</button>
       <label><input type="checkbox" data-role="headed"> Headed (visible browser)</label>
       <label>SlowMo <input type="number" data-role="slowmo" value="250" min="0" step="50"> ms</label>
     </div>
     <pre class="log" data-role="log"></pre>
+    `}
   `;
-  el.querySelector('[data-role="runbtn"]').addEventListener('click', () => triggerRun(key, el));
+  if (!STATIC_MODE) {
+    el.querySelector('[data-role="runbtn"]').addEventListener('click', () => triggerRun(key, el));
+  }
   grid.appendChild(el);
   return el;
 }
@@ -42,8 +66,28 @@ async function triggerRun(key, el) {
   poll();
 }
 
+function renderStatic() {
+  STATIC_MODE = true;
+  const entries = Object.entries(STATIC_CASES).filter(([key]) => !WANTED_KEYS || WANTED_KEYS.includes(key));
+  for (const [key, c] of entries) {
+    cards[key] = buildCard(key, { ...c, hasRecording: true });
+  }
+}
+
 async function poll() {
-  const res = await fetch('/api/cases');
+  let res;
+  try {
+    res = await fetch('/api/cases');
+  } catch {
+    res = null;
+  }
+  if (!res || !res.ok) {
+    // No run-trigger backend here (e.g. the prod static deploy) — render once
+    // in read-only mode and stop polling an endpoint that will never appear.
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (!STATIC_MODE) renderStatic();
+    return;
+  }
   const data = await res.json();
   const entries = Object.entries(data).filter(([key]) => !WANTED_KEYS || WANTED_KEYS.includes(key));
   for (const [key, c] of entries) {
@@ -55,7 +99,7 @@ async function poll() {
     runBtn.textContent = c.status === 'running' ? '● Running…' : '▶ Run';
 
     const videoWrap = el.querySelector('[data-role="video-wrap"]');
-    const wantSrc = `/recordings/${key}.webm?t=${c.finishedAt || 0}`;
+    const wantSrc = `recordings/${key}.webm?t=${c.finishedAt || 0}`;
     const existingVideo = videoWrap.querySelector('video');
     if (c.hasRecording && (!existingVideo || !existingVideo.src.endsWith(wantSrc))) {
       videoWrap.innerHTML = `<div class="video-frame"><video controls src="${wantSrc}"></video></div>`;
@@ -75,4 +119,4 @@ async function poll() {
 }
 
 poll();
-setInterval(poll, 1500);
+pollTimer = setInterval(poll, 1500);
