@@ -17,6 +17,7 @@ Usage:
     except IamTokenError as e:
         return jsonify({'error': str(e)}), 401
 """
+import os
 import time
 import logging
 import threading
@@ -52,43 +53,68 @@ def _get_iam_cfg():
     return get_iam_config()
 
 
-def _make_jwks_client(jwks_url: str, proxy: str):
-    """Build the PyJWKClient, optionally routing its fetch through a proxy.
+_JWKS_FALLBACK_FILE = os.path.join(os.path.dirname(__file__), 'jwks_fallback.json')
 
-    PyJWKClient.fetch_data() uses raw urllib with no proxy support at all.
-    IAM_JWKS_PROXY (unset by default) lets it go through one instead — e.g. a
-    reverse SSH tunnel's SOCKS endpoint from a host that can actually reach
-    IAM_JWKS_URL, when this host's own network can't. Overriding just this one
-    method (rather than monkey-patching the socket layer process-wide) keeps
-    the change scoped to this single HTTP call.
+
+def _load_jwks_fallback():
+    """A last-known-good snapshot of IAM's signing keys, bundled with the
+    app. Realm signing keys rotate rarely (a deliberate admin action), so a
+    stale-but-valid snapshot is far more useful than an outright auth outage
+    when this host can reach IAM through neither the proxy nor directly.
+    Refresh the file whenever keys actually rotate; until then it's a safety
+    net, not a soft dependency — the network paths are always tried first.
+    """
+    import json
+    with open(_JWKS_FALLBACK_FILE, encoding='utf-8') as f:
+        return json.load(f)
+
+
+def _make_jwks_client(jwks_url: str, proxy: str):
+    """Build the PyJWKClient. Each fetch tries, in order: the configured
+    proxy (a reverse-tunnel SOCKS endpoint, for hosts that can't reach IAM
+    directly) if set, then a direct connection, then the bundled fallback
+    snapshot. PyJWKClient.fetch_data() has no proxy support built in at all,
+    so this overrides just that one method rather than monkey-patching the
+    socket layer process-wide.
     """
     import jwt
 
-    if not proxy:
-        return jwt.PyJWKClient(
-            jwks_url, cache_jwk_set=True, lifespan=_JWKS_TTL,
-            timeout=_JWKS_FETCH_TIMEOUT,
-        )
-
-    class _ProxiedPyJWKClient(jwt.PyJWKClient):
+    class _ResilientPyJWKClient(jwt.PyJWKClient):
         def fetch_data(self):
             import requests
+            errors = []
+            if proxy:
+                try:
+                    resp = requests.get(
+                        self.uri, headers=self.headers, timeout=self.timeout,
+                        proxies={'https': proxy, 'http': proxy},
+                    )
+                    resp.raise_for_status()
+                    return self._cache_and_return(resp.json())
+                except Exception as e:
+                    errors.append(f'proxy: {e}')
             try:
-                resp = requests.get(
-                    self.uri, headers=self.headers, timeout=self.timeout,
-                    proxies={'https': proxy, 'http': proxy},
-                )
+                resp = requests.get(self.uri, headers=self.headers, timeout=self.timeout)
                 resp.raise_for_status()
-                jwk_set = resp.json()
+                return self._cache_and_return(resp.json())
             except Exception as e:
-                raise jwt.exceptions.PyJWKClientConnectionError(
-                    f'Fail to fetch data from the url, err: "{e}"'
-                ) from e
+                errors.append(f'direct: {e}')
+            try:
+                jwk_set = _load_jwks_fallback()
+                logger.warning(f"[IAM] JWKS live fetch failed ({'; '.join(errors)}) — using bundled fallback snapshot")
+                return self._cache_and_return(jwk_set)
+            except Exception as e:
+                errors.append(f'fallback file: {e}')
+            raise jwt.exceptions.PyJWKClientConnectionError(
+                f'Fail to fetch data from the url, err: "{"; ".join(errors)}"'
+            )
+
+        def _cache_and_return(self, jwk_set):
             if self.jwk_set_cache is not None:
                 self.jwk_set_cache.put(jwk_set)
             return jwk_set
 
-    return _ProxiedPyJWKClient(
+    return _ResilientPyJWKClient(
         jwks_url, cache_jwk_set=True, lifespan=_JWKS_TTL,
         timeout=_JWKS_FETCH_TIMEOUT,
     )
