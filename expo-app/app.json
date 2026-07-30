@@ -3,7 +3,7 @@
     "name": "Project IQ",
     "slug": "project-iq-mobile",
     "scheme": "projectiq",
-    "version": "1.0.38",
+    "version": "1.0.41",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.projectiq.mobile",
-      "buildNumber": "38",
+      "buildNumber": "41",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -25,7 +25,7 @@
     },
     "android": {
       "package": "com.projectiq.mobile",
-      "versionCode": 38,
+      "versionCode": 41,
       "usesCleartextTraffic": true,
       "screenOrientation": "default",
       "permissions": [
