@@ -36,8 +36,9 @@ bp = Blueprint('demo_api', __name__)
 CASES = {
     'act1': {'spec': 'tests/act1-tenant-user.spec.js', 'title': 'Act 1 · Tenant User', 'desc': 'Chat widget — KB question, ticket creation, human handoff.'},
     'act2': {'spec': 'tests/act2-tenant-operator.spec.js', 'title': 'Act 2 · Tenant Operator', 'desc': 'Claims the live chat, resolves it, works the same ticket at agent tier.'},
-    'act3': {'spec': 'tests/act3-tenant-admin.spec.js', 'title': 'Act 3 · Tenant Admin', 'desc': 'Portal + ITSM admin, integrations, the RCA lifecycle — the centerpiece.'},
-    'act4': {'spec': 'tests/act4-super-admin.spec.js', 'title': 'Act 4 · Super Admin', 'desc': 'Cross-tenant Organizations, the tenant switcher, platform routing rules.'},
+    'act3': {'spec': 'tests/act3-tenant-admin.spec.js', 'title': 'Act 3 · Tenant Admin', 'desc': 'Portal admin — Overview, History, Live Monitor, Alerts, Users, Integrations.'},
+    'itsm': {'spec': 'tests/act3b-itsm-admin.spec.js', 'title': 'Act 3b · ITSM Admin App', 'desc': 'The standalone ITSM app — Service Catalog, On-Call/SRE, Reliability, RCA lifecycle, Recordings, Reports.'},
+    'act4': {'spec': 'tests/act4-super-admin.spec.js', 'title': 'Act 4 · Super Admin', 'desc': 'Cross-tenant Organizations, a Platform tools tour, the tenant switcher.'},
     'sla': {'spec': 'tests/flow-sla-slo-reliability.spec.js', 'title': 'Flow · SLA / OLA / UC + SLI/SLO Reliability', 'desc': 'Agreements, targets, rules, coverage, at-risk board, ticket SLA panel, error budgets.'},
     'rca': {'spec': 'tests/flow-rca-governance.spec.js', 'title': 'Flow · RCA Governance', 'desc': 'Policy builder, a completed RCA (evidence + actions), recording-blocked RCAs.'},
 }

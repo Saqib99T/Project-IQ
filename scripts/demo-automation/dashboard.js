@@ -20,8 +20,9 @@ let pollTimer = null;
 const STATIC_CASES = {
   act1: { title: 'Act 1 · Tenant User', desc: 'Chat widget — KB question, ticket creation, human handoff.' },
   act2: { title: 'Act 2 · Tenant Operator', desc: 'Claims the live chat, resolves it, works the same ticket at agent tier.' },
-  act3: { title: 'Act 3 · Tenant Admin', desc: 'Portal + ITSM admin, integrations, the RCA lifecycle — the centerpiece.' },
-  act4: { title: 'Act 4 · Super Admin', desc: 'Cross-tenant Organizations, the tenant switcher, platform routing rules.' },
+  act3: { title: 'Act 3 · Tenant Admin', desc: 'Portal admin — Overview, History, Live Monitor, Alerts, Users, Integrations.' },
+  itsm: { title: 'Act 3b · ITSM Admin App', desc: 'The standalone ITSM app — Service Catalog, On-Call/SRE, Reliability, RCA lifecycle, Recordings, Reports.' },
+  act4: { title: 'Act 4 · Super Admin', desc: 'Cross-tenant Organizations, a Platform tools tour, the tenant switcher.' },
   sla: { title: 'Flow · SLA / OLA / UC + SLI/SLO Reliability', desc: 'Agreements, targets, rules, coverage, at-risk board, ticket SLA panel, error budgets.' },
   rca: { title: 'Flow · RCA Governance', desc: 'Policy builder, a completed RCA (evidence + actions), recording-blocked RCAs.' },
 };

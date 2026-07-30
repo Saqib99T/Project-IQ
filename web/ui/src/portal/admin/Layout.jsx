@@ -223,7 +223,6 @@ export default function AdminLayout() {
                             <SidebarLink to="/admin/observability" icon="🔭" label="Observability"  />
                             <SidebarLink to="/admin/diagnostics"   icon="🩺" label="Diagnostics"    />
                             <SidebarLink to="/admin/inspector"     icon="🔍" label="Inspector"      />
-                            <SidebarLink to="/admin/routing"       icon="🔀" label="Routing Rules"  />
                         </SidebarGroup>
                     )}
                 </nav>

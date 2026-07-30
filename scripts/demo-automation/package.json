@@ -8,6 +8,7 @@
     "act1": "playwright test tests/act1-tenant-user.spec.js",
     "act2": "playwright test tests/act2-tenant-operator.spec.js",
     "act3": "playwright test tests/act3-tenant-admin.spec.js",
+    "itsm": "playwright test tests/act3b-itsm-admin.spec.js",
     "act4": "playwright test tests/act4-super-admin.spec.js",
     "sla": "playwright test tests/flow-sla-slo-reliability.spec.js",
     "rca": "playwright test tests/flow-rca-governance.spec.js",

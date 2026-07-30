@@ -37,16 +37,19 @@ npm install
 npm run install-browsers   # downloads a Chromium build for Playwright
 ```
 
-## The six cases
+## The seven cases
 
 | Command | Case | What it covers |
 |---|---|---|
 | `npm run act1` | Tenant User | Chat widget — KB question, ticket creation, human handoff |
 | `npm run act2` | Tenant Operator | Claims the live chat, resolves it, works the same ticket at agent tier |
-| `npm run act3` | Tenant Admin | Portal + ITSM admin, integrations, the RCA lifecycle — the centerpiece |
-| `npm run act4` | Super Admin | Cross-tenant Organizations, tenant switcher, platform routing rules |
+| `npm run act3` | Tenant Admin | Portal admin — Overview, Analytics, History, Live Monitor, Alerts, Users, Integrations |
+| `npm run itsm` | ITSM Admin App | The standalone ITSM app — Service Catalog, On-Call/SRE, Reliability (SLO), RCA governance + lifecycle, Recordings, Reports. Same persona as Act 3 (the tenant admin), split into its own act since it's a genuinely separate app with its own login and sidebar, not just another portal page. |
+| `npm run act4` | Super Admin | Cross-tenant Organizations, a Platform tools tour (Knowledge Base, Bot Studio, Themes, Observability, Diagnostics, Inspector), the tenant switcher |
 | `npm run sla` | SLA/OLA/UC + SLI/SLO | Agreements → targets → rules → coverage → at-risk board → ticket SLA panel → error budgets → SLI sources |
 | `npm run rca` | RCA Governance | Policy builder → a completed RCA (evidence + verified actions) → recording-blocked RCAs |
+
+**Routing Rules** (`/admin/routing`, formerly under Platform in Act 4) is hidden from the sidebar entirely now (real UI change, `web/ui/src/portal/admin/Layout.jsx`) and out of the demo — the route itself still works if linked directly, it's just not nav-discoverable or demoed.
 
 ```bash
 npm run all    # every spec in tests/, in order. act2 depends on act1 having just
@@ -83,8 +86,8 @@ top of each:
 
 | Page | Shows |
 |---|---|
-| `/` or `/dashboard.html` | All six cases |
-| `/features.html` | Just the four personas (Acts 1–4) — the overall-app demo |
+| `/` or `/dashboard.html` | All seven cases |
+| `/features.html` | Just the four personas (Acts 1–4, plus the ITSM app) — the overall-app demo |
 | `/sla.html` | Just the SLA/OLA/UC + SLI/SLO reliability flow |
 | `/rca.html` | Just the RCA Governance flow |
 
