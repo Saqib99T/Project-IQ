@@ -89,7 +89,13 @@ def demo_cases():
             s = dict(_state[k])
         s['hasRecording'] = _has_recording(k)
         out[k] = {**c, **s}
-    return jsonify(out)
+    resp = jsonify(out)
+    # Tells the frontend whether the Run controls would actually work for
+    # this requester — POST /api/run is loopback-only, so a remote visitor
+    # should never see a button that just 403s. Status/log stay visible
+    # either way (that part is deliberately open everywhere).
+    resp.headers['X-Demo-Can-Run'] = '1' if _is_loopback() else '0'
+    return resp
 
 
 def _run_case_bg(key, headed, slow_mo, target):

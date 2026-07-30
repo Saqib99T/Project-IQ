@@ -73,6 +73,19 @@ nav.pages a.active{color:var(--accent-ink); border-color:var(--accent); backgrou
 main{padding:2.2rem clamp(1.25rem,4vw,3rem) 5rem; max-width:1240px; margin:0 auto;}
 .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(440px,1fr)); gap:1.4rem;}
 
+/* ---------- reference docs ---------- */
+.docslinks{
+  padding:.9rem clamp(1.25rem,4vw,3rem); max-width:1240px; margin:0 auto;
+}
+.docslinks-title{font-family:var(--mono); font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint); margin-bottom:.7rem;}
+.docslinks-row{display:flex; gap:.5rem; flex-wrap:wrap;}
+.docslinks-row a{
+  font-size:.85rem; font-weight:600; text-decoration:none;
+  color:var(--text-dim); background:var(--surface); border:1px solid var(--border);
+  padding:.5rem 1rem; border-radius:var(--radius-sm); transition:all .15s ease;
+}
+.docslinks-row a:hover{color:var(--text); border-color:var(--accent); background:var(--surface-2);}
+
 /* ---------- card ---------- */
 .card{
   background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);

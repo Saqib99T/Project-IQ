@@ -150,6 +150,15 @@ const server = http.createServer(async (req, res) => {
     return serveVideoWithRange(req, res, path.join(__dirname, 'recordings', file));
   }
 
+  if (url.pathname.startsWith('/docs/')) {
+    const docsRoot = path.resolve(__dirname, '..', '..', 'docs');
+    const requested = path.resolve(docsRoot, decodeURIComponent(url.pathname.slice('/docs/'.length)));
+    if (requested !== docsRoot && !requested.startsWith(docsRoot + path.sep)) {
+      res.writeHead(400); return res.end('bad path');
+    }
+    return serveFile(res, requested);
+  }
+
   res.writeHead(404);
   res.end('not found');
 });

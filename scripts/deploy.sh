@@ -129,7 +129,12 @@ deploy_unit() {
   rm -f "$list_file"
 
   say "remote backup of $remote_dir -> $REMOTE_BACKUP_DIR/$name-$STAMP.tgz"
-  rrun "mkdir -p '$REMOTE_BACKUP_DIR' && if [ -d '$remote_dir' ]; then tar czf '$REMOTE_BACKUP_DIR/$name-$STAMP.tgz' -C '$remote_dir' . ; fi"
+  # tar exits 1 (not 0) when a file it's archiving changes mid-read (e.g. a
+  # live service writing logs during the backup) — benign, the archive is
+  # still usable. Only treat exit codes >1 (real failures) as fatal here, or
+  # a running service under $remote_dir aborts the whole deploy before any
+  # new code ships.
+  rrun "mkdir -p '$REMOTE_BACKUP_DIR' && if [ -d '$remote_dir' ]; then tar czf '$REMOTE_BACKUP_DIR/$name-$STAMP.tgz' -C '$remote_dir' . || [ \$? -eq 1 ]; fi"
 
   say "upload + overlay-extract into $remote_dir (server-only files preserved)"
   if [ "$APPLY" -eq 1 ]; then

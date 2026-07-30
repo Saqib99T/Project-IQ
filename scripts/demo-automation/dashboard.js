@@ -3,18 +3,22 @@
 // omit/null for "all") before loading this script.
 //
 // Locally, server.js exposes GET /api/cases + POST /api/run (spawns real
-// Playwright runs, live status, re-recording) — that's the "run the live
-// demo" mode, and it's local-only on purpose. On prod, only the static files
-// (this page, dashboard.css, recordings/*.webm) are hosted — no run-trigger
-// endpoint exists there at all, so /api/cases 404s and STATIC_CASES /
-// STATIC_MODE below render the same page as read-only video playback
-// instead. All fetches use *relative* paths so this one file works mounted
-// at the site root (local) or under /demo/ (prod).
+// Playwright runs, live status, re-recording). On prod, bp_demo.py exposes
+// the same two routes at /demo/api/*, but POST /api/run there 403s for
+// anyone but the box itself (loopback check) — the X-Demo-Can-Run response
+// header on GET /api/cases tells us whether this requester is that box, so
+// remote visitors get real-time status/video without a Run button that
+// would just fail for them. If neither backend is reachable at all (e.g. a
+// plain static host with no Flask/Node behind it), /api/cases 404s and
+// STATIC_CASES/STATIC_MODE below render the page as pure read-only video
+// playback instead. All fetches use *relative* paths so this one file works
+// mounted at the site root (local) or under /demo/ (prod).
 
 const { keys: WANTED_KEYS = null } = window.__DEMO_PAGE__ || {};
 const grid = document.getElementById('grid');
 let cards = {};
 let STATIC_MODE = false;
+let CAN_RUN = false; // set from the X-Demo-Can-Run response header on first poll
 let pollTimer = null;
 
 const STATIC_CASES = {
@@ -34,13 +38,14 @@ function fmtBadge(status) {
 }
 
 function buildCard(key, c) {
+  const showControls = !STATIC_MODE && CAN_RUN;
   const el = document.createElement('div');
   el.className = 'card';
   el.innerHTML = `
     <h2>${c.title} ${STATIC_MODE ? '' : `<span data-role="badge">${fmtBadge(c.status)}</span>`}</h2>
     <p class="desc">${c.desc}</p>
     <div data-role="video-wrap">${c.hasRecording ? `<div class="video-frame"><video controls src="recordings/${key}.webm?t=${c.finishedAt || 0}"></video></div>` : '<div class="novideo">No recording yet — run it once.</div>'}</div>
-    ${STATIC_MODE ? '' : `
+    ${showControls ? `
     <div class="row">
       <button class="run" data-role="runbtn">▶ Run</button>
       <label class="target-toggle">
@@ -53,9 +58,9 @@ function buildCard(key, c) {
       <label>SlowMo <input type="number" data-role="slowmo" value="250" min="0" step="50"> ms</label>
     </div>
     <pre class="log" data-role="log"></pre>
-    `}
+    ` : ''}
   `;
-  if (!STATIC_MODE) {
+  if (showControls) {
     el.querySelector('[data-role="runbtn"]').addEventListener('click', () => triggerRun(key, el));
   }
   grid.appendChild(el);
@@ -96,6 +101,10 @@ async function poll() {
     if (!STATIC_MODE) renderStatic();
     return;
   }
+  // POST /api/run is loopback-only server-side — this header just tells us
+  // whether the button would work for *this* requester, so we don't render
+  // one that always 403s for remote visitors.
+  CAN_RUN = res.headers.get('X-Demo-Can-Run') === '1';
   const data = await res.json();
   const entries = Object.entries(data).filter(([key]) => !WANTED_KEYS || WANTED_KEYS.includes(key));
   for (const [key, c] of entries) {
@@ -104,8 +113,10 @@ async function poll() {
     const targetTag = c.status !== 'idle' && c.target === 'live' ? ' <span class="badge live-tag">live</span>' : '';
     el.querySelector('[data-role="badge"]').innerHTML = fmtBadge(c.status) + targetTag;
     const runBtn = el.querySelector('[data-role="runbtn"]');
-    runBtn.disabled = c.status === 'running';
-    runBtn.textContent = c.status === 'running' ? '● Running…' : '▶ Run';
+    if (runBtn) {
+      runBtn.disabled = c.status === 'running';
+      runBtn.textContent = c.status === 'running' ? '● Running…' : '▶ Run';
+    }
 
     const videoWrap = el.querySelector('[data-role="video-wrap"]');
     const wantSrc = `recordings/${key}.webm?t=${c.finishedAt || 0}`;
@@ -117,12 +128,14 @@ async function poll() {
     }
 
     const logEl = el.querySelector('[data-role="log"]');
-    if (c.status === 'running' || c.status === 'failed') {
-      logEl.classList.add('show');
-      logEl.textContent = c.log.slice(-4000);
-      logEl.scrollTop = logEl.scrollHeight;
-    } else if (c.status === 'passed') {
-      logEl.classList.remove('show');
+    if (logEl) {
+      if (c.status === 'running' || c.status === 'failed') {
+        logEl.classList.add('show');
+        logEl.textContent = c.log.slice(-4000);
+        logEl.scrollTop = logEl.scrollHeight;
+      } else if (c.status === 'passed') {
+        logEl.classList.remove('show');
+      }
     }
   }
 }

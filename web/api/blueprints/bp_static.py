@@ -143,6 +143,21 @@ def serve_demo(path):
     return 'Not found', 404
 
 
+# ── Reference docs (playback-only, same pattern as /demo above) ──────────────
+# Lets the demo dashboard link straight to the presenter script / reliability
+# guides in docs/ (including docs/Backup/) instead of only living on disk.
+def _docs_dir():
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(_s.STATIC_DIR))), 'docs')
+
+@bp.route('/docs/<path:path>')
+def serve_docs(path):
+    docs_dir = _docs_dir()
+    candidate = os.path.join(docs_dir, path)
+    if os.path.isfile(candidate):
+        return send_from_directory(docs_dir, path)
+    return 'Not found', 404
+
+
 # ── Static asset fallback ─────────────────────────────────────────────────────
 # Serves: /web/js/*.js  /web/components/*.html  /operator/*
 #         /glpi-chat-widget.js  /modern-web-interface.css  /assets/*
