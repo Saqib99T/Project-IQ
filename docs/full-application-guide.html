@@ -1,44 +1,51 @@
 <title>Full Application Guide — By Role</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#F6F7FB; --surface:#FFFFFF; --surface-2:#EEF1F7; --border:#DCE1EC;
-    --text:#151E2E; --text-dim:#57657C; --text-faint:#8592A8;
-    --accent:#3457D5; --accent-ink:#2745B0; --accent-soft:#E8EDFC;
-    --good:#0E7A5B; --good-soft:#E3F5EE;
-    --warn:#9A6400; --warn-soft:#FBF0DA;
-    --stub:#6D4FC7; --stub-soft:#EFE9FB;
-    --mono: ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,"SF Mono",Menlo,monospace;
-    --sans: -apple-system,BlinkMacSystemFont,"Segoe UI",ui-sans-serif,system-ui,sans-serif;
-    --radius:8px; --shadow:0 1px 2px rgba(21,30,46,.06), 0 6px 20px -8px rgba(21,30,46,.10);
+    /* Palette matched to ProjectIQ-Features.html's design system — light is the
+       primary/default theme; the dark blocks below stay in sync as an optional
+       override rather than the default appearance. */
+    --bg:#F6F7FC; --surface:#FFFFFF; --surface-2:#EEF0FA; --border:#E2E5F3;
+    --text:#171A2B; --text-dim:#5B6178; --text-faint:#9096AE;
+    --accent:#6E8CFF; --accent-ink:#4353C9; --accent-soft:rgba(110,140,255,.12);
+    --good:#15803D; --good-soft:#DCFCE7;
+    --warn:#B45309; --warn-soft:#FEF3C7;
+    --stub:#6D28D9; --stub-soft:#EDE9FE;
+    --mono:'IBM Plex Mono',ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,"SF Mono",Menlo,monospace;
+    --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",ui-sans-serif,system-ui,sans-serif;
+    --font-display:'Manrope',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --radius:8px; --shadow:0 1px 2px rgba(38,43,84,.06), 0 6px 20px -8px rgba(38,43,84,.12);
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#0A0E17; --surface:#121826; --surface-2:#1A2233; --border:#28324A;
-      --text:#E7EBF4; --text-dim:#9AA6BE; --text-faint:#69759090;
-      --accent:#7691FF; --accent-ink:#AEBEFF; --accent-soft:rgba(118,145,255,.14);
-      --good:#3FD3A3; --good-soft:rgba(63,211,163,.12);
-      --warn:#F3B94E; --warn-soft:rgba(243,185,78,.12);
-      --stub:#B39CF0; --stub-soft:rgba(179,156,240,.14);
+      --bg:#12141F; --surface:#191C2C; --surface-2:#20233A; --border:#333A5C;
+      --text:#EDEFF8; --text-dim:#A6ABC4; --text-faint:#767c9a90;
+      --accent:#8FA6FF; --accent-ink:#B0BEFF; --accent-soft:rgba(143,166,255,.16);
+      --good:#4ADE95; --good-soft:rgba(74,222,149,.14);
+      --warn:#F0B84E; --warn-soft:rgba(240,184,78,.14);
+      --stub:#B79CF5; --stub-soft:rgba(183,156,245,.16);
       --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.55);
     }
   }
   :root[data-theme="dark"]{
-    --bg:#0A0E17; --surface:#121826; --surface-2:#1A2233; --border:#28324A;
-    --text:#E7EBF4; --text-dim:#9AA6BE; --text-faint:#69759090;
-    --accent:#7691FF; --accent-ink:#AEBEFF; --accent-soft:rgba(118,145,255,.14);
-    --good:#3FD3A3; --good-soft:rgba(63,211,163,.12);
-    --warn:#F3B94E; --warn-soft:rgba(243,185,78,.12);
-    --stub:#B39CF0; --stub-soft:rgba(179,156,240,.14);
+    --bg:#12141F; --surface:#191C2C; --surface-2:#20233A; --border:#333A5C;
+    --text:#EDEFF8; --text-dim:#A6ABC4; --text-faint:#767c9a90;
+    --accent:#8FA6FF; --accent-ink:#B0BEFF; --accent-soft:rgba(143,166,255,.16);
+    --good:#4ADE95; --good-soft:rgba(74,222,149,.14);
+    --warn:#F0B84E; --warn-soft:rgba(240,184,78,.14);
+    --stub:#B79CF5; --stub-soft:rgba(183,156,245,.16);
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.55);
   }
   :root[data-theme="light"]{
-    --bg:#F6F7FB; --surface:#FFFFFF; --surface-2:#EEF1F7; --border:#DCE1EC;
-    --text:#151E2E; --text-dim:#57657C; --text-faint:#8592A8;
-    --accent:#3457D5; --accent-ink:#2745B0; --accent-soft:#E8EDFC;
-    --good:#0E7A5B; --good-soft:#E3F5EE;
-    --warn:#9A6400; --warn-soft:#FBF0DA;
-    --stub:#6D4FC7; --stub-soft:#EFE9FB;
-    --shadow:0 1px 2px rgba(21,30,46,.06), 0 6px 20px -8px rgba(21,30,46,.10);
+    --bg:#F6F7FC; --surface:#FFFFFF; --surface-2:#EEF0FA; --border:#E2E5F3;
+    --text:#171A2B; --text-dim:#5B6178; --text-faint:#9096AE;
+    --accent:#6E8CFF; --accent-ink:#4353C9; --accent-soft:rgba(110,140,255,.12);
+    --good:#15803D; --good-soft:#DCFCE7;
+    --warn:#B45309; --warn-soft:#FEF3C7;
+    --stub:#6D28D9; --stub-soft:#EDE9FE;
+    --shadow:0 1px 2px rgba(38,43,84,.06), 0 6px 20px -8px rgba(38,43,84,.12);
   }
 
   *{box-sizing:border-box;}
@@ -47,7 +54,7 @@
   ::selection{background:var(--accent-soft); color:var(--accent-ink);}
   a{color:var(--accent-ink); text-decoration:none;} a:hover{text-decoration:underline;}
   a:focus-visible, button:focus-visible, .navlink:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px;}
-  h1,h2,h3,h4{font-family:var(--sans); font-weight:700; letter-spacing:-0.01em; text-wrap:balance; margin:0;}
+  h1,h2,h3,h4{font-family:var(--font-display); font-weight:800; letter-spacing:-0.01em; text-wrap:balance; margin:0;}
   code,.mono{font-family:var(--mono);}
   p{margin:0 0 .9rem;}
 

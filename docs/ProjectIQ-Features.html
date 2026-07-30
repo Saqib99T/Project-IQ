@@ -4,77 +4,144 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Project IQ — Features</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --c-bg:#f8fafc;--c-surface:#ffffff;--c-border:#e2e8f0;--c-text:#0f172a;--c-muted:#64748b;
-  --c-blue:#2563eb;--c-indigo:#4f46e5;--c-violet:#7c3aed;--c-teal:#0d9488;--c-green:#16a34a;
-  --c-amber:#d97706;--c-red:#dc2626;--c-dark:#0f172a;--c-dark2:#1e293b;
-  --radius:14px;--shadow:0 4px 24px rgba(15,23,42,0.08);--shadow-lg:0 12px 48px rgba(15,23,42,0.14);
+  /* Cool-tinted light neutrals — a plain grey reads unconsidered, a grey with
+     a hue bias toward the accent reads as chosen. */
+  --c-bg:#F6F7FC;--c-surface:#ffffff;--c-surface-2:#EEF0FA;
+  --c-border:#E2E5F3;--c-border-strong:#CBD1EC;
+  --c-text:#171A2B;--c-muted:#5B6178;--c-faint:#9096AE;
+  /* Accent aligned to the live app's own brand color (dashboard.css
+     --accent:#6E8CFF / --accent-2:#B39CF0) so this guide and the product it
+     describes visibly share one identity. --c-ink is the same hue, deepened
+     for legible text-on-light use. */
+  --c-blue:#2563eb;--c-indigo:#5B6BEA;--c-violet:#7C5CE0;--c-teal:#0d9488;--c-green:#15803d;
+  --c-amber:#B45309;--c-red:#B91C1C;
+  --accent:#6E8CFF;--accent-2:#8B6FF0;--c-ink:#4353C9;
+  --c-dark:#171A2B;--c-dark2:#232742;
+  --radius:14px;--shadow:0 2px 10px rgba(38,43,84,0.06);--shadow-lg:0 16px 44px -12px rgba(38,43,84,0.16);
+  --font-display:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,'Cascadia Mono',Consolas,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;font-size:16px}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--c-bg);color:var(--c-text);line-height:1.65}
+body{font-family:var(--font-body);background:var(--c-bg);color:var(--c-text);line-height:1.65}
+h1,h2,h3,.sec-h,.e-name,.feat-title,.scale-comp,#topnav .brand .iq{font-family:var(--font-display)}
+code,.flow,.mono{font-family:var(--font-mono)}
 
-#topnav{position:sticky;top:0;z-index:200;background:rgba(15,23,42,0.96);backdrop-filter:blur(16px);
-  height:58px;display:flex;align-items:center;padding:0 2rem;gap:2rem;border-bottom:1px solid rgba(255,255,255,0.07)}
+#topnav{position:sticky;top:0;z-index:200;background:rgba(255,255,255,0.86);backdrop-filter:blur(16px) saturate(1.4);
+  height:58px;display:flex;align-items:center;padding:0 2rem;gap:2rem;border-bottom:1px solid var(--c-border)}
 #topnav .brand{display:flex;align-items:center;gap:10px;text-decoration:none}
-#topnav .brand .iq{font-size:1rem;font-weight:900;letter-spacing:.04em;
-  background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-#topnav .brand .sub{color:#94a3b8;font-size:.75rem;font-weight:500}
+#topnav .brand .iq{font-size:1rem;font-weight:800;letter-spacing:.02em;color:var(--c-text)}
+#topnav .brand .sub{color:var(--c-faint);font-size:.75rem;font-weight:500}
 #topnav nav{display:flex;gap:2px;margin-left:auto;flex-wrap:wrap}
-#topnav nav a{color:#94a3b8;text-decoration:none;font-size:.76rem;font-weight:500;padding:.3rem .65rem;border-radius:6px;transition:all .15s}
-#topnav nav a:hover{color:#fff;background:rgba(255,255,255,0.08)}
+#topnav nav a{color:var(--c-muted);text-decoration:none;font-size:.76rem;font-weight:600;padding:.3rem .65rem;border-radius:6px;transition:all .15s}
+#topnav nav a:hover{color:var(--c-ink);background:var(--accent-soft,rgba(110,140,255,.12))}
 
-.hero{background:linear-gradient(160deg,#060d1f 0%,#0f172a 40%,#1a1040 100%);padding:5rem 2rem 4rem;text-align:center;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse 60% 50% at 20% 40%,rgba(79,70,229,.18) 0%,transparent 70%),
-  radial-gradient(ellipse 50% 40% at 80% 60%,rgba(13,148,136,.14) 0%,transparent 70%)}
-.hero-badge{display:inline-flex;align-items:center;gap:.5rem;border:1px solid rgba(165,180,252,.35);
-  background:rgba(79,70,229,.15);color:#a5b4fc;border-radius:999px;padding:.3rem 1rem;font-size:.75rem;
-  font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:1.5rem;position:relative}
-.hero-badge::before{content:'●';color:#4ade80;animation:blink 2s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
-.hero h1{font-size:clamp(2.2rem,5vw,3.8rem);font-weight:900;line-height:1.1;letter-spacing:-.03em;color:#f8fafc;position:relative;margin-bottom:1rem}
-.hero h1 .grad{background:linear-gradient(135deg,#60a5fa 0%,#a78bfa 50%,#34d399 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hero-sub{color:#94a3b8;font-size:1.05rem;max-width:700px;margin:0 auto 2.5rem;position:relative}
-.hero-chips{display:flex;justify-content:center;flex-wrap:wrap;gap:.6rem;position:relative;margin-bottom:3rem}
-.chip{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#cbd5e1;border-radius:999px;padding:.35rem .9rem;font-size:.78rem;font-weight:500}
-.hero-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;max-width:1040px;margin:0 auto;position:relative;
-  border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;background:rgba(255,255,255,.05)}
-.hstat{padding:1.4rem 1rem;text-align:center}
-.hstat .val{font-size:2rem;font-weight:900;line-height:1;color:#fff}
-.hstat .val.blue{color:#60a5fa}.hstat .val.violet{color:#a78bfa}.hstat .val.teal{color:#2dd4bf}.hstat .val.green{color:#4ade80}.hstat .val.amber{color:#fbbf24}.hstat .val.red{color:#f87171}
-.hstat .lbl{font-size:.68rem;color:#64748b;margin-top:.35rem;font-weight:500;text-transform:uppercase;letter-spacing:.06em}
+.hero{
+  background-image:radial-gradient(circle at 1.5px 1.5px, rgba(91,107,234,.14) 1.5px, transparent 0);
+  background-size:26px 26px;
+  background-color:var(--c-surface);
+  padding:4.5rem 2rem 4rem;position:relative;overflow:hidden;border-bottom:1px solid var(--c-border)}
+.hero::before{content:'';position:absolute;inset:-10% -10% auto auto;width:60%;height:70%;
+  background:radial-gradient(ellipse closest-side,rgba(139,111,240,.16) 0%,transparent 72%);pointer-events:none}
+.hero-grid{max-width:1180px;margin:0 auto;position:relative;display:grid;grid-template-columns:1.1fr .9fr;gap:2.5rem;align-items:center}
+.hero-copy{text-align:left}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;border:1px solid rgba(91,107,234,.28);
+  background:rgba(110,140,255,.10);color:var(--c-ink);border-radius:999px;padding:.3rem 1rem;font-size:.75rem;
+  font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:1.5rem;position:relative}
+.hero-badge::before{content:'●';color:#16A34A;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.hero h1{font-family:var(--font-display);font-size:clamp(2.3rem,4.4vw,3.6rem);font-weight:800;line-height:1.06;letter-spacing:-.03em;color:var(--c-text);position:relative;margin-bottom:1.1rem;text-wrap:balance}
+.hero h1 .grad{background:linear-gradient(135deg,var(--c-ink) 0%,var(--accent-2) 55%,#0d9488 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-sub{color:var(--c-muted);font-size:1.05rem;max-width:560px;margin:0 0 2rem;position:relative}
+.hero-chips{display:flex;flex-wrap:wrap;gap:.55rem;position:relative}
+.chip{background:var(--c-surface);border:1px solid var(--c-border);color:var(--c-muted);border-radius:999px;padding:.35rem .85rem;font-size:.76rem;font-weight:600;box-shadow:0 1px 2px rgba(38,43,84,.04)}
+
+/* The orbit visual: the six ends the sub-headline names, made literal — same
+   colours the reader meets again at #ends, so the two moments reinforce
+   each other instead of the hero being pure decoration. */
+.hero-visual{position:relative;width:380px;height:380px;margin:0 auto}
+.orbit-ring{position:absolute;inset:34px;border:1.5px dashed rgba(91,107,234,.22);border-radius:50%}
+.orbit-hub{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:92px;height:92px;border-radius:50%;
+  background:var(--c-surface);border:1px solid var(--c-border-strong);box-shadow:var(--shadow-lg);
+  display:flex;align-items:center;justify-content:center;z-index:2}
+.orbit-hub span{font-family:var(--font-display);font-weight:800;font-size:1.15rem;letter-spacing:.02em;
+  background:linear-gradient(135deg,var(--c-ink),var(--accent-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.orbit-tile{position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%) translate(var(--tx),var(--ty)) rotate(var(--rot));
+  width:104px;min-height:66px;border-radius:14px;padding:.55rem .6rem;color:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.2rem;
+  font-size:1.35rem;text-align:center;box-shadow:0 10px 22px -8px rgba(23,26,43,.28);
+  transition:transform .25s ease;cursor:default}
+.orbit-tile:hover{transform:translate(-50%,-50%) translate(var(--tx),var(--ty)) rotate(0deg) scale(1.07)}
+.orbit-tile em{font-style:normal;font-family:var(--font-display);font-size:.62rem;font-weight:700;letter-spacing:.02em;opacity:.95}
+.ot-bot{background:linear-gradient(150deg,#4f46e5,#7c3aed)}
+.ot-mob{background:linear-gradient(150deg,#0891b2,#6366f1)}
+.ot-op{background:linear-gradient(150deg,#0d9488,#0ea5a0)}
+.ot-ten{background:linear-gradient(150deg,#2563eb,#3b82f6)}
+.ot-sup{background:linear-gradient(150deg,#7c3aed,#a21caf)}
+.ot-itsm{background:linear-gradient(150deg,#d97706,#ea580c)}
+@media (prefers-reduced-motion:reduce){.orbit-tile{transition:none}.hero-badge::before{animation:none}}
+
+.hero-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;max-width:1040px;margin:3rem auto 0;position:relative;
+  border:1px solid var(--c-border);border-radius:14px;overflow:hidden;background:var(--c-border)}
+.hstat{padding:1.4rem 1rem;text-align:center;background:var(--c-surface)}
+.hstat .val{font-family:var(--font-display);font-size:2rem;font-weight:800;line-height:1;color:var(--c-text);font-variant-numeric:tabular-nums}
+.hstat .val.blue{color:#2563EB}.hstat .val.violet{color:var(--c-ink)}.hstat .val.teal{color:#0D9488}.hstat .val.green{color:#15803D}.hstat .val.amber{color:#B45309}.hstat .val.red{color:#B91C1C}
+.hstat .lbl{font-size:.68rem;color:var(--c-faint);margin-top:.35rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
 
 .section{padding:5rem 0}
-.section.alt{background:#fff}
+.section.alt{background:var(--c-surface)}
 .container{max-width:1180px;margin:0 auto;padding:0 1.5rem}
-.sec-eye{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--c-indigo);margin-bottom:.4rem}
-.sec-h{font-size:clamp(1.5rem,3vw,2.1rem);font-weight:800;letter-spacing:-.02em;line-height:1.2}
+.sec-eye{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--c-ink);margin-bottom:.4rem}
+.sec-h{font-size:clamp(1.5rem,3vw,2.1rem);font-weight:800;letter-spacing:-.02em;line-height:1.2;text-wrap:balance}
 .sec-sub{color:var(--c-muted);margin-top:.5rem;max-width:680px;font-size:.95rem}
 .mt1{margin-top:1rem}.mt2{margin-top:2rem}.mt3{margin-top:3rem}
 .subhead{font-size:.8rem;font-weight:700;color:var(--c-text);margin:2rem 0 .9rem;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:.6rem}
 .subhead::after{content:'';flex:1;height:1px;background:var(--c-border)}
 
 .ends-grid{display:grid;grid-template-columns:1fr;gap:1.25rem}
-.end-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);overflow:hidden;display:grid;grid-template-columns:260px 1fr;transition:all .2s}
+/* A colored SIDE column forced to equal-height with an unrelated checklist
+   column was the recurring source of blank space here: whichever block's own
+   content was naturally taller set the row height, and the shorter block
+   then had to be centered inside the leftover room — which just relocates
+   the gap (splits it top/bottom) instead of removing it. A top banner sized
+   only by its own content, followed by a body sized only by its own content,
+   has no such cross-column height contest, so there is no leftover room to
+   distribute in the first place. */
+.end-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);overflow:hidden;transition:all .2s}
 .end-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
-.end-side{padding:1.75rem;color:#fff;position:relative;display:flex;flex-direction:column;justify-content:center}
-.end-side .e-icon{font-size:2.2rem;margin-bottom:.6rem}
-.end-side .e-role{font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.85}
-.end-side .e-name{font-size:1.35rem;font-weight:900;line-height:1.15;margin-top:.15rem}
-.end-side .e-tag{font-size:.78rem;opacity:.9;margin-top:.5rem;line-height:1.5}
+.end-top{display:flex;align-items:center;gap:.85rem;padding:.85rem 1.75rem;color:#fff}
+.end-top .e-icon{flex:none;width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:1.25rem}
+.end-top .e-copy{flex:1;min-width:0}
+.end-top .e-role{font-size:.64rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.85;line-height:1.2}
+.end-top .e-name{font-family:var(--font-display);font-size:1.05rem;font-weight:800;line-height:1.2;margin-top:.05rem}
+.end-top .e-tag{font-size:.76rem;opacity:.92;margin-top:.15rem;line-height:1.35;max-width:56ch}
 .end-bot{background:linear-gradient(150deg,#4f46e5,#7c3aed)}
 .end-op{background:linear-gradient(150deg,#0d9488,#0ea5a0)}
 .end-ten{background:linear-gradient(150deg,#2563eb,#3b82f6)}
 .end-sup{background:linear-gradient(150deg,#7c3aed,#a21caf)}
 .end-itsm{background:linear-gradient(150deg,#d97706,#ea580c)}
-.end-body{padding:1.6rem 1.75rem}
-.end-feats{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.55rem .9rem}
-.end-feats.one{grid-template-columns:1fr}
-.end-feats li{font-size:.83rem;display:flex;align-items:flex-start;gap:.5rem;color:#334155;line-height:1.45}
-.end-feats li::before{content:'✓';color:var(--c-green);font-weight:900;flex-shrink:0}
-.end-feats li b{color:var(--c-text)}
+.end-body{padding:1.4rem 1.75rem}
+/* Deliberately NOT display:flex on these <li>s: with mixed content (a <b>
+   term followed by plain dash-text), flex splits the text into separate
+   anonymous flex items that each wrap independently — "term" lands on one
+   line, "— description" lands stranded on the next like a broken second
+   column. A hanging indent (padding-left + absolutely-positioned marker)
+   keeps the whole line as one normal inline flow, so it wraps as a single
+   paragraph the way body text actually should. Now that the card is
+   full-width (no more 260px side column eating horizontal space), a 2-column
+   grid uses that width instead of stranding 4-5 short bullets in one long
+   narrow strip. */
+.end-feats{list-style:none;display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem 1.75rem}
+.end-feats li{position:relative;padding-left:1.3em;font-size:.87rem;color:var(--c-muted);line-height:1.5}
+.end-feats li::before{content:'✓';position:absolute;left:0;top:.05em;color:var(--c-green);font-weight:900}
+.end-feats li b{color:var(--c-text);font-weight:700}
 
 .feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1.25rem}
 .feat-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:1.5rem;transition:all .2s;position:relative;overflow:hidden}
@@ -83,24 +150,30 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--c-bg);color:va
 .feat-icon{font-size:1.8rem;margin-bottom:.75rem}
 .feat-title{font-weight:800;font-size:1rem;margin-bottom:.4rem}
 .feat-desc{font-size:.82rem;color:var(--c-muted);line-height:1.6}
+.feat-bullets{list-style:none;font-size:.82rem;color:var(--c-muted);line-height:1.5}
+.feat-bullets li{position:relative;padding-left:1.1em;margin-top:.45rem}
+.feat-bullets li:first-child{margin-top:0}
+.feat-bullets li::before{content:'▹';position:absolute;left:0;top:0;color:var(--c-ink);font-weight:700}
+.feat-bullets li b{color:var(--c-text)}
 .feat-tags{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.9rem}
 .ftag{font-size:.68rem;font-weight:700;padding:.18rem .5rem;border-radius:4px}
 .ftag-blue{background:#dbeafe;color:#1d4ed8}.ftag-violet{background:#ede9fe;color:#6d28d9}.ftag-teal{background:#ccfbf1;color:#0f766e}
 .ftag-green{background:#dcfce7;color:#15803d}.ftag-amber{background:#fef3c7;color:#b45309}.ftag-red{background:#fee2e2;color:#b91c1c}
 
-.cap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:.55rem .9rem;list-style:none}
-.cap-grid li{font-size:.83rem;display:flex;align-items:flex-start;gap:.5rem;color:#334155;line-height:1.45}
-.cap-grid li::before{content:'▹';color:var(--c-indigo);font-weight:900;flex-shrink:0}
+.cap-grid{display:flex;flex-direction:column;gap:.55rem;list-style:none}
+.cap-grid li{position:relative;padding-left:1.1em;font-size:.83rem;color:var(--c-muted);line-height:1.5}
+.cap-grid li::before{content:'▹';position:absolute;left:0;top:0;color:var(--c-ink);font-weight:900}
 .cap-grid li b{color:var(--c-text)}
 .chips-row{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.3rem}
 .cap{font-size:.73rem;font-weight:600;padding:.25rem .6rem;border-radius:6px;background:#f1f5f9;color:#334155;border:1px solid var(--c-border)}
 
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1rem}
-.kpi{background:var(--c-dark2);border-radius:var(--radius);padding:1.25rem;text-align:center;border:1px solid rgba(255,255,255,.07)}
-.kpi .v{font-size:2rem;font-weight:900;line-height:1;color:#fff}
-.kpi .l{font-size:.7rem;color:#64748b;margin-top:.3rem;text-transform:uppercase;letter-spacing:.06em}
+.kpi{background:var(--c-surface);border-radius:var(--radius);padding:1.25rem;text-align:center;border:1px solid var(--c-border);box-shadow:var(--shadow)}
+.kpi .v{font-family:var(--font-display);font-size:2rem;font-weight:800;line-height:1;color:var(--c-text);font-variant-numeric:tabular-nums}
+.kpi .v.green{color:var(--c-green)}.kpi .v.blue{color:#2563EB}
+.kpi .l{font-size:.7rem;color:var(--c-faint);margin-top:.3rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .kpi .d{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:700;margin-top:.5rem;padding:.15rem .5rem;border-radius:999px}
-.d-up{background:rgba(74,222,128,.15);color:#4ade80}.d-new{background:rgba(167,139,250,.15);color:#a78bfa}
+.d-up{background:#DCFCE7;color:#15803D}.d-new{background:#EDE9FE;color:#6D28D9}
 
 .bench-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem}
 .bench-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:1.5rem;text-align:center}
@@ -135,14 +208,56 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--c-bg);color:va
 .fn-b{background:#dbeafe;color:#1d4ed8}.fn-v{background:#ede9fe;color:#6d28d9}.fn-t{background:#ccfbf1;color:#0f766e}.fn-g{background:#dcfce7;color:#15803d}.fn-a{background:#fef3c7;color:#b45309}
 .flow .arr{color:#94a3b8;font-weight:900}
 .tbl{width:100%;border-collapse:collapse;font-size:.85rem}
-.tbl th{background:var(--c-dark);color:#e2e8f0;padding:.7rem 1rem;text-align:left;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.tbl th{background:var(--c-surface-2);color:var(--c-ink);padding:.7rem 1rem;text-align:left;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--c-border)}
 .tbl td{padding:.7rem 1rem;border-top:1px solid var(--c-border);vertical-align:top}
-.tbl tr:hover td{background:#f8fafc}
+.tbl tr:hover td{background:var(--c-surface-2)}
 .pill{display:inline-block;padding:.12rem .5rem;border-radius:5px;font-size:.66rem;font-weight:700}
 .pill-ten{background:#dbeafe;color:#1d4ed8}.pill-sup{background:#ede9fe;color:#6d28d9}.pill-both{background:#dcfce7;color:#15803d}
-footer{background:var(--c-dark);color:#475569;padding:2.5rem;text-align:center;font-size:.78rem;border-top:1px solid rgba(255,255,255,.05)}
-footer span{color:#94a3b8}
-@media(max-width:720px){#topnav nav{display:none}.hero h1{font-size:2rem}.end-card{grid-template-columns:1fr}.scale-row{grid-template-columns:1fr;gap:.5rem}}
+footer{background:var(--c-surface-2);color:var(--c-faint);padding:2.5rem;text-align:center;font-size:.78rem;border-top:1px solid var(--c-border)}
+footer span{color:var(--c-muted);font-weight:600}
+
+/* How It Works — role-based tabs. Pure CSS (radio + general-sibling selector):
+   works with no JS, so the doc still functions if opened straight from disk
+   or emailed as an attachment. */
+.tabs input[type=radio]{position:absolute;opacity:0;pointer-events:none}
+.tab-nav{display:flex;gap:.25rem;border-bottom:1px solid var(--c-border);margin-bottom:2.25rem;flex-wrap:wrap}
+.tab-nav label{cursor:pointer;padding:.85rem 1.35rem;font-family:var(--font-display);font-weight:800;font-size:.9rem;color:var(--c-muted);border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;user-select:none}
+.tab-nav label:hover{color:var(--c-text)}
+.tab-panel{display:none}
+#tab-bot:checked ~ .tab-nav label[for="tab-bot"],
+#tab-op:checked ~ .tab-nav label[for="tab-op"],
+#tab-admin:checked ~ .tab-nav label[for="tab-admin"],
+#tab-itsm:checked ~ .tab-nav label[for="tab-itsm"]{color:var(--c-ink);border-bottom-color:var(--c-ink)}
+#tab-bot:checked ~ .tab-panels .panel-bot,
+#tab-op:checked ~ .tab-panels .panel-op,
+#tab-admin:checked ~ .tab-panels .panel-admin,
+#tab-itsm:checked ~ .tab-panels .panel-itsm{display:block}
+
+/* Screenshot frames — a cropped "browser chrome" card so a real capture reads
+   as a deliberate, specific moment rather than a raw full-page dump. */
+.shot{background:var(--c-dark);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid var(--c-border-strong)}
+.shot-bar{display:flex;align-items:center;gap:.4rem;padding:.6rem .8rem;background:var(--c-dark2)}
+.shot-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.shot-dot:nth-child(1){background:#EF4444}.shot-dot:nth-child(2){background:#F59E0B}.shot-dot:nth-child(3){background:#22C55E}
+.shot-frame{overflow:hidden;background:#fff;max-height:300px}
+.shot-frame img{width:100%;display:block}
+.shot-cap{font-size:.85rem;color:var(--c-muted);margin-top:.85rem;line-height:1.55}
+.shot-cap b{color:var(--c-text)}
+
+/* Built for Production — collapsible topic groups. Native <details>, no JS,
+   so six dense reference sections stop forcing one long forced scroll. */
+.acc-group{display:flex;flex-direction:column;gap:.75rem}
+.acc{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);overflow:hidden}
+.acc[open]{border-color:var(--c-border-strong)}
+.acc summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:.7rem;padding:1.15rem 1.4rem;font-family:var(--font-display);font-weight:800;font-size:.95rem}
+.acc summary::-webkit-details-marker{display:none}
+.acc-hint{margin-left:auto;font-weight:500;font-family:var(--font-body);color:var(--c-muted);font-size:.78rem;text-align:right}
+.acc-caret{color:var(--c-faint);transition:transform .2s;flex-shrink:0;font-size:.8rem}
+.acc[open] .acc-caret{transform:rotate(180deg)}
+.acc-body{padding:.25rem 1.4rem 1.5rem}
+@media(max-width:720px){.acc-hint{display:none}}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr}.hero-visual{margin-top:1rem}}
+@media(max-width:720px){#topnav nav{display:none}.hero h1{font-size:2rem}.hero-copy{text-align:center}.hero-sub{margin-left:auto;margin-right:auto}.hero-chips{justify-content:center}.hero-visual{width:300px;height:300px;transform:scale(.85)}.scale-row{grid-template-columns:1fr;gap:.5rem}.end-feats{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -151,42 +266,51 @@ footer span{color:#94a3b8}
   <a class="brand" href="#top"><div class="iq">PROJECT IQ</div><div class="sub">Features</div></a>
   <nav>
     <a href="#ends">6 Ends</a>
-    <a href="#bot">Bot</a>
-    <a href="#operator">Operator</a>
-    <a href="#admin">Admin</a>
-    <a href="#itsm">ITSM</a>
-    <a href="#realtime">Real-time</a>
-    <a href="#tenancy">Tenancy</a>
-    <a href="#security">Security</a>
-    <a href="#performance">Performance</a>
-    <a href="#scale">Scale</a>
-    <a href="#testing">Tests</a>
+    <a href="#howitworks">How It Works</a>
+    <a href="#production">Production</a>
   </nav>
 </div>
 
 <!-- ── HERO ──────────────────────────────────────────────────────────────── -->
 <div class="hero" id="top">
-  <div class="hero-badge">Multi-Tenant AI Support Platform · Feature Guide</div>
-  <h1>Project IQ<br><span class="grad">Everything It Does</span></h1>
-  <p class="hero-sub">One platform, six connected experiences — an AI chatbot on the web <em>and</em> on mobile, a real-time operator console, tenant &amp; super-admin control planes, and a full multi-tenant ITSM service with automation, AI enrichment and reporting. Built for scale, isolation and extensibility.</p>
-  <div class="hero-chips">
-    <div class="chip">🤖 Conversational AI (NLU)</div>
-    <div class="chip">🌍 Multilingual + RTL</div>
-    <div class="chip">🔐 IAM / Keycloak SSO</div>
-    <div class="chip">🏢 Multi-Tenant</div>
-    <div class="chip">🎫 ITSM Microservice</div>
-    <div class="chip">🔄 Real-time Handoff</div>
-    <div class="chip">📚 pgvector Knowledge Base</div>
-    <div class="chip">⚙️ Automation Engine</div>
-    <div class="chip">🧩 Integration Marketplace</div>
-    <div class="chip">📊 Deflection Analytics</div>
-    <div class="chip">📱 Web + Mobile</div>
-    <div class="chip">🔎 End-to-end Tracing</div>
-    <div class="chip">⏱️ SLA / OLA / UC</div>
-    <div class="chip">🚨 On-Call &amp; Incidents</div>
-    <div class="chip">📈 SLO / Error Budgets</div>
-    <div class="chip">📼 Support Recording</div>
-    <div class="chip">🔍 RCA Governance</div>
+  <div class="hero-grid">
+    <div class="hero-copy">
+      <div class="hero-badge">Multi-Tenant AI Support Platform · Feature Guide</div>
+      <h1>Project IQ<br><span class="grad">Everything It Does</span></h1>
+      <p class="hero-sub">One platform, six connected experiences — an AI chatbot on the web <em>and</em> on mobile, a real-time operator console, tenant &amp; super-admin control planes, and a full multi-tenant ITSM service with automation, AI enrichment and reporting. Built for scale, isolation and extensibility.</p>
+      <div class="hero-chips">
+        <div class="chip">🤖 Conversational AI (NLU)</div>
+        <div class="chip">🌍 Multilingual + RTL</div>
+        <div class="chip">🔐 IAM / Keycloak SSO</div>
+        <div class="chip">🏢 Multi-Tenant</div>
+        <div class="chip">🎫 ITSM Microservice</div>
+        <div class="chip">🔄 Real-time Handoff</div>
+        <div class="chip">📚 pgvector Knowledge Base</div>
+        <div class="chip">⚙️ Automation Engine</div>
+        <div class="chip">🧩 Integration Marketplace</div>
+        <div class="chip">📊 Deflection Analytics</div>
+        <div class="chip">📱 Web + Mobile</div>
+        <div class="chip">🔎 End-to-end Tracing</div>
+        <div class="chip">⏱️ SLA / OLA / UC</div>
+        <div class="chip">🚨 On-Call &amp; Incidents</div>
+        <div class="chip">📈 SLO / Error Budgets</div>
+        <div class="chip">📼 Support Recording</div>
+        <div class="chip">🔍 RCA Governance</div>
+      </div>
+    </div>
+    <!-- The six ends, literally — not decoration. Same reader who scrolls to
+         #ends meets these exact six colours again, already primed to recognise
+         them as "the six experiences" the sub-headline just named. -->
+    <div class="hero-visual" aria-hidden="true">
+      <div class="orbit-ring"></div>
+      <div class="orbit-hub"><span>IQ</span></div>
+      <div class="orbit-tile ot-bot"   style="--tx:78px;--ty:135px;--rot:-4deg">💬<em>Web Chatbot</em></div>
+      <div class="orbit-tile ot-mob"   style="--tx:-78px;--ty:135px;--rot:3deg">📱<em>Mobile App</em></div>
+      <div class="orbit-tile ot-op"    style="--tx:-156px;--ty:0px;--rot:-3deg">🎧<em>Operator</em></div>
+      <div class="orbit-tile ot-ten"   style="--tx:-78px;--ty:-135px;--rot:4deg">🏢<em>Tenant Admin</em></div>
+      <div class="orbit-tile ot-sup"   style="--tx:78px;--ty:-135px;--rot:-3deg">👑<em>Super Admin</em></div>
+      <div class="orbit-tile ot-itsm"  style="--tx:156px;--ty:0px;--rot:3deg">🎫<em>ITSM</em></div>
+    </div>
   </div>
   <div class="hero-stats">
     <div class="hstat"><div class="val violet">6</div><div class="lbl">Platform Ends</div></div>
@@ -209,124 +333,85 @@ footer span{color:#94a3b8}
   <div class="ends-grid mt3">
 
     <div class="end-card">
-      <div class="end-side end-bot">
-        <div class="e-icon">💬</div><div class="e-role">End-User · Browser</div>
-        <div class="e-name">Web Chatbot</div><div class="e-tag">An embeddable Web Component — drop it into any website.</div>
+      <div class="end-top end-bot">
+        <div class="e-icon">💬</div>
+        <div class="e-copy"><div class="e-role">End-User · Browser</div><div class="e-name">Web Chatbot</div><div class="e-tag">An embeddable Web Component — drop it into any website.</div></div>
       </div>
       <div class="end-body"><ul class="end-feats">
-        <li><b>Embeddable widget</b> — a self-styling Web Component added with one tag, on any site</li>
-        <li><b>Conversational AI</b> — 45+ skills: intents, entities, multi-turn dialogue, smalltalk &amp; FAQ</li>
-        <li><b>Knowledge Base answers</b> — semantic search with sources, images &amp; video tutorials</li>
-        <li><b>Multilingual</b> — cross-lingual KB retrieval + localized replies (EN/DE/FR/ES/AR) with auto-detect &amp; Arabic RTL</li>
-        <li><b>Smalltalk &amp; FAQ</b> — handles casual conversation, not just commands</li>
-        <li><b>Self-service tickets</b> — create, list, filter, check status, update, close from chat</li>
-        <li><b>Talk to a human</b> — one-tap handoff with live agent chat &amp; queue position</li>
-        <li><b>Browser SSO</b> — silent Keycloak check-sso; product gate &amp; switcher</li>
-        <li><b>Voice input</b> — speech-to-text via the browser microphone</li>
-        <li><b>Rich messages</b> — markdown, tables, image galleries, charts, ticket cards, forms</li>
-        <li><b>Brandable theming</b> — light/dark, colours, fonts, icons &amp; layout via attributes</li>
-        <li><b>Tab unread badge</b> + smart guardrails (PII, profanity, length checks)</li>
+        <li><b>Embeddable widget</b> — one tag, any site</li>
+        <li><b>Conversational AI</b> — 45+ skills, multilingual + Arabic RTL</li>
+        <li><b>Self-service tickets</b> — create, track, close from chat</li>
+        <li><b>Talk to a human</b> — one-tap live handoff</li>
       </ul></div>
     </div>
 
     <div class="end-card">
-      <div class="end-side" style="background:linear-gradient(150deg,#0891b2,#6366f1)">
-        <div class="e-icon">📱</div><div class="e-role">End-User · iOS &amp; Android</div>
-        <div class="e-name">Mobile App</div><div class="e-tag">A native cross-platform app (Expo) with full feature parity.</div>
+      <div class="end-top" style="background:linear-gradient(150deg,#0891b2,#6366f1)">
+        <div class="e-icon">📱</div>
+        <div class="e-copy"><div class="e-role">End-User · iOS &amp; Android</div><div class="e-name">Mobile App</div><div class="e-tag">A native cross-platform app (Expo) with full feature parity.</div></div>
       </div>
       <div class="end-body"><ul class="end-feats">
-        <li><b>Native iOS &amp; Android</b> — one Expo codebase, installable from the stores</li>
-        <li><b>Full feature parity</b> — chat, tickets, handoff, KB &amp; history, same as web</li>
-        <li><b>In-app login</b> — native username/password (Direct Access Grant), no browser bounce</li>
-        <li><b>Biometric unlock</b> — Face ID / fingerprint on return from background</li>
-        <li><b>Stay signed in</b> — encrypted on-device tokens with offline refresh</li>
-        <li><b>Push notifications</b> — Expo push + an in-app notification inbox</li>
-        <li><b>Camera &amp; documents</b> — capture a photo or pick a file to attach</li>
-        <li><b>Product selector</b> — product-scoped sessions, persisted across launches</li>
-        <li><b>Offline queue</b> — messages are stored offline and sent on reconnect</li>
-        <li><b>Native settings</b> — configurable server endpoint &amp; product</li>
+        <li><b>Native iOS &amp; Android</b> — one Expo codebase</li>
+        <li><b>Full feature parity</b> — chat, tickets, handoff, same as web</li>
+        <li><b>Biometric unlock</b> + stay signed in offline</li>
+        <li><b>Push notifications</b> + camera/document capture</li>
+        <li><b>Offline queue</b> — works with no connection</li>
       </ul></div>
     </div>
 
     <div class="end-card">
-      <div class="end-side end-op">
-        <div class="e-icon">🎧</div><div class="e-role">Live Support Agent</div>
-        <div class="e-name">Operator End</div><div class="e-tag">Real-time console for escalated conversations.</div>
+      <div class="end-top end-op">
+        <div class="e-icon">🎧</div>
+        <div class="e-copy"><div class="e-role">Live Support Agent</div><div class="e-name">Operator End</div><div class="e-tag">Real-time console for escalated conversations.</div></div>
       </div>
       <div class="end-body"><ul class="end-feats">
-        <li><b>Live handoff queue</b> — priority-ordered, with user name, product &amp; wait time</li>
-        <li><b>One-click Accept</b> — instant bi-directional relay with capacity checks</li>
-        <li><b>Least-loaded auto-assign</b> — optional routing of new chats to the freest available agent</li>
-        <li><b>$0 co-pilot</b> — bot-replay draft + canned responses / macros for fast, consistent replies</li>
-        <li><b>AI draft assist</b> — suggested replies generated from the conversation</li>
-        <li><b>Context package</b> — profile, masked transcript &amp; AI summary on accept</li>
-        <li><b>Resolve / release / transfer</b> — close, return to bot, or hand to another agent</li>
-        <li><b>Work ITSM tickets</b> — open the user's tickets, change status &amp; priority, post comments — in-console</li>
-        <li><b>Interaction history</b> — replay a user's past sessions to spot patterns</li>
-        <li><b>Typing indicators</b> both ways, with private per-session notes</li>
-        <li><b>Presence</b> — online / away / busy, with load-based auto-busy</li>
-        <li><b>Tenant-scoped</b> — agents only ever see their own organization's users</li>
-        <li><b>Session feedback</b> — request a satisfaction rating on close</li>
+        <li><b>Live handoff queue</b> — priority-ordered, real-time</li>
+        <li><b>$0 co-pilot</b> — bot-replay draft + canned responses</li>
+        <li><b>Work ITSM tickets</b> — in-console, no context switch</li>
+        <li><b>Resolve / transfer / release</b> — full lifecycle control</li>
+        <li><b>Tenant-scoped</b> — agents see only their own org</li>
       </ul></div>
     </div>
 
     <div class="end-card">
-      <div class="end-side end-ten">
-        <div class="e-icon">🏢</div><div class="e-role">Organization Administrator</div>
-        <div class="e-name">Tenant Admin End</div><div class="e-tag">Full control of one organization — strictly isolated.</div>
+      <div class="end-top end-ten">
+        <div class="e-icon">🏢</div>
+        <div class="e-copy"><div class="e-role">Organization Administrator</div><div class="e-name">Tenant Admin End</div><div class="e-tag">Full control of one organization — strictly isolated.</div></div>
       </div>
       <div class="end-body"><ul class="end-feats">
-        <li><b>Tenant-scoped analytics</b> — every metric, count &amp; figure filtered to the org</li>
-        <li><b>Deflection analytics</b> — bot-resolved vs escalated + KB deflection rate</li>
-        <li><b>Alert inbox</b> — system-error &amp; handoff notifications, filterable, with a live badge</li>
-        <li><b>Conversation trace</b> — reconstruct any turn by request-id (Diagnostics)</li>
-        <li><b>Live monitor &amp; inspector</b> — watch active chats, drill into any transcript</li>
-        <li><b>Operator management</b> — provision &amp; manage the org's agents</li>
-        <li><b>Routing rules + auto-assign</b> — intent/keyword/product routing, priority &amp; least-loaded toggle</li>
-        <li><b>Knowledge Base + health &amp; gaps</b> — articles, web ingestion, backend mode &amp; top unanswered queries</li>
-        <li><b>Integration marketplace</b> — connect Teams/webhooks; see connected services</li>
-        <li><b>Branding, config &amp; NLU Studio</b> — theme editor, timeouts, intent tuning, observability</li>
+        <li><b>Tenant-scoped analytics</b> + deflection metrics</li>
+        <li><b>Live monitor &amp; inspector</b> — watch, drill into any chat</li>
+        <li><b>Routing rules</b> + least-loaded auto-assign</li>
+        <li><b>Knowledge Base</b> — health, gaps, web ingestion</li>
+        <li><b>Integration marketplace</b> + NLU Studio</li>
       </ul></div>
     </div>
 
     <div class="end-card">
-      <div class="end-side end-sup">
-        <div class="e-icon">👑</div><div class="e-role">Platform Operator</div>
-        <div class="e-name">Super Admin End</div><div class="e-tag">Cross-tenant oversight from the platform organization.</div>
+      <div class="end-top end-sup">
+        <div class="e-icon">👑</div>
+        <div class="e-copy"><div class="e-role">Platform Operator</div><div class="e-name">Super Admin End</div><div class="e-tag">Cross-tenant oversight from the platform organization.</div></div>
       </div>
       <div class="end-body"><ul class="end-feats">
-        <li><b>Tenant switcher</b> — filter the entire portal to any single tenant…</li>
-        <li><b>…or platform-wide view</b> — aggregate across all tenants when none selected</li>
-        <li><b>Cross-tenant analytics</b> — usage, volumes &amp; performance for the whole platform</li>
-        <li><b>Any-tenant user lists</b> — inspect &amp; manage the selected tenant's users via IAM</li>
-        <li><b>Organization registry</b> — view &amp; manage tenant organizations</li>
-        <li><b>Reference-data hub</b> — products, categories, statuses &amp; lookups</li>
-        <li><b>Role provisioning</b> — assign Project IQ roles (User/Bot/Operator/Admin)</li>
-        <li><b>Platform-org gated</b> — granted only to members of the platform org</li>
-        <li><b>Same surfaces, wider scope</b> — every admin tool, scoped by the switcher</li>
+        <li><b>Tenant switcher</b> — any org, or platform-wide</li>
+        <li><b>Cross-tenant analytics</b> — the whole platform at once</li>
+        <li><b>Organization registry</b> — view &amp; manage every tenant</li>
+        <li><b>Role provisioning</b> — User / Bot / Operator / Admin</li>
       </ul></div>
     </div>
 
     <div class="end-card">
-      <div class="end-side end-itsm">
-        <div class="e-icon">🎫</div><div class="e-role">Service Management Backend</div>
-        <div class="e-name">ITSM End</div><div class="e-tag">A dedicated, multi-tenant ITSM microservice.</div>
+      <div class="end-top end-itsm">
+        <div class="e-icon">🎫</div>
+        <div class="e-copy"><div class="e-role">Service Management Backend</div><div class="e-name">ITSM End</div><div class="e-tag">A dedicated, multi-tenant ITSM microservice.</div></div>
       </div>
       <div class="end-body"><ul class="end-feats">
-        <li><b>Full ticket lifecycle</b> — create, assign, comment, update, resolve, close</li>
-        <li><b>Approval workflow</b> — change/access tickets gate on approver sign-off before transition</li>
-        <li><b>SLA / OLA / UC engine</b> — agreements with per-metric targets, coverage-window clocks, breach attribution &amp; AI breach prediction</li>
-        <li><b>On-call &amp; incidents</b> — rotations, escalation policies, alert triage, incident command (IC/comms/ops/scribe) &amp; post-incident review</li>
-        <li><b>SLO &amp; error budgets</b> — telemetry-fed reliability targets with multi-window burn-rate paging</li>
-        <li><b>RCA governance</b> — policy-driven root-cause requirements, an evidence checklist, verified corrective/preventive actions &amp; a governed approval lifecycle</li>
-        <li><b>Support recording evidence</b> — link Teams/SharePoint/OneDrive session recordings to a ticket, gated by consent &amp; sensitivity, with AI summaries and an access-audit log</li>
-        <li><b>Smart assignment</b> — auto-assign to the least-loaded team member</li>
-        <li><b>AI enrichment</b> — auto-classification &amp; duplicate detection with accept/reject</li>
-        <li><b>Virtual agent</b> — streaming AI assistant (server-sent events)</li>
-        <li><b>Automation engine</b> — no-code trigger → condition → action rules</li>
-        <li><b>Integrations</b> — outbound webhooks + Microsoft Teams via the marketplace catalog</li>
-        <li><b>Reporting</b> — volumes, SLA compliance, MTTR, on-call load, RCA &amp; recording compliance, trends, asset counts, AI usage, team workload</li>
-        <li><b>Row-level tenant isolation</b> — every record scoped to its org · 370/370 tests</li>
+        <li><b>Full ticket lifecycle</b> + approval workflow</li>
+        <li><b>SLA / OLA / UC engine</b> — breach prediction, AI-assisted</li>
+        <li><b>On-call &amp; incident response</b> — PagerDuty-style</li>
+        <li><b>SLO &amp; error budgets</b> <span class="ftag ftag-teal" style="vertical-align:middle">NEW</span></li>
+        <li><b>RCA governance</b> <span class="ftag ftag-teal" style="vertical-align:middle">NEW</span></li>
+        <li><b>Support recording evidence</b> <span class="ftag ftag-teal" style="vertical-align:middle">NEW</span></li>
       </ul></div>
     </div>
 
@@ -334,553 +419,375 @@ footer span{color:#94a3b8}
 </div>
 </section>
 
-<!-- ── BOT DEEP DIVE ─────────────────────────────────────────────────────── -->
-<section class="section alt" id="bot">
+<!-- ── HOW IT WORKS ──────────────────────────────────────────────────────── -->
+<section class="section alt" id="howitworks">
 <div class="container">
-  <div class="sec-eye">💬 Web Chatbot &amp; 📱 Mobile App</div>
-  <div class="sec-h">The Conversational Experience</div>
-  <div class="sec-sub">Two delivery channels, one brain: an embeddable web Component widget and a React Native / Expo app — full feature parity, with each channel adding what its platform does best.</div>
+  <div class="sec-eye">Four Roles · One Platform</div>
+  <div class="sec-h">How It Works</div>
+  <div class="sec-sub">Pick a role to see what their end of Project IQ actually looks like — the same identity layer and data model sit underneath all four.</div>
 
-  <div class="subhead">🧠 Understanding &amp; conversation</div>
-  <ul class="cap-grid">
-    <li><b>45+ intents</b> — greet, help, create / list / update / check / close ticket, view comments &amp; attachments, knowledge search, feedback, ratings, login, file upload, goodbye, and more</li>
-    <li><b>Smalltalk &amp; service FAQ</b> — dedicated retrieval intents (ResponseSelector) so casual turns get real answers, not fallbacks</li>
-    <li><b>Multilingual</b> — multilingual embedder for cross-lingual KB retrieval; per-message language auto-detect (EN/DE/FR/ES/AR) with localized replies &amp; Arabic right-to-left rendering</li>
-    <li><b>Entity extraction &amp; slots</b> — captures ticket IDs, categories, statuses &amp; details mid-conversation</li>
-    <li><b>Multi-turn dialogue</b> — guided forms, follow-ups and confirmations with context retained</li>
-    <li><b>Frustration &amp; low-confidence detection</b> — proactively offers a human; uncertain input routes to a semantic "did-you-mean" recovery</li>
-    <li><b>Clean, conflict-free training data</b> — deduplicated &amp; CI-guarded so intent boundaries stay sharp</li>
-    <li><b>Verify resolution</b> — confirms the issue is solved before closing out</li>
-  </ul>
+  <div class="tabs mt3">
+    <input type="radio" name="hiw" id="tab-bot" checked>
+    <input type="radio" name="hiw" id="tab-op">
+    <input type="radio" name="hiw" id="tab-admin">
+    <input type="radio" name="hiw" id="tab-itsm">
 
-  <div class="subhead">💬 Rich message rendering</div>
-  <div class="chips-row">
-    <span class="cap">Markdown (bold, lists, headings)</span><span class="cap">Tables</span><span class="cap">Image galleries</span>
-    <span class="cap">YouTube video tutorials (with start time)</span><span class="cap">Inline bar charts</span>
-    <span class="cap">3-column ticket cards</span><span class="cap">Guided ticket forms</span><span class="cap">Quick-action buttons</span>
-    <span class="cap">System &amp; warning banners</span><span class="cap">Operator bubbles + typing dots</span><span class="cap">Feedback 👍 👎 / copy</span><span class="cap">Emoji</span>
-  </div>
-
-  <div class="col2 mt3">
-    <div class="card">
-      <h4>🎫 Self-service ticketing</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li>Guided <b>create-ticket form</b> — title, detail, category, priority, attachment</li>
-        <li><b>Quick-issue chips</b> — "Laptop issue", "No internet", "Can't log in", "Printer", "Need access"</li>
-        <li><b>List tickets</b> with a status filter (New, Processing, Pending, Approved, Solved, Closed)</li>
-        <li><b>Check status</b> by ticket ID — public comment history (with author names, shown before the created date) &amp; attachments</li>
-        <li><b>Update &amp; close</b> tickets directly from the conversation</li>
-        <li>Product shown on every ticket; attachments up to size limit</li>
-      </ul>
+    <div class="tab-nav">
+      <label for="tab-bot">💬 Bot &amp; Mobile</label>
+      <label for="tab-op">🎧 Operator</label>
+      <label for="tab-admin">🏢 Admin</label>
+      <label for="tab-itsm">🎫 ITSM</label>
     </div>
-    <div class="card">
-      <h4>🛡️ Guardrails &amp; resilience</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li><b>PII detection</b> — warns on SSN / credit-card patterns before sending</li>
-        <li><b>Profanity &amp; shouting checks</b> — keeps conversations professional</li>
-        <li><b>Message length guard</b> — prevents oversized inputs</li>
-        <li><b>Offline queue</b> — messages are stored offline and auto-sent on reconnect</li>
-        <li><b>Voice input</b> — speech-to-text via the browser mic (web)</li>
-        <li><b>File upload</b> — camera capture &amp; document picker on mobile, file picker on web</li>
-      </ul>
-    </div>
-  </div>
 
-  <div class="subhead">🔐 Access, identity &amp; sessions</div>
-  <ul class="cap-grid">
-    <li><b>Keycloak SSO</b> — silent check-sso on web; proactive token refresh</li>
-    <li><b>In-app login on mobile</b> — native username/password (Direct Access Grant), no browser bounce</li>
-    <li><b>Biometric unlock</b> — Face ID / fingerprint on app foreground after real background time</li>
-    <li><b>Stay-signed-in</b> — offline refresh tokens, encrypted on-device storage</li>
-    <li><b>Product gate &amp; switcher</b> — choose a subscribed product; switching starts a fresh session everywhere</li>
-    <li><b>Guest mode</b> — KB search without login; ticket actions prompt sign-in</li>
-    <li><b>Configurable session timeout</b> — inactivity warning then graceful end → "New Conversation"</li>
-    <li><b>Conversation history</b> — searchable, date/product-grouped, read-only replay</li>
-    <li><b>Notifications</b> — mobile push + in-app inbox; web tab/app-icon unread badge</li>
-    <li><b>Theming</b> — light/dark mode, fully brandable colours, fonts, icons &amp; radius</li>
-  </ul>
+    <div class="tab-panels">
 
-  <div class="subhead">📲 What each channel adds</div>
-  <div class="col2">
-    <div class="card">
-      <h4>💬 Web Chatbot — unique strengths</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li><b>One-tag embed</b> — a self-contained Web Component drops into any website or portal</li>
-        <li><b>Silent browser SSO</b> — reuses an existing Keycloak session via check-sso iframe</li>
-        <li><b>Voice input</b> — speech-to-text from the browser microphone</li>
-        <li><b>Attribute-driven theming</b> — colours, fonts, icons &amp; radius set on the embed tag</li>
-        <li><b>Browser-tab unread badge</b> — surfaces new replies in the tab title</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h4>📱 Mobile App — unique strengths</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li><b>Native install</b> — iOS &amp; Android from a single Expo codebase</li>
-        <li><b>In-app login + biometrics</b> — native credentials and Face ID / fingerprint unlock</li>
-        <li><b>Push notifications</b> — Expo push with an in-app inbox &amp; app-icon badge</li>
-        <li><b>Camera &amp; document capture</b> — attach photos or files from the device</li>
-        <li><b>Encrypted offline persistence</b> — stays signed in; queues messages when offline</li>
-      </ul>
+      <!-- BOT & MOBILE -->
+      <div class="tab-panel panel-bot">
+        <div class="col2" style="align-items:start">
+          <div>
+            <div class="subhead" style="margin-top:0">🧠 Understanding &amp; conversation</div>
+            <ul class="cap-grid">
+              <li><b>45+ intents</b> — create / list / update / check / close ticket, KB search, feedback, file upload &amp; more</li>
+              <li><b>Multilingual</b> — auto-detects EN / DE / FR / ES / AR, with Arabic rendered right-to-left</li>
+              <li><b>Multi-turn dialogue</b> — guided forms, follow-ups, context retained across turns</li>
+              <li><b>Frustration detection</b> — proactively offers a human; unclear input triggers a semantic "did-you-mean"</li>
+              <li><b>Verifies resolution</b> before a ticket is closed out</li>
+            </ul>
+            <div class="subhead">💬 Rich messages</div>
+            <div class="chips-row">
+              <span class="cap">Markdown &amp; tables</span><span class="cap">Image galleries</span><span class="cap">Video tutorials</span>
+              <span class="cap">Inline charts</span><span class="cap">Ticket cards</span><span class="cap">Quick-action buttons</span>
+              <span class="cap">Voice input</span><span class="cap">👍 👎 feedback</span>
+            </div>
+          </div>
+          <figure class="shot">
+            <div class="shot-bar"><span class="shot-dot"></span><span class="shot-dot"></span><span class="shot-dot"></span></div>
+            <div class="shot-frame"><img src="img/shot-chat.png" alt="Project IQ chat widget answering a VPN question, with quick-action buttons and a Talk to Human option" style="object-position:top"></div>
+          </figure>
+        </div>
+        <div class="shot-cap">A guided answer, quick-issue chips and a one-tap <b>Talk to Human</b> escalation — the same flow on the embedded web widget and the native mobile app.</div>
+
+        <div class="col2 mt3">
+          <div class="card">
+            <h4>🎫 Self-service ticketing</h4>
+            <ul class="cap-grid" style="grid-template-columns:1fr">
+              <li>Guided <b>create-ticket form</b> with category, priority &amp; attachment</li>
+              <li><b>Check status</b> by ID — comments &amp; attachment history</li>
+              <li><b>Update &amp; close</b> tickets directly from chat</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>🛡️ Guardrails</h4>
+            <ul class="cap-grid" style="grid-template-columns:1fr">
+              <li><b>PII &amp; profanity checks</b> before a message sends</li>
+              <li><b>Offline queue</b> — auto-sends on reconnect</li>
+              <li><b>Biometric unlock</b> + encrypted offline session (mobile)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPERATOR -->
+      <div class="tab-panel panel-op">
+        <div class="col2">
+          <div class="card">
+            <h4>📥 Queue &amp; routing</h4>
+            <ul class="cap-grid" style="grid-template-columns:1fr">
+              <li><b>4 priority tiers</b> with anti-starvation auto-boost</li>
+              <li><b>Routing rules</b> — intent / keyword / product → team &amp; priority</li>
+              <li><b>Least-loaded auto-assign</b>, opt-in, capacity-aware</li>
+              <li><b>Live position &amp; wait estimate</b>, refreshed automatically</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>💼 Live workspace</h4>
+            <ul class="cap-grid" style="grid-template-columns:1fr">
+              <li><b>$0 co-pilot</b> — bot-replay draft + canned responses</li>
+              <li><b>✨ Suggest reply</b> — AI draft from the user's last message</li>
+              <li><b>Context panel</b> — profile, priority, trigger reason, AI summary</li>
+              <li><b>Private notes</b>, per-session, never sent to the user</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col2 mt3">
+          <div class="card">
+            <h4>🔁 Lifecycle</h4>
+            <ul class="cap-grid" style="grid-template-columns:1fr">
+              <li><b>Accept / Resolve / Transfer / Release</b> — full control</li>
+              <li><b>Interaction history</b> — replay a user's prior sessions</li>
+              <li><b>GDPR consent gate</b> before any handoff begins</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>🟢 Presence</h4>
+            <ul class="cap-grid" style="grid-template-columns:1fr">
+              <li><b>Available / away / busy / offline</b>, auto-busy at capacity</li>
+              <li><b>Heartbeat presence</b> — stale agents auto-marked offline</li>
+              <li><b>Tenant isolation</b> — queue &amp; users scoped to the org</li>
+            </ul>
+          </div>
+        </div>
+        <div class="wrap p2 mt3">
+          <div style="font-weight:800;margin-bottom:.75rem">🎫 ITSM tickets, right in the console</div>
+          <div class="sec-sub" style="margin:0">Open, update status/priority, and comment on tickets without leaving the chat — requester and assignee resolved by name, every change checked server-side against the agent's ITSM role.</div>
+        </div>
+      </div>
+
+      <!-- ADMIN -->
+      <div class="tab-panel panel-admin">
+        <div class="sec-sub" style="margin:0 0 1.25rem">Eighteen admin tools — tenant admins see their org; super admins see any tenant, or all, via the tenant switcher.</div>
+        <div class="wrap">
+          <table class="tbl">
+            <thead><tr><th>Tool</th><th>What it does</th><th>Scope</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Overview / Analytics</strong></td><td>At-a-glance health, plus volumes, resolution &amp; satisfaction trends over 7/30/90 days</td><td><span class="pill pill-both">Both</span></td></tr>
+              <tr><td><strong>Deflection Analytics</strong></td><td>Bot-resolved vs escalated, KB deflection — proof of self-service value</td><td><span class="pill pill-both">Both</span></td></tr>
+              <tr><td><strong>Live Monitor / Inspector</strong></td><td>Watch conversations in real time, or deep-dive one full transcript</td><td><span class="pill pill-both">Both</span></td></tr>
+              <tr><td><strong>Operators</strong></td><td>Provision, configure &amp; manage support agents</td><td><span class="pill pill-both">Both</span></td></tr>
+              <tr><td><strong>Knowledge Base</strong></td><td>Manage articles, rebuild embeddings, web-crawl ingestion, gap analysis</td><td><span class="pill pill-both">Both</span></td></tr>
+              <tr><td><strong>NLU Studio</strong></td><td>Inspect &amp; tune intents, retrain the model</td><td><span class="pill pill-both">Both</span></td></tr>
+              <tr><td><strong>Themes</strong></td><td>Brand the widget — colour, font, icon &amp; radius, live</td><td><span class="pill pill-both">Both</span></td></tr>
+              <tr><td><strong>Integrations</strong></td><td>Teams / webhook marketplace, connected-service status, embed generator</td><td><span class="pill pill-both">Both</span></td></tr>
+              <tr><td><strong>Observability</strong></td><td>Service health &amp; correlation-ID tracing across services</td><td><span class="pill pill-both">Both</span></td></tr>
+              <tr><td><strong>Users</strong></td><td>Directory live from IAM; create &amp; assign roles</td><td><span class="pill pill-sup">Super: any tenant</span></td></tr>
+              <tr><td><strong>Organizations</strong></td><td>View &amp; manage tenant organizations across the platform</td><td><span class="pill pill-sup">Super only</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="col2 mt3" style="align-items:center">
+          <figure class="shot">
+            <div class="shot-bar"><span class="shot-dot"></span><span class="shot-dot"></span><span class="shot-dot"></span></div>
+            <div class="shot-frame"><img src="img/shot-themes.png" alt="Themes admin screen showing eight widget colour themes" style="object-position:top"></div>
+          </figure>
+          <div>
+            <div class="shot-cap" style="font-size:.95rem;margin-top:0">Nine ready-made widget themes, each with its own <b>colour, corner radius and font</b> — swapped live, no redeploy, no code.</div>
+            <div class="note mt2"><strong>Tenant switcher:</strong> super admins scope the whole portal to one org, or a platform-wide aggregate. Tenant admins are permanently locked to their own organization.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ITSM -->
+      <div class="tab-panel panel-itsm">
+        <div class="sec-sub" style="margin:0 0 1.25rem">A dedicated FastAPI microservice — spanning <b>SLA/SLO governance</b>, PagerDuty-style <b>on-call &amp; incident response</b>, and policy-enforced <b>RCA governance</b> with recording evidence. Independently deployable, multi-tenant to the core.</div>
+
+        <div class="feat-grid">
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#2563eb,#60a5fa)">
+            <div class="feat-icon">⏱️</div><div class="feat-title">SLA / OLA / UC Engine</div>
+            <ul class="feat-bullets">
+              <li><b>Coverage-window clock</b> — 24×7 or business hours</li>
+              <li><b>AI predictor</b> flags likely breaches early</li>
+            </ul>
+          </div>
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#dc2626,#f97316)">
+            <div class="feat-icon">🚨</div><div class="feat-title">On-Call &amp; Escalation</div>
+            <ul class="feat-bullets">
+              <li>Rotating <b>schedules</b> — daily / weekly / follow-the-sun</li>
+              <li><b>Alerts</b> dedup, route &amp; auto-escalate</li>
+            </ul>
+          </div>
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#b91c1c,#ef4444)">
+            <div class="feat-icon">🧯</div><div class="feat-title">Incident Response</div>
+            <ul class="feat-bullets">
+              <li>Four <b>roles</b> — IC / comms / ops / scribe</li>
+              <li>Templated <b>PIR</b> → follow-up tickets</li>
+            </ul>
+          </div>
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#0d9488,#22d3ee)">
+            <div class="feat-icon">📈</div><div class="feat-title">SLO &amp; Error Budgets <span class="ftag ftag-teal" style="vertical-align:middle">NEW</span></div>
+            <ul class="feat-bullets">
+              <li>Live <b>error budget</b> &amp; burn rate, any SLI source</li>
+              <li><b>Multi-window burn alerts</b> — fast pages, slow tickets</li>
+            </ul>
+          </div>
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#4338ca,#818cf8)">
+            <div class="feat-icon">🔍</div><div class="feat-title">RCA Governance <span class="ftag ftag-teal" style="vertical-align:middle">NEW</span></div>
+            <ul class="feat-bullets">
+              <li>Auto-required by <b>policy</b>, not memory</li>
+              <li>Approval gated on an <b>evidence checklist</b></li>
+            </ul>
+          </div>
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#7e22ce,#c026d3)">
+            <div class="feat-icon">📼</div><div class="feat-title">Recording Evidence <span class="ftag ftag-teal" style="vertical-align:middle">NEW</span></div>
+            <ul class="feat-bullets">
+              <li>Teams / SharePoint link, one step</li>
+              <li><b>Consent</b> &amp; <b>sensitivity</b> flags gate the AI summary</li>
+            </ul>
+          </div>
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#16a34a,#4ade80)">
+            <div class="feat-icon">⚙️</div><div class="feat-title">Automation Engine</div>
+            <div class="feat-desc">No-code trigger → condition → action rules, with execution logs and a dry-run test.</div>
+          </div>
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#0891b2,#22d3ee)">
+            <div class="feat-icon">✅</div><div class="feat-title">Approval Workflow</div>
+            <div class="feat-desc">Change / access tickets route to a manager decision via a validated transition — direct status edits are blocked.</div>
+          </div>
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#dc2626,#f87171)">
+            <div class="feat-icon">🧩</div><div class="feat-title">Integration Marketplace</div>
+            <div class="feat-desc">Microsoft Teams &amp; signed webhooks — pick events, send a test, view the delivery log.</div>
+          </div>
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#0d9488,#4f46e5)">
+            <div class="feat-icon">📊</div><div class="feat-title">Reporting</div>
+            <div class="feat-desc">SLA compliance, workload, AI usage, and RCA/recording compliance burn-down.</div>
+          </div>
+          <div class="feat-card" style="--accent:linear-gradient(90deg,#7c3aed,#a78bfa)">
+            <div class="feat-icon">✨</div><div class="feat-title">AI Enrichment</div>
+            <div class="feat-desc">Auto-classification and duplicate detection, with an exportable dataset.</div>
+          </div>
+        </div>
+
+        <div class="col2 mt3" style="align-items:center">
+          <figure class="shot">
+            <div class="shot-bar"><span class="shot-dot"></span><span class="shot-dot"></span><span class="shot-dot"></span></div>
+            <div class="shot-frame"><img src="img/shot-rca.png" alt="RCA Governance policy builder showing two active policies with priority and conditions" style="object-position:top"></div>
+          </figure>
+          <div class="shot-cap" style="font-size:.95rem;margin-top:0">Policies evaluated <b>by priority, first match wins</b> — a major incident and a breached SLA on a high/critical ticket each auto-require their own RCA, owner and due date pre-assigned.</div>
+        </div>
+
+        <div class="wrap p2 mt3">
+          <div style="font-weight:800;margin-bottom:1rem">Ticket flow — chat to resolution</div>
+          <div class="flow">
+            <span class="node fn-b">User (Bot)</span><span class="arr">→</span>
+            <span class="node fn-v">NLU Action</span><span class="arr">→</span>
+            <span class="node fn-g">JWT forwarded</span><span class="arr">→</span>
+            <span class="node fn-a">ITSM Service</span><span class="arr">→</span>
+            <span class="node fn-t">Tenant-scoped DB</span>
+          </div>
+          <div class="note">Row-level tenant isolation on every request — one source of truth behind Web, Mobile, Operator, Tenant Admin and Super Admin alike. <strong>370 / 370 automated tests passing.</strong></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
 </section>
 
-<!-- ── OPERATOR DEEP DIVE ────────────────────────────────────────────────── -->
-<section class="section" id="operator">
+<!-- ── BUILT FOR PRODUCTION ──────────────────────────────────────────────── -->
+<section class="section" id="production">
 <div class="container">
-  <div class="sec-eye">🎧 Operator End</div>
-  <div class="sec-h">The Live Support Console</div>
-  <div class="sec-sub">Everything an agent needs to pick up, understand and resolve an escalated conversation in real time.</div>
-
-  <div class="col2 mt3">
-    <div class="card">
-      <h4>📥 Queue &amp; routing</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li><b>4 priority tiers</b> (Low / Normal / High / Urgent) with anti-starvation auto-boost</li>
-        <li><b>Routing rules</b> — by intent, keyword or product → team, skill &amp; priority</li>
-        <li><b>Least-loaded auto-assign</b> — opt-in: new handoffs go to the freest online agent (respecting team, shift &amp; capacity)</li>
-        <li><b>Live position &amp; wait estimate</b>, refreshed automatically</li>
-        <li><b>Product &amp; channel scoping</b> — agents see only their assigned scope</li>
-        <li><b>Capacity-aware accept</b> — blocks claims beyond max concurrent chats</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h4>💼 Live workspace</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li><b>Bi-directional chat</b> with optimistic send &amp; typing indicators both ways</li>
-        <li><b>$0 co-pilot</b> — replay the bot's drafted answer + a library of <b>canned responses / macros</b> for one-click consistent replies</li>
-        <li><b>✨ Suggest reply</b> — AI draft from the user's last message</li>
-        <li><b>Context panel</b> — profile, priority, product, trigger reason &amp; AI summary</li>
-        <li><b>Private notes</b> — per-session, auto-saved, never sent to the user</li>
-        <li><b>Unread badges</b> — per-session, cleared on view</li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="col2 mt3">
-    <div class="card">
-      <h4>🔁 Lifecycle &amp; collaboration</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li><b>Accept / Resolve / Release</b> — claim, close (optionally returning to bot), or requeue</li>
-        <li><b>Transfer</b> — hand a session to another online operator instantly</li>
-        <li><b>Interaction history</b> — replay a user's prior sessions with time-scoped transcripts</li>
-        <li><b>Session feedback request</b> + operator rates the usefulness of the context package</li>
-        <li><b>GDPR consent gate</b> before any handoff begins</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h4>🟢 Presence &amp; access</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li><b>Status</b> — available / away / busy / offline, with auto-busy at capacity</li>
-        <li><b>Heartbeat presence</b> — stale agents auto-marked offline</li>
-        <li><b>JWT-authenticated</b> operator sessions with refresh</li>
-        <li><b>Auto-provisioning</b> — first portal login creates the operator from IAM identity</li>
-        <li><b>Tenant isolation</b> — queue, sessions &amp; users scoped to the org</li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="wrap p2 mt3">
-    <div style="font-weight:800;margin-bottom:1rem">🎫 ITSM tickets — right in the console</div>
-    <ul class="cap-grid">
-      <li><b>Open the user's tickets</b> — a Tickets view inside the operator console, tenant-scoped</li>
-      <li><b>Change status &amp; priority</b> — inline edits saved straight to the ITSM service</li>
-      <li><b>Post comments</b> — public replies the requester sees, or internal agent-only notes</li>
-      <li><b>Requester &amp; assignee by name</b> — resolved from identity, not raw IDs</li>
-      <li><b>Agent-tier &amp; server-authorized</b> — operators map to the ITSM <em>agent</em> role; every change is checked server-side</li>
-    </ul>
-  </div>
-</div>
-</section>
-
-<!-- ── ADMIN DEEP DIVE ───────────────────────────────────────────────────── -->
-<section class="section alt" id="admin">
-<div class="container">
-  <div class="sec-eye">🏢 Tenant Admin &amp; 👑 Super Admin</div>
-  <div class="sec-h">The Control Plane</div>
-  <div class="sec-sub">Eighteen admin tools — tenant admins see their org, super admins see any tenant (or all) via the tenant switcher.</div>
-
-  <div class="wrap mt3">
-    <table class="tbl">
-      <thead><tr><th>Tool</th><th>What it does</th><th>Scope</th></tr></thead>
-      <tbody>
-        <tr><td><strong>Overview</strong></td><td>At-a-glance health: waiting, assigned, operators online, resolved today</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Analytics</strong></td><td>Volumes, resolution, satisfaction, handle time &amp; trend charts over 7/30/90 days, per product</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Deflection Analytics</strong></td><td>Bot-resolved vs escalated, escalation rate &amp; KB deflection — proof of self-service value</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Alerts</strong></td><td>Inbox of system-error &amp; handoff notifications — filter by type/time, search, mark-read, live unread badge</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Conversation History</strong></td><td>Browse past conversations with operator &amp; product context</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Inspector</strong></td><td>Deep-dive a single conversation — full transcript, intents &amp; metadata</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Live Monitor</strong></td><td>Watch active conversations stream in real time</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Operators</strong></td><td>Provision, configure &amp; manage support agents</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Routing Rules</strong></td><td>Define intent/keyword/product routing, target teams &amp; priority boosts; toggle least-loaded operator auto-assign</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Knowledge Base</strong></td><td>Manage articles, refresh the index &amp; rebuild embeddings; backend-mode health badge &amp; a knowledge-gaps card of top unanswered queries</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Firecrawl Ingestion</strong></td><td>Crawl / scrape websites &amp; URLs into the knowledge base</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>NLU Studio</strong></td><td>Inspect &amp; tune intents and training data; retrain the model</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Themes</strong></td><td>Brand the widget — colours, fonts, icons, layout</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Configuration</strong></td><td>Session timeouts, widget settings &amp; platform options</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Integrations</strong></td><td>Marketplace — connect &amp; test Microsoft Teams / webhook notifications (per-event), see connected services (IAM/storage/email/AI) &amp; KB-source connectors, plus the widget-embed generator</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Observability</strong></td><td>Service health, queues &amp; system status; per-request correlation-ID tracing across services, with error alerting to admins</td><td><span class="pill pill-both">Both</span></td></tr>
-        <tr><td><strong>Users</strong></td><td>Directory sourced live from IAM; create &amp; assign roles via Keycloak</td><td><span class="pill pill-sup">Super: any tenant</span></td></tr>
-        <tr><td><strong>Organizations</strong></td><td>View &amp; manage tenant organizations across the platform</td><td><span class="pill pill-sup">Super only</span></td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="note"><strong>Tenant switcher:</strong> super admins pick a tenant to scope the entire portal to that org's data, or leave it unset for a platform-wide aggregate. Tenant admins are permanently locked to their own organization — cross-tenant data is never returned by the API.</div>
-</div>
-</section>
-
-<!-- ── ITSM DEEP DIVE ────────────────────────────────────────────────────── -->
-<section class="section" id="itsm">
-<div class="container">
-  <div class="sec-eye">🎫 ITSM End</div>
-  <div class="sec-h">A Full ITSM + SRE Service — Not Just Tickets</div>
-  <div class="sec-sub">A dedicated FastAPI microservice owns the service-management domain — now spanning <b>SLA/SLO governance</b>, PagerDuty-style <b>on-call &amp; incident response</b>, and policy-enforced <b>RCA governance</b> with Teams recording evidence: independently deployable, independently scalable, multi-tenant to the core.</div>
-
-  <div class="feat-grid mt3">
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#d97706,#ea580c)">
-      <div class="feat-icon">🎫</div><div class="feat-title">Ticketing</div>
-      <div class="feat-desc">Full lifecycle — create, read, list &amp; filter, assign, comment, status transitions, resolve and close — with categories, priorities and product tagging.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#2563eb,#60a5fa)">
-      <div class="feat-icon">⏱️</div><div class="feat-title">SLA / OLA / UC Engine (SLM)</div>
-      <div class="feat-desc">Agreements of three kinds — customer <b>SLA</b>, internal <b>OLA</b>, vendor <b>UC</b> — each with per-metric <b>targets</b> (first-response, resolution, time-to-mitigate…). Priority-ordered <b>rules</b> auto-attach the right agreement; a per-ticket <b>clock</b> counts only inside its <b>coverage window</b> (24×7 or business hours), warns at 50/75/90%, then meets or breaches. Breaches are <b>attributed</b> down the OLA/UC chain, and an <b>AI predictor</b> flags likely breaches before they happen.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#dc2626,#f97316)">
-      <div class="feat-icon">🚨</div><div class="feat-title">On-Call &amp; Escalation</div>
-      <div class="feat-desc">PagerDuty-style on-call: <b>services</b>, <b>severity levels</b>, and rotating <b>schedules</b> (daily / weekly / follow-the-sun) whose current responder is resolved on the fly. <b>Escalation policies</b> step a page from the on-call schedule → a user → a team with timeouts, and <b>alerts</b> dedup, route and auto-escalate until acknowledged. Contact methods per responder; heartbeats catch silent failures.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#b91c1c,#ef4444)">
-      <div class="feat-icon">🧯</div><div class="feat-title">Incident Response</div>
-      <div class="feat-desc">Declare an incident from an alert or by hand, staff it with the four <b>roles</b> (IC / comms / ops / scribe), and drive a validated <b>lifecycle</b> (declared → investigating → identified → monitoring → resolved → postmortem → closed). Every change lands on an immutable <b>timeline</b>; audience-scoped <b>status updates</b> (internal / stakeholder / public); <b>blast-radius</b> from the CMDB; and a templated <b>PIR / retrospective</b> with action items that push to follow-up tickets.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#0d9488,#22d3ee)">
-      <div class="feat-icon">📈</div><div class="feat-title">SLO &amp; Error Budgets <span class="ftag ftag-teal" style="vertical-align:middle">NEW</span></div>
-      <div class="feat-desc">The SRE reliability layer: define an <b>SLO</b> (e.g. 99.9% availability over 28 days) on a service, fed by an <b>SLI</b> source (internal metric, push API, uptime probe, Prometheus/Datadog). The engine derives the <b>error budget</b>, current SLI and <b>burn rate</b> live, and fires <b>multi-window burn alerts</b> — fast-burn pages on-call, slow-burn opens a ticket — through the same on-call rails.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#4338ca,#818cf8)">
-      <div class="feat-icon">🔍</div><div class="feat-title">RCA Governance <span class="ftag ftag-teal" style="vertical-align:middle">NEW</span></div>
-      <div class="feat-desc">RCA isn't a text box, it's a <b>workflow</b>: a policy builder auto-requires one by rule (major incident, critical SLA breach, repeat failures), then drives a governed <b>lifecycle</b> (required → draft → under review → approved → actions in progress → completed, plus rejected/waived/overdue). Approval is gated on an <b>evidence checklist</b> (timeline, customer impact, linked recording, SLA breach data…) and every corrective/preventive action needs <b>owner-verified</b> completion — or an explicit accepted-risk sign-off — before an RCA can quietly call itself done. An AI draft assists but never decides; every field change is an append-only audit row.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#7e22ce,#c026d3)">
-      <div class="feat-icon">📼</div><div class="feat-title">Support Recording Evidence <span class="ftag ftag-teal" style="vertical-align:middle">NEW</span></div>
-      <div class="feat-desc">Paste a Microsoft Teams, SharePoint or OneDrive recording link onto a ticket in one step — metadata and a secure link are stored by default, not the video itself. Each recording carries <b>consent</b> and <b>sensitivity</b> flags (PII, credentials, legal hold) that gate an async AI summary and restrict access; every view, download or summary generation writes an insert-only <b>access log</b>. One toggle promotes a recording straight into an RCA's evidence checklist.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#0d9488,#2dd4bf)">
-      <div class="feat-icon">👥</div><div class="feat-title">Teams &amp; Smart Assignment</div>
-      <div class="feat-desc">Organize agents into teams and route work; an <b>auto-assign</b> action hands new tickets to the least-loaded team member. Per-team open volume and average age tracked.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#7c3aed,#a78bfa)">
-      <div class="feat-icon">✨</div><div class="feat-title">AI Ticket Enrichment</div>
-      <div class="feat-desc">Automatic classification (accept/reject) and duplicate detection with dismiss — plus an exportable classification dataset for continuous improvement.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#4f46e5,#7c3aed)">
-      <div class="feat-icon">🗨️</div><div class="feat-title">Virtual Agent</div>
-      <div class="feat-desc">A built-in AI assistant with multi-turn sessions and real-time streaming (SSE) responses, scoped to the authenticated tenant.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#16a34a,#4ade80)">
-      <div class="feat-icon">⚙️</div><div class="feat-title">Automation Engine</div>
-      <div class="feat-desc">No-code rules: trigger → condition → action (assign team/user, auto-assign least-loaded, set priority, escalate, notify), with execution logs and a dry-run test.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#0891b2,#22d3ee)">
-      <div class="feat-icon">✅</div><div class="feat-title">Approval Workflow</div>
-      <div class="feat-desc">Change &amp; access-request tickets enter <code>pending_approval</code>, open an approval and fire the trigger; a manager/approver decides via a dedicated endpoint that drives the validated transition — direct status edits are blocked.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#dc2626,#f87171)">
-      <div class="feat-icon">🧩</div><div class="feat-title">Integration Marketplace</div>
-      <div class="feat-desc">A catalog-driven marketplace on the webhook backbone: install <b>Microsoft Teams</b> (MessageCard) or signed generic webhooks, pick events, send a test &amp; view the delivery log. Inbound webhooks + a per-user notification inbox too.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#0d9488,#4f46e5)">
-      <div class="feat-icon">📊</div><div class="feat-title">Reporting</div>
-      <div class="feat-desc">Tickets by status/priority/type, SLA compliance, creation trends, asset counts, AI token usage, top KB articles, per-team workload, and RCA/recording compliance (overdue, missing evidence, waived, action-item burn-down).</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#d97706,#fbbf24)">
-      <div class="feat-icon">💼</div><div class="feat-title">Assets &amp; Products</div>
-      <div class="feat-desc">Asset registry with attachments; a product catalog synced from IAM subscriptions and upserted automatically when tickets are raised.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#16a34a,#0d9488)">
-      <div class="feat-icon">📚</div><div class="feat-title">Knowledge Base</div>
-      <div class="feat-desc">Article store with attachments and search — the same source powering bot answers and the admin KB portal.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#7c3aed,#a21caf)">
-      <div class="feat-icon">🌐</div><div class="feat-title">Platform &amp; Tenant Admin</div>
-      <div class="feat-desc">Cross-tenant platform-operator endpoints, plus per-tenant settings, teams, users, business hours and SLA policy management.</div>
-    </div>
-    <div class="feat-card" style="--accent:linear-gradient(90deg,#16a34a,#15803d)">
-      <div class="feat-icon">🔏</div><div class="feat-title">GDPR &amp; Compliance</div>
-      <div class="feat-desc">Data-subject endpoints and tenant-scoped data handling, with identity always sourced from the JWT — never trusted from the request body.</div>
-    </div>
-  </div>
-
-  <div class="wrap p2 mt3">
-    <div style="font-weight:800;margin-bottom:1rem">Ticket flow — chat to resolution</div>
-    <div class="flow">
-      <span class="node fn-b">User (Bot)</span><span class="arr">→</span>
-      <span class="node fn-v">NLU Action</span><span class="arr">→</span>
-      <span class="node fn-g">JWT forwarded</span><span class="arr">→</span>
-      <span class="node fn-a">ITSM Service</span><span class="arr">→</span>
-      <span class="node fn-t">Tenant-scoped DB</span><span class="arr">→</span>
-      <span class="node fn-b">Ticket + Product + SLA</span>
-    </div>
-    <div class="note">Row-level tenant isolation on every request; the same service backs the Web &amp; Mobile chatbots, Operator, Tenant Admin and Super Admin ends — one source of truth, scoped automatically by the caller's identity. <strong>370 / 370 automated tests passing.</strong></div>
-  </div>
-</div>
-</section>
-
-<!-- ── REAL-TIME & RELIABILITY ───────────────────────────────────────────── -->
-<section class="section alt" id="realtime">
-<div class="container">
-  <div class="sec-eye">Always-On</div>
-  <div class="sec-h">Real-time &amp; Self-Healing</div>
-  <div class="sec-sub">A Socket.IO backbone keeps every client in sync, and background workers keep the queue fair, fresh and consistent — automatically.</div>
-
-  <div class="col3 mt3">
-    <div class="card">
-      <h4>⚡ Real-time backbone</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li><b>Socket.IO over eventlet</b> with a Redis message bus for multi-worker fan-out</li>
-        <li><b>Non-blocking DB driver</b> — queries cooperatively yield, so the event hub never stalls</li>
-        <li><b>Room routing</b> — per-user, per-operator, per-conversation &amp; queue-overview rooms</li>
-        <li><b>Live events</b> — queue updates, assignment, messages, typing, wait refresh, resolution</li>
-        <li><b>Sub-second delivery</b> — handoff &amp; messages relay in milliseconds, even under load</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h4>🩺 Background workers</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li><b>Queue timeout / SLA</b> — alerts, "remain or leave email" prompts &amp; auto-abandon</li>
-        <li><b>Wait refresh</b> — recalculates every waiting user's position &amp; ETA</li>
-        <li><b>Priority boost</b> — nudges long-waiting items up to prevent starvation</li>
-        <li><b>Heartbeat watchdog</b> — marks unresponsive operators offline</li>
-        <li><b>Orphan-state healer</b> — repairs any conversation stuck between states</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h4>🔎 Tracing &amp; alerting</h4>
-      <ul class="cap-grid" style="grid-template-columns:1fr">
-        <li><b>End-to-end correlation IDs</b> — one request id threads admin API → NLU → action server → ITSM</li>
-        <li><b>Structured logging</b> — every line stamped <code>[req=…]</code>, so one grep reconstructs a whole turn</li>
-        <li><b>Error alerting</b> — ERROR-level events notify operators &amp; admins, deduplicated &amp; storm-capped</li>
-        <li><b>Honest error rate</b> — measured from real action failures, not guessed from bot wording</li>
-      </ul>
-    </div>
-  </div>
-</div>
-</section>
-
-<!-- ── MULTI-TENANCY ─────────────────────────────────────────────────────── -->
-<section class="section" id="tenancy">
-<div class="container">
-  <div class="sec-eye">Isolation by Design</div>
-  <div class="sec-h">Multi-Tenancy &amp; Identity</div>
-  <div class="sec-sub">One deployment, many organizations — each one sealed off, with a platform layer above for oversight.</div>
-
-  <div class="wrap mt3">
-    <table class="tbl">
-      <thead><tr><th>Concern</th><th>Tenant Admin</th><th>Super Admin</th><th>How it's enforced</th></tr></thead>
-      <tbody>
-        <tr><td><strong>Data scope</strong></td><td>Own organization only</td><td>Any tenant, or all aggregated</td><td>Scope derived from the IAM token; tenant admins forced to their org, platform admins may select a tenant</td></tr>
-        <tr><td><strong>Analytics &amp; figures</strong></td><td>Filtered to org</td><td>Per-tenant or platform-wide</td><td>Every query carries the org filter; counts &amp; charts never leak across tenants</td></tr>
-        <tr><td><strong>Conversations &amp; history</strong></td><td>Org's conversations</td><td>Selected tenant's, or all</td><td>Tagged with <span class="pill pill-ten">org_id</span> + <span class="pill pill-sup">product</span> at write time</td></tr>
-        <tr><td><strong>Operators &amp; queue</strong></td><td>Org's agents &amp; users</td><td>Any org's</td><td>Queue filtered by org; handoff queue stores org context</td></tr>
-        <tr><td><strong>Users directory</strong></td><td>Org members (IAM)</td><td>Selected tenant's members</td><td>Live IAM org-app-users API using the caller's token</td></tr>
-        <tr><td><strong>Tickets &amp; ITSM data</strong></td><td>Org's records</td><td>Any org's</td><td>Row-level isolation on every ITSM request</td></tr>
-        <tr><td><strong>Access grant</strong></td><td>org_admin role</td><td>Member of platform org / super_admin</td><td>Role + platform-org membership checked server-side</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="col3 mt3">
-    <div class="card"><h4>🔑 Single Sign-On</h4><div style="font-size:.82rem;color:var(--c-muted)">Keycloak OIDC. PKCE on web/mobile, in-app password grant on mobile, offline refresh for persistent login, with org &amp; product claims and role mapping.</div></div>
-    <div class="card"><h4>🧭 Product-scoped sessions</h4><div style="font-size:.82rem;color:var(--c-muted)">Identity is <code>iam-{user}-{product}</code>; switching product starts a fresh, isolated conversation everywhere — bot, queue &amp; operator.</div></div>
-    <div class="card"><h4>🔗 Identity pinned end-to-end</h4><div style="font-size:.82rem;color:var(--c-muted)">The verified identity flows proxy → bot → queue → operator → ITSM, so authorization and scoping never drift between layers.</div></div>
-  </div>
-</div>
-</section>
-
-<!-- ── SECURITY ──────────────────────────────────────────────────────────── -->
-<section class="section alt" id="security">
-<div class="container">
-  <div class="sec-eye">Trust &amp; Compliance</div>
-  <div class="sec-h">Security &amp; Privacy</div>
-  <div class="sec-sub">Security is enforced server-side at every layer — never left to the client.</div>
-
-  <div class="col3 mt3">
-    <div class="card"><h4>🔐 Authentication</h4><div style="font-size:.82rem;color:var(--c-muted)">SSO-only via Keycloak; stateless JWTs validated against the realm; separate operator-token flow. No passwords stored by the app.</div></div>
-    <div class="card"><h4>🚧 Authorization</h4><div style="font-size:.82rem;color:var(--c-muted)">Per-tenant scoping enforced on every endpoint; role &amp; platform-org gating; super-admin tenant override only for platform members.</div></div>
-    <div class="card"><h4>🕵️ GDPR &amp; privacy</h4><div style="font-size:.82rem;color:var(--c-muted)">Consent gate before handoff; transcripts masked for passwords, card numbers &amp; IBANs; data-subject endpoints in ITSM.</div></div>
-    <div class="card"><h4>🧱 Data integrity</h4><div style="font-size:.82rem;color:var(--c-muted)">Parameterized queries throughout; tenant identity sourced from the JWT, never the request body; row-level isolation in ITSM.</div></div>
-    <div class="card"><h4>📝 Auditability</h4><div style="font-size:.82rem;color:var(--c-muted)">Handoff state-log records every transition; consent log; automation execution logs; AI token-usage accounting.</div></div>
-    <div class="card"><h4>🗄️ Secure storage</h4><div style="font-size:.82rem;color:var(--c-muted)">Attachments via signed, expiring URLs proxied through the app port — object storage is never exposed directly to the browser.</div></div>
-    <div class="card"><h4>🚦 Rate limiting</h4><div style="font-size:.82rem;color:var(--c-muted)">Per-IP limits tiered by route (auth / chat / default), backed by Redis in production with an in-memory fallback — a dependency-free limiter, tunable by config.</div></div>
-    <div class="card"><h4>🔑 Secrets &amp; supply chain</h4><div style="font-size:.82rem;color:var(--c-muted)">No secrets in the repo — injected via env at runtime (<code>PIQ_*</code> overrides); Dependabot + weekly <code>pip-audit</code> in CI; signed Microsoft Teams payloads use the incoming-webhook URL as the secret.</div></div>
-  </div>
-</div>
-</section>
-
-<!-- ── PERFORMANCE ───────────────────────────────────────────────────────── -->
-<section class="section" id="performance">
-<div class="container">
-  <div class="sec-eye">Performance</div>
-  <div class="sec-h">Fast Where It Counts</div>
-  <div class="sec-sub">Real-time interactions feel instant; the heavy lifting is pooled, cached and non-blocking.</div>
+  <div class="sec-eye">Under The Hood</div>
+  <div class="sec-h">Built for Production</div>
+  <div class="sec-sub">Real-time, isolated, secure and tested — the details, one topic at a time.</div>
 
   <div class="kpi-grid mt3">
-    <div class="kpi"><div class="v" style="color:#2dd4bf">&lt;5ms</div><div class="l">Socket.IO Relay</div><div class="d d-new">Realtime</div></div>
-    <div class="kpi"><div class="v" style="color:#a78bfa">~5ms</div><div class="l">KB Vector Search</div><div class="d d-up">pgvector</div></div>
-    <div class="kpi"><div class="v green">Non-block</div><div class="l">DB under Eventlet</div><div class="d d-up">green driver</div></div>
-    <div class="kpi"><div class="v blue">Pooled</div><div class="l">DB Connections</div><div class="d d-up">reused</div></div>
-    <div class="kpi"><div class="v" style="color:#fbbf24">Cached</div><div class="l">Config / Themes</div><div class="d d-up">TTL + Redis</div></div>
-    <div class="kpi"><div class="v" style="color:#f87171">Instant</div><div class="l">Handoff Delivery</div><div class="d d-new">no lag</div></div>
+    <div class="kpi"><div class="v" style="color:#2dd4bf">&lt;5ms</div><div class="l">Socket.IO Relay</div></div>
+    <div class="kpi"><div class="v green">Non-block</div><div class="l">DB under Eventlet</div></div>
+    <div class="kpi"><div class="v" style="color:#a78bfa">∞</div><div class="l">Isolated Tenants</div></div>
+    <div class="kpi"><div class="v green">567</div><div class="l">Tests, All Passing</div></div>
   </div>
 
-  <div class="wrap p2 mt3">
-    <div style="font-weight:800;margin-bottom:1.25rem">Where time goes per message</div>
-    <div class="bench-grid">
-      <div class="bench-card"><div class="bench-val" style="color:#7c3aed">NLU</div><div class="bench-label">Language Understanding</div><div class="bench-sub">Intent + entity extraction — CPU-bound, the main lever for scale</div><div class="bench-bar"><div class="bench-fill" style="width:65%;background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div></div></div>
-      <div class="bench-card"><div class="bench-val" style="color:#0d9488">Action</div><div class="bench-label">Action Server</div><div class="bench-sub">ITSM calls, DB lookups, response building</div><div class="bench-bar"><div class="bench-fill" style="width:25%;background:linear-gradient(90deg,#0d9488,#2dd4bf)"></div></div></div>
-      <div class="bench-card"><div class="bench-val" style="color:#16a34a">~8ms</div><div class="bench-label">DB Write</div><div class="bench-sub">Message + conversation logging via pooled connections</div><div class="bench-bar"><div class="bench-fill" style="width:10%;background:linear-gradient(90deg,#16a34a,#4ade80)"></div></div></div>
-      <div class="bench-card"><div class="bench-val" style="color:#2563eb">~5ms</div><div class="bench-label">KB Search</div><div class="bench-sub">pgvector cosine similarity with an ivfflat index</div><div class="bench-bar"><div class="bench-fill" style="width:6%;background:linear-gradient(90deg,#2563eb,#60a5fa)"></div></div></div>
-    </div>
-    <div class="note"><strong>Key win:</strong> the database driver is cooperatively scheduled under the event loop, so a slow query no longer freezes the real-time hub. Handoff queue updates, operator messages and typing indicators stay sub-second even under load.</div>
+  <div class="acc-group mt3">
+
+    <details class="acc" open>
+      <summary>⚡ Real-time &amp; Self-Healing<span class="acc-hint">Socket.IO backbone · background workers · tracing</span><span class="acc-caret">▾</span></summary>
+      <div class="acc-body">
+        <div class="col3">
+          <div class="card">
+            <h4>Real-time backbone</h4>
+            <ul class="cap-grid" style="grid-template-columns:1fr">
+              <li><b>Socket.IO over eventlet</b>, Redis bus for multi-worker fan-out</li>
+              <li><b>Room routing</b> — per-user, per-operator, per-conversation</li>
+              <li><b>Sub-second delivery</b>, even under load</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Background workers</h4>
+            <ul class="cap-grid" style="grid-template-columns:1fr">
+              <li><b>Queue timeout / SLA</b> alerts &amp; auto-abandon</li>
+              <li><b>Priority boost</b> prevents starvation</li>
+              <li><b>Orphan-state healer</b> — repairs stuck conversations</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Tracing &amp; alerting</h4>
+            <ul class="cap-grid" style="grid-template-columns:1fr">
+              <li><b>End-to-end correlation IDs</b> — admin API → NLU → ITSM</li>
+              <li><b>Error alerting</b>, deduplicated &amp; storm-capped</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details class="acc" open>
+      <summary>🏢 Multi-Tenancy &amp; Identity<span class="acc-hint">Isolation by design · Keycloak SSO</span><span class="acc-caret">▾</span></summary>
+      <div class="acc-body">
+        <div class="wrap">
+          <table class="tbl">
+            <thead><tr><th>Concern</th><th>Tenant Admin</th><th>Super Admin</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Data scope</strong></td><td>Own organization only</td><td>Any tenant, or all aggregated</td></tr>
+              <tr><td><strong>Conversations</strong></td><td>Org's conversations</td><td>Selected tenant's, or all</td></tr>
+              <tr><td><strong>Tickets &amp; ITSM</strong></td><td>Org's records</td><td>Any org's</td></tr>
+              <tr><td><strong>Access grant</strong></td><td>org_admin role</td><td>Platform-org membership / super_admin</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="col3 mt3">
+          <div class="card"><h4>🔑 Single Sign-On</h4><div style="font-size:.82rem;color:var(--c-muted)">Keycloak OIDC, PKCE on web/mobile, offline refresh for persistent login.</div></div>
+          <div class="card"><h4>🧭 Product-scoped sessions</h4><div style="font-size:.82rem;color:var(--c-muted)">Identity is <code>iam-{user}-{product}</code>; switching product starts a fresh, isolated session.</div></div>
+          <div class="card"><h4>🔗 Identity pinned end-to-end</h4><div style="font-size:.82rem;color:var(--c-muted)">Proxy → bot → queue → operator → ITSM — scoping never drifts between layers.</div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="acc" open>
+      <summary>🔐 Security &amp; Privacy<span class="acc-hint">Enforced server-side, every layer</span><span class="acc-caret">▾</span></summary>
+      <div class="acc-body">
+        <div class="col3">
+          <div class="card"><h4>🔐 Authentication</h4><div style="font-size:.82rem;color:var(--c-muted)">SSO-only via Keycloak; stateless JWTs validated against the realm. No passwords stored by the app.</div></div>
+          <div class="card"><h4>🚧 Authorization</h4><div style="font-size:.82rem;color:var(--c-muted)">Per-tenant scoping on every endpoint; super-admin override only for platform members.</div></div>
+          <div class="card"><h4>🕵️ GDPR &amp; privacy</h4><div style="font-size:.82rem;color:var(--c-muted)">Consent gate before handoff; transcripts masked for passwords, cards &amp; IBANs.</div></div>
+          <div class="card"><h4>🧱 Data integrity</h4><div style="font-size:.82rem;color:var(--c-muted)">Parameterized queries; tenant identity sourced from the JWT, never the request body.</div></div>
+          <div class="card"><h4>🗄️ Secure storage</h4><div style="font-size:.82rem;color:var(--c-muted)">Attachments via signed, expiring URLs — object storage never exposed to the browser.</div></div>
+          <div class="card"><h4>🔑 Secrets &amp; supply chain</h4><div style="font-size:.82rem;color:var(--c-muted)">No secrets in the repo; Dependabot + weekly <code>pip-audit</code> in CI.</div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="acc" open>
+      <summary>🚀 Performance &amp; Scale<span class="acc-hint">Where time goes · how each tier scales</span><span class="acc-caret">▾</span></summary>
+      <div class="acc-body">
+        <div class="bench-grid">
+          <div class="bench-card"><div class="bench-val" style="color:#7c3aed">NLU</div><div class="bench-label">Language Understanding</div><div class="bench-sub">CPU-bound — the main lever for scale</div><div class="bench-bar"><div class="bench-fill" style="width:65%;background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div></div></div>
+          <div class="bench-card"><div class="bench-val" style="color:#0d9488">Action</div><div class="bench-label">Action Server</div><div class="bench-sub">ITSM calls, DB lookups, response building</div><div class="bench-bar"><div class="bench-fill" style="width:25%;background:linear-gradient(90deg,#0d9488,#2dd4bf)"></div></div></div>
+          <div class="bench-card"><div class="bench-val" style="color:#2563eb">~5ms</div><div class="bench-label">KB Search</div><div class="bench-sub">pgvector cosine similarity, ivfflat index</div><div class="bench-bar"><div class="bench-fill" style="width:6%;background:linear-gradient(90deg,#2563eb,#60a5fa)"></div></div></div>
+        </div>
+        <div class="legend mt2">
+          <span><span class="effort-label e-instant">Config</span> minutes</span>
+          <span><span class="effort-label e-easy">Ops</span> minutes–hours</span>
+          <span><span class="effort-label e-medium">Infra</span> hours</span>
+          <span><span class="effort-label e-hard">Planned</span> scheduled</span>
+        </div>
+        <div class="scale-row"><div class="scale-comp">🤖 NLU Service</div><div class="scale-action">Run more instances behind the load balancer — near-linear throughput.</div><div class="scale-effort"><span class="effort-label e-instant">Config</span></div></div>
+        <div class="scale-row"><div class="scale-comp">⚙️ Action Server</div><div class="scale-action">Stateless workers — add replicas for concurrency &amp; resilience.</div><div class="scale-effort"><span class="effort-label e-instant">Config</span></div></div>
+        <div class="scale-row"><div class="scale-comp">🐘 Database</div><div class="scale-action">Read replicas, pooling, and optional HA (Patroni/repmgr).</div><div class="scale-effort"><span class="effort-label e-medium">Infra</span></div></div>
+        <div class="scale-row"><div class="scale-comp">🎫 ITSM Service</div><div class="scale-action">Scales its own replica set, independent of the bot.</div><div class="scale-effort"><span class="effort-label e-instant">Config</span></div></div>
+        <div class="scale-row"><div class="scale-comp">🔴 Redis</div><div class="scale-action">Sentinel/Cluster removes the single point of failure.</div><div class="scale-effort"><span class="effort-label e-easy">Ops</span></div></div>
+        <div class="note mt2">Every tier is <b>stateless and decoupled</b> — you scale only the bottleneck. NLU is usually the first lever; the database rarely is, thanks to pooling, caching and replicas.</div>
+      </div>
+    </details>
+
+    <details class="acc" open>
+      <summary>✅ Quality Assurance<span class="acc-hint">567 tests · 2 repos · 2 CI pipelines</span><span class="acc-caret">▾</span></summary>
+      <div class="acc-body">
+        <div class="wrap">
+          <table class="tbl">
+            <thead><tr><th>Service</th><th style="width:8%">Tests</th><th>What's covered</th></tr></thead>
+            <tbody>
+              <tr><td><strong>🎫 ITSM Service</strong></td><td><b>370</b></td><td>Tickets, KB, automation, reports, SLA/OLA/UC, on-call, incidents, SLO/error-budgets — row-level tenant isolation.</td></tr>
+              <tr><td><strong>⚙️ Action Server</strong></td><td><b>37</b></td><td>IAM identity &amp; JWT forwarding, login flows, analytics, session tokens.</td></tr>
+              <tr><td><strong>🔑 Common / IAM</strong></td><td><b>31</b></td><td>Keycloak claims, role mapping, tenant-vs-platform admin, config loaders.</td></tr>
+              <tr><td><strong>⚡ Web API</strong></td><td><b>41</b></td><td>Real-time room routing, JWT security, multi-tenant scope, storage/ITSM proxies.</td></tr>
+              <tr><td><strong>🧠 NLU / Conversation</strong></td><td><b>18</b></td><td>Intent inventory, no cross-intent conflicts, stories &amp; rules, pipeline config.</td></tr>
+              <tr><td><strong>🌍 Feature &amp; platform</strong></td><td><b>~70</b></td><td>i18n, deflection metrics, tracing, rate limiting, secret overrides.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note mt2">Both repos run <code>pytest</code> on every push via <strong>GitHub Actions</strong> — core-platform suites are fully mocked/deterministic; the ITSM suite runs against ephemeral Postgres + Redis.</div>
+      </div>
+    </details>
+
   </div>
-</div>
-</section>
-
-<!-- ── SCALABILITY ───────────────────────────────────────────────────────── -->
-<section class="section alt" id="scale">
-<div class="container">
-  <div class="sec-eye">Growth</div>
-  <div class="sec-h">Scales With You</div>
-  <div class="sec-sub">The common scaling moves are configuration, not code — and the ITSM service scales on its own track.</div>
-
-  <div class="mt3">
-    <div class="scale-row"><div class="scale-comp">🚀 Add AI capacity</div><div class="scale-action">Run additional NLU instances behind the load balancer — chatbot throughput scales near-linearly.</div><div class="scale-effort"><span class="effort-label e-instant">Config</span></div></div>
-    <div class="scale-row"><div class="scale-comp">🏢 Onboard a tenant</div><div class="scale-action">Create the organization in IAM with its products — isolation, scoping &amp; product-aware sessions apply automatically.</div><div class="scale-effort"><span class="effort-label e-instant">Zero code</span></div></div>
-    <div class="scale-row"><div class="scale-comp">🎫 Scale ITSM</div><div class="scale-action">The ITSM microservice scales independently of the bot — add instances for ticket-heavy tenants without touching conversational AI.</div><div class="scale-effort"><span class="effort-label e-easy">Service-level</span></div></div>
-    <div class="scale-row"><div class="scale-comp">⚡ More workers / Redis bus</div><div class="scale-action">Increase worker count; the Redis message bus fans Socket.IO events across all workers so realtime stays consistent.</div><div class="scale-effort"><span class="effort-label e-instant">Config</span></div></div>
-    <div class="scale-row"><div class="scale-comp">🐘 Read replica &amp; pooling</div><div class="scale-action">Point heavy reads at a replica; connection pooling multiplexes many clients onto few DB connections.</div><div class="scale-effort"><span class="effort-label e-easy">Config</span></div></div>
-    <div class="scale-row"><div class="scale-comp">🌐 Multi-server</div><div class="scale-action">Stateless JWT auth + shared Redis means no sticky sessions — add app servers behind a load balancer.</div><div class="scale-effort"><span class="effort-label e-medium">Minor work</span></div></div>
-  </div>
-
-  <div class="subhead">🧱 Scaling &amp; upgrading the core services</div>
-  <div class="sec-sub" style="margin-bottom:.75rem">Each tier scales <b>out</b> (more instances — horizontal) and <b>up</b> (more power / newer version — vertical), independently of the others. Each action below is tagged with its <b>type</b> of work and the <b>effort</b> involved.</div>
-  <div class="legend">
-    <span><span class="effort-label e-instant">Config</span> <b>flag / file edit</b> — minutes</span>
-    <span><span class="effort-label e-easy">Ops</span> <b>start instance / rolling deploy</b> — minutes–hours</span>
-    <span><span class="effort-label e-medium">Infra</span> <b>provision / setup</b> — hours</span>
-    <span><span class="effort-label e-hard">Planned</span> <b>maintenance window</b> — scheduled</span>
-  </div>
-  <div class="wrap">
-    <table class="tbl">
-      <thead><tr><th style="width:18%">Service</th><th>Scale out (horizontal)</th><th>Scale up &amp; upgrade (vertical)</th></tr></thead>
-      <tbody>
-        <tr>
-          <td><strong>🤖 NLU Service</strong><div style="font-size:.74rem;color:var(--c-muted);margin-top:.25rem">Language understanding — the CPU-bound hot path</div></td>
-          <td>Run multiple NLU instances behind the load balancer; throughput scales near-linearly per instance. Stateless — added or removed live.
-            <div class="eff"><span class="ty">Type:</span><span class="effort-label e-instant">Config</span><span class="effort-label e-easy">Ops</span><span class="ty">≈ minutes</span></div></td>
-          <td>More CPU cores (inference is CPU-bound) or a GPU for large models; retrain &amp; hot-swap a newer/larger model from the Studio with no downtime.
-            <div class="eff"><span class="ty">Type:</span><span class="effort-label e-medium">Infra</span><span class="ty">≈ hours (+ model retrain)</span></div></td>
-        </tr>
-        <tr>
-          <td><strong>⚙️ Action Server</strong><div style="font-size:.74rem;color:var(--c-muted);margin-top:.25rem">Custom actions — tickets, KB, handoff, ITSM calls</div></td>
-          <td>Stateless workers — run several replicas for higher concurrency &amp; resilience; a failed node drops out without affecting sessions.
-            <div class="eff"><span class="ty">Type:</span><span class="effort-label e-instant">Config</span><span class="effort-label e-easy">Ops</span><span class="ty">≈ minutes</span></div></td>
-          <td>Raise worker/process count and add CPU/RAM for I/O-heavy actions; ship new action code with a rolling restart (no state held in-process).
-            <div class="eff"><span class="ty">Type:</span><span class="effort-label e-easy">Ops / Deploy</span><span class="ty">≈ minutes–hours</span></div></td>
-        </tr>
-        <tr>
-          <td><strong>🐘 Database</strong><div style="font-size:.74rem;color:var(--c-muted);margin-top:.25rem">PostgreSQL + pgvector — single source of truth</div></td>
-          <td>Add read replicas and route heavy reads (analytics, queue, history); pooling multiplexes many clients onto a few connections; optional HA (Patroni/repmgr) for auto-failover.
-            <div class="eff"><span class="ty">Type:</span><span class="effort-label e-medium">Infra</span><span class="ty">≈ hours (HA: ½–1 day)</span></div></td>
-          <td>Bigger CPU/RAM/IOPS/SSD, larger pgvector indexes &amp; pool sizes, and major-version/extension upgrades — the app talks to the pooler, so the DB upgrades behind it.
-            <div class="eff"><span class="ty">Type:</span><span class="effort-label e-hard">Planned window</span><span class="ty">scheduled</span></div></td>
-        </tr>
-        <tr>
-          <td><strong>🎫 ITSM Service</strong><div style="font-size:.74rem;color:var(--c-muted);margin-top:.25rem">Independent FastAPI microservice</div></td>
-          <td>Scale its own replica set independently of the bot for ticket-heavy tenants; horizontally stateless behind the same-origin proxy.
-            <div class="eff"><span class="ty">Type:</span><span class="effort-label e-instant">Config</span><span class="effort-label e-easy">Ops</span><span class="ty">≈ minutes</span></div></td>
-          <td>Add resources per replica and deploy new versions on its own release cadence — it shares only the identity layer, not the chatbot's lifecycle.
-            <div class="eff"><span class="ty">Type:</span><span class="effort-label e-easy">Ops / Deploy</span><span class="ty">≈ minutes–hours</span></div></td>
-        </tr>
-        <tr>
-          <td><strong>🔴 Redis &amp; Real-time</strong><div style="font-size:.74rem;color:var(--c-muted);margin-top:.25rem">Socket.IO message bus + cache</div></td>
-          <td>Add app workers — the Redis bus fans Socket.IO events across all of them; Redis Sentinel/Cluster removes the single point of failure.
-            <div class="eff"><span class="ty">Type:</span><span class="effort-label e-easy">Ops</span><span class="effort-label e-medium">Infra (HA)</span><span class="ty">≈ minutes–hours</span></div></td>
-          <td>Increase the Redis memory/persistence tier and raise worker counts as traffic grows; in-process TTL cache provides a graceful fallback.
-            <div class="eff"><span class="ty">Type:</span><span class="effort-label e-medium">Infra</span><span class="ty">≈ minutes–hours</span></div></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="note">Because every tier is <b>stateless and decoupled</b>, you scale only the bottleneck. The usual first lever is the <b>NLU service</b> (CPU-bound, lowest effort to scale out); the database is rarely the limit thanks to pooling, caching and replicas, and is the only tier that may need a planned maintenance window.</div>
-
-  <div class="subhead">🧩 Built to be extended</div>
-  <div class="col3">
-    <div class="card"><h4>🔗 New API endpoint</h4><div style="font-size:.82rem;color:var(--c-muted)">Drop a blueprint into the web API (or a router into the ITSM service) and register it — existing routes untouched.</div></div>
-    <div class="card"><h4>🤖 New bot skill</h4><div style="font-size:.82rem;color:var(--c-muted)">Add NLU examples + a story, implement a custom action, retrain from the Studio — no full redeploy.</div></div>
-    <div class="card"><h4>⚙️ New automation</h4><div style="font-size:.82rem;color:var(--c-muted)">Compose trigger → condition → action rules in the ITSM engine, dry-run them, then enable — no code.</div></div>
-    <div class="card"><h4>🧩 New reference data</h4><div style="font-size:.82rem;color:var(--c-muted)">A generic manager surfaces new lookups (products, categories, statuses) in the admin hub with no bespoke UI.</div></div>
-    <div class="card"><h4>📊 New analytics</h4><div style="font-size:.82rem;color:var(--c-muted)">All metrics live in PostgreSQL — add a query and a widget; tenant scoping applies automatically.</div></div>
-    <div class="card"><h4>🔌 New integration</h4><div style="font-size:.82rem;color:var(--c-muted)">Outbound webhooks &amp; clean service boundaries (IAM, ITSM, KB, storage) make adding a backend low-risk.</div></div>
-  </div>
-
-  <div class="note mt2"><strong>Architectural principle:</strong> separate services, one identity. The Web &amp; Mobile chatbots, Operator, Tenant Admin, Super Admin and ITSM ends are decoupled surfaces over a shared identity and data model — so each can evolve, scale and deploy on its own schedule.</div>
-</div>
-</section>
-
-<!-- ── QUALITY ASSURANCE / TESTING ───────────────────────────────────────── -->
-<section class="section" id="testing">
-<div class="container">
-  <div class="sec-eye">Quality Assurance</div>
-  <div class="sec-h">Tested, Service by Service</div>
-  <div class="sec-sub">Every service ships with an executable, automated test suite — <b>567 tests in total, all green</b>. The core-platform suites are deterministic (no live database, NLU model or Keycloak needed); the ITSM suite runs against an ephemeral Postgres + Redis. Both run locally and on every push in <b>GitHub Actions</b>, now joined by a <code>rasa data validate</code> gate and a guard that fails the build if any phrase is ever labelled with two intents.</div>
-
-  <div class="kpi-grid mt3">
-    <div class="kpi"><div class="v green">567</div><div class="l">Total Tests</div><div class="d d-up">all passing</div></div>
-    <div class="kpi"><div class="v" style="color:#2dd4bf">2</div><div class="l">Repos / CI Pipelines</div></div>
-    <div class="kpi"><div class="v" style="color:#a78bfa">370</div><div class="l">ITSM API Tests</div></div>
-    <div class="kpi"><div class="v blue">197</div><div class="l">Core-Platform Tests</div></div>
-  </div>
-
-  <div class="wrap mt3">
-    <table class="tbl">
-      <thead><tr><th>Service</th><th style="width:8%">Tests</th><th>Type</th><th>What's covered</th></tr></thead>
-      <tbody>
-        <tr>
-          <td><strong>🎫 ITSM Service</strong></td><td><b>370</b></td>
-          <td><span class="cap">Integration / API</span></td>
-          <td>Tickets, KB, assets, automation, reports, notifications, platform, virtual agent, in/outbound webhooks, GDPR &amp; reference data — plus the full <b>SLA/OLA/UC engine</b> (coverage windows, instances, breach attribution, AI prediction), <b>on-call</b> (schedules, escalation, alerts), <b>incident response</b> (roles, timeline, PIR) and the <b>SLO / error-budget</b> module (burn-rate alerts). RS256-JWT auth with row-level tenant isolation, incl. an RLS fail-open regression (async httpx + ASGI).</td>
-        </tr>
-        <tr>
-          <td><strong>⚙️ Action Server</strong><div style="font-size:.74rem;color:var(--c-muted)">NLU custom actions</div></td><td><b>37</b></td>
-          <td><span class="cap">Unit</span></td>
-          <td>IAM identity &amp; JWT forwarding, the login-flow branches, the sign-in gate (single-message regression), analytics &amp; org/tenant context, session tokens, frustration scoring and runtime-config fallback.</td>
-        </tr>
-        <tr>
-          <td><strong>🔑 Common / Platform / IAM</strong></td><td><b>31</b></td>
-          <td><span class="cap">Unit</span></td>
-          <td>Keycloak claim extraction, role flags &amp; product-role mapping, tenant-vs-platform-admin, channel resolution, org resolution across 4 claim shapes, and every config loader's contract.</td>
-        </tr>
-        <tr>
-          <td><strong>⚡ Web API</strong><div style="font-size:.74rem;color:var(--c-muted)">Flask backend</div></td><td><b>41</b></td>
-          <td><span class="cap">Unit</span></td>
-          <td>Real-time room routing &amp; emit (live-handoff delivery), the stdlib JWT (tamper/expiry/secret), multi-tenant scope &amp; operator-queue filters, role gating, password hashing, least-loaded operator auto-assign, and the storage &amp; ITSM reverse proxies.</td>
-        </tr>
-        <tr>
-          <td><strong>🧠 NLU / Conversation</strong><div style="font-size:.74rem;color:var(--c-muted)">Training &amp; dialogue data</div></td><td><b>18</b></td>
-          <td><span class="cap">Data integrity</span></td>
-          <td>Intent inventory &amp; examples, every trained intent declared in the domain (incl. retrieval intents), response/slot/form integrity, <b>no cross-intent example conflicts</b>, stories &amp; rules present, and the pipeline &amp; policy config.</td>
-        </tr>
-        <tr>
-          <td><strong>🌍 Feature &amp; platform suites</strong><div style="font-size:.74rem;color:var(--c-muted)">i18n, analytics, tracing, security</div></td><td><b>~70</b></td>
-          <td><span class="cap">Unit</span></td>
-          <td>Language detection &amp; the bot localization catalog, deflection &amp; observability metric queries, canned responses, conversation-trace reconstruction, rate limiting, config/secret env-overrides and the semantic embedding fallback.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="note"><strong>Continuous integration:</strong> the core-platform suites run with <code>python -m pytest tests/</code> (network &amp; data layers mocked); the ITSM microservice runs its own <code>pytest</code> suite against ephemeral Postgres + Redis service containers. Each is wired to <strong>GitHub Actions</strong> and runs on every push — two repos, two pipelines.</div>
 </div>
 </section>
 

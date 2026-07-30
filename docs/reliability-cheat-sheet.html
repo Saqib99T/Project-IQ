@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLI / SLO / SLA / RCA — Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F6F7FC;--surface:#ffffff;--surface-2:#EEF0FA;
+  --border:#E2E5F3;--border-strong:#CBD1EC;
+  --text:#171A2B;--muted:#5B6178;--faint:#9096AE;
+  --accent:#6E8CFF;--accent-2:#8B6FF0;--ink:#4353C9;
+  --blue:#2563eb;--teal:#0d9488;--green:#15803d;--amber:#B45309;--red:#B91C1C;
+  --font-display:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  --radius:14px;--shadow:0 2px 10px rgba(38,43,84,0.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.6;padding:2.5rem 1.5rem 4rem}
+.wrap{max-width:760px;margin:0 auto}
+h1,h2,h3{font-family:var(--font-display);letter-spacing:-.01em;text-wrap:balance}
+h1{font-size:1.7rem;font-weight:800;margin-bottom:.4rem}
+.sub{color:var(--muted);font-size:.95rem;margin-bottom:2rem}
+h2{font-size:1.05rem;font-weight:800;margin:2.2rem 0 .9rem;display:flex;align-items:center;gap:.5rem}
+h2 .n{font-family:var(--font-mono);font-size:.75rem;font-weight:600;color:var(--faint);background:var(--surface-2);border-radius:6px;padding:.15rem .5rem}
+p{margin:0 0 .6rem;font-size:.92rem}
+code{font-family:var(--font-mono);font-size:.85em;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:.05em .4em}
+
+.headline{background:var(--surface);border:1px solid var(--border-strong);border-left:4px solid var(--ink);border-radius:var(--radius);padding:1.25rem 1.5rem;box-shadow:var(--shadow);font-size:1rem}
+.headline b{color:var(--ink)}
+
+.term{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.4rem;margin-bottom:.85rem;box-shadow:var(--shadow);border-left:4px solid var(--tone,var(--ink))}
+.term .name{font-family:var(--font-display);font-weight:800;font-size:1rem;display:flex;align-items:baseline;gap:.5rem}
+.term .name .full{font-weight:500;color:var(--muted);font-size:.78rem}
+.term .row{margin-top:.55rem;font-size:.87rem;color:var(--muted)}
+.term .row b{color:var(--text)}
+.term .say{margin-top:.6rem;font-size:.85rem;font-style:italic;color:var(--ink);background:rgba(110,140,255,.08);border-radius:8px;padding:.5rem .7rem}
+.term .say::before{content:'"';font-style:normal}
+.term .say::after{content:'"';font-style:normal}
+
+.t-sli{--tone:#2563eb}.t-slo{--tone:#0d9488}.t-sla{--tone:#7C5CE0}.t-eb{--tone:#B45309}.t-bonus{--tone:#9096AE}
+
+.flow-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem 1.4rem;margin-bottom:1rem;box-shadow:var(--shadow)}
+.flow-title{font-family:var(--font-display);font-weight:800;font-size:.92rem;margin-bottom:.85rem;color:var(--text)}
+
+.steps{list-style:none;counter-reset:step}
+.steps li{position:relative;padding:.1rem 0 .1rem 2.1rem;margin-bottom:.65rem;font-size:.9rem}
+.steps li::before{counter-increment:step;content:counter(step);position:absolute;left:0;top:-.05rem;width:1.55rem;height:1.55rem;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:.78rem;display:flex;align-items:center;justify-content:center}
+.steps li b{color:var(--text)}
+
+.qa{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.3rem;margin-bottom:.7rem;box-shadow:var(--shadow)}
+.qa .q{font-weight:700;font-size:.88rem;color:var(--text)}
+.qa .a{font-size:.87rem;color:var(--muted);margin-top:.3rem}
+.qa .a b{color:var(--ink)}
+
+footer{margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--border);font-size:.72rem;color:var(--faint)}
+@media print{body{padding:0;background:#fff}.term,.qa,.headline{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>SLI / SLO / SLA &amp; RCA Governance</h1>
+  <div class="sub">A plain-English cheat sheet — read this before the meeting, not during it.</div>
+
+  <div class="headline">
+    <b>The 30-second version:</b> we <b>measure</b> real performance (SLI), compare it to an <b>internal target</b> (SLO), and separately promise the customer a <b>service level with consequences</b> (SLA). Missing the target eats into an <b>error budget</b> — an early warning, not a surprise. When something serious breaks, the system <b>requires</b> a Root Cause Analysis before anyone can call it closed — evidence attached, a named person signs off.
+  </div>
+
+  <h2><span class="n">01</span> The four terms — one analogy, pizza delivery</h2>
+
+  <div class="term t-sli">
+    <div class="name">SLI <span class="full">Service Level Indicator — the measurement</span></div>
+    <div class="row"><b>Plain English:</b> the real number you measure. "Of our last 1,000 deliveries, how many arrived within 30 minutes?"</div>
+    <div class="row"><b>In Project IQ:</b> every ticket has a live response-time and resolution-time clock, tracked automatically.</div>
+    <div class="say">We're not guessing how we're doing — every ticket has a running clock, and that clock is the SLI.</div>
+  </div>
+
+  <div class="term t-slo">
+    <div class="name">SLO <span class="full">Service Level Objective — our internal target</span></div>
+    <div class="row"><b>Plain English:</b> the goal we set for ourselves. "We aim for 99% of deliveries within 30 minutes." No contract yet — just our own bar.</div>
+    <div class="row"><b>In Project IQ:</b> an admin defines it directly — e.g. "99.9% of P1 incidents resolved within 4 hours, measured over 28 days."</div>
+    <div class="say">The SLO is our own bar — we can raise it, lower it, or tune it without touching a customer contract.</div>
+  </div>
+
+  <div class="term t-sla">
+    <div class="name">SLA <span class="full">Service Level Agreement — the customer promise</span></div>
+    <div class="row"><b>Plain English:</b> the signed commitment with a consequence attached. "If fewer than 95% arrive on time this month, you get a credit."</div>
+    <div class="row"><b>In Project IQ:</b> every ticket carries a due-by time based on its priority and the customer's contract; breach status is tracked per ticket, not just in aggregate.</div>
+    <div class="say">The SLA is the one line the customer actually reads — everything else exists to make sure we never surprise them with it.</div>
+  </div>
+
+  <div class="term t-eb">
+    <div class="name">Error Budget <span class="full">how much "wrong" we're allowed</span></div>
+    <div class="row"><b>Plain English:</b> if the SLO is 99%, the other 1% is the budget — an allowance of acceptable misses before we're actually in trouble.</div>
+    <div class="row"><b>In Project IQ:</b> shown as a live gauge with burn-rate alerts — a fast burn pages someone immediately, a slow burn just opens a ticket.</div>
+    <div class="say">We don't wait for the breach to react — we watch the budget burn down and get ahead of it.</div>
+  </div>
+
+  <div class="term t-bonus">
+    <div class="name">Bonus terms <span class="full">OLA &amp; UC — same idea, different direction</span></div>
+    <div class="row"><b>OLA</b> (Operational Level Agreement): the same promise, but between <b>internal teams</b> — e.g. the network team promises the app team 99.95% uptime.</div>
+    <div class="row"><b>UC</b> (Underpinning Contract): the same promise, but from an <b>outside vendor</b> to us — e.g. our cloud provider's own uptime guarantee.</div>
+  </div>
+
+  <h2><span class="n">02</span> RCA Governance — the short version</h2>
+  <p><b>What it is:</b> after a serious incident, the system <b>requires</b> a written Root Cause Analysis before the incident can be closed. Not a suggestion, not an honor system.</p>
+  <p><b>Why it exists:</b> under pressure, root-cause reviews are the first thing teams skip. This makes the review automatic and unskippable.</p>
+
+  <ol class="steps">
+    <li><b>Policy decides who needs one.</b> Rules like "any Sev1" or "any SLA breach on a high-priority ticket" auto-require an RCA — set once, applied every time, no one has to remember.</li>
+    <li><b>Evidence is required before approval.</b> A checklist — what happened, the root cause, the fix — has to be filled in, with supporting call/chat recordings attached when relevant.</li>
+    <li><b>A named person signs off.</b> An approver (team lead or manager) approves it — timestamped and auditable, not an anonymous checkbox.</li>
+  </ol>
+
+  <div class="term t-sla" style="border-left-color:var(--ink)">
+    <div class="say">This isn't a text box someone might forget to fill in — it's a workflow. The system decides when an RCA is required, blocks closing the incident until the evidence is there, and someone has to put their name on it.</div>
+  </div>
+
+  <h2><span class="n">03</span> How it actually flows in Project IQ, step by step</h2>
+  <p style="margin-bottom:1rem">Three concrete walk-throughs — read these almost verbatim while you click through the matching screen.</p>
+
+  <div class="flow-block">
+    <div class="flow-title">A) A ticket's SLA clock, start to finish</div>
+    <ol class="steps">
+      <li><b>Ticket is created.</b> Its priority and product automatically match it to an SLA/OLA/UC policy — no one picks this manually.</li>
+      <li><b>The coverage-window clock starts</b> — 24×7 or business-hours only, whichever the matched policy specifies.</li>
+      <li><b>At 50% / 75% / 90%</b> of the allowed time, the system raises an internal warning — before anything is actually breached.</li>
+      <li><b>The AI predictor</b> separately flags tickets it thinks are trending toward a breach, even earlier than the 90% mark.</li>
+      <li><b>If time runs out,</b> the ticket is marked breached — visible on the ticket itself and rolled into SLA compliance reporting.</li>
+    </ol>
+  </div>
+
+  <div class="flow-block">
+    <div class="flow-title">B) An SLO's error budget, start to finish</div>
+    <ol class="steps">
+      <li><b>An admin defines an SLO</b> — e.g. "99.9% of P1 incidents resolved within 4 hours, over a rolling 28-day window."</li>
+      <li><b>Every qualifying incident's real resolution time</b> (the SLI) feeds into that rolling window automatically as it happens.</li>
+      <li><b>The gap between target and actual performance is the error budget</b> — shown live as a gauge, not buried in a report.</li>
+      <li><b>Burn-rate alerting watches how fast it's spent:</b> burning fast pages the on-call engineer right now; burning slow just opens a ticket for later.</li>
+      <li><b>The budget resets as the window rolls forward</b> — one bad week recovers over time, it isn't a permanent black mark.</li>
+    </ol>
+  </div>
+
+  <div class="flow-block">
+    <div class="flow-title">C) An incident that requires an RCA, start to finish</div>
+    <ol class="steps">
+      <li><b>An incident happens and gets worked</b> like any other — major ones get IC / comms / ops / scribe roles and a tracked timeline.</li>
+      <li><b>RCA policy is checked automatically</b> against the incident — does it match a rule (e.g. "Sev1", "SLA breach on high/critical ticket")? Rules are evaluated by priority, first match wins.</li>
+      <li><b>If matched, an RCA is auto-created</b> — owner, approver and a due date are pre-assigned by the policy, not chosen by hand.</li>
+      <li><b>The owner fills the evidence checklist</b> — what happened, the root cause, the corrective actions — and can attach a support recording if one exists.</li>
+      <li><b>If a recording is attached,</b> consent and sensitivity flags must be set before its AI summary can even be viewed; every view or download writes to an access log.</li>
+      <li><b>Each corrective action</b> needs to be owner-verified done, or explicitly waived, before the RCA can move to approval.</li>
+      <li><b>The named approver signs off</b> — the incident cannot close until this happens. Timestamped, auditable, done.</li>
+    </ol>
+  </div>
+
+  <h2><span class="n">04</span> If someone in the meeting asks…</h2>
+
+  <div class="qa">
+    <div class="q">"Isn't this just extra paperwork?"</div>
+    <div class="a">It only fires for incidents that actually matter — a routine ticket never triggers one. It replaces an informal "lessons learned" email nobody reads with <b>one tracked, provable record</b>.</div>
+  </div>
+  <div class="qa">
+    <div class="q">"What if our target is unrealistic?"</div>
+    <div class="a">That's exactly why SLO and SLA are separate — we can tune our <b>internal</b> target without renegotiating the <b>customer</b> contract.</div>
+  </div>
+  <div class="qa">
+    <div class="q">"What actually happens when we miss it?"</div>
+    <div class="a">Nothing happens to the customer automatically — internally, we get an early warning at <b>50/75/90%</b> of the error budget, so the team reacts before a real breach, not after.</div>
+  </div>
+  <div class="qa">
+    <div class="q">"Who has to approve the RCA?"</div>
+    <div class="a">Whoever the policy names as approver for that incident type — usually a <b>team lead or manager</b>, not the person who caused or fixed the incident.</div>
+  </div>
+
+  <footer>Project IQ — internal prep notes. Pairs with <code>reliability-sli-slo-sla.html</code> and <code>reliability-rca-governance-guide.html</code> for full detail.</footer>
+</div>
+</body>
+</html>

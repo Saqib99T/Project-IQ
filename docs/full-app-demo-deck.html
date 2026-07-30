@@ -1,23 +1,27 @@
 <title>Full Application Demo — Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0A0E17; --surface:#121826; --surface-2:#1A2233; --surface-3:#212B41; --border:#26314A;
-    --text:#EEF2FA; --text-dim:#9AA6BE; --text-faint:#5B6980;
-    --accent:#6E8CFF; --accent-ink:#AEBEFF; --accent-soft:rgba(110,140,255,0.14);
-    --good:#34D399; --good-soft:rgba(52,211,153,0.12);
-    --warn:#FBBF24; --warn-soft:rgba(251,191,36,0.12);
-    --stub:#B39CF0; --stub-soft:rgba(179,156,240,0.14);
-    --live:#FF8A65; --live-soft:rgba(255,138,101,0.14);
-    --mono: ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,"SF Mono",Menlo,monospace;
-    --sans: -apple-system,BlinkMacSystemFont,"Segoe UI",ui-sans-serif,system-ui,sans-serif;
+    --bg:#F6F7FC; --surface:#FFFFFF; --surface-2:#EEF0FA; --surface-3:#E2E5F3; --border:#E2E5F3; --border-strong:#CBD1EC;
+    --text:#171A2B; --text-dim:#5B6178; --text-faint:#9096AE;
+    --accent:#6E8CFF; --accent-2:#8B6FF0; --accent-ink:#4353C9; --accent-soft:rgba(110,140,255,0.14);
+    --good:#15803D; --good-soft:#DCFCE7;
+    --warn:#B45309; --warn-soft:#FEF3C7;
+    --stub:#6D28D9; --stub-soft:#EDE9FE;
+    --live:#C2410C; --live-soft:#FFEDD5;
+    --mono: 'IBM Plex Mono', ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,"SF Mono",Menlo,monospace;
+    --sans: 'IBM Plex Sans', -apple-system,BlinkMacSystemFont,"Segoe UI",ui-sans-serif,system-ui,sans-serif;
+    --font-display: 'Manrope', -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   }
-  /* Deliberately single-theme (dark, projector-friendly) — same visual family as the Reliability deck. */
+  /* Light theme, aligned to the ProjectIQ-Features.html design system for cross-document consistency. */
 
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
   body{background:var(--bg); color:var(--text); font-family:var(--sans); line-height:1.5; -webkit-font-smoothing:antialiased; overflow:hidden;}
   ::selection{background:var(--accent-soft); color:var(--accent-ink);}
-  h1,h2,h3,h4{font-family:var(--sans); font-weight:800; letter-spacing:-0.02em; text-wrap:balance; margin:0;}
+  h1,h2,h3,h4{font-family:var(--font-display); font-weight:800; letter-spacing:-0.02em; text-wrap:balance; margin:0;}
   .mono{font-family:var(--mono);}
   p{margin:0;}
 
@@ -34,11 +38,11 @@
   .counter b{color:var(--text-dim);}
   .brand{position:fixed; top:1.6rem; left:1.8rem; font-family:var(--mono); font-size:0.75rem; color:var(--text-faint); letter-spacing:0.1em; text-transform:uppercase; pointer-events:none; z-index:20;}
   .progress{position:fixed; left:0; top:0; height:3px; background:var(--accent); z-index:30; width:0%; transition:width .25s ease;}
-  .dots{position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); display:flex; gap:0.5rem; z-index:30; background:rgba(10,14,23,0.55); backdrop-filter:blur(6px); padding:0.5rem 0.7rem; border-radius:99px; border:1px solid var(--border); pointer-events:auto;}
-  .dot{width:7px; height:7px; border-radius:50%; background:var(--border); border:none; cursor:pointer; padding:0; transition:background-color .2s ease, transform .2s ease;}
+  .dots{position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); display:flex; gap:0.5rem; z-index:30; background:rgba(255,255,255,0.78); backdrop-filter:blur(6px); padding:0.5rem 0.7rem; border-radius:99px; border:1px solid var(--border); box-shadow:0 4px 18px -6px rgba(23,26,43,.16); pointer-events:auto;}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--border-strong); border:none; cursor:pointer; padding:0; transition:background-color .2s ease, transform .2s ease;}
   .dot:hover{background:var(--text-faint);}
   .dot.active{background:var(--accent); transform:scale(1.3);}
-  .navbtn{position:fixed; top:50%; transform:translateY(-50%); z-index:30; pointer-events:auto; width:44px; height:44px; border-radius:50%; border:1px solid var(--border); background:rgba(18,24,38,0.7); backdrop-filter:blur(6px); color:var(--text-dim); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.1rem;}
+  .navbtn{position:fixed; top:50%; transform:translateY(-50%); z-index:30; pointer-events:auto; width:44px; height:44px; border-radius:50%; border:1px solid var(--border); background:rgba(255,255,255,0.82); backdrop-filter:blur(6px); box-shadow:0 4px 18px -6px rgba(23,26,43,.16); color:var(--text-dim); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.1rem;}
   .navbtn:hover{color:var(--text); border-color:var(--accent);}
   .navbtn.prev{left:1.2rem;} .navbtn.next{right:1.2rem;}
   .navbtn:focus-visible, .dot:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
@@ -56,7 +60,7 @@
   ul.points .d{color:var(--text-dim); font-size:0.86em;}
 
   .divider{align-items:center; text-align:center;}
-  .divider .num{font-family:var(--mono); font-size:clamp(3.2rem,9vw,6.4rem); font-weight:700; color:var(--surface-3); -webkit-text-stroke:1px var(--border); line-height:1;}
+  .divider .num{font-family:var(--mono); font-size:clamp(3.2rem,9vw,6.4rem); font-weight:700; color:var(--surface-2); -webkit-text-stroke:1px var(--border-strong); line-height:1;}
   .divider h2{font-size:clamp(2rem,5vw,3.6rem); margin-top:0.6rem;}
   .divider .sub{margin-left:auto; margin-right:auto;}
   .divider .tag{display:inline-flex; margin-top:1.4rem; font-family:var(--mono); font-size:0.85rem; color:var(--accent-ink); background:var(--accent-soft); border:1px solid var(--border); padding:0.35rem 0.9rem; border-radius:99px;}
