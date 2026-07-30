@@ -40,6 +40,20 @@ async function raceLoginOutcomes(page, signInTrigger) {
   ]).catch(() => {});
 }
 
+/** A silent SSO check (prompt=none) can transiently bounce the page through
+ * Keycloak's URL before landing back on the sign-in trigger (error=
+ * login_required in the fragment) — over local's near-zero latency that
+ * bounce completes before raceLoginOutcomes's caller ever observes it; over
+ * a real network round trip (the "live" target) a page.url() snapshot can
+ * catch it mid-transit and wrongly conclude the real login form is showing,
+ * where it then waits forever for a #username that will never appear (the
+ * actual sign-in trigger was never clicked). Confirming the form field is
+ * actually there — not just that the URL once matched — is what makes this
+ * safe under either latency. */
+async function onKeycloakLoginForm(page) {
+  return page.locator('#username').waitFor({ state: 'visible', timeout: 3_000 }).then(() => true).catch(() => false);
+}
+
 /** /itsm redirects straight to Keycloak when signed out — no trigger to click.
  * If a Keycloak session already exists in this browser context (e.g. from an
  * earlier loginPortal call for the same person), it completes silently and
@@ -48,7 +62,7 @@ export async function loginItsm(page, email, password = DEMO_PASSWORD) {
   await injectFakeCursor(page);
   await page.goto('/itsm');
   await raceLoginOutcomes(page, page.getByText(/sign in/i));
-  if (/id\.dev\.iam\.99technologies\.com/.test(page.url())) {
+  if (await onKeycloakLoginForm(page)) {
     await completeKeycloakForm(page, email, password);
   }
 }
@@ -60,7 +74,7 @@ export async function loginPortal(page, email, password = DEMO_PASSWORD) {
   await page.goto('/portal');
   const signInBtn = page.getByText(/sign in with project iq/i);
   await raceLoginOutcomes(page, signInBtn);
-  if (/id\.dev\.iam\.99technologies\.com/.test(page.url())) {
+  if (await onKeycloakLoginForm(page)) {
     await completeKeycloakForm(page, email, password);
     return;
   }

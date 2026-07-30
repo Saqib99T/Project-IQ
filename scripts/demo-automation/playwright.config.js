@@ -10,27 +10,32 @@ import { defineConfig, devices } from '@playwright/test';
 // under 816 with margin to spare, while staying a clean, standard 16:9 ratio.
 const FULL_PAGE_VIEWPORT = { width: 1200, height: 675 };
 
+// DEMO_BASE_URL lets a run target the live prod app instead of this machine's
+// own local stack — the browser still runs right here (no remote tunnel, no
+// remote Node version mismatch), it just drives a different URL. Every
+// wait/assertion timeout in this suite was tuned against localhost's
+// near-zero latency; against a real network round trip to prod those same
+// windows run out well before a normal page actually finishes loading, so
+// they scale up whenever a live target is set.
+const IS_LIVE_TARGET = !!process.env.DEMO_BASE_URL;
+
 export default defineConfig({
   testDir: './tests',
-  timeout: 150_000,
-  expect: { timeout: 10_000 },
+  timeout: IS_LIVE_TARGET ? 220_000 : 150_000,
+  expect: { timeout: IS_LIVE_TARGET ? 20_000 : 10_000 },
   fullyParallel: false,     // acts share tenants/tickets — keep sequential and readable
   workers: 1,
   retries: 0,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'report' }]],
   use: {
-    // DEMO_BASE_URL lets a run target the live prod app instead of this
-    // machine's own local stack — the browser still runs right here (that's
-    // what makes it reliable: no remote tunnel, no remote Node version
-    // mismatch), it just drives a different URL. Verified: Keycloak's
-    // registered redirect_uri allows the prod origin too, so login works
-    // identically either way.
+    // Verified: Keycloak's registered redirect_uri allows the prod origin
+    // too, so login works identically either way.
     baseURL: process.env.DEMO_BASE_URL || 'http://localhost:8181',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: { mode: 'on', size: FULL_PAGE_VIEWPORT },
     viewport: FULL_PAGE_VIEWPORT,
-    actionTimeout: 15_000,
+    actionTimeout: IS_LIVE_TARGET ? 25_000 : 15_000,
     launchOptions: {
       // set SLOWMO=300 (ms) when running --headed to watch it live at a human
       // pace — each click/fill/type pauses that long before firing. 0 by
