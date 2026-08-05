@@ -1274,6 +1274,33 @@ nlu:
     - follow up case
     - follow up issue
 
+# CHECK ORDER STATUS (Shopify) — kept distinct from check_status's generic
+# "check order"/"order status" synonyms above by requiring an explicit
+# order-number-shaped reference, so DIET has a clear signal to disambiguate
+# "check order" (ticket-status synonym) from "check order #1001" (Shopify).
+- intent: check_order_status
+  examples: |
+    - Where is my order [#1001](order_number)?
+    - What's the status of order [1001](order_number)?
+    - Track my order [#4521](order_number)
+    - Can you check order number [1234](order_number)?
+    - Has order [#9981](order_number) shipped yet?
+    - I want to know where my order [5678](order_number) is
+    - Order tracking for [#2200](order_number)
+    - Where's my package for order [3300](order_number)?
+    - Can you look up order [#100234](order_number) for me?
+    - Track my package
+    - Where is my order?
+    - What's the status of my order?
+    - Has my order shipped?
+    - I'd like an update on my order
+    - Can you check my order status?
+    - Show me my order tracking information
+    - Is my order out for delivery?
+    - When will my order arrive?
+    - Where is my shipment?
+    - I want to track a package
+
 # INFORM
 - intent: inform
   examples: |
@@ -2209,6 +2236,10 @@ nlu:
   examples: |
     - ^ITSM-\d+$
     - ^\d+$
+
+- regex: order_number
+  examples: |
+    - ^#?\d+$
 
 # OUT OF SCOPE - Unrelated queries
 - intent: out_of_scope

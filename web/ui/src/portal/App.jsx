@@ -20,6 +20,7 @@ import ConfigPage from './admin/ConfigPage'
 import KnowledgeBasePage from './admin/KnowledgeBasePage'
 import StudioPage from './admin/StudioPage'
 import IntegrationPage from './admin/IntegrationPage'
+import ShopifyPage from './admin/ShopifyPage'
 import ThemesPage from './admin/ThemesPage'
 import FirecrawlPage from './admin/FirecrawlPage'
 import ObservabilityPage from './admin/ObservabilityPage'
@@ -96,6 +97,7 @@ export default function App() {
                     {/* Integrations — tenant admins self-serve their own org's webhooks/notifications;
                         super_admin can additionally scope to any tenant via the directory selector. */}
                     <Route path="integration"   element={<AuthGuard roles={['super_admin', 'org_admin', 'Admin']}><IntegrationPage /></AuthGuard>} />
+                    <Route path="shopify"       element={<AuthGuard roles={['super_admin', 'org_admin', 'Admin']}><ShopifyPage /></AuthGuard>} />
 
                     {/* Platform routes — super_admin only */}
                     <Route path="config"        element={<AuthGuard roles={['super_admin']}><ConfigPage /></AuthGuard>} />

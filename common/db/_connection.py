@@ -259,6 +259,21 @@ def _init_database():
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )""",
             "CREATE INDEX IF NOT EXISTS idx_canned_org ON canned_responses(org_id, title)",
+
+            # Shopify integration — one connected store per tenant org. access_token
+            # is encrypted at rest (see common/crypto.py); shop_domain is UNIQUE since
+            # inbound Shopify webhooks are keyed by shop domain, not org_id, and must
+            # be reverse-looked-up to the owning tenant.
+            """CREATE TABLE IF NOT EXISTS shopify_connections (
+                org_id         TEXT PRIMARY KEY,
+                shop_domain    TEXT NOT NULL UNIQUE,
+                access_token   TEXT NOT NULL,
+                scopes         TEXT,
+                status         TEXT NOT NULL DEFAULT 'connected',
+                installed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                uninstalled_at TIMESTAMPTZ,
+                updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
         ]
         for stmt in migrations:
             try: cursor.execute(stmt)

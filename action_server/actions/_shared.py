@@ -282,6 +282,8 @@ async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -
 # Module-level singletons
 itsm_service = get_itsm_service()
 
+from action_server.actions.shopify_service import shopify_service  # noqa: E402
+
 
 def _get_handoff_runtime_cfg() -> dict:
     """Load handoff runtime settings from DB. Returns safe defaults on error."""

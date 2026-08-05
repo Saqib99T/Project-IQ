@@ -24,6 +24,16 @@ function badgeStyle(hexMap, value, isDark) {
     return { color: base, backgroundColor: base + (isDark ? '26' : '1a') };
 }
 
+// Shopify order fulfillment stage colors — keyed by the 4-stage tracker the
+// backend derives (action_shopify_order_status), not the raw Shopify status.
+const ORDER_STAGE_HEX = {
+    ordered: '#6b7280',
+    processing: '#d97706',
+    shipped: '#2563eb',
+    delivered: '#16a34a',
+};
+const ORDER_STAGES = ['ordered', 'processing', 'shipped', 'delivered'];
+
 const PAYLOAD_LABELS = {
     '/create_ticket':        'Create a ticket',
     '/list_tickets':         'List my tickets',
@@ -178,7 +188,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                     )}
                     {/* Bubble */}
                     <div
-                        className={`${(hasTable || message.ticketDetail) ? 'p-0' : 'p-3'} text-sm ${(isBot || isOperator) ? '' : 'rounded-3xl rounded-tr-none px-5'}`}
+                        className={`${(hasTable || message.ticketDetail || message.orderTracking) ? 'p-0' : 'p-3'} text-sm ${(isBot || isOperator) ? '' : 'rounded-3xl rounded-tr-none px-5'}`}
                         style={isOperator
                             ? { backgroundColor: isDark ? '#1a2e20' : '#f0fdf4', border: `1px solid ${isDark ? '#166534' : '#bbf7d0'}`, borderRadius: '0 12px 12px 12px', color: isDark ? '#86efac' : '#166534' }
                             : (!isBot ? { backgroundColor: dm.userBubble, color: dm.userText } : { color: isDark ? '#e5e7eb' : '#1f2937' })}
@@ -188,7 +198,7 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                         ) : isBot ? (
                             <div dir="auto" className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-table:my-2">
                                 {/* Text content (suppressed when a structured ticket detail is shown) */}
-                                {message.text && !message.ticketDetail && (
+                                {message.text && !message.ticketDetail && !message.orderTracking && (
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         components={{
@@ -305,6 +315,61 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, themeColor = null, 
                                                     ))}
                                                 </div>
                                             )}
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Structured Shopify order-tracking card — badge header + stepper */}
+                                {message.orderTracking && (() => {
+                                    const o = message.orderTracking;
+                                    const currentIdx = Math.max(ORDER_STAGES.indexOf(o.stage), 0);
+                                    const stageColor = ORDER_STAGE_HEX[o.stage] || primaryColor;
+                                    const labelStyle = { minWidth: 64, fontWeight: 600, color: isDark ? '#9ca3af' : '#6b7280' };
+                                    const valStyle   = { color: isDark ? '#d1d5db' : '#374151' };
+                                    return (
+                                        <div className="not-prose p-3">
+                                            <div className="flex items-center flex-wrap gap-2 mb-3">
+                                                <span style={{ fontSize: 14, fontWeight: 600, color: isDark ? '#e5e7eb' : '#111827' }}>Order {o.name}:</span>
+                                                {o.status && <span className="rounded-full px-2 py-0.5" style={{ fontSize: 11, fontWeight: 600, ...badgeStyle(ORDER_STAGE_HEX, o.stage, isDark) }}>{o.status}</span>}
+                                            </div>
+                                            <div className="flex items-center gap-1 mb-3">
+                                                {ORDER_STAGES.map((s, i) => (
+                                                    <React.Fragment key={s}>
+                                                        <div className="rounded-full shrink-0" style={{
+                                                            width: 10, height: 10,
+                                                            backgroundColor: i <= currentIdx ? stageColor : (isDark ? '#374151' : '#e5e7eb'),
+                                                        }} />
+                                                        {i < ORDER_STAGES.length - 1 && (
+                                                            <div style={{ flex: 1, height: 2, backgroundColor: i < currentIdx ? stageColor : (isDark ? '#374151' : '#e5e7eb') }} />
+                                                        )}
+                                                    </React.Fragment>
+                                                ))}
+                                            </div>
+                                            <div className="flex flex-col gap-1.5" style={{ fontSize: 13 }}>
+                                                {o.financial_status && <div className="flex gap-2"><span style={labelStyle}>Payment</span><span style={valStyle}>{o.financial_status}</span></div>}
+                                                {o.total && <div className="flex gap-2"><span style={labelStyle}>Total</span><span style={valStyle}>{o.total}</span></div>}
+                                                {(o.line_items || []).length > 0 && (
+                                                    <div className="mt-1">
+                                                        <p style={{ ...labelStyle, marginBottom: 4 }}>Items</p>
+                                                        <div className="flex flex-col gap-1">
+                                                            {o.line_items.map((li, i) => (
+                                                                <div key={i} style={valStyle}>{li.title} × {li.quantity}</div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {(o.tracking || []).length > 0 && (
+                                                    <div className="mt-1">
+                                                        <p style={{ ...labelStyle, marginBottom: 4 }}>📦 Tracking</p>
+                                                        {o.tracking.map((t, i) => (
+                                                            <div key={i} style={valStyle}>
+                                                                {t.company || 'Carrier'}: {t.url ? <a href={t.url} target="_blank" rel="noopener noreferrer" style={{ color: primaryColor }} className="hover:underline">{t.number}</a> : t.number}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {o.created && <div className="flex gap-2"><span style={labelStyle}>Placed</span><span style={valStyle}>{o.created}</span></div>}
+                                            </div>
                                         </div>
                                     );
                                 })()}

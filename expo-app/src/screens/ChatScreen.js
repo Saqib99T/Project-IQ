@@ -679,7 +679,7 @@ const ChatScreen = ({ navigation }) => {
         let lastText = null;
         for (const msg of data) {
             if (msg.text) {
-                lastText = { id: uuidv4(), sender: 'bot', text: msg.text, buttons: msg.buttons, chart: msg.chart || msg.custom?.chart, video: msg.custom?.video, ticket_form: msg.custom?.ticket_form, ticketList: msg.custom?.ticket_list, ticketDetail: msg.custom?.ticket_detail };
+                lastText = { id: uuidv4(), sender: 'bot', text: msg.text, buttons: msg.buttons, chart: msg.chart || msg.custom?.chart, video: msg.custom?.video, ticket_form: msg.custom?.ticket_form, ticketList: msg.custom?.ticket_list, ticketDetail: msg.custom?.ticket_detail, orderTracking: msg.custom?.order_tracking };
                 processed.push(lastText);
             } else if (msg.custom?.chart && lastText) { lastText.chart = msg.custom.chart; }
             else if (msg.custom?.chart) { processed.push({ id: uuidv4(), sender: 'bot', text: '', chart: msg.custom.chart }); }
@@ -691,6 +691,8 @@ const ChatScreen = ({ navigation }) => {
             else if (msg.custom?.ticket_list) { processed.push({ id: uuidv4(), sender: 'bot', text: '', ticketList: msg.custom.ticket_list }); }
             else if (msg.custom?.ticket_detail && lastText) { lastText.ticketDetail = msg.custom.ticket_detail; }
             else if (msg.custom?.ticket_detail) { processed.push({ id: uuidv4(), sender: 'bot', text: '', ticketDetail: msg.custom.ticket_detail }); }
+            else if (msg.custom?.order_tracking && lastText) { lastText.orderTracking = msg.custom.order_tracking; }
+            else if (msg.custom?.order_tracking) { processed.push({ id: uuidv4(), sender: 'bot', text: '', orderTracking: msg.custom.order_tracking }); }
             else if (msg.image) { processed.push({ id: uuidv4(), sender: 'bot', text: `![image](${msg.image})` }); }
         }
 

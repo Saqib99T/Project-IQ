@@ -209,6 +209,7 @@ export default function AdminLayout() {
                     <SidebarLink to="/admin/itsm/reports"    icon="📑" label="Reports"        />
                     {/* Integrations — tenant admins self-serve their own org's webhooks/notifications */}
                     <SidebarLink to="/admin/integration"     icon="🔗" label="Integrations"   />
+                    <SidebarLink to="/admin/shopify"         icon="🛍️" label="Shopify"        />
 
                     {/* Platform section — 99Tech super_admin only; collapsed by default
                         since it's ~10 links most tenant admins never see/need */}

@@ -182,6 +182,28 @@ def get_itsm_config() -> Dict[str, str]:
     }
 
 
+def get_shopify_config() -> Dict[str, Any]:
+    """Global Shopify Partner app credentials (one per Project IQ deployment).
+
+    This is deliberately NOT where a tenant's shop connection lives — a
+    merchant's shop_domain + OAuth access_token are per-tenant and stored in
+    the shopify_connections DB table (see common/db/_connection.py), since
+    config_manager's file+env pattern only holds one value per key for the
+    whole deployment. This function only returns the app's own client
+    credentials, used to build the OAuth authorize URL and exchange codes.
+    """
+    config = load_config()
+    return {
+        'enabled':      config.getboolean('SHOPIFY', 'shopify_enabled', fallback=False),
+        'api_version':  config.get('SHOPIFY', 'api_version', fallback='2026-01'),
+        'client_id':    config.get('SHOPIFY', 'client_id', fallback=''),
+        'client_secret': _env_secret('SHOPIFY', 'client_secret',
+                                     config.get('SHOPIFY', 'client_secret', fallback='')),
+        'redirect_uri': config.get('SHOPIFY', 'redirect_uri', fallback='http://localhost:8181/admin/shopify/callback'),
+        'scopes':       config.get('SHOPIFY', 'scopes', fallback='read_orders,read_customers,write_orders'),
+    }
+
+
 def get_platform_config() -> Dict[str, str]:
     """Get 99Tech platform-level identifiers."""
     config = load_config()

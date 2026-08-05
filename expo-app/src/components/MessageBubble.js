@@ -324,6 +324,61 @@ const MessageBubble = ({ message, onButtonClick, onFeedback, readonly, initialFe
                         </View>
                     )}
 
+                    {/* Structured Shopify order-tracking card — badge header + stepper (mirrors web) */}
+                    {message.orderTracking && (() => {
+                        const o = message.orderTracking;
+                        const STAGES = ['ordered', 'processing', 'shipped', 'delivered'];
+                        const STAGE_HEX = { ordered: '#6b7280', processing: '#d97706', shipped: '#2563eb', delivered: '#16a34a' };
+                        const idx = Math.max(STAGES.indexOf(o.stage), 0);
+                        const stageColor = STAGE_HEX[o.stage] || THEME.primary;
+                        return (
+                            <View style={{ marginTop: 4, borderWidth: 1, borderColor: THEME.border, borderRadius: 8, padding: 10, backgroundColor: THEME.background, gap: 6 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                                    <Text style={{ fontSize: 13, fontWeight: '700', color: THEME.text }}>Order {o.name}:</Text>
+                                    {o.status ? (
+                                        <Text style={{ fontSize: 10, fontWeight: '600', color: stageColor, backgroundColor: stageColor + '15', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{o.status}</Text>
+                                    ) : null}
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                    {STAGES.map((s, i) => (
+                                        <React.Fragment key={s}>
+                                            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: i <= idx ? stageColor : THEME.border }} />
+                                            {i < STAGES.length - 1 ? (
+                                                <View style={{ flex: 1, height: 2, backgroundColor: i < idx ? stageColor : THEME.border }} />
+                                            ) : null}
+                                        </React.Fragment>
+                                    ))}
+                                </View>
+                                {[['Payment', o.financial_status], ['Total', o.total], ['Placed', o.created]].map(([lbl, val]) => (
+                                    val ? (
+                                        <View key={lbl} style={{ flexDirection: 'row', gap: 8 }}>
+                                            <Text style={{ minWidth: 58, fontSize: 12, fontWeight: '600', color: THEME.textSecondary }}>{lbl}</Text>
+                                            <Text style={{ flex: 1, fontSize: 12, color: THEME.text }}>{val}</Text>
+                                        </View>
+                                    ) : null
+                                ))}
+                                {(o.line_items || []).length > 0 && (
+                                    <View style={{ gap: 2, marginTop: 2 }}>
+                                        <Text style={{ fontSize: 11, fontWeight: '600', color: THEME.textSecondary }}>Items</Text>
+                                        {o.line_items.map((li, i) => (
+                                            <Text key={i} style={{ fontSize: 12, color: THEME.text }}>{li.title} × {li.quantity}</Text>
+                                        ))}
+                                    </View>
+                                )}
+                                {(o.tracking || []).length > 0 && (
+                                    <View style={{ gap: 2, marginTop: 2 }}>
+                                        <Text style={{ fontSize: 11, fontWeight: '600', color: THEME.textSecondary }}>📦 Tracking</Text>
+                                        {o.tracking.map((t, i) => (
+                                            t.url
+                                                ? <Text key={i} style={{ fontSize: 12, color: THEME.primary }} onPress={() => Linking.openURL(t.url)}>{t.company || 'Carrier'}: {t.number}</Text>
+                                                : <Text key={i} style={{ fontSize: 12, color: THEME.text }}>{t.company || 'Carrier'}: {t.number}</Text>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        );
+                    })()}
+
                     {/* Chart — inline bar chart */}
                     {chartData && (
                         ['line', 'area', 'pie'].includes((chartData.type || '').toLowerCase())

@@ -162,6 +162,31 @@ rules:
           - ticket_id: true
     steps:
       - action: utter_ask_ticket_id # Was previously executed
+
+  # --- SHOPIFY ORDER STATUS RULES (same 3-rule shape as ticket status above) ---
+  - rule: Check order status when order number is present
+    steps:
+      - intent: check_order_status
+      - slot_was_set:
+          - order_number: true
+      - action: action_shopify_order_status
+      - action: utter_ask_anything_else
+
+  - rule: Ask for order number when checking order status
+    condition:
+      - slot_was_set:
+          - order_number: null
+    steps:
+      - intent: check_order_status
+      - action: utter_ask_order_number
+      - action: action_listen
+
+  - rule: Continue order status check after providing order number
+    condition:
+      - slot_was_set:
+          - order_number: true
+    steps:
+      - action: utter_ask_order_number # Was previously executed
       - intent: inform
       - action: action_check_itsm_status
       - action: utter_ask_anything_else

@@ -1261,7 +1261,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             video: msg.custom?.video,
                             ticket_form: msg.custom?.ticket_form,
                             ticketList: msg.custom?.ticket_list,
-                            ticketDetail: msg.custom?.ticket_detail
+                            ticketDetail: msg.custom?.ticket_detail,
+                            orderTracking: msg.custom?.order_tracking
                         };
                         processedMessages.push(lastTextMessage);
                     } else if (msg.custom?.chart && lastTextMessage) {
@@ -1322,6 +1323,15 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             sender: 'bot',
                             text: '',
                             ticketDetail: msg.custom.ticket_detail
+                        });
+                    } else if (msg.custom?.order_tracking && lastTextMessage) {
+                        lastTextMessage.orderTracking = msg.custom.order_tracking;
+                    } else if (msg.custom?.order_tracking) {
+                        processedMessages.push({
+                            id: uuidv4(),
+                            sender: 'bot',
+                            text: '',
+                            orderTracking: msg.custom.order_tracking
                         });
                     }
                 }
@@ -1431,7 +1441,8 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             video: msg.custom?.video,
                             ticket_form: msg.custom?.ticket_form,
                             ticketList: msg.custom?.ticket_list,
-                            ticketDetail: msg.custom?.ticket_detail
+                            ticketDetail: msg.custom?.ticket_detail,
+                            orderTracking: msg.custom?.order_tracking
                         };
                         processedMessages.push(lastTextMessage);
                     } else if (msg.custom?.chart && lastTextMessage) {
@@ -1485,6 +1496,15 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                             sender: 'bot',
                             text: '',
                             ticketDetail: msg.custom.ticket_detail
+                        });
+                    } else if (msg.custom?.order_tracking && lastTextMessage) {
+                        lastTextMessage.orderTracking = msg.custom.order_tracking;
+                    } else if (msg.custom?.order_tracking) {
+                        processedMessages.push({
+                            id: uuidv4(),
+                            sender: 'bot',
+                            text: '',
+                            orderTracking: msg.custom.order_tracking
                         });
                     } else if (msg.image) {
                         processedMessages.push({
