@@ -52,11 +52,21 @@ test('Act 3 — Tenant Admin runs the portal', async ({ page }) => {
     await say(page, "Org membership and roles — invite, promote, revoke, all scoped to this tenant only.", { tag: 'Users', holdMs: 3600 });
   });
 
-  await test.step('Integrations marketplace', async () => {
+  await test.step('Tickets', async () => {
     await clear(page);
-    await page.getByRole('link', { name: /integrations/i }).click();
+    await page.getByRole('link', { name: /tickets$/i }).click();
     await page.waitForTimeout(2200);
-    await expect(page.getByText(/marketplace/i).first()).toBeVisible();
-    await say(page, "This used to be **platform-only**. Tenant admins can wire their own Teams/webhook integrations now, scoped automatically to just their org.", { tag: 'Integrations', holdMs: 4200 });
+    await expect(page.getByText(/in progress/i)).toBeVisible({ timeout: 10_000 });
+    await say(page, "The portal's lightweight ticket view — the same tickets the standalone ITSM app manages, filterable right here without leaving the portal.", { tag: 'Tickets', holdMs: 4200 });
+  });
+
+  await test.step('Knowledge Base', async () => {
+    await clear(page);
+    // The Tickets page (ItsmLayout) has its own in-page tab bar with a
+    // second "Knowledge Base" link — scope to the actual sidebar link.
+    await page.locator('a.sidebar-link').filter({ hasText: /knowledge base/i }).click();
+    await page.waitForTimeout(2200);
+    await expect(page.getByPlaceholder(/search knowledge base/i)).toBeVisible({ timeout: 10_000 });
+    await say(page, "This tenant's own knowledge base — searchable right from the portal, same articles the chatbot and ITSM app draw from.", { tag: 'Knowledge Base', holdMs: 4200 });
   });
 });
