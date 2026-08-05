@@ -15,6 +15,7 @@ from datetime import datetime
 from collections import Counter
 import numpy as np
 import asyncio
+import eventlet
 
 
 logger = logging.getLogger(__name__)
@@ -305,20 +306,34 @@ class KBCacheManager:
 
 
     def refresh_cache(self) -> bool:
-        """Synchronous wrapper for refresh_cache_async."""
+        """Synchronous wrapper — rebuilds the cache from the local KB mirror.
+
+        Deliberately does NOT go through asyncio.run_until_complete() here.
+        eventlet.monkey_patch() (done once at process start) makes every
+        socket in this process cooperative/green, including inside
+        asyncio.to_thread()'s executor thread — but that thread isn't part
+        of eventlet's hub, so a green socket call made there waits on a hub
+        that never schedules it, while the main thread's hub sits blocked
+        inside run_until_complete waiting on that same executor thread.
+        Mutual deadlock — reproduces reliably on Windows (Proactor loop),
+        freezing the entire server, not just this cache. eventlet.tpool.execute
+        is eventlet's own thread-offload primitive and doesn't have this
+        problem (same pattern already used in bp_kb.py's _semantic_info()).
+        """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        if loop.is_running():
-            logger.warning("refresh_cache called from running loop. Use refresh_cache_async instead.")
-            # We can't block here. If strictly needed, we'd need to spawn a thread or return a task (but this is sync def).
-            # For checking threads (STOPPED) or init, loop shouldn't be running.
-            return False
-        
-        return loop.run_until_complete(self.refresh_cache_async())
+            from common.kb_sync import sync_kb_from_itsm
+            n = eventlet.tpool.execute(sync_kb_from_itsm, True)
+            logger.info(f"KB mirrored from itsm-service: {n} articles")
+        except Exception as e:
+            logger.warning(f"KB sync from itsm-service failed (using existing local mirror): {e}")
+
+        with self._cache_lock:
+            self._cache = []
+        self._load_from_db()
+        if not self._cache and self.fallback_to_json:
+            logger.info("Local KB empty — falling back to JSON")
+            self._load_json_fallback()
+        return bool(self._cache)
 
     def _split_article_sections(self, article: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Split article content into smaller sections for targeted responses."""

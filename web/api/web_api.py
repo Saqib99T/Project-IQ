@@ -372,6 +372,24 @@ def load_kb_at_startup():
 
 threading.Thread(target=load_kb_at_startup, daemon=True).start()
 
+# Pre-warm the semantic KB search singleton (web/api/kb_cache_manager.py) too —
+# importing sentence-transformers/torch takes 10-15s the first time anything
+# touches it, and that cost was landing on whichever live request happened to
+# be first (e.g. an admin's first click into Knowledge Base), which looked
+# like a hung page and, being CPU-bound, made concurrent requests sluggish
+# too. Paying that cost here at startup instead of on a live click.
+def _prewarm_semantic_kb_cache():
+    import time
+    time.sleep(3)  # let the server finish binding first
+    try:
+        from web.api.kb_cache_manager import kb_cache as _search_cache
+        _search_cache.get_cache_info()
+        print("[KB Cache] Semantic search cache pre-warmed")
+    except Exception as e:
+        print(f"[KB Cache] Pre-warm failed (non-fatal): {e}")
+
+threading.Thread(target=_prewarm_semantic_kb_cache, daemon=True, name="KB-Semantic-Prewarm").start()
+
 
 @app.after_request
 def add_header(response):
