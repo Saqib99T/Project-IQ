@@ -41,9 +41,9 @@
     "submit": {
         "production": {
             "ios": {
-                "appleId": "saqib.idrees@99technologies.com",
-                "ascAppId": "6761477401",
-                "appleTeamId": "XJGZ2FPYC8"
+                "ascApiKeyPath": "./secrets/AuthKey_KAT7LHZC7V.p8",
+                "ascApiKeyIssuerId": "ce084d5f-b904-4dd6-8819-69b17ed50bdd",
+                "ascApiKeyId": "KAT7LHZC7V"
             }
         }
     }
