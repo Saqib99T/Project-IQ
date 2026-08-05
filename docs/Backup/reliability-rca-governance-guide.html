@@ -1,0 +1,649 @@
+<title>Reliability &amp; Governance — Feature Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Palette matches ProjectIQ-Features.html — same cool-tinted light
+       neutrals and the same brand accent (dashboard --accent:#6E8CFF /
+       --accent-2:#8B6FF0), so this guide reads as one family with the rest
+       of the doc set. Variable NAMES kept as-is; only values changed. */
+    --bg:#F6F7FC;
+    --surface:#FFFFFF;
+    --surface-2:#EEF0FA;
+    --border:#E2E5F3;
+    --text:#171A2B;
+    --text-dim:#5B6178;
+    --text-faint:#9096AE;
+    --accent:#6E8CFF;
+    --accent-ink:#4353C9;
+    --accent-soft:rgba(110,140,255,0.12);
+    --good:#15803D;
+    --good-soft:#DCFCE7;
+    --warn:#B45309;
+    --warn-soft:#FEF3C7;
+    --stub:#7C5CE0;
+    --stub-soft:#EDE9FE;
+    --font-display:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --radius: 10px;
+    --shadow: 0 2px 10px rgba(38,43,84,0.06), 0 16px 30px -12px rgba(38,43,84,0.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#171A2B;
+      --surface:#20233A;
+      --surface-2:#282C48;
+      --border:#383D5E;
+      --text:#EEF0FA;
+      --text-dim:#AEB3CC;
+      --text-faint:#7B81A0;
+      --accent:#8B9BFF;
+      --accent-ink:#B7C0FF;
+      --accent-soft:rgba(139,155,255,0.16);
+      --good:#3FD3A3;
+      --good-soft:rgba(63,211,163,0.14);
+      --warn:#F3B94E;
+      --warn-soft:rgba(243,185,78,0.14);
+      --stub:#AE94F2;
+      --stub-soft:rgba(174,148,242,0.16);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px -12px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#171A2B; --surface:#20233A; --surface-2:#282C48; --border:#383D5E;
+    --text:#EEF0FA; --text-dim:#AEB3CC; --text-faint:#7B81A0;
+    --accent:#8B9BFF; --accent-ink:#B7C0FF; --accent-soft:rgba(139,155,255,0.16);
+    --good:#3FD3A3; --good-soft:rgba(63,211,163,0.14);
+    --warn:#F3B94E; --warn-soft:rgba(243,185,78,0.14);
+    --stub:#AE94F2; --stub-soft:rgba(174,148,242,0.16);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px -12px rgba(0,0,0,0.55);
+  }
+  :root[data-theme="light"]{
+    --bg:#F6F7FC; --surface:#FFFFFF; --surface-2:#EEF0FA; --border:#E2E5F3;
+    --text:#171A2B; --text-dim:#5B6178; --text-faint:#9096AE;
+    --accent:#6E8CFF; --accent-ink:#4353C9; --accent-soft:rgba(110,140,255,0.12);
+    --good:#15803D; --good-soft:#DCFCE7;
+    --warn:#B45309; --warn-soft:#FEF3C7;
+    --stub:#7C5CE0; --stub-soft:#EDE9FE;
+    --shadow: 0 2px 10px rgba(38,43,84,0.06), 0 16px 30px -12px rgba(38,43,84,0.12);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent-soft);color:var(--accent-ink);}
+
+  a{color:var(--accent-ink);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  a:focus-visible, button:focus-visible, .navlink:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px; border-radius:4px;
+  }
+
+  h1,h2,h3,h4{font-family:var(--font-display); font-weight:700; letter-spacing:-0.01em; text-wrap:balance; margin:0;}
+  code, .mono{font-family:var(--mono);}
+
+  .shell{
+    display:grid;
+    grid-template-columns:236px minmax(0,1fr);
+    gap:0;
+    max-width:1180px;
+    margin:0 auto;
+  }
+
+  /* ---------- Header ---------- */
+  .masthead{
+    border-bottom:1px solid var(--border);
+    padding:2.2rem clamp(1.25rem,3vw,2.5rem) 1.6rem;
+  }
+  .eyebrow{
+    font-family:var(--mono); font-size:0.75rem; letter-spacing:0.09em; text-transform:uppercase;
+    color:var(--accent-ink); font-weight:600;
+  }
+  .masthead h1{font-size:clamp(1.6rem,3vw,2.15rem); margin-top:0.4rem;}
+  .masthead p.lede{color:var(--text-dim); max-width:62ch; margin-top:0.6rem; font-size:1.02rem;}
+
+  .timeline{
+    display:flex; gap:0; margin-top:1.6rem; overflow-x:auto; padding-bottom:0.2rem;
+  }
+  .tl-item{
+    flex:1 1 0; min-width:150px; position:relative; padding:0.9rem 1rem 0.2rem;
+    border-top:3px solid var(--border);
+  }
+  .tl-item.a{border-top-color:#5B6BEA;}
+  .tl-item.b{border-top-color:#0D9488;}
+  .tl-item.c{border-top-color:#B45309;}
+  .tl-item.d{border-top-color:var(--stub);}
+  .tl-date{font-family:var(--mono); font-size:0.72rem; color:var(--text-faint);}
+  .tl-label{font-size:0.86rem; font-weight:600; margin-top:0.15rem;}
+
+  /* ---------- Rail ---------- */
+  .rail{
+    border-right:1px solid var(--border);
+    padding:1.6rem 1rem;
+    align-self:start;
+    position:sticky; top:0;
+    max-height:100vh; overflow-y:auto;
+  }
+  .rail-group{margin-bottom:1.4rem;}
+  .rail-title{
+    font-family:var(--mono); font-size:0.7rem; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--text-faint); padding:0 0.6rem; margin-bottom:0.4rem;
+  }
+  .navlink{
+    display:block; padding:0.4rem 0.6rem; border-radius:6px; font-size:0.9rem;
+    color:var(--text-dim); font-weight:500;
+  }
+  .navlink:hover{background:var(--surface-2); color:var(--text); text-decoration:none;}
+
+  /* ---------- Main ---------- */
+  main{padding:2.2rem clamp(1.25rem,3vw,2.5rem) 5rem; min-width:0;}
+  section{margin-bottom:3rem; scroll-margin-top:1.2rem;}
+  section.module{margin-bottom:3.4rem;}
+
+  .mod-head{
+    display:flex; align-items:baseline; gap:0.7rem; flex-wrap:wrap;
+    border-bottom:1px solid var(--border); padding-bottom:0.9rem; margin-bottom:1.2rem;
+  }
+  .mod-num{font-family:var(--mono); color:var(--text-faint); font-size:0.95rem;}
+  .mod-head h2{font-size:1.4rem;}
+  .mod-sub{color:var(--text-dim); font-size:0.95rem; margin-top:0.35rem; max-width:70ch;}
+
+  .status-pill{
+    display:inline-flex; align-items:center; gap:0.35rem;
+    font-family:var(--mono); font-size:0.72rem; font-weight:600; letter-spacing:0.02em;
+    padding:0.22rem 0.55rem; border-radius:99px; white-space:nowrap;
+  }
+  .status-pill::before{content:""; width:6px; height:6px; border-radius:50%; display:inline-block;}
+  .status-pill.built{background:var(--good-soft); color:var(--good);}
+  .status-pill.built::before{background:var(--good);}
+  .status-pill.partial{background:var(--warn-soft); color:var(--warn);}
+  .status-pill.partial::before{background:var(--warn);}
+  .status-pill.planned{background:var(--stub-soft); color:var(--stub);}
+  .status-pill.planned::before{background:var(--stub);}
+
+  p{margin:0 0 0.9rem;}
+  .prose p:last-child{margin-bottom:0;}
+  .prose{max-width:74ch;}
+
+  h3.h-block{font-size:1rem; margin:1.6rem 0 0.6rem;}
+  h3.h-block .mono{color:var(--text-faint); font-weight:500; font-size:0.85em; margin-left:0.4rem;}
+
+  ul.feature-list{margin:0 0 1rem; padding-left:0; list-style:none; display:grid; gap:0.5rem;}
+  ul.feature-list li{
+    padding-left:1.15rem; position:relative; color:var(--text); font-size:0.96rem;
+  }
+  ul.feature-list li::before{
+    content:"—"; position:absolute; left:0; color:var(--text-faint);
+  }
+  ul.feature-list b{font-weight:600;}
+
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:1.1rem 1.3rem;
+  }
+
+  .where{
+    display:flex; align-items:flex-start; gap:0.6rem;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius);
+    padding:0.85rem 1rem; margin:1.1rem 0; font-size:0.9rem;
+  }
+  .where .k{font-family:var(--mono); font-size:0.68rem; letter-spacing:0.07em; text-transform:uppercase; color:var(--text-faint); display:block; margin-bottom:0.25rem;}
+  .crumb{font-family:var(--mono); font-size:0.86rem;}
+  .crumb .sep{color:var(--text-faint); margin:0 0.15rem;}
+
+  .table-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); margin:0.9rem 0 1.2rem;}
+  table.routes{border-collapse:collapse; width:100%; font-size:0.85rem;}
+  table.routes th{
+    text-align:left; font-family:var(--mono); font-weight:600; font-size:0.68rem;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--text-faint);
+    background:var(--surface-2); padding:0.55rem 0.8rem; border-bottom:1px solid var(--border);
+    white-space:nowrap;
+  }
+  table.routes td{padding:0.5rem 0.8rem; border-bottom:1px solid var(--border); vertical-align:top;}
+  table.routes tr:last-child td{border-bottom:none;}
+  table.routes td.path{font-family:var(--mono); color:var(--accent-ink); white-space:nowrap;}
+  table.routes td.desc{color:var(--text-dim);}
+
+  table.pipeline{border-collapse:collapse; width:100%; font-size:0.85rem;}
+  table.pipeline th{
+    text-align:left; font-family:var(--mono); font-weight:600; font-size:0.68rem;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--text-faint);
+    background:var(--surface-2); padding:0.55rem 0.8rem; border-bottom:1px solid var(--border);
+  }
+  table.pipeline td{padding:0.55rem 0.8rem; border-bottom:1px solid var(--border); vertical-align:top;}
+  table.pipeline tr:last-child td{border-bottom:none;}
+  table.pipeline td.id{font-family:var(--mono); color:var(--accent-ink); white-space:nowrap;}
+  table.pipeline td.desc{color:var(--text-dim);}
+
+  .callout{
+    border-left:3px solid var(--stub); background:var(--stub-soft);
+    border-radius:0 var(--radius) var(--radius) 0; padding:0.85rem 1rem; margin:1.1rem 0;
+    font-size:0.92rem;
+  }
+  .callout .k{font-family:var(--mono); font-size:0.68rem; letter-spacing:0.07em; text-transform:uppercase; color:var(--stub); display:block; margin-bottom:0.35rem; font-weight:700;}
+  .callout ul{margin:0; padding-left:1.1rem;}
+  .callout li{margin-bottom:0.3rem;}
+  .callout li:last-child{margin-bottom:0;}
+
+  .callout.demo{border-left-color:var(--accent); background:var(--accent-soft);}
+  .callout.demo .k{color:var(--accent-ink);}
+
+  .grid-nav{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0.9rem; margin:1rem 0;}
+  .nav-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:0.95rem 1.1rem; box-shadow:var(--shadow);}
+  .nav-card h4{font-size:0.92rem; margin-bottom:0.5rem;}
+  .nav-card .crumb{display:block; color:var(--text-dim); margin-bottom:0.2rem;}
+  .nav-card .crumb b{color:var(--text); font-weight:600;}
+
+  dl.glossary{display:grid; gap:0.9rem; margin:0;}
+  dl.glossary div{display:grid; grid-template-columns:150px minmax(0,1fr); gap:0.9rem; align-items:baseline;}
+  dl.glossary dt{font-family:var(--mono); font-weight:700; font-size:0.85rem; color:var(--accent-ink);}
+  dl.glossary dd{margin:0; color:var(--text-dim); font-size:0.92rem;}
+
+  /* .legend mixes a <span class="status-pill"> with trailing plain text; a
+     plain display:flex on the container would split each text run into its
+     own anonymous flex item that wraps independently of the pill before it
+     (pill lands on one line, its description stranded on the next). Each
+     pill+text pair is grouped into a .legend-item that itself is the flex
+     item, so it always wraps as one unit. */
+  .legend{display:flex; gap:1.1rem; flex-wrap:wrap; align-items:center; margin:0.4rem 0 0.2rem; font-size:0.84rem; color:var(--text-dim);}
+  .legend-item{display:inline-flex; align-items:center; gap:0.4rem;}
+
+  footer.page-foot{
+    border-top:1px solid var(--border); padding:1.4rem clamp(1.25rem,3vw,2.5rem);
+    color:var(--text-faint); font-size:0.82rem; grid-column:1/-1;
+  }
+
+  @media (max-width: 860px){
+    .shell{grid-template-columns:1fr;}
+    .rail{position:static; max-height:none; border-right:none; border-bottom:1px solid var(--border);
+      display:flex; overflow-x:auto; gap:1.2rem; padding:1rem;}
+    .rail-group{margin-bottom:0; flex:0 0 auto;}
+    dl.glossary div{grid-template-columns:1fr;}
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .navlink, a{transition:background-color .15s ease, color .15s ease;}
+  }
+</style>
+
+<div class="shell">
+  <header class="masthead" style="grid-column:1/-1;">
+    <div class="eyebrow">IQ‑ITSM · Feature Reference</div>
+    <h1>Reliability &amp; Governance, end to end</h1>
+    <p class="lede">Everything shipped since the SLA/On‑Call/SRE initiative kicked off: the ticket‑SLA engine, on‑call paging and incident response, telemetry‑fed SLI/SLO error budgets, and — most recently — support‑recording linking with enforced RCA governance. Grounded in the actual models, API routes, and admin screens as they exist on <span class="mono">V3‑improve</span> today, not the original proposals.</p>
+
+    <div class="timeline">
+      <div class="tl-item a">
+        <div class="tl-date">2026‑07‑01</div>
+        <div class="tl-label">SLA / OLA / UC engine</div>
+      </div>
+      <div class="tl-item b">
+        <div class="tl-date">2026‑07‑02</div>
+        <div class="tl-label">On‑Call &amp; Incident Response</div>
+      </div>
+      <div class="tl-item c">
+        <div class="tl-date">2026‑07‑02 – 07‑06</div>
+        <div class="tl-label">SLI/SLO error‑budget reliability</div>
+      </div>
+      <div class="tl-item d">
+        <div class="tl-date">2026‑07‑19 – 07‑29</div>
+        <div class="tl-label">Support recording + RCA governance + demo data</div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="rail" aria-label="Guide sections">
+    <div class="rail-group">
+      <div class="rail-title">Orient</div>
+      <a class="navlink" href="#overview">Overview</a>
+      <a class="navlink" href="#nav-map">Where to find it</a>
+      <a class="navlink" href="#demo-data">Try it with demo data</a>
+    </div>
+    <div class="rail-group">
+      <div class="rail-title">Modules</div>
+      <a class="navlink" href="#mod-sla">01 · SLA / OLA / UC</a>
+      <a class="navlink" href="#mod-oncall">02 · On‑Call &amp; Incidents</a>
+      <a class="navlink" href="#mod-slo">03 · SLI / SLO reliability</a>
+      <a class="navlink" href="#mod-rca">04 · Recording + RCA</a>
+    </div>
+    <div class="rail-group">
+      <div class="rail-title">Reference</div>
+      <a class="navlink" href="#not-yet">Not built yet</a>
+      <a class="navlink" href="#glossary">Glossary</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="overview">
+      <h2 style="font-size:1.15rem;">Overview</h2>
+      <div class="prose" style="margin-top:0.7rem;">
+        <p>Four capabilities were added on top of the existing ticketing core, each building on the last: <b>ticket‑level SLA/OLA/UC tracking</b> replaced the old flat SLA‑policy field with agreements, versioned targets, and breach attribution; <b>on‑call &amp; incident response</b> added PagerDuty‑style paging, escalation, and an incident command workflow; <b>SLI/SLO reliability</b> layered telemetry‑fed error budgets on top of the on‑call services graph; and <b>support recording + RCA governance</b> — the newest piece — lets agents attach Teams/SharePoint recordings as evidence and enforces that serious incidents get a reviewed, approved root‑cause report with tracked corrective actions.</p>
+        <p>Status pills throughout this guide mean:</p>
+      </div>
+      <div class="legend">
+        <span class="legend-item"><span class="status-pill built">built</span> shipped and wired end to end</span>
+        <span class="legend-item"><span class="status-pill partial">partial</span> backend/API exists, UI or a sub‑feature is missing</span>
+        <span class="legend-item"><span class="status-pill planned">not built</span> speccced but no code yet</span>
+      </div>
+    </section>
+
+    <!-- ============ MODULE 1 — SLA ============ -->
+    <section class="module" id="mod-sla">
+      <div class="mod-head">
+        <span class="mod-num">01</span>
+        <h2>SLA / OLA / UC Management</h2>
+        <span class="status-pill built">built</span>
+      </div>
+      <p class="mod-sub">Shipped 2026‑07‑01. Replaces the old single <span class="mono">SLAPolicy</span> (flat response/resolution + a business‑hours flag) with a full JSM/Zoho‑grade ticket‑SLA engine: versioned agreements, per‑metric targets, vendor/team underpinning chains, priority‑ordered matching, and coverage‑window‑aware clocks.</p>
+
+      <h3 class="h-block">What it does</h3>
+      <ul class="feature-list">
+        <li><b>Agreements with a kind</b> — <span class="mono">sla</span>, <span class="mono">ola</span>, or <span class="mono">uc</span> — each independently versioned, so editing an agreement never retroactively changes a ticket's already‑running clock.</li>
+        <li><b>Per‑metric targets</b> (first response, periodic update, resolution, …) scoped by priority, ticket type, or category, each with its own coverage window and 50/75/90% warning thresholds.</li>
+        <li><b>OLA/UC underpinning chains</b> — an SLA can be backed by an internal team OLA and a vendor UC; when a target breaches, the engine walks the chain and attributes the breach to the responsible team or vendor.</li>
+        <li><b>Coverage windows</b> — named calendars per tenant (timezone, split shifts, holidays, 24×7, or a follow‑the‑sun union of several regional windows).</li>
+        <li><b>Priority‑ordered matching rules</b> with a reorder endpoint and a match‑preview so admins can see which rule a ticket will hit before saving.</li>
+        <li><b>Immutable event log</b> — every start/pause/resume/warn/breach/met/stop is an append‑only <span class="mono">sla_events</span> row; multi‑condition pause (e.g. waiting‑on‑customer <i>and</i> waiting‑on‑vendor) is tracked separately from a hard stop.</li>
+        <li><b>Reporting</b> — compliance %, attributed breach report, an at‑risk live board, and cycle‑time percentiles, all backed by a nightly <span class="mono">sla_metrics_daily</span> rollup, plus an AI breach‑risk score per active instance.</li>
+      </ul>
+
+      <div class="where">
+        <div style="flex:1;">
+          <span class="k">Where to find it</span>
+          <span class="crumb">Administration <span class="sep">›</span> Service Catalog <span class="sep">›</span> <b>SLA / OLA / UC</b></span><br>
+          <span class="crumb" style="color:var(--text-faint);">(the old per‑ticket flat policy is kept, read‑only, as “SLA Policies (legacy)” in the same group)</span><br>
+          <span class="crumb">Ticket detail <span class="sep">›</span> <b>SLA panel</b> — live per‑target countdown, % consumed, breach‑risk score</span>
+        </div>
+      </div>
+
+      <h3 class="h-block">API surface <span class="mono">/api/v1/sla, /api/v1/tickets/{id}/sla</span></h3>
+      <div class="table-wrap">
+        <table class="routes">
+          <thead><tr><th>Route</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td class="path">/sla/agreements (+/versions, /targets)</td><td class="desc">CRUD on SLA/OLA/UC agreements and their versioned targets</td></tr>
+            <tr><td class="path">/sla/targets/{id}/underpinning</td><td class="desc">Link a target to backing OLA/UC agreements</td></tr>
+            <tr><td class="path">/sla/rules (+/reorder, /match-preview)</td><td class="desc">Priority‑ordered matching rules and a dry‑run preview</td></tr>
+            <tr><td class="path">/sla/coverage-windows</td><td class="desc">Named calendars — timezone, shifts, holidays, 24×7</td></tr>
+            <tr><td class="path">/sla/reports/at-risk, /breaches, /compliance, /overview</td><td class="desc">Live board + attributed breach + compliance reporting</td></tr>
+            <tr><td class="path">/sla/predictions</td><td class="desc">AI breach‑risk scores</td></tr>
+            <tr><td class="path">/sla/reports/export</td><td class="desc">Async CSV/XLSX export</td></tr>
+            <tr><td class="path">/tickets/{id}/sla (+/override, /events)</td><td class="desc">Per‑ticket instance state, manual override, immutable event log</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ MODULE 2 — ON-CALL / INCIDENTS ============ -->
+    <section class="module" id="mod-oncall">
+      <div class="mod-head">
+        <span class="mod-num">02</span>
+        <h2>On‑Call &amp; Incident Response</h2>
+        <span class="status-pill built">built</span>
+      </div>
+      <p class="mod-sub">Shipped 2026‑07‑02. A PagerDuty‑style layer: who's on call, how alerts get routed and escalated, and a structured incident‑command workflow with an auto‑built timeline.</p>
+
+      <h3 class="h-block">What it does</h3>
+      <ul class="feature-list">
+        <li><b>Services, schedules, layers &amp; overrides</b> — define an <span class="mono">oncall_service</span>, attach rotation layers and one‑off overrides, and resolve “who's on call right now” at any timestamp.</li>
+        <li><b>Alerts with dedup</b> — inbound alerts (generic or provider webhooks) are deduplicated and routed via <span class="mono">alert_routing_rules</span> before paging fires.</li>
+        <li><b>Escalation policies</b> — multi‑step escalation over <span class="mono">contact_methods</span> and <span class="mono">notification_rules</span>, delivered through <span class="mono">pages</span> on a dedicated paging pipeline, plus <span class="mono">heartbeats</span> for dead‑man's‑switch monitoring.</li>
+        <li><b>Incidents</b> — one‑action declare from an alert, a ticket, or cold‑start; a year‑scoped <span class="mono">IR‑2026‑NNNN</span> sequence distinct from ticket numbers; roles (Incident Commander, Comms, Ops, Scribe) auto‑staffed from on‑call; an immutable timeline and status‑update feed.</li>
+        <li><b>Blast radius</b> — a CMDB recursive‑CTE walk shows what else is impacted by the affected asset/service.</li>
+        <li><b>Public status page</b> — an unauthenticated read path with per‑tenant config and maintenance‑window suppression exists in the API, but has <b>no screen anywhere yet</b> in the web app, itsm‑app, or mobile — see “Not built yet.”</li>
+        <li><b>Workflow engine</b> — declarative trigger → condition → action automations (SLA warn/breach, alert created, incident declared, severity changed) with dry‑run and a run history.</li>
+        <li><b>SRE extras</b> — AI‑assisted post‑incident‑review drafts, responder suggestions, and MTTA/MTTM/MTTR + on‑call‑load + alert‑noise reports.</li>
+      </ul>
+
+      <div class="where">
+        <div style="flex:1;">
+          <span class="k">Where to find it</span>
+          <span class="crumb">Top navigation <span class="sep">›</span> <b>Incidents</b> — tabs: <b>Alerts</b> (triage/ack/resolve, declare‑from‑alert) and <b>Incidents</b> (declare, roles, timeline, blast radius)</span><br>
+          <span class="crumb">Administration <span class="sep">›</span> On‑Call &amp; SRE <span class="sep">›</span> <b>On‑Call / Escalation</b> — schedules, layers, escalation policies</span>
+        </div>
+      </div>
+
+      <h3 class="h-block">API surface <span class="mono">/api/v1/services, on-call, alerts, routing, incidents, status-page, maintenance-windows, workflows</span></h3>
+      <div class="table-wrap">
+        <table class="routes">
+          <thead><tr><th>Route</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td class="path">/services, /on-call/schedules, /layers, /overrides</td><td class="desc">Services + rotation definitions</td></tr>
+            <tr><td class="path">/on-call/{service_id}/who-is-on-call</td><td class="desc">Resolve current on‑call at a timestamp</td></tr>
+            <tr><td class="path">/on-call/escalation-policies, /contact-methods, /heartbeats</td><td class="desc">Escalation config + dead‑man's‑switch monitors</td></tr>
+            <tr><td class="path">/alerts, /routing/rules</td><td class="desc">Alert inbox, dedup, routing</td></tr>
+            <tr><td class="path">/incidents (declare, change-status, assign-role, timeline, status-updates, link-alert, blast-radius)</td><td class="desc">Full incident lifecycle + CMDB impact walk</td></tr>
+            <tr><td class="path">/incidents/{id}/retrospective, /pir-draft, /suggest-responder</td><td class="desc">AI‑assisted retro drafting + responder suggestion</td></tr>
+            <tr><td class="path">/incidents/reports/mttr, /on-call/reports/load, /alerts/reports/noise</td><td class="desc">SRE analytics</td></tr>
+            <tr><td class="path">/status-page (admin) · /status/{slug} (public, unauth)</td><td class="desc">Status‑page config + public read — API only, no UI</td></tr>
+            <tr><td class="path">/maintenance-windows, /workflows</td><td class="desc">Alert suppression windows + automation engine</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ MODULE 3 — SLO ============ -->
+    <section class="module" id="mod-slo">
+      <div class="mod-head">
+        <span class="mod-num">03</span>
+        <h2>SLI / SLO &amp; Error‑Budget Reliability</h2>
+        <span class="status-pill built">built</span>
+      </div>
+      <p class="mod-sub">Shipped 2026‑07‑02, docs 2026‑07‑06. A deliberately separate layer from ticket SLAs — a ticket SLA measures <i>support timeliness</i>; an SLO measures <i>service reliability</i>. Telemetry‑fed, attached to Module 02's services, and reusing its alert/paging rails rather than the ticket‑SLA engine.</p>
+
+      <h3 class="h-block">The model</h3>
+      <div class="prose">
+        <p><b>SLI</b> (what's measured, e.g. <span class="mono">good ÷ valid</span> requests) → <b>SLO</b> (the internal target, e.g. 99.9% over a rolling 28 days) → <b>error budget</b> (<span class="mono">100% − SLO</span>, the failure allowance) → <b>burn rate</b> (how fast that budget is being spent — 1.0 tracks the window exactly, 14.4 spends 28 days of budget in 2). The customer‑facing SLA sits on top, deliberately looser than the internal SLO so the team reacts before the contract is at risk.</p>
+      </div>
+
+      <h3 class="h-block">What it does</h3>
+      <ul class="feature-list">
+        <li><b>SLI sources</b> — Prometheus, Datadog, an HTTP uptime probe, a log query, an internal metric, or a signed push API; each defines a good/valid query or event match.</li>
+        <li><b>SLO objectives</b> — availability, latency, error‑rate, freshness, or custom, targeted at a percentage over a rolling or calendar window, attached to a service from Module 02.</li>
+        <li><b>Immutable measurement buckets</b> — time‑bucketed good/total counts; budget consumed, current SLI, and burn rate are all <i>derived</i> from these on read, never stored, so they stay reproducible.</li>
+        <li><b>Multi‑window, multi‑burn‑rate alerts</b> (the Google SRE pattern) — a fast burn (e.g. 2% of budget in 1h) pages on‑call through Module 02; a slow burn (e.g. 10% in 6h) opens a ticket instead of paging.</li>
+        <li><b>Ingestion both ways</b> — a Celery‑beat pull adapter per source type, or a signed push endpoint for external systems to report counts directly.</li>
+      </ul>
+
+      <div class="where">
+        <div style="flex:1;">
+          <span class="k">Where to find it</span>
+          <span class="crumb">Administration <span class="sep">›</span> On‑Call &amp; SRE <span class="sep">›</span> <b>Reliability (SLO)</b></span><br>
+          <span class="crumb" style="color:var(--text-faint);">No standalone reliability dashboard outside Admin yet — gauges and burn‑rate charts live inside this section.</span>
+        </div>
+      </div>
+
+      <h3 class="h-block">API surface <span class="mono">/api/v1/slo, /api/v1/services/{id}/slo</span></h3>
+      <div class="table-wrap">
+        <table class="routes">
+          <thead><tr><th>Route</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td class="path">/slo/sources</td><td class="desc">CRUD on SLI sources</td></tr>
+            <tr><td class="path">/slo/objectives (+/status, /history)</td><td class="desc">SLO CRUD + derived SLI%, budget, burn rate, ETA‑to‑exhaustion</td></tr>
+            <tr><td class="path">/slo/{id}/measurements</td><td class="desc">Push ingest (HMAC‑signed)</td></tr>
+            <tr><td class="path">/slo/objectives/{id}/burn-alerts</td><td class="desc">Fast/slow burn‑rate alert rules</td></tr>
+            <tr><td class="path">/slo/reports/error-budget</td><td class="desc">Budgets across services</td></tr>
+            <tr><td class="path">/services/{id}/slo</td><td class="desc">All SLOs for a given service</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ MODULE 4 — RECORDING + RCA ============ -->
+    <section class="module" id="mod-rca">
+      <div class="mod-head">
+        <span class="mod-num">04</span>
+        <h2>Support Recording + RCA Governance</h2>
+        <span class="status-pill built">built</span><span class="status-pill partial">phase 1–2 of a 5‑phase spec</span>
+      </div>
+      <p class="mod-sub">UI shipped 2026‑07‑19; cross‑tenant fixes and full mobile parity 2026‑07‑27; demo data seeded 2026‑07‑29. Two halves that share one goal: every important support interaction is attached to the ticket, and every serious failure has an auditable, approved RCA.</p>
+
+      <h3 class="h-block">4A · Support Recording</h3>
+      <ul class="feature-list">
+        <li><b>Manual link‑from‑URL</b> — an agent pastes a Teams, SharePoint, or OneDrive meeting‑recording link onto a ticket; the URL's host is validated and metadata (title, organizer, participants, timing) is captured.</li>
+        <li><b>Consent &amp; sensitivity gating</b> — tenant‑level recording policy governs whether consent is required, and a recording can be flagged <span class="mono">contains_pii</span>, <span class="mono">contains_credentials</span>, or <span class="mono">legal_hold</span>, which blocks AI summarization for that recording.</li>
+        <li><b>Access policy + access log</b> — visibility is scoped (ticket team / assigned agent / manager / customer / restricted); every open, download, or summary‑generation is written to an insert‑only access log.</li>
+        <li><b>AI summary</b> — asynchronous, budget‑gated, and generated from the recording's title/description text (not a fetched transcript — see “Not built yet”).</li>
+        <li><b>Mark as RCA evidence</b> — a one‑toggle promotion that links the recording into an RCA's evidence checklist.</li>
+      </ul>
+
+      <h3 class="h-block">4B · RCA Governance</h3>
+      <ul class="feature-list">
+        <li><b>Policy‑driven, not manually remembered</b> — an admin policy builder defines condition rows (ticket type, priority, SLA breach, repeat‑incident count, …) with a dry‑run test, so RCA gets auto‑required by rule rather than by someone happening to notice.</li>
+        <li><b>Governed state machine</b> — <span class="mono">required → draft → under_review → approved → actions_in_progress → completed</span>, with <span class="mono">rejected</span> (back to draft), <span class="mono">waived</span> (manager/admin only, reason required), and a system‑computed <span class="mono">overdue</span> flag. Invalid transitions are rejected outright.</li>
+        <li><b>Evidence checklist</b> — required evidence types (timeline complete, recording linked if one exists, SLA breach evidence, customer impact documented, …) must be satisfied or explicitly waived before an RCA can move forward.</li>
+        <li><b>Action items (CAPA)</b> — corrective/preventive actions with an owner, due date, and priority; high/critical items need verification before closure, or an explicit accepted‑risk sign‑off — an RCA cannot silently reach “completed” with open required actions.</li>
+        <li><b>AI draft, human‑approved</b> — an AI‑drafted executive summary, timeline, and candidate root‑cause categories that the owner must accept or reject; never auto‑finalized.</li>
+        <li><b>Insert‑only history</b> — every field change on an RCA is an append‑only audit row.</li>
+      </ul>
+
+      <div class="callout">
+        <span class="k">A modelling note worth knowing</span>
+        There is no separate <span class="mono">rca_records</span> table. The existing incident‑retrospective record doubles as the governed RCA via an <span class="mono">is_rca_governed</span> flag, and RCA action items reuse the retrospective's action‑item table rather than a new one. Functionally this is the full RCA workflow the spec describes — just built by extending an existing entity instead of introducing a parallel one.
+      </div>
+
+      <div class="where">
+        <div style="flex:1;">
+          <span class="k">Where to find it</span>
+          <span class="crumb">Incidents <span class="sep">›</span> open an incident <span class="sep">›</span> <b>RCA panel</b> — full lifecycle, evidence checklist, action items, AI draft accept/reject</span><br>
+          <span class="crumb">Ticket detail <span class="sep">›</span> <b>Recordings</b> tab — paste‑link, generate summary, mark as RCA evidence</span><br>
+          <span class="crumb">Administration <span class="sep">›</span> On‑Call &amp; SRE <span class="sep">›</span> <b>RCA Governance</b> — policy builder + recording policy (open to non‑admin managers too, not admin‑only)</span><br>
+          <span class="crumb">Notifications <span class="sep">›</span> Preferences — 14 new RCA/recording alert types</span><br>
+          <span class="crumb">Reports — RCA and recording compliance stats</span><br>
+          <span class="crumb">Mobile app <span class="sep">›</span> chat “View Ticket” <span class="sep">›</span> Recordings / RCA actions (ticket number is resolved to its record before opening either screen; RCA lifecycle actions are limited to manager‑role users)</span>
+        </div>
+      </div>
+
+      <h3 class="h-block">API surface <span class="mono">/api/v1/support-recordings, /rca, /tenant/rca-policies, /dashboards</span></h3>
+      <div class="table-wrap">
+        <table class="routes">
+          <thead><tr><th>Route</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td class="path">/support-recordings (+/link-from-url, /generate-summary, /summary, /access-log, /restrict)</td><td class="desc">Recording CRUD, linking, AI summary, access audit</td></tr>
+            <tr><td class="path">/tickets/{id}/recordings/*</td><td class="desc">Attach/detach recordings on a specific ticket</td></tr>
+            <tr><td class="path">/rca (+/submit, /approve, /reject, /waive, /complete, /reopen)</td><td class="desc">Full RCA lifecycle</td></tr>
+            <tr><td class="path">/rca/{id}/generate-ai-draft (+accept/reject), /history</td><td class="desc">AI draft workflow + insert‑only audit trail</td></tr>
+            <tr><td class="path">/rca/{id}/evidence, /evidence-checklist</td><td class="desc">Evidence links + required‑evidence gating</td></tr>
+            <tr><td class="path">/rca/{id}/actions (+/verify, /accept-risk)</td><td class="desc">CAPA action items with verification</td></tr>
+            <tr><td class="path">/tenant/rca-policies (+/test), /tenant/recording-policies</td><td class="desc">Policy builder + dry‑run, tenant recording consent config</td></tr>
+            <tr><td class="path">/dashboards/rca/*, /dashboards/recordings/*</td><td class="desc">Compliance, pipeline, overdue, and evidence‑completeness dashboards</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ DEMO DATA ============ -->
+    <section id="demo-data">
+      <h2 style="font-size:1.15rem;">Try it with demo data</h2>
+      <p class="prose" style="margin-top:0.6rem; color:var(--text-dim);">A seeded RCA + recording pipeline exists per demo tenant (Blue Team, PIQ‑Client, Acme Corp), spanning every lifecycle stage, on top of the tickets/incidents already in <span class="mono">scripts/seed/seed_itsm.sql</span>. Loaded via <span class="mono">scripts/seed/gen_itsm_seed3.py</span> → <span class="mono">seed_itsm_phase3.sql</span> (idempotent — safe to re‑run).</p>
+      <div class="table-wrap">
+        <table class="pipeline">
+          <thead><tr><th>RCA</th><th>Status</th><th>Source</th><th>What it shows</th></tr></thead>
+          <tbody>
+            <tr><td class="id">RCA‑2026‑0001</td><td><span class="status-pill built">completed</span></td><td class="desc">Incident "Payments API outage"</td><td class="desc">Full evidence checklist, both CAPA items verified, AI draft accepted; evidence includes a bridge‑call recording linked directly to the RCA with no ticket involved</td></tr>
+            <tr><td class="id">RCA‑2026‑0002</td><td><span class="status-pill partial">actions_in_progress</span></td><td class="desc">Ticket #90005 "Intermittent packet loss"</td><td class="desc">Approved, but one CAPA item is overdue — approved doesn't mean done</td></tr>
+            <tr><td class="id">RCA‑2026‑0003</td><td><span class="status-pill partial">under_review</span></td><td class="desc">Ticket #90008 "Payroll app slow"</td><td class="desc">Blocked: 3 of 11 evidence items missing because its recording has disputed consent + PII sensitivity, so the AI summary was skipped</td></tr>
+            <tr><td class="id">RCA‑2026‑0004</td><td><span class="status-pill planned">overdue</span></td><td class="desc">Ticket #90002 "Office VPN down"</td><td class="desc">Required but untouched past due date; its recording is inaccessible (expired link) — a realistic reason nobody's started</td></tr>
+            <tr><td class="id">RCA‑2026‑0005</td><td><span class="status-pill planned">waived</span></td><td class="desc">Ticket #90009 "Printer jamming"</td><td class="desc">Manager‑waived with a recorded reason — isolated hardware fault, no systemic risk</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout demo">
+        <span class="k">Also seeded per tenant</span>
+        <ul>
+          <li>3 RCA policies for the policy‑builder screen (major‑incident, SLA‑breach, repeat‑incident triggers).</li>
+          <li>1 plain, non‑RCA recording on ticket #90001 for the everyday "attach a call recording" flow.</li>
+          <li>A tenant recording‑policy singleton and a realistic access log (view/open/summary/restrict/download) across all 5 recordings.</li>
+        </ul>
+      </div>
+      <p class="prose" style="color:var(--text-dim); font-size:0.9rem;">Reload command: see <span class="mono">scripts/seed/DEMO_DATA_SUMMARY.md</span>. Orphan‑FK checks on this batch = 0.</p>
+    </section>
+
+    <!-- ============ NAV MAP ============ -->
+    <section id="nav-map">
+      <h2 style="font-size:1.15rem;">Where to find it, at a glance</h2>
+      <p class="prose" style="margin-top:0.6rem; color:var(--text-dim);">Every feature above, as a menu path you'd actually click.</p>
+      <div class="grid-nav">
+        <div class="nav-card">
+          <h4>Ticket SLA countdown</h4>
+          <span class="crumb">Tickets <b>›</b> open a ticket <b>›</b> SLA panel</span>
+        </div>
+        <div class="nav-card">
+          <h4>SLA / OLA / UC agreements</h4>
+          <span class="crumb">Administration <b>›</b> Service Catalog <b>›</b> SLA / OLA / UC</span>
+        </div>
+        <div class="nav-card">
+          <h4>Alerts &amp; incidents console</h4>
+          <span class="crumb">Top nav <b>›</b> Incidents <b>›</b> Alerts / Incidents tabs</span>
+        </div>
+        <div class="nav-card">
+          <h4>On‑call schedules &amp; escalation</h4>
+          <span class="crumb">Administration <b>›</b> On‑Call &amp; SRE <b>›</b> On‑Call / Escalation</span>
+        </div>
+        <div class="nav-card">
+          <h4>Error‑budget / burn‑rate</h4>
+          <span class="crumb">Administration <b>›</b> On‑Call &amp; SRE <b>›</b> Reliability (SLO)</span>
+        </div>
+        <div class="nav-card">
+          <h4>RCA policy builder</h4>
+          <span class="crumb">Administration <b>›</b> On‑Call &amp; SRE <b>›</b> RCA Governance</span>
+        </div>
+        <div class="nav-card">
+          <h4>RCA lifecycle for an incident</h4>
+          <span class="crumb">Incidents <b>›</b> open an incident <b>›</b> RCA panel</span>
+        </div>
+        <div class="nav-card">
+          <h4>Recordings on a ticket</h4>
+          <span class="crumb">Tickets <b>›</b> open a ticket <b>›</b> Recordings tab</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ NOT BUILT YET ============ -->
+    <section id="not-yet">
+      <h2 style="font-size:1.15rem;">Not built yet</h2>
+      <p class="prose" style="margin-top:0.6rem; color:var(--text-dim);">Specced, and in some cases scaffolded in the data model, but with no working implementation today. Useful to know before promising any of these to a customer.</p>
+      <div class="callout" style="border-left-color:var(--stub);">
+        <span class="k">Deferred capabilities</span>
+        <ul>
+          <li><b>Public status page UI</b> — the API (admin config + unauthenticated public read) is complete, but no screen exists in the web app, itsm‑app, or mobile.</li>
+          <li><b>Microsoft Graph automated recording ingestion</b> — today a recording only enters the system if an agent pastes its URL. Auto‑discovery/suggestion of Teams recordings by meeting subject, participants, or ticket‑number‑in‑title (spec §3.4.3, Phase 3) isn't built.</li>
+          <li><b>Real transcript fetch &amp; dedicated redaction pipeline</b> — AI summaries are generated from the recording's title/description only; the transcript‑fetch + PII/credential/SSN redaction step described in the spec doesn't run because there's no transcript to redact yet.</li>
+          <li><b>Legal hold enforcement</b> — <span class="mono">legal_hold</span> exists only as a sensitivity flag that blocks AI summarization; there's no retention lock that prevents deletion.</li>
+          <li><b>RCA similarity search &amp; automated quality check</b> — “similar past RCAs” and an AI pass flagging vague root‑cause statements or missing owners are specced but have no route or service function yet.</li>
+          <li><b>Distinct RCA templates entity</b> — sections/required‑fields are implied by policy today rather than a separate, admin‑editable template object.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ GLOSSARY ============ -->
+    <section id="glossary">
+      <h2 style="font-size:1.15rem;">Glossary</h2>
+      <dl class="glossary" style="margin-top:1rem;">
+        <div><dt>SLA / OLA / UC</dt><dd>Service‑Level Agreement (customer‑facing), Operational‑Level Agreement (internal team), Underpinning Contract (vendor) — three kinds of the same “agreement” object, chainable so an SLA breach can be attributed to whichever OLA/UC actually missed its target.</dd></div>
+        <div><dt>Coverage window</dt><dd>A named calendar (timezone, work hours, holidays) that SLA clocks pause outside of; several windows can be unioned for follow‑the‑sun coverage.</dd></div>
+        <div><dt>SLI</dt><dd>Service Level Indicator — the raw measured ratio, e.g. good requests ÷ valid requests.</dd></div>
+        <div><dt>SLO</dt><dd>Service Level Objective — the internal target for that SLI over a rolling window, e.g. 99.9% over 28 days.</dd></div>
+        <div><dt>Error budget</dt><dd>The allowed failure rate — <span class="mono">100% − SLO</span> — spent down by real failures; when it's exhausted, a change‑freeze is warranted.</dd></div>
+        <div><dt>Burn rate</dt><dd>How fast the error budget is being consumed relative to a steady pace; a fast‑burn alert pages on‑call, a slow‑burn alert just opens a ticket.</dd></div>
+        <div><dt>Blast radius</dt><dd>The set of services/assets impacted by an incident, walked recursively through the CMDB dependency graph.</dd></div>
+        <div><dt>RCA</dt><dd>Root Cause Analysis — here, a governed workflow (not a document): required evidence, an approval gate, and tracked corrective/preventive actions before it counts as complete.</dd></div>
+        <div><dt>CAPA</dt><dd>Corrective and Preventive Action — an RCA action item with an owner, due date, and (for high/critical items) a required verification step.</dd></div>
+        <div><dt>Evidence checklist</dt><dd>Per‑RCA list of required evidence (timeline, recording, SLA breach data, customer impact, …) that must be provided or explicitly waived before the RCA can proceed.</dd></div>
+      </dl>
+    </section>
+  </main>
+
+  <footer class="page-foot">
+    Sourced from the actual models, Alembic migrations, API routers, and admin UI on <span class="mono">V3‑improve</span> (itsm‑service + Project‑IQ‑V2) as of 2026‑07‑29 — not from the original specs alone.
+  </footer>
+</div>
