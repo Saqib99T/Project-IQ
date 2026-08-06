@@ -102,6 +102,7 @@ client_id       =
 client_secret   =
 redirect_uri    = https://YOUR_DOMAIN/admin/shopify/callback
 scopes          = read_orders,read_customers,write_orders
+write_rate_limit = 10 per hour
 
 [DATABASE_REPLICA]
 # Read replica for PostgreSQL — routes read-only queries to replica, writes to primary.

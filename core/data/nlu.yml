@@ -1301,6 +1301,49 @@ nlu:
     - Where is my shipment?
     - I want to track a package
 
+# REQUEST REFUND (Shopify)
+- intent: request_refund
+  examples: |
+    - I want a refund for order [#1001](order_number)
+    - Can you refund order [1001](order_number)?
+    - I'd like my money back for order [#4521](order_number)
+    - Please issue a refund for [1234](order_number)
+    - Refund order number [#9981](order_number)
+    - I want to return order [5678](order_number) for a refund
+    - Can I get a refund on my order?
+    - I want to refund my order
+    - I'd like to request a refund
+    - How do I get my money back?
+    - This order needs to be refunded
+
+# CANCEL SHOPIFY ORDER
+- intent: cancel_shopify_order
+  examples: |
+    - Cancel order [#1001](order_number)
+    - Please cancel order [1001](order_number)
+    - I want to cancel order number [4521](order_number)
+    - Can you cancel [#9981](order_number)?
+    - I need to cancel my order [5678](order_number)
+    - I want to cancel my order
+    - Please cancel my order
+    - Can I cancel this order?
+    - I'd like to cancel an order
+    - Cancel my purchase
+
+# UPDATE SHIPPING ADDRESS (Shopify)
+- intent: update_shipping_address
+  examples: |
+    - I need to change the shipping address for order [#1001](order_number)
+    - Can you update the delivery address on order [1001](order_number)?
+    - I want to change where order [4521](order_number) is being shipped
+    - Update the shipping address for [#9981](order_number)
+    - I need to fix my shipping address
+    - Can I change my delivery address?
+    - I want to update my shipping address
+    - My order is going to the wrong address
+    - I need to correct my shipping address
+    - Change the address on my order
+
 # INFORM
 - intent: inform
   examples: |

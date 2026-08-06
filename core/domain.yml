@@ -38,6 +38,9 @@ intents:
   - show_ticket_graph
   # ── Shopify intents ──────────────────────────────────────────────────
   - check_order_status
+  - request_refund
+  - cancel_shopify_order
+  - update_shipping_address
   # ── Handoff intents ──────────────────────────────────────────────────
   - request_human_agent
   - confirm_handoff
@@ -88,6 +91,16 @@ slots:
   # giving up immediately.
   order_lookup_needs_email:
     type: bool
+    influence_conversation: true
+    mappings:
+      - type: custom
+
+  # Raw new-shipping-address text — set programmatically by
+  # action_shopify_prepare_shipping_update after reading the user's free-form
+  # reply (addresses vary too much for entity/regex extraction), same
+  # convention as ticket_content's custom mapping.
+  shipping_address_text:
+    type: text
     influence_conversation: true
     mappings:
       - type: custom
@@ -462,6 +475,8 @@ I'm here to help you with your IT needs. Please login to manage tickets, or sear
     - text: "I couldn't match that order to your account. What **email address** was used for this order?"
   utter_shopify_not_connected:
     - text: "Order lookup isn't set up for this account yet — an admin needs to connect a Shopify store first."
+  utter_ask_shipping_address:
+    - text: "Please provide the new shipping address — street, city, state/province, zip/postal code, and country."
   utter_ticket_status_info:
     - text: "The status for ticket **{ticket_id}** is **{ticket_status}**."
   utter_ticket_id_not_found:
@@ -687,6 +702,12 @@ actions:
   - action_show_kb_full_article
   # ── Shopify actions ───────────────────────────────────────────────────
   - action_shopify_order_status
+  - action_shopify_prepare_refund
+  - action_shopify_execute_refund
+  - action_shopify_prepare_cancel
+  - action_shopify_execute_cancel
+  - action_shopify_prepare_shipping_update
+  - action_shopify_execute_shipping_update
 
 forms:
   ticket_form:

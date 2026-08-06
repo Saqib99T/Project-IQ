@@ -143,7 +143,7 @@ With 1 backend engineer + 1 bot/NLU engineer working in parallel where possible,
 |---|---|---|---|
 | **Phase 0 — Discovery** | Partner account setup, scope/permission decisions, dev store, architecture sign-off | 2-3 days | Nothing — do this first |
 | **Phase 1 — MVP (read-only)** ✅ **Done 2026-08-06** | OAuth connect, order status lookup, "Where is my order" intent, admin connect UI | ~3-4 weeks | Phase 0 |
-| **Phase 2 — Write actions** | Refund/cancel/shipping-address update with confirmation guardrails, audit logging | ~2-3 weeks | Phase 1 |
+| **Phase 2 — Write actions** ✅ **Built 2026-08-06** (cancel + shipping-address verified live; refund code-complete, unverified — needs an order with a captured payment) | Refund/cancel/shipping-address update with confirmation guardrails, audit logging | ~2-3 weeks | Phase 1 |
 | **Phase 3 — Subscriptions (optional)** | Subscription edits | Separate initiative | Note: Gorgias itself uses **Recharge** (a third-party app) for this, not native Shopify — so this isn't really a "Shopify integration" task even for Gorgias. Recommend excluding unless a tenant specifically needs it |
 | **Phase 4 — Shopping Assistant / pre-sales mode (optional, out of baseline)** | Product discovery, upsells, live-inventory discounts | 4-6+ weeks, separate product surface | Requires product/marketing scope decision — this is a different capability (sales), not a support integration |
 
@@ -164,6 +164,24 @@ Phase 1 is built and verified end-to-end against a live Shopify Partner dev app 
 **Also fixed in passing:** a copy-paste bug in the Rasa rules (unrelated to Shopify) where the order-status retry rule, mirrored from the pre-existing ticket-status rule, called `action_check_itsm_status` instead of `action_shopify_order_status`.
 
 **Net effect on the estimates above:** §4.1 (OAuth) and §4.2 (backend service) both ran somewhat over their AI-assisted estimates in §7 specifically because of items 1-3 above — none of which were code-complexity problems, all of which were "the platform's actual behavior differs from its own docs/plan assumptions" problems, discoverable only by testing live. The §7 note that "live end-to-end verification doesn't compress no matter how the code gets written" undersold it slightly: it's not just that verification takes human time, it's that verification is what *surfaces the requirements* — the docs alone weren't sufficient to write this correctly on the first pass.
+
+---
+
+## 6b. Phase 2 Build Report (2026-08-06)
+
+Write actions (`request_refund`, `cancel_shopify_order`, `update_shipping_address`) are built as confirm-then-execute pairs (prepare action authenticates + previews + asks for explicit affirm/deny; only the execute action calls Shopify), each gated by the tenant-scoped write rate limit called for in §4.2/§4.6 (`[SHOPIFY] write_rate_limit`, default 10/hour per org — implemented in `shopify_service.py` directly rather than `web/api/rate_limiting.py`, since these calls originate from the action server calling Shopify directly and never pass through a Flask request at all).
+
+**Verified live:** cancellation (`orderCancel` — confirmed via the order's `cancelledAt` timestamp) and shipping-address update (`orderUpdate` — confirmed via `city`/`province`/`country` actually changing). **Not yet verified:** refund (`refundCreate`) — code-complete against Shopify's documented schema, but every available test order lacked a captured payment, so `suggestedRefund` correctly computed $0 refundable and there was nothing to execute against. Needs a test order with an actual captured payment to close out.
+
+Three more real findings from building this, on top of §6a's:
+
+**1. `refundCreate` requires an idempotency key as of API 2026-04**, via `@idempotent(key: $idempotencyKey)` — a directive, not a regular mutation argument. Missing this isn't a documented "required field" in the schema in the way GraphQL usually enforces required arguments; it's an API-version-gated runtime requirement layered on afterward. Handled by generating a fresh UUID per refund attempt.
+
+**2. Shopify treats `shippingAddress` on `orderUpdate` as a full replace, not a per-field patch.** Submitting only the fields a customer wants to change (e.g. just a new street address) fails with `"Enter a last name"` — because omitted fields aren't merged server-side, they're simply absent from the new address, and Shopify requires a name on any address at all. Fixed by fetching the order's current shipping address first and merging the caller's changes onto it, plus a fallback to the caller's IAM identity name for the edge case (common in this dev store's test data, unlikely in production) where the order has no address on file at all to merge from.
+
+**3. Protected Customer Data approval is granted per-field-group, not once for the whole app.** The Email approval granted for Phase 1's order lookup (§6a) does *not* cover Address/Name/Phone — attempting to read those back after a successful `orderUpdate` failed with the same `ACCESS_DENIED` shape as §6a's Order-object gate, once per field. The important nuance: **the restriction is on reading a protected field's value in a response, not on writing it** — the mutation itself succeeds (empty `userErrors`) even when the response can't echo the new address back. Worked around by not requesting those fields in the mutation response at all (the caller already knows what it submitted); reading an *existing* address on an order that already has real values in these fields still needs the additional field approval, which hasn't been requested yet.
+
+**Net read for whoever picks up refund verification or productionizes this further:** the pattern holding across both phases is the same — Shopify's actual runtime behavior (idempotency enforcement, full-replace semantics, per-field-group data access) diverges from what a schema/docs read alone would predict, in ways only live testing surfaces. Budget for that discovery cost specifically, not just implementation time.
 
 ---
 

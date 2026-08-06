@@ -16,3 +16,22 @@ redirect_urls = [ "http://localhost:8181/admin/shopify/callback" ]
 
 [webhooks]
 api_version = "2026-07"
+
+# Order events — declarative subscriptions (Shopify's recommended mechanism)
+# instead of the runtime REST registration bp_shopify.py used to do at OAuth-
+# connect time, which broke once expiring tokens became mandatory. Shopify
+# applies these automatically to every shop that installs the app — no
+# per-connection registration code needed. `uri` must be a real public HTTPS
+# endpoint reachable from Shopify's servers; localhost doesn't work here
+# (unlike the OAuth redirect, this is a server-to-server delivery, not
+# browser-mediated) — deploy only once a public URL exists for this app.
+[[webhooks.subscriptions]]
+topics = ["orders/create", "orders/updated", "orders/cancelled"]
+uri = "https://YOUR_PUBLIC_DOMAIN/webhooks/shopify"
+
+# The three privacy/GDPR compliance topics mandatory for any multi-merchant
+# app — bp_shopify.py's /webhooks/shopify handler already handles all three
+# (see shopify_webhook() in web/api/blueprints/bp_shopify.py).
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "https://YOUR_PUBLIC_DOMAIN/webhooks/shopify"

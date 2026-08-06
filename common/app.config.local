@@ -107,4 +107,5 @@ client_id       = 24225b50d11f7f5fee330cfd4ea8a693
 client_secret   =
 redirect_uri    = http://localhost:8181/admin/shopify/callback
 scopes          = read_orders,read_customers,write_orders
+write_rate_limit = 10 per hour
 

@@ -201,6 +201,12 @@ def get_shopify_config() -> Dict[str, Any]:
                                      config.get('SHOPIFY', 'client_secret', fallback='')),
         'redirect_uri': config.get('SHOPIFY', 'redirect_uri', fallback='http://localhost:8181/admin/shopify/callback'),
         'scopes':       config.get('SHOPIFY', 'scopes', fallback='read_orders,read_customers,write_orders'),
+        # Per-tenant cap on write actions (refund/cancel/address-update) —
+        # protects against a runaway/compromised session hammering write
+        # mutations and eating into the shop's own GraphQL cost budget.
+        # Read-only order lookups aren't limited here (Shopify's own
+        # cost-based throttle already governs those).
+        'write_rate_limit': config.get('SHOPIFY', 'write_rate_limit', fallback='10 per hour'),
     }
 
 

@@ -206,6 +206,114 @@ rules:
       - action: action_shopify_order_status
       - action: utter_ask_anything_else
 
+  # --- SHOPIFY REFUND (confirm-then-execute) ---
+  # action_shopify_prepare_refund looks the order up, shows the computed
+  # refund amount, and asks for explicit confirmation via dispatcher buttons
+  # (payload /affirm, /deny) — it never issues the refund itself. Only
+  # action_shopify_execute_refund (triggered by the affirm branch below)
+  # calls shopify_service.refund_order.
+  - rule: Prepare refund when order number present
+    steps:
+      - intent: request_refund
+      - slot_was_set:
+          - order_number: true
+      - action: action_shopify_prepare_refund
+
+  - rule: Ask for order number when requesting a refund
+    condition:
+      - slot_was_set:
+          - order_number: null
+    steps:
+      - intent: request_refund
+      - action: utter_ask_order_number
+      - action: action_listen
+
+  - rule: Execute refund on confirmation
+    steps:
+      - action: action_shopify_prepare_refund
+      - intent: affirm
+      - action: action_shopify_execute_refund
+      - action: utter_ask_anything_else
+
+  - rule: Keep order on refund denial
+    steps:
+      - action: action_shopify_prepare_refund
+      - intent: deny
+      - action: utter_operation_cancelled
+      - action: utter_ask_anything_else
+
+  # --- SHOPIFY ORDER CANCELLATION (confirm-then-execute) ---
+  - rule: Prepare cancellation when order number present
+    steps:
+      - intent: cancel_shopify_order
+      - slot_was_set:
+          - order_number: true
+      - action: action_shopify_prepare_cancel
+
+  - rule: Ask for order number when cancelling an order
+    condition:
+      - slot_was_set:
+          - order_number: null
+    steps:
+      - intent: cancel_shopify_order
+      - action: utter_ask_order_number
+      - action: action_listen
+
+  - rule: Execute cancellation on confirmation
+    steps:
+      - action: action_shopify_prepare_cancel
+      - intent: affirm
+      - action: action_shopify_execute_cancel
+      - action: utter_ask_anything_else
+
+  - rule: Keep order on cancellation denial
+    steps:
+      - action: action_shopify_prepare_cancel
+      - intent: deny
+      - action: utter_operation_cancelled
+      - action: utter_ask_anything_else
+
+  # --- SHOPIFY SHIPPING ADDRESS UPDATE (confirm-then-execute) ---
+  - rule: Ask for order number when updating shipping address
+    condition:
+      - slot_was_set:
+          - order_number: null
+    steps:
+      - intent: update_shipping_address
+      - action: utter_ask_order_number
+      - action: action_listen
+
+  - rule: Ask for new address once order number is present
+    steps:
+      - intent: update_shipping_address
+      - slot_was_set:
+          - order_number: true
+      - action: utter_ask_shipping_address
+      - action: action_listen
+
+  - rule: Prepare shipping update once the new address is provided
+    condition:
+      - slot_was_set:
+          - order_number: true
+    steps:
+      - action: utter_ask_shipping_address # Was previously executed
+      - intent: inform
+      - action: action_shopify_prepare_shipping_update
+
+  - rule: Execute shipping update on confirmation
+    steps:
+      - action: action_shopify_prepare_shipping_update
+      - intent: affirm
+      - action: action_shopify_execute_shipping_update
+      - action: utter_ask_anything_else
+
+  - rule: Keep old address on denial
+    steps:
+      - action: action_shopify_prepare_shipping_update
+      - intent: deny
+      - action: utter_operation_cancelled
+      - action: utter_ask_anything_else
+
   - rule: Handle File Upload
     steps:
       - intent: upload_file
