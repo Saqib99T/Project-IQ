@@ -1,6 +1,6 @@
 # Shopify Integration — Effort Estimate & Implementation Plan
 
-**Prepared:** 2026-07-31
+**Prepared:** 2026-07-31 · **Updated:** 2026-08-06 — Phase 1 built and verified live against a real Shopify dev store; see §6a for what the plan got right/wrong in practice.
 **Context:** Follow-up to [docs/COMPARISON_GORGIAS_VS_PROJECTIQ.md](COMPARISON_GORGIAS_VS_PROJECTIQ.md) — Gorgias's automation/personalization depends on live Shopify order/customer data. This document scopes what it would take for Project IQ to connect to a merchant's Shopify store and support equivalent order-related conversations.
 **Research basis:** Shopify Dev docs on [OAuth/access tokens](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/authorization-code-grant), [webhook subscriptions](https://shopify.dev/docs/apps/build/webhooks/subscribe), and [API rate limits](https://shopify.dev/docs/api/usage/limits), current as of the 2026 platform requirements (OAuth 2.0 mandatory since Jan 1 2026; expiring offline tokens required for new public apps from Apr 1 2026; GDPR compliance webhooks mandatory for app approval; GraphQL Admin API is cost-based-throttled, REST Admin API is legacy/deprecated for new builds).
 
@@ -142,10 +142,28 @@ With 1 backend engineer + 1 bot/NLU engineer working in parallel where possible,
 | Phase | Scope | Effort | Depends on |
 |---|---|---|---|
 | **Phase 0 — Discovery** | Partner account setup, scope/permission decisions, dev store, architecture sign-off | 2-3 days | Nothing — do this first |
-| **Phase 1 — MVP (read-only)** | OAuth connect, order status lookup, "Where is my order" intent, admin connect UI | ~3-4 weeks | Phase 0 |
+| **Phase 1 — MVP (read-only)** ✅ **Done 2026-08-06** | OAuth connect, order status lookup, "Where is my order" intent, admin connect UI | ~3-4 weeks | Phase 0 |
 | **Phase 2 — Write actions** | Refund/cancel/shipping-address update with confirmation guardrails, audit logging | ~2-3 weeks | Phase 1 |
 | **Phase 3 — Subscriptions (optional)** | Subscription edits | Separate initiative | Note: Gorgias itself uses **Recharge** (a third-party app) for this, not native Shopify — so this isn't really a "Shopify integration" task even for Gorgias. Recommend excluding unless a tenant specifically needs it |
 | **Phase 4 — Shopping Assistant / pre-sales mode (optional, out of baseline)** | Product discovery, upsells, live-inventory discounts | 4-6+ weeks, separate product surface | Requires product/marketing scope decision — this is a different capability (sales), not a support integration |
+
+---
+
+## 6a. Phase 1 Build Report — What The Plan Got Right/Wrong (2026-08-06)
+
+Phase 1 is built and verified end-to-end against a live Shopify Partner dev app ("MyApp") and dev store ("MyStore") — real OAuth consent, real GraphQL order lookup, real chat responses. Four things surfaced during the actual build that this plan either got only partially right or missed entirely; recorded here so the effort estimates and risk list in §2/§8 stay honest for whoever touches this next.
+
+**1. The expiring-token requirement was correctly flagged (§2, §8) but the exact mechanism wasn't discoverable without live testing.** The token exchange silently returns the old non-expiring token shape unless the request includes an undocumented `expiring=1` field — omit it and every Admin API call (GraphQL *and* REST) is rejected with `"Non-expiring access tokens are no longer accepted"`. Fixed by adding `expiring=1` to the exchange call and storing/auto-refreshing the resulting `refresh_token` (access tokens last only ~1 hour; refresh tokens ~90 days, and rotate on every use — both old tokens are invalidated the moment you refresh, so the new pair must be persisted together or the connection becomes unrecoverable).
+
+**2. Protected Customer Data access was not in the original plan at all.** Even with the correct OAuth scopes granted by the merchant, Shopify separately gates read access to the `Order` object (and any customer PII) behind an app-level "Protected Customer Data" approval — a platform policy this plan's research pass didn't surface. For a development store this needs no formal review, just selecting the specific data fields/reasons in the Partner Dashboard's **API access requests** section (a different surface than the Dev Dashboard used for credentials) — but it's a real, blocking 403 (`ACCESS_DENIED`) until done, and would need real review for a production/App-Store-listed app.
+
+**3. Webhook registration architecture needed correcting mid-build.** The original plan (§3, §4.2) called for registering webhook subscriptions via REST API calls inside the OAuth callback. That approach both (a) breaks under expiring tokens — the REST `webhooks.json` endpoint hit the same "non-expiring token" rejection — and (b) isn't Shopify's recommended mechanism regardless: subscriptions should be declared in `shopify-app/shopify.app.toml` under `[[webhooks.subscriptions]]` (order events) and `[webhooks.privacy_compliance]` (the three GDPR topics), deployed once via `shopify app deploy`, and Shopify then applies them automatically to every shop that installs the app — no per-connection registration code needed at all. The runtime registration call has been removed; the declarative TOML config is added but **not yet deployed/testable**, since webhook delivery requires Shopify's servers to reach a public HTTPS endpoint, which `localhost` isn't (unlike the OAuth redirect, which is browser-mediated and works fine locally).
+
+**4. Order-to-caller email matching needed a real design decision the plan didn't anticipate.** The natural-seeming approach — match the logged-in user's IAM email to the order — breaks in two ways found through actual use: (a) `Order.email` (the checkout-time contact) can be **null**, e.g. for orders where a customer was assigned after the fact rather than entered at checkout — the durable identity link is the linked **Customer.email**, not the Order field; and (b) a real business need surfaced where one person places an order and a *different* logged-in user checks its status later. Resolved by trying the caller's IAM email first (zero extra friction for the common case) and only asking "what email was used for this order?" as a fallback when that doesn't match, rather than a hard requirement either way.
+
+**Also fixed in passing:** a copy-paste bug in the Rasa rules (unrelated to Shopify) where the order-status retry rule, mirrored from the pre-existing ticket-status rule, called `action_check_itsm_status` instead of `action_shopify_order_status`.
+
+**Net effect on the estimates above:** §4.1 (OAuth) and §4.2 (backend service) both ran somewhat over their AI-assisted estimates in §7 specifically because of items 1-3 above — none of which were code-complexity problems, all of which were "the platform's actual behavior differs from its own docs/plan assumptions" problems, discoverable only by testing live. The §7 note that "live end-to-end verification doesn't compress no matter how the code gets written" undersold it slightly: it's not just that verification takes human time, it's that verification is what *surfaces the requirements* — the docs alone weren't sufficient to write this correctly on the first pass.
 
 ---
 
