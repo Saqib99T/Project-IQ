@@ -135,12 +135,18 @@ class ShopifyService:
     ) -> Optional[Dict[str, Any]]:
         """POST a GraphQL query/mutation to the tenant's connected shop.
 
-        Returns the parsed `data` object on success; None if the tenant has no
-        active connection (or its refresh_token has expired/been revoked and
-        reconnecting is required), the request fails, Shopify returns
-        GraphQL-level errors, or the shop is rate-limited (429) — callers
-        treat all of these as "couldn't complete right now" rather than
-        raise, same convention as ITSMService._request.
+        Returns the parsed `data` object if Shopify returned one, even
+        alongside GraphQL-level `errors` — GraphQL's response shape is
+        explicitly partial-success-capable (e.g. one field in the selection
+        set can error out — a Protected Customer Data field the app isn't
+        approved for — while the rest of the query, including a mutation's
+        own success/userErrors, resolves fine). Discarding `data` on ANY
+        error would misreport a successful write as a total failure just
+        because an unrelated field in the response couldn't be read back.
+        Only returns None when there's no `data` at all: no active
+        connection (or refresh_token expired/revoked — reconnect required),
+        the HTTP request itself failed, or the shop is rate-limited (429).
+        Errors are always logged either way so a real problem isn't silent.
         """
         conn = get_connection(org_id)
         if not conn:
@@ -186,8 +192,8 @@ class ShopifyService:
                     )
                 if payload.get("errors"):
                     logger.warning("[Shopify] GraphQL errors for org %s: %s", org_id, payload["errors"])
-                    return None
-                return payload.get("data")
+                data = payload.get("data")
+                return data if data is not None else None
         except Exception as exc:
             logger.error("[Shopify] request to %s failed: %r", url, exc, exc_info=True)
             return None
@@ -447,18 +453,15 @@ class ShopifyService:
         return payload.get("job")
 
     async def _get_current_shipping_address(self, org_id: str, order_gid: str) -> Optional[Dict[str, str]]:
-        """Only reads city/province/country — NOT address1/address2/zip/
-        firstName/lastName/phone, which are Protected Customer Data fields
-        this app isn't currently approved to read back (only Email is
-        approved so far; see update_shipping_address's docstring). Means the
-        merge in update_shipping_address can't preserve an existing street
-        address/name/phone yet — it'll ask the fallback_name and whatever
-        street/zip the caller provides to stand in for those until broader
-        field approval is granted."""
+        """Reads address1/address2/city/province/zip/country/firstName/
+        lastName — NOT phone, which is still a Protected Customer Data field
+        this app isn't approved to read back (Address and Name were granted
+        after Phase 2's initial build; Phone is a separate field group and
+        wasn't). If phone approval is added later, add it back here too."""
         gql = """
         query CurrentShippingAddress($orderId: ID!) {
           order(id: $orderId) {
-            shippingAddress { city province country }
+            shippingAddress { address1 address2 city province zip country firstName lastName }
           }
         }
         """
@@ -501,22 +504,21 @@ class ShopifyService:
                   if k in ("address1", "address2", "city", "province", "zip",
                            "country", "firstName", "lastName", "phone") and v}
 
-        # Deliberately does NOT ask for shippingAddress back in the response.
-        # Shopify's Protected Customer Data gate applies to READING these
-        # field values in any response (query or mutation) — the WRITE
-        # itself succeeds regardless, confirmed live: submitting
-        # address1/firstName/etc succeeds with an empty userErrors list, but
-        # asking for them back fails with ACCESS_DENIED per field unless the
-        # app has been granted those specific protected fields (this repo's
-        # dev app currently only has Email approved, from the order-lookup
-        # feature — Address/Name/Phone need selecting too, see
-        # docs/SHOPIFY_INTEGRATION_PLAN.md). Confirming success via `id` +
-        # userErrors and returning the `merged` dict we already know we sent
-        # avoids depending on that broader approval for this to work.
+        # Reads the address back (minus phone — still not an approved
+        # Protected Customer Data field for this app, unlike Address/Name)
+        # so the caller gets Shopify's own authoritative/normalized values
+        # (e.g. "IL"/"US" submitted become "Illinois"/"United States" in
+        # what Shopify actually stored) rather than just echoing back what
+        # we sent. Falls back to `merged` if the read-back ever comes back
+        # empty (e.g. approval is revoked later) — the write itself doesn't
+        # depend on being able to read the result.
         gql = """
         mutation UpdateShippingAddress($input: OrderInput!) {
           orderUpdate(input: $input) {
-            order { id }
+            order {
+              id
+              shippingAddress { address1 address2 city province zip country firstName lastName }
+            }
             userErrors { field message }
           }
         }
@@ -530,7 +532,7 @@ class ShopifyService:
         if payload.get("userErrors"):
             logger.warning("[Shopify] orderUpdate userErrors for org %s: %s", org_id, payload["userErrors"])
             return None
-        return merged
+        return (payload.get("order") or {}).get("shippingAddress") or merged
 
 
 # Module-level singleton — mirrors action_server/actions/_shared.py's
