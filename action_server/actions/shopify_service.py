@@ -453,15 +453,16 @@ class ShopifyService:
         return payload.get("job")
 
     async def _get_current_shipping_address(self, org_id: str, order_gid: str) -> Optional[Dict[str, str]]:
-        """Reads address1/address2/city/province/zip/country/firstName/
-        lastName — NOT phone, which is still a Protected Customer Data field
-        this app isn't approved to read back (Address and Name were granted
-        after Phase 2's initial build; Phone is a separate field group and
-        wasn't). If phone approval is added later, add it back here too."""
+        """Reads the full MailingAddressInput field set. Address, Name, and
+        Phone are all approved under Protected Customer Data as of this
+        writing — if that ever changes, _graphql()'s partial-success
+        handling means a field that stops being approved would just come
+        back null/errored for that one field rather than failing the whole
+        call."""
         gql = """
         query CurrentShippingAddress($orderId: ID!) {
           order(id: $orderId) {
-            shippingAddress { address1 address2 city province zip country firstName lastName }
+            shippingAddress { address1 address2 city province zip country firstName lastName phone }
           }
         }
         """
@@ -504,20 +505,20 @@ class ShopifyService:
                   if k in ("address1", "address2", "city", "province", "zip",
                            "country", "firstName", "lastName", "phone") and v}
 
-        # Reads the address back (minus phone — still not an approved
-        # Protected Customer Data field for this app, unlike Address/Name)
-        # so the caller gets Shopify's own authoritative/normalized values
-        # (e.g. "IL"/"US" submitted become "Illinois"/"United States" in
-        # what Shopify actually stored) rather than just echoing back what
-        # we sent. Falls back to `merged` if the read-back ever comes back
-        # empty (e.g. approval is revoked later) — the write itself doesn't
-        # depend on being able to read the result.
+        # Reads the full address back so the caller gets Shopify's own
+        # authoritative/normalized values (e.g. "IL"/"US" submitted become
+        # "Illinois"/"United States" in what Shopify actually stored) rather
+        # than just echoing back what we sent. Falls back to `merged` if the
+        # read-back ever comes back empty (e.g. a field's approval is
+        # revoked, or this runs under a different app registration that
+        # hasn't been granted the same Protected Customer Data fields) — the
+        # write itself doesn't depend on being able to read the result.
         gql = """
         mutation UpdateShippingAddress($input: OrderInput!) {
           orderUpdate(input: $input) {
             order {
               id
-              shippingAddress { address1 address2 city province zip country firstName lastName }
+              shippingAddress { address1 address2 city province zip country firstName lastName phone }
             }
             userErrors { field message }
           }
