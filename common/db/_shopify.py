@@ -12,11 +12,14 @@ are rejected outright as of this app's creation) — access tokens last only
 access_token_expires_at that shopify_service.py checks before each call,
 refreshing proactively when needed.
 """
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
 from psycopg2.extras import RealDictCursor
 from common.db._connection import _get_connection, _release_connection
 from common.crypto import encrypt_secret, decrypt_secret
+
+logger = logging.getLogger(__name__)
 
 
 def _expiry(seconds: Optional[int]) -> Optional[datetime]:
@@ -171,5 +174,39 @@ def purge(org_id: str) -> bool:
         ok = cur.rowcount > 0
         conn.commit()
         return ok
+    finally:
+        _release_connection(conn)
+
+
+def log_write_action(
+    org_id: str, action: str, order_gid: Optional[str], order_name: Optional[str],
+    actor_iam_sub: Optional[str], actor_email: Optional[str],
+    detail: Optional[Dict], success: bool, error_message: Optional[str] = None,
+) -> None:
+    """Dedicated audit record for a Shopify write action (refund/cancel/
+    shipping_update) — who/what/when/outcome, queryable directly rather than
+    parsed out of chat transcripts. Called for both success and failure so a
+    denied/failed attempt is on the record too, not just completed ones.
+
+    Best-effort: a logging failure must never break the caller's actual
+    refund/cancel/update, so this swallows its own errors rather than
+    propagating them.
+    """
+    import json
+    conn = _get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO shopify_write_audit
+                   (org_id, action, order_gid, order_name, actor_iam_sub,
+                    actor_email, detail, success, error_message)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (org_id, action, order_gid, order_name, actor_iam_sub, actor_email,
+             json.dumps(detail) if detail is not None else None, success, error_message),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        logger.warning("[Shopify] failed to write audit record for org %s action %s", org_id, action, exc_info=True)
     finally:
         _release_connection(conn)

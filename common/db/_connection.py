@@ -283,6 +283,26 @@ def _init_database():
             "ALTER TABLE shopify_connections ADD COLUMN IF NOT EXISTS refresh_token TEXT",
             "ALTER TABLE shopify_connections ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMPTZ",
             "ALTER TABLE shopify_connections ADD COLUMN IF NOT EXISTS refresh_token_expires_at TIMESTAMPTZ",
+
+            # Dedicated audit trail for Shopify write actions (refund/cancel/
+            # shipping-address-update) — who/what/when, distinct from the
+            # general conversation/message logging every bot reply already
+            # gets, since compliance/support review needs order+amount+actor
+            # queryable directly rather than parsed out of chat transcripts.
+            """CREATE TABLE IF NOT EXISTS shopify_write_audit (
+                id             SERIAL PRIMARY KEY,
+                org_id         TEXT NOT NULL,
+                action         TEXT NOT NULL,
+                order_gid      TEXT,
+                order_name     TEXT,
+                actor_iam_sub  TEXT,
+                actor_email    TEXT,
+                detail         JSONB,
+                success        BOOLEAN NOT NULL,
+                error_message  TEXT,
+                created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_shopify_audit_org_time ON shopify_write_audit(org_id, created_at DESC)",
         ]
         for stmt in migrations:
             try: cursor.execute(stmt)

@@ -21,6 +21,7 @@ from action_server.actions._shared import (
     bind_request_id, log_bot_response, logger, shopify_service,
 )
 from common.db._shopify import get_connection as get_shopify_connection
+from common.db._shopify import log_write_action
 
 # Shopify's displayFulfillmentStatus values -> a simple 4-stage tracker the
 # frontend renders as a stepper (ordered -> processing -> shipped -> delivered).
@@ -270,11 +271,17 @@ class ActionShopifyExecuteRefund(Action):
             return [SlotSet("order_number", None)]
         org_id, order = resolved
 
+        identity = get_iam_identity(tracker)
         refund = await shopify_service.refund_order(org_id, order["id"])
         if not refund:
             error_msg = "❌ The refund couldn't be processed. Please try again later or contact support."
             dispatcher.utter_message(text=error_msg)
             log_bot_response(tracker, error_msg)
+            log_write_action(
+                org_id, "refund", order.get("id"), order.get("name"),
+                identity["sub"], identity["email"], None, success=False,
+                error_message="refund_order returned no result",
+            )
             return [SlotSet("order_number", None)]
 
         money = (refund.get("totalRefundedSet") or {}).get("shopMoney") or {}
@@ -282,6 +289,12 @@ class ActionShopifyExecuteRefund(Action):
         message = f"✅ Refunded **{amount_display}** for order **{order.get('name')}**."
         dispatcher.utter_message(text=message)
         log_bot_response(tracker, message)
+        log_write_action(
+            org_id, "refund", order.get("id"), order.get("name"),
+            identity["sub"], identity["email"],
+            {"amount": money.get("amount"), "currency": money.get("currencyCode")},
+            success=True,
+        )
         return [SlotSet("order_number", None)]
 
 
@@ -321,11 +334,17 @@ class ActionShopifyExecuteCancel(Action):
             return [SlotSet("order_number", None)]
         org_id, order = resolved
 
+        identity = get_iam_identity(tracker)
         job = await shopify_service.cancel_order(org_id, order["id"], reason="CUSTOMER")
         if not job:
             error_msg = "❌ The cancellation couldn't be submitted. Please try again later or contact support."
             dispatcher.utter_message(text=error_msg)
             log_bot_response(tracker, error_msg)
+            log_write_action(
+                org_id, "cancel", order.get("id"), order.get("name"),
+                identity["sub"], identity["email"], None, success=False,
+                error_message="cancel_order returned no result",
+            )
             return [SlotSet("order_number", None)]
 
         # orderCancel runs asynchronously on Shopify's side — "submitted", not
@@ -333,6 +352,12 @@ class ActionShopifyExecuteCancel(Action):
         message = f"✅ Cancellation submitted for order **{order.get('name')}**. You'll see it reflected shortly."
         dispatcher.utter_message(text=message)
         log_bot_response(tracker, message)
+        log_write_action(
+            org_id, "cancel", order.get("id"), order.get("name"),
+            identity["sub"], identity["email"],
+            {"reason": "CUSTOMER", "job_id": job.get("id")},
+            success=True,
+        )
         return [SlotSet("order_number", None)]
 
 
@@ -429,6 +454,7 @@ class ActionShopifyExecuteShippingUpdate(Action):
             return [SlotSet("order_number", None), SlotSet("shipping_address_text", None)]
         org_id, order = resolved
 
+        identity = get_iam_identity(tracker)
         address = _parse_address(tracker.get_slot("shipping_address_text") or "")
         updated = await shopify_service.update_shipping_address(
             org_id, order["id"], address, fallback_name=_name_fallback(tracker)
@@ -437,9 +463,18 @@ class ActionShopifyExecuteShippingUpdate(Action):
             error_msg = "❌ The shipping address couldn't be updated. Please try again later or contact support."
             dispatcher.utter_message(text=error_msg)
             log_bot_response(tracker, error_msg)
+            log_write_action(
+                org_id, "shipping_update", order.get("id"), order.get("name"),
+                identity["sub"], identity["email"], address, success=False,
+                error_message="update_shipping_address returned no result",
+            )
             return [SlotSet("order_number", None), SlotSet("shipping_address_text", None)]
 
         message = f"✅ Shipping address updated for order **{order.get('name')}**."
         dispatcher.utter_message(text=message)
         log_bot_response(tracker, message)
+        log_write_action(
+            org_id, "shipping_update", order.get("id"), order.get("name"),
+            identity["sub"], identity["email"], updated, success=True,
+        )
         return [SlotSet("order_number", None), SlotSet("shipping_address_text", None)]
