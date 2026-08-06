@@ -277,11 +277,19 @@ class ShopifyService:
         """Shopify's own calculated 'refund everything remaining' shape for
         this order — feed this straight into refund_order() rather than
         computing line-item/shipping amounts ourselves, to avoid under- or
-        over-refunding. Returns None if the order can't be found/queried."""
+        over-refunding. Returns None if the order can't be found/queried.
+
+        suggestedRefund's arguments all default to computing NOTHING (empty
+        refundLineItems, $0 amountSet) unless told what to suggest for —
+        confirmed live: calling it with zero arguments on a $949.95 paid
+        order returned a $0 suggestion despite refundableQuantity being
+        non-zero. `suggestFullRefund: true` is what actually asks it to
+        compute a full-order suggestion; it defaults to false.
+        """
         gql = """
         query SuggestedRefund($orderId: ID!) {
           order(id: $orderId) {
-            suggestedRefund {
+            suggestedRefund(suggestFullRefund: true) {
               amountSet { shopMoney { amount currencyCode } }
               refundLineItems {
                 lineItem { id title }
@@ -295,6 +303,7 @@ class ShopifyService:
                 parentTransaction { id }
                 amountSet { shopMoney { amount currencyCode } }
                 kind
+                gateway
               }
             }
           }
@@ -326,22 +335,43 @@ class ShopifyService:
         if not suggested:
             return None
 
+        # Always NO_RESTOCK, regardless of what suggestedRefund recommends
+        # (usually CANCEL) — a restock TYPE that actually restocks requires a
+        # locationId we have no sensible way to choose from a chat flow, and
+        # confirmed live: omitting it fails with "You need to set a location
+        # to restock items". Inventory restocking is a merchant inventory
+        # decision, not something a support-bot refund should decide for
+        # them — they can restock manually in Shopify admin if wanted.
         refund_line_items = [
             {
                 "lineItemId": rli["lineItem"]["id"],
                 "quantity": rli["quantity"],
-                "restockType": rli.get("restockType") or "NO_RESTOCK",
+                "restockType": "NO_RESTOCK",
             }
             for rli in (suggested.get("refundLineItems") or [])
         ]
+        # OrderTransactionInput requires orderId + gateway on EACH transaction,
+        # not just parentId/amount/kind — confirmed live via
+        # "Expected value to not be null" on both when they were omitted.
+        # gateway must match the ORIGINAL transaction's own gateway (e.g.
+        # "manual", "bogus") — suggestedTransactions carries it precisely so
+        # we don't need a second lookup.
         transactions = [
             {
                 "parentId": st["parentTransaction"]["id"],
+                "orderId": order_gid,
+                "gateway": st.get("gateway"),
                 "amount": (st.get("amountSet") or {}).get("shopMoney", {}).get("amount"),
-                "kind": st.get("kind"),
+                # suggestedTransactions reports kind="SUGGESTED_REFUND", a
+                # preview-only marker — confirmed live it's rejected by the
+                # mutation ("Kind suggested_refund is not a valid
+                # transaction"). The real OrderTransactionKind for an actual
+                # refund is REFUND.
+                "kind": "REFUND",
             }
             for st in (suggested.get("suggestedTransactions") or [])
-            if st.get("parentTransaction") and (st.get("amountSet") or {}).get("shopMoney", {}).get("amount")
+            if st.get("parentTransaction") and st.get("gateway")
+            and (st.get("amountSet") or {}).get("shopMoney", {}).get("amount")
         ]
 
         refund_input: Dict[str, Any] = {
