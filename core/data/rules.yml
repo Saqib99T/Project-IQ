@@ -163,7 +163,12 @@ rules:
     steps:
       - action: utter_ask_ticket_id # Was previously executed
 
-  # --- SHOPIFY ORDER STATUS RULES (same 3-rule shape as ticket status above) ---
+  # --- SHOPIFY ORDER STATUS RULES ---
+  # Tries the caller's IAM email first (zero extra friction for the common
+  # case); action_shopify_order_status sets order_lookup_needs_email=true
+  # when that doesn't match, which triggers the ask-for-email fallback below
+  # instead of giving up immediately — handles "different person books vs.
+  # checks the order" without requiring email every time.
   - rule: Check order status when order number is present
     steps:
       - intent: check_order_status
@@ -181,14 +186,24 @@ rules:
       - action: utter_ask_order_number
       - action: action_listen
 
-  - rule: Continue order status check after providing order number
+  - rule: Ask for order email when the IAM email didn't match
     condition:
       - slot_was_set:
-          - order_number: true
+          - order_lookup_needs_email: true
     steps:
-      - action: utter_ask_order_number # Was previously executed
+      - action: utter_ask_order_email
+      - action: action_listen
+
+  - rule: Retry order status check once the order email is provided
+    condition:
+      - slot_was_set:
+          - order_lookup_needs_email: true
+    steps:
+      - action: utter_ask_order_email # Was previously executed
       - intent: inform
-      - action: action_check_itsm_status
+      - slot_was_set:
+          - order_email: true
+      - action: action_shopify_order_status
       - action: utter_ask_anything_else
 
   - rule: Handle File Upload

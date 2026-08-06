@@ -103,72 +103,64 @@ def _verify_shopify_hmac(args: dict, secret: str) -> bool:
 @bp.route('/admin/shopify/callback')
 def shopify_callback():
     """Shopify redirects here after merchant consent. Verify the HMAC and the
-    state we minted, exchange the code for an offline access token, persist
-    the connection, and register webhook subscriptions (incl. the mandatory
-    GDPR topics)."""
+    state we minted, exchange the code for an EXPIRING offline access token
+    (Shopify rejects non-expiring tokens outright — see
+    docs/SHOPIFY_INTEGRATION_PLAN.md), and persist the connection.
+
+    Webhook subscriptions (incl. the mandatory GDPR topics) are NOT
+    registered here — Shopify's recommended mechanism is declaring them in
+    shopify-app/shopify.app.toml's [[webhooks.subscriptions]] /
+    [webhooks.privacy_compliance] and pushing via `shopify app deploy`, which
+    Shopify then applies automatically to every shop that installs the app.
+    The old runtime REST-registration approach this replaced also silently
+    stopped working once expiring tokens became mandatory."""
     cfg = _cfg()
     args = request.args.to_dict()
     state = args.get('state')
     entry = _oauth_state_store.pop(state, None) if state else None
     if not entry:
-        return redirect('/admin/?shopify_error=invalid_state')
+        return redirect('/portal/admin/shopify?shopify_error=invalid_state')
 
     if not _verify_shopify_hmac(args, cfg['client_secret']):
         logger.warning("[Shopify] OAuth callback HMAC verification failed (state=%s)", state)
-        return redirect('/admin/?shopify_error=invalid_signature')
+        return redirect('/portal/admin/shopify?shopify_error=invalid_signature')
 
     code = args.get('code')
     shop_domain = args.get('shop') or entry['shop_domain']
     if not code:
-        return redirect('/admin/?shopify_error=missing_code')
+        return redirect('/portal/admin/shopify?shopify_error=missing_code')
 
     try:
         token_resp = requests.post(
             f"https://{shop_domain}/admin/oauth/access_token",
-            json={'client_id': cfg['client_id'], 'client_secret': cfg['client_secret'], 'code': code},
+            json={
+                'client_id': cfg['client_id'],
+                'client_secret': cfg['client_secret'],
+                'code': code,
+                'expiring': 1,  # required — see docstring above
+            },
             timeout=10,
         ).json()
     except Exception as e:
         logger.error("[Shopify] token exchange failed for shop %s: %r", shop_domain, e)
-        return redirect('/admin/?shopify_error=token_exchange_failed')
+        return redirect('/portal/admin/shopify?shopify_error=token_exchange_failed')
 
     access_token = token_resp.get('access_token')
     if not access_token:
-        return redirect(f"/admin/?shopify_error={token_resp.get('error', 'token_failed')}")
+        return redirect(f"/portal/admin/shopify?shopify_error={token_resp.get('error', 'token_failed')}")
 
     org_id = entry['org_id']
-    upsert_connection(org_id, shop_domain, access_token, token_resp.get('scope', ''))
-    logger.info("[Shopify] org %s connected shop %s", org_id, shop_domain)
+    upsert_connection(
+        org_id, shop_domain, access_token,
+        token_resp.get('refresh_token'),
+        token_resp.get('expires_in'),
+        token_resp.get('refresh_token_expires_in'),
+        token_resp.get('scope', ''),
+    )
+    logger.info("[Shopify] org %s connected shop %s (expires_in=%s)",
+                org_id, shop_domain, token_resp.get('expires_in'))
 
-    _register_webhooks(shop_domain, access_token, cfg)
-
-    return redirect('/admin/shopify?connected=1')
-
-
-def _register_webhooks(shop_domain: str, access_token: str, cfg: dict) -> None:
-    """Best-effort webhook registration — logged, not fatal, on failure. The
-    connection itself still works for read-only order lookup without live
-    order-update webhooks; the three GDPR topics are required for Shopify's
-    app-approval process specifically, not for this endpoint to function."""
-    base = cfg['redirect_uri'].rsplit('/admin/shopify/callback', 1)[0]
-    webhook_address = f"{base}/webhooks/shopify"
-    topics = [
-        'orders/create', 'orders/updated', 'orders/cancelled',
-        'customers/data_request', 'customers/redact', 'shop/redact',
-    ]
-    headers = {'X-Shopify-Access-Token': access_token, 'Content-Type': 'application/json'}
-    for topic in topics:
-        try:
-            resp = requests.post(
-                f"https://{shop_domain}/admin/api/{cfg['api_version']}/webhooks.json",
-                json={'webhook': {'topic': topic, 'address': webhook_address, 'format': 'json'}},
-                headers=headers, timeout=10,
-            )
-            if resp.status_code not in (200, 201):
-                logger.warning("[Shopify] webhook registration for %s -> %d: %s",
-                                topic, resp.status_code, resp.text[:200])
-        except Exception as e:
-            logger.warning("[Shopify] webhook registration for %s failed: %r", topic, e)
+    return redirect('/portal/admin/shopify?connected=1')
 
 
 # ------------------------------------------------------------------

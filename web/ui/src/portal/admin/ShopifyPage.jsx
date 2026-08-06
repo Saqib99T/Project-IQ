@@ -35,10 +35,10 @@ export default function ShopifyPage() {
     useEffect(() => { load() }, [load])
 
     // Land back here after the OAuth callback redirect (bp_shopify.py sends
-    // /admin/shopify?connected=1) and refresh so the new connection shows up.
+    // /portal/admin/shopify?connected=1) and refresh so the new connection shows up.
     useEffect(() => {
         if (new URLSearchParams(window.location.search).get('connected') === '1') {
-            window.history.replaceState({}, '', '/admin/shopify')
+            window.history.replaceState({}, '', '/portal/admin/shopify')
             load()
         }
     }, [load])

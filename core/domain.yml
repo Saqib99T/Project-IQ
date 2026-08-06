@@ -63,6 +63,7 @@ entities:
   - itsm_username
   - itsm_password
   - order_number
+  - order_email
 
 slots:
   order_number:
@@ -71,6 +72,25 @@ slots:
     mappings:
       - type: from_entity
         entity: order_number
+
+  # Explicit email for an order lookup — only asked for when the caller's IAM
+  # login email doesn't match the order (e.g. one person places an order,
+  # a different logged-in user checks its status later).
+  order_email:
+    type: text
+    influence_conversation: true
+    mappings:
+      - type: from_entity
+        entity: order_email
+
+  # Set by action_shopify_order_status when a lookup found no match using the
+  # caller's IAM email — tells the rules to ask for order_email instead of
+  # giving up immediately.
+  order_lookup_needs_email:
+    type: bool
+    influence_conversation: true
+    mappings:
+      - type: custom
 
   ticket_id:
     type: text
@@ -438,6 +458,8 @@ I'm here to help you with your IT needs. Please login to manage tickets, or sear
     - text: "Please provide the **ID of the ticket** you want to check (e.g., Ticket-1234 or just 1234)."
   utter_ask_order_number:
     - text: "Please provide your **order number** (e.g., #1001 or just 1001)."
+  utter_ask_order_email:
+    - text: "I couldn't match that order to your account. What **email address** was used for this order?"
   utter_shopify_not_connected:
     - text: "Order lookup isn't set up for this account yet — an admin needs to connect a Shopify store first."
   utter_ticket_status_info:

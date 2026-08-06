@@ -265,15 +265,24 @@ def _init_database():
             # inbound Shopify webhooks are keyed by shop domain, not org_id, and must
             # be reverse-looked-up to the owning tenant.
             """CREATE TABLE IF NOT EXISTS shopify_connections (
-                org_id         TEXT PRIMARY KEY,
-                shop_domain    TEXT NOT NULL UNIQUE,
-                access_token   TEXT NOT NULL,
-                scopes         TEXT,
-                status         TEXT NOT NULL DEFAULT 'connected',
-                installed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                uninstalled_at TIMESTAMPTZ,
-                updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                org_id                    TEXT PRIMARY KEY,
+                shop_domain               TEXT NOT NULL UNIQUE,
+                access_token              TEXT NOT NULL,
+                refresh_token             TEXT,
+                access_token_expires_at   TIMESTAMPTZ,
+                refresh_token_expires_at  TIMESTAMPTZ,
+                scopes                    TEXT,
+                status                    TEXT NOT NULL DEFAULT 'connected',
+                installed_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                uninstalled_at            TIMESTAMPTZ,
+                updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )""",
+            # Expiring-offline-token migration (Shopify now rejects non-expiring
+            # tokens outright — see docs/SHOPIFY_INTEGRATION_PLAN.md). Safe to
+            # add after the fact for anyone who already ran the table above.
+            "ALTER TABLE shopify_connections ADD COLUMN IF NOT EXISTS refresh_token TEXT",
+            "ALTER TABLE shopify_connections ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMPTZ",
+            "ALTER TABLE shopify_connections ADD COLUMN IF NOT EXISTS refresh_token_expires_at TIMESTAMPTZ",
         ]
         for stmt in migrations:
             try: cursor.execute(stmt)

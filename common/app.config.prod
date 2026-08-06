@@ -92,6 +92,17 @@ redis_port    = 6379
 redis_db      = 0
 redis_password =
 
+[SHOPIFY]
+; Fill in client_id after creating the app in the Partner Dashboard, and set
+; redirect_uri to this deployment's real public hostname.
+; SECRET — supply at runtime via env var PIQ_SHOPIFY_CLIENT_SECRET.
+shopify_enabled = false
+api_version     = 2026-01
+client_id       =
+client_secret   =
+redirect_uri    = https://YOUR_DOMAIN/admin/shopify/callback
+scopes          = read_orders,read_customers,write_orders
+
 [DATABASE_REPLICA]
 # Read replica for PostgreSQL — routes read-only queries to replica, writes to primary.
 # Leave db_replica_host blank to disable (all queries go to primary).

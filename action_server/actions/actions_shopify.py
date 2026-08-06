@@ -72,14 +72,28 @@ class ActionShopifyOrderStatus(Action):
             log_bot_response(tracker, "utter_shopify_not_connected")
             return [SlotSet("order_number", None)]
 
-        email = get_iam_identity(tracker)["email"] or None
+        # An explicitly-provided order_email (the retry path, after we asked
+        # for it) takes priority over the caller's IAM email (the frictionless
+        # first-attempt default) — lets one person place an order and a
+        # different logged-in user check it later without always being asked.
+        explicit_email = tracker.get_slot("order_email")
+        email = explicit_email or get_iam_identity(tracker)["email"] or None
 
         order = await shopify_service.find_order(org_id, order_number, email)
         if not order:
+            if not explicit_email:
+                # First attempt failed — whether we tried the caller's IAM
+                # email or had none at all — ask for the order's own email
+                # instead of giving up immediately.
+                return [SlotSet("order_lookup_needs_email", True)]
             error_msg = f"❌ Couldn't find an order matching **{order_number}**. Please double-check the number."
             dispatcher.utter_message(text=error_msg)
             log_bot_response(tracker, error_msg)
-            return [SlotSet("order_number", None)]
+            return [
+                SlotSet("order_number", None),
+                SlotSet("order_email", None),
+                SlotSet("order_lookup_needs_email", False),
+            ]
 
         fulfillment_raw = order.get("displayFulfillmentStatus", "")
         status_display  = _FULFILLMENT_DISPLAY.get(fulfillment_raw, fulfillment_raw.title() or "Unknown")
@@ -145,4 +159,8 @@ class ActionShopifyOrderStatus(Action):
             ]
         )
         log_bot_response(tracker, message)
-        return [SlotSet("order_number", None)]
+        return [
+            SlotSet("order_number", None),
+            SlotSet("order_email", None),
+            SlotSet("order_lookup_needs_email", False),
+        ]

@@ -1,56 +1,108 @@
 """common.db._shopify — per-tenant Shopify store connection (OAuth token storage).
 
 One connected store per tenant org (MVP assumption — see
-docs/SHOPIFY_INTEGRATION_PLAN.md). access_token is encrypted at rest via
-common.crypto; callers of get_connection()/get_connection_by_shop_domain()
-receive it decrypted, connection_status() (used by the admin UI) never
-returns it at all.
+docs/SHOPIFY_INTEGRATION_PLAN.md). access_token and refresh_token are
+encrypted at rest via common.crypto; callers of
+get_connection()/get_connection_by_shop_domain() receive them decrypted,
+connection_status() (used by the admin UI) never returns either.
+
+Shopify now REQUIRES the "expiring offline token" flow (non-expiring tokens
+are rejected outright as of this app's creation) — access tokens last only
+~1 hour, so every stored connection carries a refresh_token and an
+access_token_expires_at that shopify_service.py checks before each call,
+refreshing proactively when needed.
 """
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
 from psycopg2.extras import RealDictCursor
 from common.db._connection import _get_connection, _release_connection
 from common.crypto import encrypt_secret, decrypt_secret
 
 
-def upsert_connection(org_id: str, shop_domain: str, access_token: str, scopes: str) -> None:
+def _expiry(seconds: Optional[int]) -> Optional[datetime]:
+    return datetime.now(timezone.utc) + timedelta(seconds=seconds) if seconds else None
+
+
+def upsert_connection(
+    org_id: str, shop_domain: str, access_token: str, refresh_token: str,
+    expires_in: int, refresh_token_expires_in: int, scopes: str,
+) -> None:
     conn = _get_connection()
     try:
         cur = conn.cursor()
         cur.execute(
-            """INSERT INTO shopify_connections (org_id, shop_domain, access_token, scopes, status, updated_at)
-               VALUES (%s, %s, %s, %s, 'connected', NOW())
+            """INSERT INTO shopify_connections
+                   (org_id, shop_domain, access_token, refresh_token,
+                    access_token_expires_at, refresh_token_expires_at,
+                    scopes, status, updated_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, 'connected', NOW())
                ON CONFLICT (org_id) DO UPDATE SET
-                   shop_domain    = EXCLUDED.shop_domain,
-                   access_token   = EXCLUDED.access_token,
-                   scopes         = EXCLUDED.scopes,
-                   status         = 'connected',
-                   uninstalled_at = NULL,
-                   updated_at     = NOW()""",
-            (org_id, shop_domain, encrypt_secret(access_token), scopes),
+                   shop_domain              = EXCLUDED.shop_domain,
+                   access_token             = EXCLUDED.access_token,
+                   refresh_token            = EXCLUDED.refresh_token,
+                   access_token_expires_at  = EXCLUDED.access_token_expires_at,
+                   refresh_token_expires_at = EXCLUDED.refresh_token_expires_at,
+                   scopes                   = EXCLUDED.scopes,
+                   status                   = 'connected',
+                   uninstalled_at           = NULL,
+                   updated_at               = NOW()""",
+            (org_id, shop_domain, encrypt_secret(access_token), encrypt_secret(refresh_token),
+             _expiry(expires_in), _expiry(refresh_token_expires_in), scopes),
         )
         conn.commit()
     finally:
         _release_connection(conn)
 
 
+def update_tokens(
+    org_id: str, access_token: str, refresh_token: str,
+    expires_in: int, refresh_token_expires_in: int,
+) -> None:
+    """Rotate the stored tokens after a refresh — Shopify invalidates the old
+    access_token AND refresh_token on every refresh call, so both must be
+    overwritten together or the connection is left unrecoverable."""
+    conn = _get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """UPDATE shopify_connections SET
+                   access_token             = %s,
+                   refresh_token            = %s,
+                   access_token_expires_at  = %s,
+                   refresh_token_expires_at = %s,
+                   updated_at               = NOW()
+               WHERE org_id = %s""",
+            (encrypt_secret(access_token), encrypt_secret(refresh_token),
+             _expiry(expires_in), _expiry(refresh_token_expires_in), org_id),
+        )
+        conn.commit()
+    finally:
+        _release_connection(conn)
+
+
+def _decrypt_row(row: Dict) -> Dict:
+    row = dict(row)
+    row["access_token"] = decrypt_secret(row["access_token"])
+    row["refresh_token"] = decrypt_secret(row["refresh_token"]) if row.get("refresh_token") else None
+    return row
+
+
 def get_connection(org_id: str) -> Optional[Dict]:
-    """Active connection for this tenant, with a DECRYPTED access_token — for
+    """Active connection for this tenant, with DECRYPTED tokens — for
     server-side calls to the Shopify API only. Never expose this dict to a
     client response; use connection_status() for that."""
     conn = _get_connection()
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute(
-            "SELECT org_id, shop_domain, access_token, scopes, status, installed_at, updated_at "
+            "SELECT org_id, shop_domain, access_token, refresh_token, "
+            "       access_token_expires_at, refresh_token_expires_at, "
+            "       scopes, status, installed_at, updated_at "
             "FROM shopify_connections WHERE org_id = %s AND status = 'connected'",
             (org_id,),
         )
         row = cur.fetchone()
-        if not row:
-            return None
-        row = dict(row)
-        row["access_token"] = decrypt_secret(row["access_token"])
-        return row
+        return _decrypt_row(row) if row else None
     finally:
         conn.rollback()
         _release_connection(conn)
@@ -63,16 +115,13 @@ def get_connection_by_shop_domain(shop_domain: str) -> Optional[Dict]:
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute(
-            "SELECT org_id, shop_domain, access_token, scopes, status "
+            "SELECT org_id, shop_domain, access_token, refresh_token, "
+            "       access_token_expires_at, refresh_token_expires_at, scopes, status "
             "FROM shopify_connections WHERE shop_domain = %s",
             (shop_domain,),
         )
         row = cur.fetchone()
-        if not row:
-            return None
-        row = dict(row)
-        row["access_token"] = decrypt_secret(row["access_token"])
-        return row
+        return _decrypt_row(row) if row else None
     finally:
         conn.rollback()
         _release_connection(conn)
