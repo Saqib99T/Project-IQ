@@ -12,7 +12,15 @@ optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "http://localhost:8181/admin/shopify/callback" ]
+# The trycloudflare.com URL is a temporary quick-tunnel (SSH port-forward to
+# prod's 8181 + cloudflared) used to test webhook delivery against the real
+# prod deployment before a permanent domain/TLS setup exists — EPHEMERAL,
+# changes every time the tunnel is restarted. Replace with a real prod
+# domain once one exists; keep localhost for local dev testing either way.
+redirect_urls = [
+  "http://localhost:8181/admin/shopify/callback",
+  "https://adopted-suspension-engineering-nitrogen.trycloudflare.com/admin/shopify/callback",
+]
 
 [webhooks]
 api_version = "2026-07"
@@ -27,11 +35,11 @@ api_version = "2026-07"
 # browser-mediated) — deploy only once a public URL exists for this app.
 [[webhooks.subscriptions]]
 topics = ["orders/create", "orders/updated", "orders/cancelled"]
-uri = "https://YOUR_PUBLIC_DOMAIN/webhooks/shopify"
+uri = "https://adopted-suspension-engineering-nitrogen.trycloudflare.com/webhooks/shopify"
 
 # The three privacy/GDPR compliance topics mandatory for any multi-merchant
 # app — bp_shopify.py's /webhooks/shopify handler already handles all three
 # (see shopify_webhook() in web/api/blueprints/bp_shopify.py).
 [[webhooks.subscriptions]]
 compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
-uri = "https://YOUR_PUBLIC_DOMAIN/webhooks/shopify"
+uri = "https://adopted-suspension-engineering-nitrogen.trycloudflare.com/webhooks/shopify"
