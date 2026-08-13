@@ -1,6 +1,11 @@
 """
-Knowledge Base, Firecrawl, and Airbyte connectors blueprint.
+Knowledge Base, Firecrawl, and pluggable source-extension blueprint.
 Routes: /admin/kb/*, /admin/firecrawl/*, /admin/connectors/*
+
+/admin/connectors/* predates the extensions/ framework (web/api/blueprints/
+bp_extensions.py) and is kept as a stable, backward-compatible surface for
+any caller still using it — it's now a thin reshape on top of the SOURCE-kind
+extensions in the registry rather than its own pull logic.
 """
 import requests as _requests
 from flask import Blueprint, request, jsonify
@@ -262,13 +267,25 @@ def get_firecrawl_crawl_jobs():
         return jsonify({"success": False, "error": str(e), "data": []}), 500
 
 
-# ── Airbyte connectors ────────────────────────────────────────────────────────
+# ── Pluggable source extensions (extensions/, kind=SOURCE) ─────────────────────
+
+def _source_manifests():
+    from extensions import list_manifests
+    from extensions.base import ExtensionKind
+    return [m for m in list_manifests() if m.kind == ExtensionKind.SOURCE]
+
 
 @bp.route('/admin/connectors/sources', methods=['GET'])
 def list_connector_sources():
     try:
-        from common.airbyte_connector import list_available_sources
-        return jsonify({"success": True, "sources": list_available_sources()})
+        sources = [{
+            "id": m.id,
+            "name": m.name,
+            "description": m.description,
+            "required_config": [f.name for f in m.config_schema if f.required],
+            "icon": m.icon,
+        } for m in _source_manifests()]
+        return jsonify({"success": True, "sources": sources})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -276,11 +293,17 @@ def list_connector_sources():
 @bp.route('/admin/connectors/sources/<source_type>/schema', methods=['GET'])
 def get_connector_schema(source_type):
     try:
-        from common.airbyte_connector import get_source_config_schema
-        schema = get_source_config_schema(source_type)
-        if schema:
-            return jsonify({"success": True, "schema": schema})
-        return jsonify({"success": False, "error": f"Unknown source type: {source_type}"}), 404
+        m = next((m for m in _source_manifests() if m.id == source_type), None)
+        if not m:
+            return jsonify({"success": False, "error": f"Unknown source type: {source_type}"}), 404
+        schema = {
+            "source_type": m.id,
+            "name": m.name,
+            "description": m.description,
+            "required_fields": [f.name for f in m.config_schema if f.required],
+            "field_descriptions": {f.name: f.label for f in m.config_schema},
+        }
+        return jsonify({"success": True, "schema": schema})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -293,10 +316,17 @@ def sync_connector():
         config      = data.get('config', {})
         if not source_type or not config:
             return jsonify({"success": False, "error": "source_type and config required"}), 400
-        from common.airbyte_connector import sync_source
-        return jsonify({"success": True, **sync_source(source_type, config, data.get('streams'))})
-    except (ImportError, ValueError) as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+
+        from extensions import get_extension
+        from extensions.base import ExtensionKind
+        ext = get_extension(source_type)
+        if ext is None or ext.manifest.kind != ExtensionKind.SOURCE:
+            return jsonify({"success": False, "error": f"Unknown source type: {source_type}"}), 400
+
+        result = ext.run(config, data.get('streams'))
+        if result.status != "success":
+            return jsonify({"success": False, **result.detail}), 400
+        return jsonify({"success": True, **result.detail})
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500

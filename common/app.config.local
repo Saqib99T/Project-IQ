@@ -7,8 +7,7 @@ db_host = 127.0.0.1
 db_port = 5432
 db_name = Chatbot
 db_user = itsm_user
-# SECRET — set in the git-ignored .env as PIQ_DATABASE_DB_PASSWORD (see .env.example).
-db_password =
+db_password = 
 
 [RASA]
 rasa_api_url = http://localhost:5005
@@ -19,8 +18,6 @@ admin_port = 8181
 cors_origins = *
 
 [RATELIMIT]
-# Loosened for local demo-automation testing (Playwright drives many rapid
-# logins/page loads in quick succession) — not representative of prod limits.
 default_limit = 3000 per minute
 auth_limit = 600 per minute
 chat_limit = 1200 per minute
@@ -58,8 +55,7 @@ session_timeout_minutes = 30
 session_warning_minutes = 10
 
 [HANDOFF]
-# SECRET — set in the git-ignored .env as PIQ_HANDOFF_OPERATOR_JWT_SECRET (see .env.example).
-operator_jwt_secret =
+operator_jwt_secret = 
 operator_jwt_expiry_hours = 24
 socketio_async_mode = eventlet
 socketio_ping_timeout = 60
@@ -92,20 +88,30 @@ realm = 99-iam
 client_id = project-iq
 api_url = https://api.dev.iam.99technologies.com
 backend_client_id = project-iq-backend
-# SECRET — set in the git-ignored .env as PIQ_IAM_BACKEND_CLIENT_SECRET (see .env.example).
-backend_client_secret =
+backend_client_secret = 
 
 [PLATFORM]
 org_id = 7d35c7c9-dbd6-4f6b-8d0c-07178923d859
 
 [SHOPIFY]
-; MyApp (Dev Dashboard), dev store "MyStore".
-; SECRET — set client_secret in the git-ignored .env as PIQ_SHOPIFY_CLIENT_SECRET.
 shopify_enabled = true
-api_version     = 2026-07
-client_id       = 24225b50d11f7f5fee330cfd4ea8a693
-client_secret   =
-redirect_uri    = http://localhost:8181/admin/shopify/callback
-scopes          = read_orders,read_customers,write_orders
+api_version = 2026-07
+client_id = 24225b50d11f7f5fee330cfd4ea8a693
+client_secret = 
+redirect_uri = http://localhost:8181/admin/shopify/callback
+scopes = read_orders,read_customers,write_orders
 write_rate_limit = 10 per hour
+
+[AMAZON]
+amazon_enabled = true
+environment = sandbox
+app_id = amzn1.sp.solution.d691648c-431d-4884-9ebd-efbae67b2553
+client_id = amzn1.application-oa2-client.57bd4be76b9a4912bf469b97c2dcd454
+client_secret = 
+redirect_uri = http://localhost:8181/admin/amazon/callback
+marketplace_ids = ATVPDKIKX0DER
+write_rate_limit = 10 per hour
+
+[SENTRY]
+dsn = https://742c2229bab96cb16678e27fcec7a4d1@sentry.99technologies.com/32
 

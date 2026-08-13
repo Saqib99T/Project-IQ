@@ -22,7 +22,7 @@ from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
 from action_server.actions.itsm_service import ITSMService
 from common import analytics_store
-from common.config_manager import get_itsm_config
+from common.config_manager import get_itsm_config, get_sentry_config, get_profile
 from common.request_context import (
     REQUEST_ID_META_KEY, set_request_id, install_request_id_logging,
 )
@@ -33,6 +33,20 @@ logger = logging.getLogger(__name__)
 # by bind_request_id(), which reads it off the tracker metadata that the Admin
 # API injected upstream.
 install_request_id_logging()
+
+# Error tracking — action_server is its own process (not a Flask app), so it
+# needs its own init even though web_api.py already calls this too; nothing
+# is shared across processes. Same blank-DSN-disables pattern, same explicit
+# send_default_pii=False. No `integrations=` list — let the SDK auto-detect
+# (Sanic, under rasa_sdk), matching itsm-service's own minimal init shape.
+_sentry_cfg = get_sentry_config()
+if _sentry_cfg['dsn']:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=_sentry_cfg['dsn'],
+        environment=get_profile(),
+        send_default_pii=False,
+    )
 
 
 def _action_alert_sink(title, body, payload):
@@ -282,7 +296,7 @@ async def check_user_login(tracker: Tracker, dispatcher: CollectingDispatcher) -
 # Module-level singletons
 itsm_service = get_itsm_service()
 
-from action_server.actions.shopify_service import shopify_service  # noqa: E402
+from extensions.shopify.service import shopify_service  # noqa: E402
 
 
 def _get_handoff_runtime_cfg() -> dict:

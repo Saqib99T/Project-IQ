@@ -13,6 +13,7 @@ const SECTIONS = {
     SMTP:           ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_from', 'smtp_use_tls'],
     REDIS:          ['redis_enabled', 'redis_host', 'redis_port', 'redis_db'],
     LLM:            ['llm_summary_enabled', 'llm_summary_model', 'llm_api_key'],
+    'COMMERCE INTEGRATIONS': ['SHOPIFY_ENABLED', 'AMAZON_ENABLED'],
 }
 
 function ConfigField({ k, value, onChange }) {

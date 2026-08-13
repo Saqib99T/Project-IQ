@@ -35,10 +35,16 @@ sentence-transformers==2.3.1
 
 # Data Ingestion
 firecrawl-py>=1.0.0
-airbyte<0.15.0
 
 # Production Server
 gunicorn>=21.2.0
+
+# Error tracking — self-hosted Sentry (sentry.99technologies.com), inactive
+# until SENTRY_DSN is set (same "blank = disabled" pattern itsm-service uses).
+# Pinned <1.15.0 because rasa==3.6.20 itself depends on sentry-sdk<1.15.0 for
+# its own internal telemetry — installing a newer sentry-sdk (itsm-service,
+# a separate non-rasa service, uses >=2.5) silently breaks that pin here.
+sentry-sdk[flask]<1.15.0,>=0.17.0
 
 # Redis — caching + Socket.IO message bus (optional, activated by redis_enabled=true)
 # Must stay <5.0: rasa 3.6.20 pins redis<5.0,>=4.5.3 — redis>=5.0 makes pip unresolvable.

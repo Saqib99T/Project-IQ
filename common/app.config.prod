@@ -104,6 +104,27 @@ redirect_uri    = https://YOUR_DOMAIN/admin/shopify/callback
 scopes          = read_orders,read_customers,write_orders
 write_rate_limit = 10 per hour
 
+[AMAZON]
+; Fill in client_id after registering the app in the Solution Provider Portal,
+; and set redirect_uri to this deployment's real public hostname. Leave
+; environment=sandbox until the Public Developer application is approved.
+; SECRET — supply at runtime via env var PIQ_AMAZON_CLIENT_SECRET.
+amazon_enabled  = false
+environment     = sandbox
+app_id          =
+client_id       =
+client_secret   =
+redirect_uri    = https://YOUR_DOMAIN/admin/amazon/callback
+marketplace_ids = ATVPDKIKX0DER
+write_rate_limit = 10 per hour
+
+[SENTRY]
+; Self-hosted Sentry (sentry.99technologies.com), org "99technologies",
+; project "project-iq". Blank disables the SDK entirely — fill in to activate
+; error tracking on this deployment. Not a secret (a DSN is meant to be
+; embedded in client code — safe to commit).
+dsn = https://742c2229bab96cb16678e27fcec7a4d1@sentry.99technologies.com/32
+
 [DATABASE_REPLICA]
 # Read replica for PostgreSQL — routes read-only queries to replica, writes to primary.
 # Leave db_replica_host blank to disable (all queries go to primary).

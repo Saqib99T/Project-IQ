@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useIam } from '../../widget/hooks/useIam'
 import { useItsmTenant } from './ItsmTenantContext'
 
@@ -72,7 +72,15 @@ export function useItsmApi(explicitTenantId) {
     const patch  = useCallback((path, body)   => call(path, { method: 'PATCH', body: JSON.stringify(body) }), [call])
     const remove = useCallback((path)         => call(path, { method: 'DELETE' }), [call])
 
-    return { call, get, post, put, patch, remove }
+    // Memoized so callers can safely depend on the returned object itself
+    // (e.g. `useEffect(..., [itsm])`) without it changing identity — and
+    // therefore re-firing — on every render. Without this, a plain object
+    // literal here is a NEW reference every render even though call/get/etc
+    // are individually stable, which turns any effect keyed on it into an
+    // infinite fetch loop (each fetch's setState triggers a re-render, which
+    // creates a new object, which re-fires the effect).
+    return useMemo(() => ({ call, get, post, put, patch, remove }),
+        [call, get, post, put, patch, remove])
 }
 
 /**

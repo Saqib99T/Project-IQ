@@ -210,6 +210,51 @@ def get_shopify_config() -> Dict[str, Any]:
     }
 
 
+def get_amazon_config() -> Dict[str, Any]:
+    """Global Amazon SP-API app credentials (one per Project IQ deployment).
+
+    Same shape/rationale as get_shopify_config(): a tenant's own seller
+    connection (marketplace, tokens) is per-tenant DB state, not config —
+    this only holds the app's own LWA client credentials, registered via the
+    Solution Provider Portal (see docs/AMAZON_INTEGRATION_PLAN.md). Starts
+    pointed at the Sandbox — Phase 0 validation only, no live seller data.
+    """
+    config = load_config()
+    return {
+        'enabled':      config.getboolean('AMAZON', 'amazon_enabled', fallback=False),
+        'environment':  config.get('AMAZON', 'environment', fallback='sandbox'),  # 'sandbox' | 'production'
+        # Two different identifiers, easy to conflate (learned the hard way):
+        # app_id (amzn1.sp.solution.xxx) is used to build the seller-consent
+        # authorize URL; client_id (amzn1.application-oa2-client.xxx) is used
+        # for the LWA token exchange. Both come from the same Solution
+        # Provider Portal app, shown on different screens.
+        'app_id':       config.get('AMAZON', 'app_id', fallback=''),
+        'client_id':    config.get('AMAZON', 'client_id', fallback=''),
+        'client_secret': _env_secret('AMAZON', 'client_secret',
+                                     config.get('AMAZON', 'client_secret', fallback='')),
+        'redirect_uri': config.get('AMAZON', 'redirect_uri', fallback='http://localhost:8181/admin/amazon/callback'),
+        'marketplace_ids': config.get('AMAZON', 'marketplace_ids', fallback='ATVPDKIKX0DER'),  # US default
+        # Same rationale as Shopify's write_rate_limit — not yet enforced
+        # until Phase 5 (write actions) is built, kept here so the config
+        # shape is stable across phases rather than added piecemeal later.
+        'write_rate_limit': config.get('AMAZON', 'write_rate_limit', fallback='10 per hour'),
+    }
+
+
+def get_sentry_config() -> Dict[str, Any]:
+    """Self-hosted Sentry (sentry.99technologies.com), shared by web/api and
+    action_server — inactive (SDK never initialized) until DSN is set, same
+    pattern itsm-service uses. Not treated as a secret needing encryption —
+    a Sentry DSN is meant to be embedded in client code (the frontend already
+    ships it in the built JS bundle), it's a routing address, not a credential
+    that grants read access to anything.
+    """
+    config = load_config()
+    return {
+        'dsn': config.get('SENTRY', 'dsn', fallback=''),
+    }
+
+
 def get_platform_config() -> Dict[str, str]:
     """Get 99Tech platform-level identifiers."""
     config = load_config()
@@ -239,6 +284,12 @@ def get_all_config() -> Dict[str, str]:
     result['SESSION_TIMEOUT_MINUTES'] = config.get('SESSION', 'SESSION_TIMEOUT_MINUTES', fallback='10')
     result['SESSION_WARNING_MINUTES'] = config.get('SESSION', 'SESSION_WARNING_MINUTES', fallback='5')
 
+    # Commerce provider on/off switches — per-deployment for now (a tenant's
+    # own connection status lives in shopify_connections/commerce_connections,
+    # not here); this just controls whether the feature is exposed at all.
+    result['SHOPIFY_ENABLED'] = config.get('SHOPIFY', 'shopify_enabled', fallback='false')
+    result['AMAZON_ENABLED'] = config.get('AMAZON', 'amazon_enabled', fallback='false')
+
     return result
 
 
@@ -247,7 +298,7 @@ def set_all_config(settings: Dict[str, str]):
     config = load_config()
 
     # Ensure sections exist
-    for section in ['DATABASE', 'RASA', 'WIDGET', 'SESSION']:
+    for section in ['DATABASE', 'RASA', 'WIDGET', 'SESSION', 'SHOPIFY', 'AMAZON']:
         if not config.has_section(section):
             config.add_section(section)
 
@@ -263,6 +314,8 @@ def set_all_config(settings: Dict[str, str]):
         'WIDGET_SUBTITLE': ('WIDGET', 'WIDGET_SUBTITLE'),
         'SESSION_TIMEOUT_MINUTES': ('SESSION', 'SESSION_TIMEOUT_MINUTES'),
         'SESSION_WARNING_MINUTES': ('SESSION', 'SESSION_WARNING_MINUTES'),
+        'SHOPIFY_ENABLED': ('SHOPIFY', 'shopify_enabled'),
+        'AMAZON_ENABLED': ('AMAZON', 'amazon_enabled'),
     }
 
     for key, value in settings.items():

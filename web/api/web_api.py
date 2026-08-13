@@ -2,7 +2,7 @@
 Admin API Module
 Flask API for admin dashboard operations, analytics, and static file serving.
 Consolidated server running on port 8181.
-Extensible for any plugin modules like Firecrawl, Airbyte...
+Extensible for any plugin modules (see extensions/) like Firecrawl or the knowledge-base source extensions.
 """
 
 import eventlet
@@ -38,8 +38,31 @@ from common.conversation_db import (
     _get_connection, _release_connection
 )
 from common.analytics_store import get_analytics_summary, get_recent_conversations
-from common.config_manager import get_all_config as get_file_config, set_all_config as save_file_config, get_profile, get_rasa_config
+from common.config_manager import get_all_config as get_file_config, set_all_config as save_file_config, get_profile, get_rasa_config, get_sentry_config
 from web.api.studio_service import studio_service
+
+# Error tracking — as early as possible so startup exceptions from anything
+# below are captured too. No-ops (SDK never initialized) when dsn is blank —
+# same "blank = disabled" pattern as itsm-service's own Sentry setup.
+# sendDefaultPii is explicitly False (the SDK's own default is True) since
+# this app handles customer PII (order data, ticket content, emails).
+#
+# No explicit `integrations=[FlaskIntegration()]` — rasa pins sentry-sdk
+# <1.15.0 (see requirements.txt), and that version's FlaskIntegration does
+# `from flask import Markup`, removed in flask==3.0 (this app's pinned
+# version), which raises ImportError and crashes startup if imported
+# directly. Leaving auto-detection to sentry-sdk's own init() lets it catch
+# that same failure internally (DidNotEnable) and skip the integration
+# instead of crashing — core error capture (exceptions, logging) still works
+# via the SDK's other default integrations either way.
+_sentry_cfg = get_sentry_config()
+if _sentry_cfg['dsn']:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=_sentry_cfg['dsn'],
+        environment=get_profile(),
+        send_default_pii=False,
+    )
 
 # Static files directories
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ui', 'public')

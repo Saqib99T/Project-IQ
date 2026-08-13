@@ -64,7 +64,12 @@ def register_blueprints(app: Flask) -> None:
     from web.api.blueprints.bp_itsm_proxy         import bp as bp_itsm_proxy
     from web.api.blueprints.bp_storage_proxy       import bp as bp_storage_proxy
     from web.api.blueprints.bp_demo                import bp as bp_demo
-    from web.api.blueprints.bp_shopify             import bp as bp_shopify
+    from web.api.blueprints.bp_extensions           import bp as bp_extensions
+    # Every extension's own Flask routes (e.g. extensions/shopify/routes.py's
+    # OAuth connect/callback/webhook receiver) — auto-discovered, not
+    # individually imported here. A new extension with its own routes.py
+    # picks this up automatically; nothing in this file needs to change.
+    from extensions import list_route_blueprints
 
     # Register in dependency order — most specific first to avoid catch-all conflicts
     app.register_blueprint(bp_portal_api)
@@ -86,7 +91,9 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(bp_admin_ops)
     app.register_blueprint(bp_sessions)
     app.register_blueprint(bp_demo)
-    app.register_blueprint(bp_shopify)
+    app.register_blueprint(bp_extensions)
+    for ext_bp in list_route_blueprints():
+        app.register_blueprint(ext_bp)
     # Static files last — its /<path:filename> catch-all must not shadow API routes
     app.register_blueprint(bp_static)
 

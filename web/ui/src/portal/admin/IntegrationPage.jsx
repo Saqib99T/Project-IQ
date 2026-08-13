@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useApi } from '../useApi'
 import { useItsmApi, useTenantDirectory } from '../../shared/itsm/useItsmApi'
@@ -17,7 +17,7 @@ const MANAGED = [
 // ── KB data-source connectors (link-outs) ──────────────────────────────────────
 const KB_SOURCES = [
     { key: 'firecrawl', name: 'Firecrawl', icon: '🕷️', desc: 'Crawl & ingest websites into the knowledge base', to: '/admin/firecrawl' },
-    { key: 'airbyte',   name: 'Data sources', icon: '🔌', desc: 'Confluence, Notion, Zendesk, Jira… into the knowledge base', to: '/admin/kb' },
+    { key: 'kb_sources', name: 'Data sources', icon: '🔌', desc: 'Confluence, Notion, Zendesk, Jira… into the knowledge base', to: '/admin/kb' },
 ]
 
 const ICONS = { 'microsoft-teams': '💬', webhook: '🪝' }
@@ -100,6 +100,151 @@ function ConfigModal({ integration, eventTypes, existing, onClose, onSave }) {
     )
 }
 
+// ── Project IQ extensions (native — google_sheets, ms_teams, shopify) ──────────
+// Separate from the Notifications section above: that one talks to
+// itsm-service's /webhooks-config/endpoints shape (id, is_active, events).
+// This one talks to this app's own /admin/extensions/* API (config/secrets,
+// install/test/run) — different backend, different shape, so it gets its own
+// card component rather than overloading IntegrationCard for both.
+function ExtensionConfigModal({ manifest, existing, onClose, onSave }) {
+    const initial = {}
+    manifest.config_schema.forEach(f => { initial[f.name] = existing?.config?.[f.name] ?? '' })
+    const [cfg, setCfg] = useState(initial)
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState(null)
+
+    const submit = async () => {
+        setSaving(true); setError(null)
+        try { await onSave({ cfg }) }
+        catch (e) { setError(e.message); setSaving(false) }
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+            <div className="card p-6 w-full max-w-lg space-y-4" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-2">
+                    <span className="text-2xl">{manifest.icon}</span>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">{existing ? 'Edit' : 'Connect'} {manifest.name}</h3>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-slate-400">{manifest.description}</p>
+
+                {error && <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg p-2">{error}</div>}
+
+                {manifest.config_schema.map(f => (
+                    <div key={f.name}>
+                        <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1">{f.label}{f.required && ' *'}</label>
+                        <input
+                            type={f.type === 'password' ? 'password' : (f.type === 'url' || f.type === 'number' ? f.type : 'text')}
+                            value={cfg[f.name] ?? ''}
+                            placeholder={f.placeholder || (f.secret && existing ? '(unchanged)' : '')}
+                            onChange={e => setCfg(c => ({ ...c, [f.name]: e.target.value }))}
+                            className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 font-mono" />
+                    </div>
+                ))}
+
+                <div className="flex justify-end gap-2 pt-2">
+                    <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:underline">Cancel</button>
+                    <button onClick={submit} disabled={saving} className="btn-primary disabled:opacity-50">
+                        {saving ? 'Saving…' : existing ? 'Save changes' : 'Connect'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function ExtensionCard({ manifest, install, ext, onChanged }) {
+    const [modal, setModal] = useState(false)
+    const [busy, setBusy] = useState(false)
+    const [msg, setMsg] = useState(null)
+
+    // Commerce extensions (Shopify) keep their own dedicated OAuth-connect
+    // page — that flow needs a real browser redirect, which a generic
+    // install-a-config-object form can't do. Link out instead of rendering
+    // install/test/run controls that wouldn't work for this kind.
+    if (manifest.manage_url) {
+        return (
+            <Link to={manifest.manage_url} className="card p-4 hover:border-blue-300 dark:hover:border-blue-500/40 transition-colors block">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2"><span className="text-xl">{manifest.icon}</span>
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100">{manifest.name}</h4></div>
+                    <span className="text-xs text-blue-600 dark:text-blue-400">Manage →</span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">{manifest.description}</p>
+            </Link>
+        )
+    }
+
+    const save = async ({ cfg }) => {
+        const config = {}, secrets = {}
+        manifest.config_schema.forEach(f => { (f.secret ? secrets : config)[f.name] = cfg[f.name] })
+        await ext.post(`/admin/extensions/${manifest.id}/install`, { config, secrets })
+        setModal(false); onChanged()
+    }
+
+    const test = async () => {
+        setBusy(true); setMsg(null)
+        try {
+            const r = await ext.post(`/admin/extensions/${manifest.id}/test`, {})
+            setMsg({ ok: r.status === 'success', text: r.status === 'success' ? 'Connection OK' : (r.error || 'Test failed') })
+        } catch (e) { setMsg({ ok: false, text: e.message }) }
+        finally { setBusy(false) }
+    }
+
+    const run = async () => {
+        setBusy(true); setMsg(null)
+        try {
+            const r = await ext.post(`/admin/extensions/${manifest.id}/run`, {})
+            setMsg({ ok: r.status === 'success', text: r.status === 'success' ? `Synced — ${r.saved ?? 0} article(s) saved` : (r.error || 'Run failed') })
+            onChanged()
+        } catch (e) { setMsg({ ok: false, text: e.message }) }
+        finally { setBusy(false) }
+    }
+
+    const remove = async () => {
+        if (!window.confirm(`Remove ${manifest.name}?`)) return
+        setBusy(true)
+        try { await ext.remove(`/admin/extensions/${manifest.id}`); onChanged() }
+        finally { setBusy(false) }
+    }
+
+    return (
+        <div className="card p-4">
+            <div className="flex items-start gap-3">
+                <span className="text-2xl">{manifest.icon}</span>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100">{manifest.name}</h4>
+                        {install && <StatusBadge ok={install.status === 'installed'} okLabel="Installed" offLabel={install.status} />}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{manifest.description}</p>
+                    {install?.last_run_at && (
+                        <p className="text-[11px] text-gray-400 dark:text-slate-500 mt-1">Last run: {new Date(install.last_run_at).toLocaleString()}</p>
+                    )}
+                    {msg && <p className={`text-xs mt-1.5 ${msg.ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{msg.text}</p>}
+                </div>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3">
+                {!install ? (
+                    <button onClick={() => setModal(true)} className="btn-primary text-xs px-3 py-1.5">Connect</button>
+                ) : (
+                    <>
+                        <button onClick={() => setModal(true)} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300">Configure</button>
+                        <button onClick={test} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300">Test</button>
+                        {manifest.kind === 'source' && (
+                            <button onClick={run} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300">Run now</button>
+                        )}
+                        <button onClick={remove} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:underline">Remove</button>
+                    </>
+                )}
+            </div>
+            {modal && (
+                <ExtensionConfigModal manifest={manifest} existing={install} onClose={() => setModal(false)} onSave={save} />
+            )}
+        </div>
+    )
+}
+
 // ── One installable integration card ───────────────────────────────────────────
 function IntegrationCard({ integration, eventTypes, instance, api, onChanged }) {
     const [modal, setModal] = useState(false)
@@ -173,6 +318,11 @@ function IntegrationCard({ integration, eventTypes, instance, api, onChanged }) 
 // ── Marketplace tab ─────────────────────────────────────────────────────────────
 function MarketplaceTab() {
     const { call } = useApi()
+    const ext = useMemo(() => ({
+        get:    (path)       => call(path),
+        post:   (path, body) => call(path, { method: 'POST', body: JSON.stringify(body) }),
+        remove: (path)       => call(path, { method: 'DELETE' }),
+    }), [call])
     const tenants = useTenantDirectory(true)
     const tenantList = Object.entries(tenants)
     // A non-empty directory means this is a platform user (super_admin) who must
@@ -187,6 +337,8 @@ function MarketplaceTab() {
     const [eventTypes, setEventTypes] = useState([])
     const [endpoints, setEndpoints] = useState([])
     const [config, setConfig] = useState({})
+    const [extCatalog, setExtCatalog] = useState(null)
+    const [extInstalls, setExtInstalls] = useState([])
     const [err, setErr] = useState(null)
 
     // Platform users: auto-select the first tenant once the directory loads.
@@ -210,9 +362,29 @@ function MarketplaceTab() {
 
     useEffect(() => { loadEndpoints() }, [loadEndpoints])
 
+    // Project IQ's own extension catalog (/admin/extensions/*, not itsm-service).
+    // Excludes managed_by === 'itsm-service' entries — those are the SAME
+    // Teams/webhook integrations already shown above via /integrations/catalog,
+    // merged into this endpoint for API consumers that want one list; showing
+    // them again here would duplicate the Notifications section's cards.
+    useEffect(() => {
+        ext.get('/admin/extensions/catalog')
+            .then(d => setExtCatalog((d.extensions || []).filter(e => e.managed_by !== 'itsm-service')))
+            .catch(e => setErr(e.message))
+    }, [ext])
+
+    const loadExtInstalls = useCallback(() => {
+        ext.get('/admin/extensions')
+            .then(d => setExtInstalls(d.installs || []))
+            .catch(e => setErr(e.message))
+    }, [ext])
+
+    useEffect(() => { loadExtInstalls() }, [loadExtInstalls])
+
     const installable = (catalog || []).filter(i => i.kind === 'outbound_webhook')
     const instanceFor = (key) => endpoints.find(e => e.integration_key === key)
     const isManagedSet = (m) => (m.anySet || []).some(k => config[k]) || (m.anyTrue || []).some(k => config[k] === 'true')
+    const installFor = (id) => extInstalls.find(i => i.extension_id === id)
 
     return (
         <div className="space-y-8">
@@ -239,6 +411,23 @@ function MarketplaceTab() {
                         {installable.map(i => (
                             <IntegrationCard key={i.key} integration={i} eventTypes={eventTypes}
                                 instance={instanceFor(i.key)} api={itsm} onChanged={loadEndpoints} />
+                        ))}
+                    </div>
+                )}
+            </section>
+
+            {/* Project IQ extensions (native — google_sheets, ms_teams, shopify) */}
+            <section className="space-y-3">
+                <div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Extensions</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">Pull data in or connect commerce providers — built into Project IQ, not itsm-service.</p>
+                </div>
+                {!extCatalog ? (
+                    <div className="text-sm text-gray-400 py-6 text-center">Loading…</div>
+                ) : (
+                    <div className="grid sm:grid-cols-2 gap-3">
+                        {extCatalog.map(m => (
+                            <ExtensionCard key={m.id} manifest={m} install={installFor(m.id)} ext={ext} onChanged={loadExtInstalls} />
                         ))}
                     </div>
                 )}

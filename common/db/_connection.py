@@ -303,6 +303,57 @@ def _init_database():
                 created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )""",
             "CREATE INDEX IF NOT EXISTS idx_shopify_audit_org_time ON shopify_write_audit(org_id, created_at DESC)",
+
+            # Amazon SP-API integration — one connected seller per tenant org,
+            # mirrors shopify_connections' shape. LWA access_token/refresh_token
+            # encrypted at rest (see common/crypto.py). Unlike Shopify's
+            # per-shop-domain webhook lookup, Amazon's Notifications API isn't
+            # wired yet (see docs/AMAZON_INTEGRATION_PLAN.md Phase 4), so no
+            # UNIQUE-by-external-id reverse-lookup requirement yet — kept
+            # nullable/non-unique until that's built rather than guessing the
+            # right uniqueness shape now.
+            """CREATE TABLE IF NOT EXISTS amazon_connections (
+                org_id                    TEXT PRIMARY KEY,
+                seller_id                 TEXT,
+                marketplace_ids           TEXT,
+                access_token              TEXT NOT NULL,
+                refresh_token             TEXT NOT NULL,
+                access_token_expires_at   TIMESTAMPTZ,
+                status                    TEXT NOT NULL DEFAULT 'connected',
+                installed_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                uninstalled_at            TIMESTAMPTZ,
+                updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+
+            # Extension installs — one generalized table for every extension's
+            # per-tenant config, replacing the pattern of one bespoke table per
+            # integration (shopify_connections above being the example this
+            # generalizes). `secrets` is a single Fernet-encrypted JSON blob
+            # (see common/crypto.py) rather than per-field encrypted columns,
+            # so a new extension needing a new secret field never requires a
+            # schema migration. org_id may be NULL for a deployment-wide
+            # install (e.g. one Confluence source shared across tenants).
+            """CREATE TABLE IF NOT EXISTS extension_installs (
+                id               SERIAL PRIMARY KEY,
+                org_id           TEXT,
+                extension_id     TEXT NOT NULL,
+                external_id      TEXT,
+                config           JSONB NOT NULL DEFAULT '{}'::jsonb,
+                secrets          TEXT,
+                status           TEXT NOT NULL DEFAULT 'installed',
+                last_run_at      TIMESTAMPTZ,
+                last_run_result  JSONB,
+                installed_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+            # A surrogate SERIAL PK (not (org_id, extension_id)) because org_id
+            # is nullable (deployment-wide installs) and Postgres primary-key
+            # columns can't be NULL. COALESCE(org_id, '') in the unique index
+            # keeps "one install per extension per tenant, or one shared
+            # platform-wide install" enforced uniformly, including for
+            # ON CONFLICT upserts in common/db/_extensions.py.
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_ext_installs_org_ext ON extension_installs (COALESCE(org_id, ''), extension_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ext_installs_org ON extension_installs(org_id)",
         ]
         for stmt in migrations:
             try: cursor.execute(stmt)

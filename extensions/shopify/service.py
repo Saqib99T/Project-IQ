@@ -1,5 +1,8 @@
 """
-Shopify GraphQL Admin API client.
+Shopify GraphQL Admin API client — lives inside the extension itself (not a
+core action_server/web file) so extensions/shopify/ is self-contained: the
+whole Shopify integration's business logic is here, not spread across the
+app and merely referenced from this folder.
 
 Mirrors itsm_service.py's shape (one shared aiohttp session, a generic
 request wrapper, domain methods) but differs in two ways that matter:

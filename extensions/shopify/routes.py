@@ -2,7 +2,8 @@
 Shopify integration blueprint — per-tenant OAuth connect/callback, an inbound
 webhook receiver (order events + the three GDPR compliance topics mandatory
 for any multi-merchant app), and connection status/disconnect for the
-portal/admin UI.
+portal/admin UI. Lives inside the extension itself (not a core web/api file)
+so extensions/shopify/ is self-contained.
 
 OAuth state handling mirrors bp_auth.py's PKCE-style in-process `_pkce_store`:
 `/admin/shopify/connect` is an IAM-authenticated JSON endpoint that mints a
