@@ -1,0 +1,64 @@
+# Local dev backing services — Postgres + Redis only.
+#
+# docs/ARCHITECTURE_REVIEW.md M-09, Option A: this repo has never shipped a
+# way to stand up its own database. Today, getting a local Postgres means
+# either installing it yourself or happening to already have the sibling
+# itsm-service repo checked out and running (its docker-compose provides one,
+# since the "Chatbot" database this app uses lives in the same Postgres
+# instance as itsm-service's own itsm_db — see docs/ARCHITECTURE_REVIEW.md
+# M-01's investigation for how that's wired in production). Neither is a
+# reasonable expectation for someone who just wants to run this repo alone.
+#
+# This does NOT containerize the app itself (web API / action server / Rasa
+# core keep running directly via venv + start_local.ps1, as today) and makes
+# no claim to mirror production's real topology (systemd + nginx + gunicorn,
+# see infra/) — it only removes "go install Postgres and Redis yourself" from
+# onboarding. See the architecture review for the fuller B/C options if
+# full containerized dev or prod-parity staging ever becomes a real need.
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#   # then set PIQ_DATABASE_DB_PASSWORD=dev_password in your .env
+#   # (common/app.config.local already expects host=127.0.0.1, user=itsm_user,
+#   #  db=Chatbot — matching the values below — see .env.example)
+
+services:
+  postgres:
+    # pgvector, not plain postgres: common/vector_search.py and
+    # scripts/setup_pgvector.py need the vector extension for KB semantic
+    # search. Same image itsm-service's own docker-compose uses, so the two
+    # stay compatible if you ever do have both repos checked out.
+    image: pgvector/pgvector:pg16
+    container_name: project-iq-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: itsm_user
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_DB: Chatbot
+    ports:
+      - "5432:5432"
+    volumes:
+      - project-iq-dev-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U itsm_user -d Chatbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    # Optional in local dev (common/app.config.local: redis_enabled = false
+    # by default) — only needed if you flip that on to test Socket.IO's
+    # Redis-backed message queue or the rate limiter's Redis path.
+    image: redis:7-alpine
+    container_name: project-iq-dev-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  project-iq-dev-postgres-data:
