@@ -1,3 +1,10 @@
+# CPU-only PyTorch index. This app never trains or runs GPU inference (Rasa's
+# DIET classifier and sentence-transformers' KB embeddings both run on CPU in
+# every deployment) — the default PyPI torch wheel on Linux pulls in ~5GB of
+# nvidia-*-cu12 CUDA packages it will never use, which blew the disk quota on
+# GitHub Actions' runner ("No space left on device" mid-install).
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 # Core Framework
 rasa==3.6.20
 rasa-sdk==3.6.2
