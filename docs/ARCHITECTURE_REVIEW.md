@@ -1,9 +1,9 @@
 # Project IQ — Architecture & Code Review
 
-**Date:** 2026-08-18 (four remediation passes same day)
+**Date:** 2026-08-18 (five remediation passes same day)
 **Branch reviewed:** V3-Shopify
 **Scope:** `core/`, `action_server/`, `common/` (backend + IAM), `extensions/` + `shopify-app/` (commerce integrations), `web/` + `expo-app/` (frontends), `.github/` + `infra/` + `scripts/` + `docs/` (CI/infra/hygiene)
-**Status:** 13 resolved (one of which uncovered and fixed a live bug, another a live leaked credential), 3 reassessed (corrected, no action needed), 3 still open, 6 patterns commended
+**Status:** 14 resolved (one uncovered and fixed a live bug, another a live leaked credential, another a live production incident during its own fix), 3 reassessed (corrected, no action needed), 2 still open, 6 patterns commended
 
 An interactive version of the original findings (severity color-coding, at-a-glance counts) is also available as a published artifact; this file is the durable, versioned copy and the one that gets updated as items close.
 
@@ -13,9 +13,9 @@ An interactive version of the original findings (severity color-coding, at-a-gla
 
 | Resolved | Reassessed | Still open | Commended |
 |---|---|---|---|
-| 13 | 3 | 3 | 6 |
+| 14 | 3 | 2 | 6 |
 
-Of the 3 still open: **M-01** and **M-09** need a separate repo/deployment or a larger infra decision; **H-05** (TypeScript migration) is a large, incremental effort out of scope for a drive-by fix. **M-11** (the Apple key) is now resolved — see the fourth-pass note below. The `docs/SECURITY_SECRETS.md` items 1–5 backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords) remains completely untouched — it's outside this review's original findings and still needs a scheduled maintenance window.
+Of the 2 still open: **M-09** needs a larger infra decision; **H-05** (TypeScript migration) is a large, incremental effort out of scope for a drive-by fix. **M-01** (itsm-service's JWKS proxy) and **M-11** (the Apple key) are now resolved — see the fifth- and fourth-pass notes below. The `docs/SECURITY_SECRETS.md` items 1–5 backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords) remains completely untouched — it's outside this review's original findings and still needs a scheduled maintenance window.
 
 ---
 
@@ -57,8 +57,20 @@ Not addressed in this pass — a gradual migration, not a drop-in fix.
 
 ## Medium — worth cleaning up
 
-### ⬜ M-01 — itsm-service's JWKS proxy points at nothing — OPEN
-Lives in a separate repo/deployment (`itsm-service`, prod `.env`), not this one — needs its own session to fix safely.
+### ✅ M-01 — itsm-service's JWKS proxy points at nothing — RESOLVED
+Lives in a separate repo/deployment (`itsm-service`, prod `.env`), not this one.
+
+**Diagnosis first, not a blind fix:** the code (`app/auth/jwks.py`) already implements the same proxy → direct → bundled-fallback chain as this repo's `common/iam_service.py` — nothing wrong with the logic. Tested actual connectivity from inside the running container: direct HTTPS to the IAM JWKS endpoint succeeded in 0.17s. The SOCKS proxy (`socks5://172.21.0.1:1080`, nothing listening) wasn't solving a real problem — direct access works fine on its own.
+
+**Resolution:** removed `IAM_JWKS_PROXY` from prod's `.env` (backed up first to `.env.bak-20260818-182213`).
+
+**Applying it was not clean and is worth recording honestly.** The host's `docker-compose` is v1.29.2, which has a known compatibility bug (`KeyError: 'ContainerConfig'`) with the current Docker Engine when recreating a container — it fails, but only *after* stopping/renaming the old one, so a naive `--force-recreate` leaves the service down with no automatic rollback. This happened twice before the actual fix landed:
+1. `docker-compose up -d --force-recreate api` (no `--no-deps`) also pulled in `db` and `redis` as dependencies — Redis was stopped and left down for ~20s before caught and restarted. `db` hit a naming conflict and was never actually touched.
+2. `docker-compose up -d --force-recreate --no-deps api` correctly scoped to just `api`, but still hit the same bug — the API container was down for ~15-20s before caught and restarted (from the old, unmodified config, so the underlying fix still hadn't been applied at this point).
+
+Both recoveries were immediate (start the stopped container back up) and verified clean afterward (health checks, worker logs, no data loss). The bug's actual trigger: `docker-compose`'s recreate path tries to merge anonymous-volume config from the *existing* container, which breaks in this Engine version — this container only uses two explicit bind mounts (no anonymous volumes), so removing the old container first (`docker stop` + `docker rm`, after saving its full `docker inspect` config as a manual-recreate fallback) let a fresh `docker-compose up -d --no-deps api` create the replacement cleanly with no old container to merge against. That worked.
+
+**Verified end-to-end**, not just "container is up": the new container's env no longer has `IAM_JWKS_PROXY`; directly invoked `app.auth.jwks.refresh_jwks()` inside the running container and confirmed it populated the key cache with real keys over the direct connection; full request chain (nginx → the app) and Celery workers both confirmed healthy afterward.
 
 ### ✅ M-02 — Boolean-as-integer columns alongside real booleans — RESOLVED
 Investigating this surfaced a real, currently-live bug, not just a style inconsistency: `bp_studio_inspector.py` filtered on `c.resolved = TRUE` / `= FALSE` against `conversations.resolved`, which was `INTEGER`, not `BOOLEAN`. Postgres has no `integer = boolean` operator — confirmed by running the exact query against a real database, which raised `operator does not exist: integer = boolean`. (That filter turned out to be unreachable from the current `web/ui` frontend — `InspectorPage.jsx`'s filter state never sends the `ticket_flt` param — so it wasn't visibly breaking real users today, but it was a landmine for the first thing to call that param directly or a future UI wiring it up.)
@@ -152,11 +164,16 @@ M-03 implemented for real (read-replica routing — config existed, the routing 
 ### Fourth pass (same day): M-11
 The owner rotated the Apple key in App Store Connect (revoked `KAT7LHZC7V`, issued `VP6WWM4XHN`, updated `expo-app/eas.json`, stored the new key outside the repo) before any history was touched — rotation neutralizes the exposure; purging history without it would only hide the evidence while the old key stayed valid. History purge needed two attempts: the file had been renamed early in its history (`docs/AuthKey_KAT7LHZC7V.p8` → `docs/Backup/AuthKey_KAT7LHZC7V.p8`), and `git filter-repo --path` doesn't follow renames, so the first pass only stripped the post-rename path. Caught by verifying via blob hash rather than trusting a path search, before pushing anything. Second pass targeted both paths, verified clean, pushed to all 4 affected branches.
 
+### Fifth pass (same day): M-01
+See the M-01 section above for the full account, including two brief production incidents (Redis and the API container each down for ~15-20s) caused by a `docker-compose` 1.29.2 bug encountered while applying the fix — both caught and recovered immediately, no data loss, verified end-to-end afterward.
+
 ### What's left, roughly in order of value
 1. **`docs/SECURITY_SECRETS.md` items 1–5** — pre-existing, separately-tracked rotation backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords). Not part of this review's original findings — needs a scheduled maintenance window and live-system access this review hasn't exercised.
-2. **M-01** — itsm-service JWKS proxy fix (needs that repo/deployment).
-3. **M-09** — docker-compose for the core stack; a real infra decision (how much of prod's systemd/nginx/gunicorn topology to mirror). See proposal below.
-4. **H-05** — TypeScript migration (large, incremental). See proposed starting slice below.
+2. **M-09** — docker-compose for the core stack; a real infra decision (how much of prod's systemd/nginx/gunicorn topology to mirror). See proposal below.
+3. **H-05** — TypeScript migration (large, incremental). See proposed starting slice below.
+
+### Unrelated finding from the M-01 work: itsm-service's `docker-compose` is outdated
+v1.29.2 has a known compatibility bug with the current Docker Engine that makes `--force-recreate` unreliable on any service with anonymous volumes tied to an existing container (worked around this time by removing the old container first). Worth a deliberate upgrade to the `docker compose` v2 plugin during a maintenance window, rather than working around this bug every time a container needs recreating.
 
 ### Deploy reminder for M-02
 Whenever this branch's changes reach a database for real: run `alembic upgrade head` (or apply `12bd2020ac48` specifically) *before or with* the code deploy — the new code writes `resolved = TRUE`, which a database still on the old `INTEGER` column would reject.
