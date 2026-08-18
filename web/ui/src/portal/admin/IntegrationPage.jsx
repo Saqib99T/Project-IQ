@@ -1,32 +1,35 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import {
+    KeyRound, HardDrive, Mail, Sparkles, Webhook, MessageSquare, Puzzle,
+    Search, Database, ArrowRight, Check, Minus, Code2,
+} from 'lucide-react'
 import { useApi } from '../useApi'
 import { useItsmApi, useTenantDirectory } from '../../shared/itsm/useItsmApi'
 
-// ── Managed services (read-only "Connected" cards) ─────────────────────────────
+// ── Managed services (read-only status strip) ──────────────────────────────────
 // Status is derived from the platform config (/admin/config) — a key being set
-// means the service is wired. These are not installable; they're shown so the
-// marketplace reflects everything the platform is already integrated with.
+// means the service is wired. These aren't installable here; they're managed on
+// the Configuration page. Shown as a compact strip, not full cards — this is
+// status to glance at, not something to act on from this page.
 const MANAGED = [
-    { key: 'identity', name: 'Identity & SSO', icon: '🔐', desc: 'Keycloak single sign-on', anySet: ['keycloak_url'] },
-    { key: 'storage',  name: 'File storage',   icon: '📦', desc: 'Attachment storage (itsm-service)', anySet: ['itsm_service_url'] },
-    { key: 'email',    name: 'Email (SMTP)',   icon: '✉️', desc: 'Outbound email notifications', anySet: ['smtp_host'] },
-    { key: 'ai',       name: 'AI summaries',   icon: '🧠', desc: 'LLM-powered conversation summaries', anySet: ['llm_api_key'], anyTrue: ['llm_summary_enabled'] },
+    { key: 'identity', name: 'Identity & SSO', icon: KeyRound, desc: 'Keycloak single sign-on', anySet: ['keycloak_url'] },
+    { key: 'storage',  name: 'File storage',   icon: HardDrive, desc: 'Attachment storage (itsm-service)', anySet: ['itsm_service_url'] },
+    { key: 'email',    name: 'Email (SMTP)',   icon: Mail, desc: 'Outbound email notifications', anySet: ['smtp_host'] },
+    { key: 'ai',       name: 'AI summaries',   icon: Sparkles, desc: 'LLM-powered conversation summaries', anySet: ['llm_api_key'], anyTrue: ['llm_summary_enabled'] },
 ]
 
 // ── KB data-source connectors (link-outs) ──────────────────────────────────────
 const KB_SOURCES = [
-    { key: 'firecrawl', name: 'Firecrawl', icon: '🕷️', desc: 'Crawl & ingest websites into the knowledge base', to: '/admin/firecrawl' },
-    { key: 'kb_sources', name: 'Data sources', icon: '🔌', desc: 'Confluence, Notion, Zendesk, Jira… into the knowledge base', to: '/admin/kb' },
+    { key: 'firecrawl', name: 'Firecrawl', icon: Search, desc: 'Crawl & ingest websites into the knowledge base', to: '/admin/firecrawl' },
+    { key: 'kb_sources', name: 'Data sources', icon: Database, desc: 'Confluence, Notion, Zendesk, Jira… into the knowledge base', to: '/admin/kb' },
 ]
 
-const ICONS = { 'microsoft-teams': '💬', webhook: '🪝' }
+const ICONS = { 'microsoft-teams': MessageSquare, webhook: Webhook }
 
 function StatusBadge({ ok, okLabel = 'Connected', offLabel = 'Not configured' }) {
     return (
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ok
-            ? 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400'
-            : 'bg-gray-100 dark:bg-slate-700/50 text-gray-500 dark:text-slate-400'}`}>
+        <span className={`badge ${ok ? 'bg-success/10 text-success' : 'bg-surface2 text-fgsubtle'}`}>
             {ok ? okLabel : offLabel}
         </span>
     )
@@ -49,20 +52,24 @@ function ConfigModal({ integration, eventTypes, existing, onClose, onSave }) {
         catch (e) { setError(e.message); setSaving(false) }
     }
 
+    const Icon = ICONS[integration.icon] || Puzzle
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
             <div className="card p-6 w-full max-w-lg space-y-4" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center gap-2">
-                    <span className="text-2xl">{ICONS[integration.icon] || '🧩'}</span>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">{existing ? 'Edit' : 'Connect'} {integration.name}</h3>
+                <div className="flex items-center gap-2.5">
+                    <span className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                        <Icon className="w-4.5 h-4.5 text-primary" strokeWidth={2} />
+                    </span>
+                    <h3 className="text-base font-semibold text-fg">{existing ? 'Edit' : 'Connect'} {integration.name}</h3>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-slate-400">{integration.description}</p>
+                <p className="text-xs text-fgmuted">{integration.description}</p>
 
-                {error && <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg p-2">{error}</div>}
+                {error && <div className="text-sm text-danger bg-danger/10 rounded-lg p-2">{error}</div>}
 
                 {integration.config_schema.map(f => (
                     <div key={f.name}>
-                        <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1">
+                        <label className="block text-xs text-fgmuted mb-1">
                             {f.label}{f.required && ' *'}
                         </label>
                         <input
@@ -70,19 +77,19 @@ function ConfigModal({ integration, eventTypes, existing, onClose, onSave }) {
                             value={cfg[f.name] ?? ''}
                             placeholder={f.placeholder || ''}
                             onChange={e => setCfg(c => ({ ...c, [f.name]: e.target.value }))}
-                            className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 font-mono" />
-                        {f.name === 'secret' && <p className="text-[11px] text-gray-400 mt-1">Minimum 16 characters. Used to HMAC-sign each delivery.</p>}
+                            className="input font-mono" />
+                        {f.name === 'secret' && <p className="text-[11px] text-fgsubtle mt-1">Minimum 16 characters. Used to HMAC-sign each delivery.</p>}
                     </div>
                 ))}
 
                 <div>
-                    <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1.5">Events to deliver</label>
+                    <label className="block text-xs text-fgmuted mb-1.5">Events to deliver</label>
                     <div className="flex flex-wrap gap-2">
                         {eventTypes.map(ev => (
                             <button key={ev} onClick={() => toggleEvent(ev)}
                                 className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${events.includes(ev)
-                                    ? 'bg-blue-600 border-blue-600 text-white'
-                                    : 'border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300'}`}>
+                                    ? 'bg-primary border-primary text-primary-fg'
+                                    : 'border-bordc text-fgmuted hover:bg-surface2'}`}>
                                 {ev}
                             </button>
                         ))}
@@ -90,8 +97,8 @@ function ConfigModal({ integration, eventTypes, existing, onClose, onSave }) {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                    <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:underline">Cancel</button>
-                    <button onClick={submit} disabled={saving || !events.length} className="btn-primary disabled:opacity-50">
+                    <button onClick={onClose} className="btn-ghost">Cancel</button>
+                    <button onClick={submit} disabled={saving || !events.length} className="btn-primary">
                         {saving ? 'Saving…' : existing ? 'Save changes' : 'Connect'}
                     </button>
                 </div>
@@ -101,11 +108,10 @@ function ConfigModal({ integration, eventTypes, existing, onClose, onSave }) {
 }
 
 // ── Project IQ extensions (native — google_sheets, ms_teams, shopify) ──────────
-// Separate from the Notifications section above: that one talks to
-// itsm-service's /webhooks-config/endpoints shape (id, is_active, events).
-// This one talks to this app's own /admin/extensions/* API (config/secrets,
-// install/test/run) — different backend, different shape, so it gets its own
-// card component rather than overloading IntegrationCard for both.
+// Talks to this app's own /admin/extensions/* API (config/secrets, install/
+// test/run) — a different backend + shape than the webhook integrations above
+// (itsm-service's /webhooks-config/endpoints), so it keeps its own card/modal
+// rather than overloading one component for both action sets.
 function ExtensionConfigModal({ manifest, existing, onClose, onSave }) {
     const initial = {}
     manifest.config_schema.forEach(f => { initial[f.name] = existing?.config?.[f.name] ?? '' })
@@ -122,34 +128,72 @@ function ExtensionConfigModal({ manifest, existing, onClose, onSave }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
             <div className="card p-6 w-full max-w-lg space-y-4" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center gap-2">
-                    <span className="text-2xl">{manifest.icon}</span>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">{existing ? 'Edit' : 'Connect'} {manifest.name}</h3>
+                <div className="flex items-center gap-2.5">
+                    <span className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-lg">
+                        {manifest.icon}
+                    </span>
+                    <h3 className="text-base font-semibold text-fg">{existing ? 'Edit' : 'Connect'} {manifest.name}</h3>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-slate-400">{manifest.description}</p>
+                <p className="text-xs text-fgmuted">{manifest.description}</p>
 
-                {error && <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg p-2">{error}</div>}
+                {error && <div className="text-sm text-danger bg-danger/10 rounded-lg p-2">{error}</div>}
 
                 {manifest.config_schema.map(f => (
                     <div key={f.name}>
-                        <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1">{f.label}{f.required && ' *'}</label>
+                        <label className="block text-xs text-fgmuted mb-1">{f.label}{f.required && ' *'}</label>
                         <input
                             type={f.type === 'password' ? 'password' : (f.type === 'url' || f.type === 'number' ? f.type : 'text')}
                             value={cfg[f.name] ?? ''}
                             placeholder={f.placeholder || (f.secret && existing ? '(unchanged)' : '')}
                             onChange={e => setCfg(c => ({ ...c, [f.name]: e.target.value }))}
-                            className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 font-mono" />
+                            className="input font-mono" />
                     </div>
                 ))}
 
                 <div className="flex justify-end gap-2 pt-2">
-                    <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:underline">Cancel</button>
-                    <button onClick={submit} disabled={saving} className="btn-primary disabled:opacity-50">
+                    <button onClick={onClose} className="btn-ghost">Cancel</button>
+                    <button onClick={submit} disabled={saving} className="btn-primary">
                         {saving ? 'Saving…' : existing ? 'Save changes' : 'Connect'}
                     </button>
                 </div>
             </div>
         </div>
+    )
+}
+
+// ── One connector card — shared visual shell for both notification endpoints
+// and native extensions, which have different action sets underneath ─────────
+function ConnectorShell({ icon, name, statusBadge, description, meta, message, actions, modal }) {
+    return (
+        <div className="card p-4">
+            <div className="flex items-start gap-3">
+                <span className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-lg">
+                    {icon}
+                </span>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-semibold text-fg">{name}</h4>
+                        {statusBadge}
+                    </div>
+                    <p className="text-xs text-fgmuted mt-0.5">{description}</p>
+                    {meta && <p className="text-[11px] text-fgsubtle mt-1 font-mono truncate">{meta}</p>}
+                    {message}
+                </div>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3">{actions}</div>
+            {modal}
+        </div>
+    )
+}
+
+function ActionButton({ children, danger, ...props }) {
+    return (
+        <button {...props}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${danger
+                ? 'border-transparent text-danger hover:underline px-1'
+                : 'border-bordc text-fgmuted hover:bg-surface2'}`}>
+            {children}
+        </button>
     )
 }
 
@@ -160,17 +204,16 @@ function ExtensionCard({ manifest, install, ext, onChanged }) {
 
     // Commerce extensions (Shopify) keep their own dedicated OAuth-connect
     // page — that flow needs a real browser redirect, which a generic
-    // install-a-config-object form can't do. Link out instead of rendering
-    // install/test/run controls that wouldn't work for this kind.
+    // install-a-config-object form can't do. Link out instead.
     if (manifest.manage_url) {
         return (
-            <Link to={manifest.manage_url} className="card p-4 hover:border-blue-300 dark:hover:border-blue-500/40 transition-colors block">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2"><span className="text-xl">{manifest.icon}</span>
-                        <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100">{manifest.name}</h4></div>
-                    <span className="text-xs text-blue-600 dark:text-blue-400">Manage →</span>
+            <Link to={manifest.manage_url} className="card p-4 hover:border-primary/40 transition-colors flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-lg">{manifest.icon}</span>
+                <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-fg">{manifest.name}</h4>
+                    <p className="text-xs text-fgmuted mt-0.5">{manifest.description}</p>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">{manifest.description}</p>
+                <ArrowRight className="w-4 h-4 text-fgsubtle shrink-0" />
             </Link>
         )
     }
@@ -209,47 +252,36 @@ function ExtensionCard({ manifest, install, ext, onChanged }) {
     }
 
     return (
-        <div className="card p-4">
-            <div className="flex items-start gap-3">
-                <span className="text-2xl">{manifest.icon}</span>
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100">{manifest.name}</h4>
-                        {install && <StatusBadge ok={install.status === 'installed'} okLabel="Installed" offLabel={install.status} />}
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{manifest.description}</p>
-                    {install?.last_run_at && (
-                        <p className="text-[11px] text-gray-400 dark:text-slate-500 mt-1">Last run: {new Date(install.last_run_at).toLocaleString()}</p>
-                    )}
-                    {msg && <p className={`text-xs mt-1.5 ${msg.ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{msg.text}</p>}
-                </div>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-3">
-                {!install ? (
-                    <button onClick={() => setModal(true)} className="btn-primary text-xs px-3 py-1.5">Connect</button>
-                ) : (
-                    <>
-                        <button onClick={() => setModal(true)} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300">Configure</button>
-                        <button onClick={test} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300">Test</button>
-                        {manifest.kind === 'source' && (
-                            <button onClick={run} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300">Run now</button>
-                        )}
-                        <button onClick={remove} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:underline">Remove</button>
-                    </>
-                )}
-            </div>
-            {modal && (
+        <ConnectorShell
+            icon={manifest.icon}
+            name={manifest.name}
+            statusBadge={install && <StatusBadge ok={install.status === 'installed'} okLabel="Installed" offLabel={install.status} />}
+            description={manifest.description}
+            meta={install?.last_run_at ? `Last run: ${new Date(install.last_run_at).toLocaleString()}` : null}
+            message={msg && <p className={`text-xs mt-1.5 ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
+            actions={!install ? (
+                <button onClick={() => setModal(true)} className="btn-primary text-xs px-3 py-1.5">Connect</button>
+            ) : (
+                <>
+                    <ActionButton onClick={() => setModal(true)} disabled={busy}>Configure</ActionButton>
+                    <ActionButton onClick={test} disabled={busy}>Test</ActionButton>
+                    {manifest.kind === 'source' && <ActionButton onClick={run} disabled={busy}>Run now</ActionButton>}
+                    <ActionButton onClick={remove} disabled={busy} danger>Remove</ActionButton>
+                </>
+            )}
+            modal={modal && (
                 <ExtensionConfigModal manifest={manifest} existing={install} onClose={() => setModal(false)} onSave={save} />
             )}
-        </div>
+        />
     )
 }
 
-// ── One installable integration card ───────────────────────────────────────────
+// ── One installable notification/webhook integration ───────────────────────────
 function IntegrationCard({ integration, eventTypes, instance, api, onChanged }) {
     const [modal, setModal] = useState(false)
     const [busy, setBusy] = useState(false)
     const [testMsg, setTestMsg] = useState(null)
+    const Icon = ICONS[integration.icon] || Puzzle
 
     const save = async ({ cfg, events }) => {
         const body = { name: integration.name, url: cfg.url, events, format: integration.format, integration_key: integration.key }
@@ -280,43 +312,80 @@ function IntegrationCard({ integration, eventTypes, instance, api, onChanged }) 
     }
 
     return (
-        <div className="card p-4">
-            <div className="flex items-start gap-3">
-                <span className="text-2xl">{ICONS[integration.icon] || '🧩'}</span>
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100">{integration.name}</h4>
-                        {instance && <StatusBadge ok={instance.is_active} okLabel="Active" offLabel="Paused" />}
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{integration.description}</p>
-                    {instance && (
-                        <p className="text-[11px] text-gray-400 dark:text-slate-500 mt-1 font-mono truncate">{instance.url}</p>
-                    )}
-                    {testMsg && <p className={`text-xs mt-1.5 ${testMsg.ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{testMsg.text}</p>}
-                </div>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-3">
-                {!instance ? (
-                    <button onClick={() => setModal(true)} className="btn-primary text-xs px-3 py-1.5">Connect</button>
-                ) : (
-                    <>
-                        <button onClick={() => setModal(true)} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300">Configure</button>
-                        <button onClick={runTest} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300">Send test</button>
-                        <button onClick={toggle} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300">{instance.is_active ? 'Pause' : 'Resume'}</button>
-                        <button onClick={disconnect} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:underline">Disconnect</button>
-                    </>
-                )}
-            </div>
-            {modal && (
+        <ConnectorShell
+            icon={<Icon className="w-4.5 h-4.5 text-primary" strokeWidth={2} />}
+            name={integration.name}
+            statusBadge={instance && <StatusBadge ok={instance.is_active} okLabel="Active" offLabel="Paused" />}
+            description={integration.description}
+            meta={instance?.url}
+            message={testMsg && <p className={`text-xs mt-1.5 ${testMsg.ok ? 'text-success' : 'text-danger'}`}>{testMsg.text}</p>}
+            actions={!instance ? (
+                <button onClick={() => setModal(true)} className="btn-primary text-xs px-3 py-1.5">Connect</button>
+            ) : (
+                <>
+                    <ActionButton onClick={() => setModal(true)} disabled={busy}>Configure</ActionButton>
+                    <ActionButton onClick={runTest} disabled={busy}>Send test</ActionButton>
+                    <ActionButton onClick={toggle} disabled={busy}>{instance.is_active ? 'Pause' : 'Resume'}</ActionButton>
+                    <ActionButton onClick={disconnect} disabled={busy} danger>Disconnect</ActionButton>
+                </>
+            )}
+            modal={modal && (
                 <ConfigModal integration={integration} eventTypes={eventTypes} existing={instance}
                     onClose={() => setModal(false)} onSave={save} />
             )}
+        />
+    )
+}
+
+// ── Compact platform-status strip (was 4 full cards — this is informational,
+// not actionable, so it shouldn't compete visually with real integrations) ────
+function PlatformStatusStrip({ config }) {
+    const isSet = (m) => (m.anySet || []).some(k => config[k]) || (m.anyTrue || []).some(k => config[k] === 'true')
+    return (
+        <div className="card p-3">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                {MANAGED.map(m => {
+                    const ok = isSet(m)
+                    const Icon = m.icon
+                    return (
+                        <div key={m.key} className="flex items-center gap-1.5" title={m.desc}>
+                            <Icon className="w-3.5 h-3.5 text-fgsubtle" strokeWidth={2} />
+                            <span className="text-xs text-fgmuted">{m.name}</span>
+                            {ok
+                                ? <Check className="w-3.5 h-3.5 text-success" strokeWidth={2.5} />
+                                : <Minus className="w-3.5 h-3.5 text-fgsubtle" strokeWidth={2.5} />}
+                        </div>
+                    )
+                })}
+                <span className="text-[11px] text-fgsubtle ml-auto">Managed in Configuration</span>
+            </div>
         </div>
     )
 }
 
-// ── Marketplace tab ─────────────────────────────────────────────────────────────
-function MarketplaceTab() {
+// ── Compact knowledge-base source quick links (was 2 full cards) ──────────────
+function KbSourceLinks() {
+    return (
+        <div className="card divide-y divide-bordc">
+            {KB_SOURCES.map(s => {
+                const Icon = s.icon
+                return (
+                    <Link key={s.key} to={s.to} className="flex items-center gap-3 px-4 py-3 hover:bg-surface2 transition-colors first:rounded-t-2xl last:rounded-b-2xl">
+                        <Icon className="w-4 h-4 text-fgsubtle shrink-0" strokeWidth={2} />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-fg">{s.name}</p>
+                            <p className="text-xs text-fgmuted truncate">{s.desc}</p>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-fgsubtle shrink-0" />
+                    </Link>
+                )
+            })}
+        </div>
+    )
+}
+
+// ── Integrations tab ─────────────────────────────────────────────────────────
+function IntegrationsTab() {
     const { call } = useApi()
     const ext = useMemo(() => ({
         get:    (path)       => call(path),
@@ -366,7 +435,7 @@ function MarketplaceTab() {
     // Excludes managed_by === 'itsm-service' entries — those are the SAME
     // Teams/webhook integrations already shown above via /integrations/catalog,
     // merged into this endpoint for API consumers that want one list; showing
-    // them again here would duplicate the Notifications section's cards.
+    // them again here would duplicate the notification cards.
     useEffect(() => {
         ext.get('/admin/extensions/catalog')
             .then(d => setExtCatalog((d.extensions || []).filter(e => e.managed_by !== 'itsm-service')))
@@ -383,49 +452,41 @@ function MarketplaceTab() {
 
     const installable = (catalog || []).filter(i => i.kind === 'outbound_webhook')
     const instanceFor = (key) => endpoints.find(e => e.integration_key === key)
-    const isManagedSet = (m) => (m.anySet || []).some(k => config[k]) || (m.anyTrue || []).some(k => config[k] === 'true')
     const installFor = (id) => extInstalls.find(i => i.extension_id === id)
+    const loaded = catalog && extCatalog
+    const nothingInstalled = loaded && installable.length === 0 && extCatalog.length === 0
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             {err && <div className="card p-3 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm">{err}</div>}
 
-            {/* Notifications */}
+            {/* One unified grid for everything connectable — notifications and
+                native extensions are different backends underneath, but to
+                someone scanning this page they're the same idea: "things I can
+                connect". Splitting them into two full sections with their own
+                headers doubled the visual weight for no real benefit. */}
             <section className="space-y-3">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Notifications</h3>
-                        <p className="text-xs text-gray-500 dark:text-slate-400">Deliver ticket, asset & knowledge-base events to your tools.</p>
+                        <h3 className="text-sm font-semibold text-fg">Connect a tool</h3>
+                        <p className="text-xs text-fgmuted">Deliver events to chat/webhooks, pull in content, or connect a commerce provider.</p>
                     </div>
                     {tenantList.length > 0 && (
-                        <select value={tenantId || ''} onChange={e => setTenantId(e.target.value)}
-                            className="border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100">
+                        <select value={tenantId || ''} onChange={e => setTenantId(e.target.value)} className="select w-auto text-sm">
                             {tenantList.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
                         </select>
                     )}
                 </div>
-                {!catalog ? (
-                    <div className="text-sm text-gray-400 py-6 text-center">Loading…</div>
+                {!loaded ? (
+                    <div className="text-sm text-fgsubtle py-10 text-center">Loading…</div>
+                ) : nothingInstalled ? (
+                    <div className="card p-8 text-center text-sm text-fgmuted">Nothing available to connect yet.</div>
                 ) : (
-                    <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
                         {installable.map(i => (
                             <IntegrationCard key={i.key} integration={i} eventTypes={eventTypes}
                                 instance={instanceFor(i.key)} api={itsm} onChanged={loadEndpoints} />
                         ))}
-                    </div>
-                )}
-            </section>
-
-            {/* Project IQ extensions (native — google_sheets, ms_teams, shopify) */}
-            <section className="space-y-3">
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Extensions</h3>
-                    <p className="text-xs text-gray-500 dark:text-slate-400">Pull data in or connect commerce providers — built into Project IQ, not itsm-service.</p>
-                </div>
-                {!extCatalog ? (
-                    <div className="text-sm text-gray-400 py-6 text-center">Loading…</div>
-                ) : (
-                    <div className="grid sm:grid-cols-2 gap-3">
                         {extCatalog.map(m => (
                             <ExtensionCard key={m.id} manifest={m} install={installFor(m.id)} ext={ext} onChanged={loadExtInstalls} />
                         ))}
@@ -433,56 +494,29 @@ function MarketplaceTab() {
                 )}
             </section>
 
-            {/* Connected (managed) */}
-            <section className="space-y-3">
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Connected services</h3>
-                    <p className="text-xs text-gray-500 dark:text-slate-400">Platform services wired at deployment — managed in Configuration.</p>
-                </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {MANAGED.map(m => (
-                        <div key={m.key} className="card p-4">
-                            <div className="flex items-center gap-2"><span className="text-xl">{m.icon}</span>
-                                <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100">{m.name}</h4></div>
-                            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 mb-2">{m.desc}</p>
-                            <StatusBadge ok={isManagedSet(m)} />
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            {/* KB data sources */}
-            <section className="space-y-3">
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Knowledge base sources</h3>
-                    <p className="text-xs text-gray-500 dark:text-slate-400">Bring external content into the knowledge base.</p>
-                </div>
-                <div className="grid sm:grid-cols-2 gap-3">
-                    {KB_SOURCES.map(s => (
-                        <Link key={s.key} to={s.to} className="card p-4 hover:border-blue-300 dark:hover:border-blue-500/40 transition-colors block">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2"><span className="text-xl">{s.icon}</span>
-                                    <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100">{s.name}</h4></div>
-                                <span className="text-xs text-blue-600 dark:text-blue-400">Configure →</span>
-                            </div>
-                            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">{s.desc}</p>
-                        </Link>
-                    ))}
-                </div>
-            </section>
+            <div className="grid md:grid-cols-2 gap-4">
+                <section className="space-y-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-fgsubtle">Knowledge base sources</h3>
+                    <KbSourceLinks />
+                </section>
+                <section className="space-y-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-fgsubtle">Platform status</h3>
+                    <PlatformStatusStrip config={config} />
+                </section>
+            </div>
         </div>
     )
 }
 
-// ── Widget embed tab (the original generator, preserved) ────────────────────────
+// ── Widget embed tab (unchanged behavior, restyled to match) ────────────────────
 function CodeBlock({ code }) {
     const [copied, setCopied] = useState(false)
     const copy = () => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000) }
     return (
-        <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700">
+        <div className="relative rounded-xl overflow-hidden border border-bordc">
             <div className="flex items-center justify-between px-4 py-2 bg-gray-900">
-                <span className="text-xs text-gray-400 dark:text-slate-500">HTML embed code</span>
-                <button onClick={copy} className="text-xs text-gray-400 dark:text-slate-500 hover:text-white transition-colors">{copied ? '✓ Copied' : 'Copy'}</button>
+                <span className="text-xs text-slate-400 flex items-center gap-1.5"><Code2 className="w-3.5 h-3.5" /> HTML embed code</span>
+                <button onClick={copy} className="text-xs text-slate-400 hover:text-white transition-colors">{copied ? '✓ Copied' : 'Copy'}</button>
             </div>
             <pre className="bg-gray-950 text-green-400 text-xs p-4 overflow-x-auto whitespace-pre-wrap font-mono leading-relaxed">{code}</pre>
         </div>
@@ -522,44 +556,40 @@ function EmbedTab() {
     return (
         <div className="max-w-3xl space-y-6">
             <div className="card p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Widget configuration</h3>
+                <h3 className="text-sm font-semibold text-fg">Widget configuration</h3>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1">Widget title</label>
-                        <input value={title} onChange={e => setTitle(e.target.value)}
-                            className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40" />
+                        <label className="block text-xs text-fgmuted mb-1">Widget title</label>
+                        <input value={title} onChange={e => setTitle(e.target.value)} className="input" />
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1">App ID</label>
-                        <input value={appId} onChange={e => setAppId(e.target.value)}
-                            className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40" />
+                        <label className="block text-xs text-fgmuted mb-1">App ID</label>
+                        <input value={appId} onChange={e => setAppId(e.target.value)} className="input" />
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1">Theme colour</label>
+                        <label className="block text-xs text-fgmuted mb-1">Theme colour</label>
                         <div className="flex gap-2 items-center">
                             <input type="color" value={themeColor} onChange={e => setThemeColor(e.target.value)}
-                                className="h-9 w-14 border border-gray-200 dark:border-slate-700 rounded-lg cursor-pointer" />
-                            <input value={themeColor} onChange={e => setThemeColor(e.target.value)}
-                                className="flex-1 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 font-mono" />
+                                className="h-9 w-14 border border-bordc rounded-lg cursor-pointer" />
+                            <input value={themeColor} onChange={e => setThemeColor(e.target.value)} className="input font-mono" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1">Server URL</label>
-                        <input value={serverUrl} onChange={e => setServerUrl(e.target.value)}
-                            className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:dark:ring-blue-400/40 font-mono" />
+                        <label className="block text-xs text-fgmuted mb-1">Server URL</label>
+                        <input value={serverUrl} onChange={e => setServerUrl(e.target.value)} className="input font-mono" />
                     </div>
                 </div>
             </div>
 
             <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Web Component embed (recommended)</h3>
-                <p className="text-xs text-gray-500 dark:text-slate-400">Paste this snippet into any HTML page. The widget renders as a floating button.</p>
+                <h3 className="text-sm font-semibold text-fg">Web Component embed (recommended)</h3>
+                <p className="text-xs text-fgmuted">Paste this snippet into any HTML page. The widget renders as a floating button.</p>
                 <CodeBlock code={embedCode} />
             </div>
 
             <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">iframe embed</h3>
-                <p className="text-xs text-gray-500 dark:text-slate-400">Use this if Web Components are blocked. The widget renders inside a fixed-size frame.</p>
+                <h3 className="text-sm font-semibold text-fg">iframe embed</h3>
+                <p className="text-xs text-fgmuted">Use this if Web Components are blocked. The widget renders inside a fixed-size frame.</p>
                 <CodeBlock code={iframeCode} />
             </div>
         </div>
@@ -568,25 +598,25 @@ function EmbedTab() {
 
 // ── Page ────────────────────────────────────────────────────────────────────────
 export default function IntegrationPage() {
-    const [tab, setTab] = useState('marketplace')
-    const tabs = [['marketplace', 'Marketplace'], ['embed', 'Widget embed']]
+    const [tab, setTab] = useState('integrations')
+    const tabs = [['integrations', 'Integrations'], ['embed', 'Widget embed']]
     return (
         <div className="max-w-5xl space-y-6">
             <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Integrations</h2>
-                <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Connect Project IQ to your tools and embed the chat widget.</p>
+                <h2 className="text-xl font-semibold text-fg">Integrations</h2>
+                <p className="text-sm text-fgmuted mt-0.5">Connect Project IQ to your tools and embed the chat widget.</p>
             </div>
-            <div className="flex gap-1 border-b border-gray-200 dark:border-slate-700">
+            <div className="flex gap-1 border-b border-bordc">
                 {tabs.map(([id, label]) => (
                     <button key={id} onClick={() => setTab(id)}
                         className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${tab === id
-                            ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                            : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}>
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-fgmuted hover:text-fg'}`}>
                         {label}
                     </button>
                 ))}
             </div>
-            {tab === 'marketplace' ? <MarketplaceTab /> : <EmbedTab />}
+            {tab === 'integrations' ? <IntegrationsTab /> : <EmbedTab />}
         </div>
     )
 }

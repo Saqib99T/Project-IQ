@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+    Server, Container, Stethoscope, Plug, FileText, Link2, Search,
+    RefreshCw, Loader2,
+} from 'lucide-react'
 import { useApi } from '../useApi'
 
 // ── Status pill ────────────────────────────────────────────────────────────────
 function Pill({ ok, children }) {
-    const cls = ok === true
-        ? 'bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-400'
-        : ok === false
-            ? 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400'
-            : 'bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400'
-    const dot = ok === true ? 'bg-green-500' : ok === false ? 'bg-red-500' : 'bg-gray-400'
+    const cls = ok === true ? 'bg-success/10 text-success'
+        : ok === false ? 'bg-danger/10 text-danger'
+            : 'bg-surface2 text-fgsubtle'
+    const dot = ok === true ? 'bg-success' : ok === false ? 'bg-danger' : 'bg-fgsubtle'
     return (
         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
@@ -18,16 +20,14 @@ function Pill({ ok, children }) {
 }
 
 function Row({ name, info, ok }) {
-    const pill = ok === true
-        ? 'bg-green-100 text-green-700 dark:bg-emerald-500/15 dark:text-emerald-400'
-        : ok === false
-            ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400'
-            : 'bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400'
-    const dot = ok === true ? 'bg-green-500' : ok === false ? 'bg-red-500' : 'bg-gray-400'
+    const pill = ok === true ? 'bg-success/10 text-success'
+        : ok === false ? 'bg-danger/10 text-danger'
+            : 'bg-surface2 text-fgsubtle'
+    const dot = ok === true ? 'bg-success' : ok === false ? 'bg-danger' : 'bg-fgsubtle'
     return (
-        <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 dark:border-slate-800 last:border-0" title={info}>
-            <span className="text-xs text-gray-800 dark:text-slate-200 truncate flex-1">{name}</span>
-            {info && <span className="text-[10px] text-gray-400 dark:text-slate-500 truncate max-w-[38%] text-right shrink-0">{info}</span>}
+        <div className="flex items-center gap-2 py-1.5 border-b border-bordc/60 last:border-0" title={info}>
+            <span className="text-xs text-fg truncate flex-1">{name}</span>
+            {info && <span className="text-[10px] text-fgsubtle truncate max-w-[38%] text-right shrink-0">{info}</span>}
             <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold shrink-0 ${pill}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${dot} ${ok === true ? 'animate-pulse' : ''}`} />
                 {ok === true ? 'Up' : ok === false ? 'Down' : '—'}
@@ -92,19 +92,24 @@ function ServicesPanel({ call, registerRefresh }) {
         return () => clearInterval(pollRef.current)
     }, [refresh])
 
-    if (error) return <div className="card p-4 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 text-sm">{error}</div>
-    if (!data) return <div className="flex justify-center py-16"><div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>
+    if (error) return <div className="card p-4 bg-danger/10 text-danger text-sm">{error}</div>
+    if (!data) return (
+        <div className="flex justify-center py-16">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" strokeWidth={2} />
+        </div>
+    )
 
     const services   = data.services   || []
     const containers = data.containers || []
     const health     = data.health     || []
     const ports      = data.ports      || []
 
-    const Card = ({ icon, title, count, children }) => (
+    const Card = ({ icon: Icon, title, count, children }) => (
         <div className="card p-4">
-            <h3 className="text-xs font-semibold text-gray-700 dark:text-slate-300 mb-2.5 flex items-center gap-1.5">
-                <span>{icon}</span> {title}
-                <span className="ml-auto text-[10px] font-normal text-gray-400 dark:text-slate-500">{count}</span>
+            <h3 className="text-xs font-semibold text-fgmuted mb-2.5 flex items-center gap-1.5">
+                <Icon className="w-3.5 h-3.5 text-fgsubtle" strokeWidth={2} />
+                {title}
+                <span className="ml-auto text-[10px] font-normal text-fgsubtle tabular-nums">{count}</span>
             </h3>
             {children}
         </div>
@@ -113,13 +118,13 @@ function ServicesPanel({ call, registerRefresh }) {
     return (
         <div className="space-y-3">
             <div className="flex justify-end -mt-1">
-                <span className="text-[10px] text-gray-400 dark:text-slate-500">
+                <span className="text-[10px] text-fgsubtle">
                     {updatedAt ? `Updated ${updatedAt.toLocaleTimeString()}` : ''} · auto every 1 min
                 </span>
             </div>
 
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-                <Card icon="⚙️" title="System services" count={services.length}>
+                <Card icon={Server} title="System services" count={services.length}>
                     {services.map(s => (
                         <Row key={s.name} name={SERVICE_LABELS[s.name] || s.name} ok={s.ok}
                             info={[s.uptime && s.uptime !== 'n/a' ? s.uptime : null,
@@ -127,11 +132,11 @@ function ServicesPanel({ call, registerRefresh }) {
                     ))}
                 </Card>
 
-                <Card icon="🐳" title="Containers" count={containers.length}>
-                    {containers.length === 0 && <p className="text-[10px] text-gray-400 dark:text-slate-500 py-2">None.</p>}
+                <Card icon={Container} title="Containers" count={containers.length}>
+                    {containers.length === 0 && <p className="text-[10px] text-fgsubtle py-2">None.</p>}
                     {groupContainers(containers).map(g => (
                         <div key={g.name} className="mt-2 first:mt-0">
-                            <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-0.5">{g.name}</div>
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-fgsubtle mb-0.5">{g.name}</div>
                             {g.items.map(c => (
                                 <Row key={c.name} name={c.label} ok={c.ok} info={c.status} />
                             ))}
@@ -139,13 +144,13 @@ function ServicesPanel({ call, registerRefresh }) {
                     ))}
                 </Card>
 
-                <Card icon="🩺" title="Health checks" count={health.length}>
+                <Card icon={Stethoscope} title="Health checks" count={health.length}>
                     {health.map(h => (
                         <Row key={h.name} name={h.name} ok={h.ok} info={h.detail} />
                     ))}
                 </Card>
 
-                <Card icon="🔌" title="Listening ports" count={ports.length}>
+                <Card icon={Plug} title="Listening ports" count={ports.length}>
                     {ports.map(p => (
                         <Row key={p.port} name={`:${p.port}`} info={p.label} ok={p.ok} />
                     ))}
@@ -161,7 +166,7 @@ const LEVEL_CLASS = (line) => {
     if (u.includes(' ERROR') || u.includes('ERROR ') || u.includes('TRACEBACK') || u.includes('CRITICAL')) return 'text-red-400'
     if (u.includes('WARN')) return 'text-amber-400'
     if (u.includes(' INFO')) return 'text-emerald-400'
-    return 'text-gray-300 dark:text-slate-400'
+    return 'text-slate-300'
 }
 
 // Strip the noisy log prefix → { time: 'HH:MM:SS', msg }.
@@ -265,15 +270,15 @@ function LogsPanel({ call, registerRefresh }) {
                 {groupSources(sources).map((grp, gi) => (
                     <div key={gi} className="flex flex-col gap-1">
                         {grp.name && (
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 px-0.5">{grp.name}</span>
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-fgsubtle px-0.5">{grp.name}</span>
                         )}
                         <div className="flex gap-1">
                             {grp.items.map(s => (
                                 <button key={s.key} onClick={() => setSource(s.key)} title={s.kind}
                                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
                                         source === s.key
-                                            ? 'bg-blue-600 text-white border-blue-600'
-                                            : 'bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300 border-gray-200 dark:border-slate-700 hover:border-blue-300'
+                                            ? 'bg-primary text-primary-fg border-primary'
+                                            : 'bg-surface text-fgmuted border-bordc hover:border-primary/40'
                                     }`}>
                                     {s.label}
                                 </button>
@@ -285,46 +290,45 @@ function LogsPanel({ call, registerRefresh }) {
                 {/* Search + line count + auto — inline, right after the last tab */}
                 <div className="flex items-center gap-2 flex-1 min-w-[260px]">
                     <div className="relative flex-1 min-w-[150px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fgsubtle" strokeWidth={2} />
                         <input
                             type="text"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder="Search this log…"
-                            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="input pl-9"
                         />
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
                     </div>
-                    <select value={lines} onChange={e => setLines(Number(e.target.value))}
-                        className="text-sm border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-gray-700 dark:text-slate-300">
+                    <select value={lines} onChange={e => setLines(Number(e.target.value))} className="select w-auto">
                         {[100, 200, 400, 800, 1500].map(n => <option key={n} value={n}>{n} lines</option>)}
                     </select>
-                    <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-slate-300 px-2 whitespace-nowrap">
+                    <label className="flex items-center gap-1.5 text-sm text-fgmuted px-2 whitespace-nowrap">
                         <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
                         Auto (1m)
                     </label>
                 </div>
             </div>
 
-            {error && <div className="card p-3 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 text-sm">{error}</div>}
+            {error && <div className="card p-3 bg-danger/10 text-danger text-sm">{error}</div>}
 
             {/* Viewer (no header bar) */}
             <div className="card overflow-hidden">
-                <div ref={viewRef} className="bg-gray-900 px-4 py-3 h-[60vh] overflow-y-auto font-mono text-xs leading-relaxed">
+                <div ref={viewRef} className="bg-slate-950 px-4 py-3 h-[60vh] overflow-y-auto font-mono text-xs leading-relaxed">
                     {note && <p className="text-amber-400 mb-2">{note}</p>}
                     {loading && logLines.length === 0 && !note && (
-                        <div className="flex items-center gap-2 text-gray-400">
-                            <span className="w-3.5 h-3.5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+                        <div className="flex items-center gap-2 text-slate-400">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} />
                             Loading logs…
                         </div>
                     )}
                     {!loading && logLines.length === 0 && !note && (
-                        <p className="text-gray-500">No log lines.</p>
+                        <p className="text-slate-500">No log lines.</p>
                     )}
                     {logLines.map((l, i) => {
                         const { time, msg } = cleanLogLine(l)
                         return (
                             <div key={i} className="flex gap-3 whitespace-pre-wrap break-all">
-                                {time && <span className="text-gray-500 shrink-0 select-none">{time}</span>}
+                                {time && <span className="text-slate-500 shrink-0 select-none">{time}</span>}
                                 <span className={LEVEL_CLASS(msg)}>{msg}</span>
                             </div>
                         )
@@ -365,7 +369,7 @@ function TracePanel({ call, registerRefresh }) {
     const levelColor = (lvl) => ({
         ERROR: 'text-red-400', CRITICAL: 'text-red-400',
         WARNING: 'text-amber-400', INFO: 'text-emerald-400',
-    }[lvl] || 'text-gray-300 dark:text-slate-400')
+    }[lvl] || 'text-slate-400')
 
     return (
         <div className="space-y-3">
@@ -375,37 +379,35 @@ function TracePanel({ call, registerRefresh }) {
                     onChange={e => setReqId(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && run()}
                     placeholder="Paste a request ID (X-Request-ID)…"
-                    className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input flex-1 font-mono"
                 />
-                <button onClick={run}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                    disabled={loading || !reqId.trim()}>Trace</button>
+                <button onClick={run} disabled={loading || !reqId.trim()} className="btn-primary">Trace</button>
             </div>
-            <p className="text-[11px] text-gray-400 dark:text-slate-500">
-                Find an ID in the <b>Logs</b> tab (<code>req=…</code>) or the <code>X-Request-ID</code> response header.
+            <p className="text-[11px] text-fgsubtle">
+                Find an ID in the <b className="text-fgmuted">Logs</b> tab (<code>req=…</code>) or the <code>X-Request-ID</code> response header.
             </p>
 
-            {error && <div className="card p-3 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 text-sm">{error}</div>}
+            {error && <div className="card p-3 bg-danger/10 text-danger text-sm">{error}</div>}
 
             <div className="card overflow-hidden">
-                <div className="bg-gray-900 px-4 py-3 h-[60vh] overflow-y-auto font-mono text-xs leading-relaxed">
+                <div className="bg-slate-950 px-4 py-3 h-[60vh] overflow-y-auto font-mono text-xs leading-relaxed">
                     {loading && (
-                        <div className="flex items-center gap-2 text-gray-400">
-                            <span className="w-3.5 h-3.5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+                        <div className="flex items-center gap-2 text-slate-400">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} />
                             Tracing…
                         </div>
                     )}
-                    {!loading && entries === null && <p className="text-gray-500">Enter a request ID to reconstruct its trace.</p>}
-                    {!loading && entries && entries.length === 0 && <p className="text-gray-500">No log entries found for that request ID.</p>}
+                    {!loading && entries === null && <p className="text-slate-500">Enter a request ID to reconstruct its trace.</p>}
+                    {!loading && entries && entries.length === 0 && <p className="text-slate-500">No log entries found for that request ID.</p>}
                     {!loading && entries && entries.length > 0 && (
                         <>
-                            <p className="text-gray-400 mb-2">{count} entries across services</p>
+                            <p className="text-slate-400 mb-2">{count} entries across services</p>
                             {entries.map((e, i) => (
                                 <div key={i} className="flex gap-3 whitespace-pre-wrap break-all py-0.5">
-                                    <span className="text-gray-500 shrink-0 select-none">{(e.timestamp || '').slice(11, 23)}</span>
+                                    <span className="text-slate-500 shrink-0 select-none">{(e.timestamp || '').slice(11, 23)}</span>
                                     <span className="inline-block px-1.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-200 shrink-0 self-center">{e.source}</span>
                                     <span className={`${levelColor(e.level)} shrink-0 w-14`}>{e.level}</span>
-                                    <span className="text-gray-300 dark:text-slate-400">
+                                    <span className="text-slate-400">
                                         {e.logger ? `${e.logger.split('.').pop()}: ` : ''}{e.message}
                                     </span>
                                 </div>
@@ -427,32 +429,38 @@ export default function DiagnosticsPage() {
     const registerRefresh = useCallback((fn) => { refreshRef.current = fn }, [])
 
     const TABS = [
-        { key: 'services', label: 'Services', icon: '🖥️' },
-        { key: 'logs',     label: 'Logs',     icon: '📋' },
-        { key: 'trace',    label: 'Trace',    icon: '🔗' },
+        { key: 'services', label: 'Services', icon: Server },
+        { key: 'logs',     label: 'Logs',     icon: FileText },
+        { key: 'trace',    label: 'Trace',    icon: Link2 },
     ]
 
     return (
         <div className="max-w-6xl space-y-4">
             <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Diagnostics</h2>
-                <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Server services, container states, and live logs</p>
+                <h2 className="text-xl font-semibold text-fg">Diagnostics</h2>
+                <p className="text-sm text-fgmuted mt-0.5">Server services, container states, and live logs</p>
             </div>
 
             {/* Tabs (underline) on the left · Refresh button pinned right */}
-            <div className="flex items-center gap-1 border-b border-gray-200 dark:border-slate-800">
-                {TABS.map(t => (
-                    <button key={t.key} onClick={() => setTab(t.key)}
-                        className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
-                            tab === t.key
-                                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                                : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
-                        }`}>
-                        <span className="mr-1.5">{t.icon}</span>{t.label}
-                    </button>
-                ))}
+            <div className="flex items-center gap-1 border-b border-bordc">
+                {TABS.map(t => {
+                    const Icon = t.icon
+                    return (
+                        <button key={t.key} onClick={() => setTab(t.key)}
+                            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+                                tab === t.key
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-fgmuted hover:text-fg'
+                            }`}>
+                            <Icon className="w-3.5 h-3.5" strokeWidth={2} />
+                            {t.label}
+                        </button>
+                    )
+                })}
                 <button onClick={() => refreshRef.current?.()}
-                    className="btn-ghost border border-gray-200 dark:border-slate-700 text-sm px-3 py-1.5 ml-auto mb-1">↻ Refresh</button>
+                    className="btn-ghost border border-bordc text-sm px-3 py-1.5 ml-auto mb-1 flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5" strokeWidth={2} /> Refresh
+                </button>
             </div>
 
             {tab === 'services' && <ServicesPanel call={call} registerRefresh={registerRefresh} />}
