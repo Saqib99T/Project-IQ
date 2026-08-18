@@ -60,7 +60,8 @@ def register_blueprints(app: Flask) -> None:
     from web.api.blueprints.bp_sessions         import bp as bp_sessions
     from web.api.blueprints.bp_notifications    import bp as bp_notifications
     from web.api.blueprints.bp_ticket_attachment  import bp as bp_ticket_attachment
-    from web.api.blueprints.bp_portal_api         import bp as bp_portal_api
+    from web.api.blueprints.bp_portal_operator    import bp as bp_portal_operator
+    from web.api.blueprints.bp_portal_admin       import bp as bp_portal_admin
     from web.api.blueprints.bp_itsm_proxy         import bp as bp_itsm_proxy
     from web.api.blueprints.bp_storage_proxy       import bp as bp_storage_proxy
     from web.api.blueprints.bp_demo                import bp as bp_demo
@@ -72,7 +73,8 @@ def register_blueprints(app: Flask) -> None:
     from extensions import list_route_blueprints
 
     # Register in dependency order — most specific first to avoid catch-all conflicts
-    app.register_blueprint(bp_portal_api)
+    app.register_blueprint(bp_portal_operator)
+    app.register_blueprint(bp_portal_admin)
     app.register_blueprint(bp_itsm_proxy)
     app.register_blueprint(bp_storage_proxy)
     app.register_blueprint(bp_ticket_attachment)
@@ -86,7 +88,9 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(bp_user_api)
     app.register_blueprint(bp_chat)
     # bp_operator (operator-JWT /operator/* API) retired — the console runs
-    # entirely on the IAM token via bp_portal_api (Q2 phase 1b consolidation).
+    # entirely on the IAM token via bp_portal_operator/bp_portal_admin
+    # (Q2 phase 1b consolidation; split into two files 2026-08-18, see
+    # docs/ARCHITECTURE_REVIEW.md H-04 — same url_prefix, same routes).
     app.register_blueprint(bp_internal)
     app.register_blueprint(bp_admin_ops)
     app.register_blueprint(bp_sessions)
