@@ -378,18 +378,26 @@ class ActionTrackConfidence(Action):
         events = []
 
         # ── Confidence streak ──────────────────────────────────────────
+        # Unifies two signals into one streak (KB_WIKI_CURATION_RAG_PLAN Phase 4):
+        # low NLU intent confidence (the classifier is unsure what was asked) and
+        # a KB search miss (the classifier was confident, but there was no
+        # answer) — previously two disjoint, uncoordinated confidence checks.
         confidence = 0.0
         try:
             confidence = tracker.latest_message.get('intent', {}).get('confidence', 1.0)
         except Exception:
             confidence = 1.0
 
+        kb_missed = bool(tracker.get_slot('kb_search_missed'))
+
         current_streak = int(tracker.get_slot('low_conf_streak') or 0)
-        if confidence < conf_threshold:
+        if confidence < conf_threshold or kb_missed:
             new_streak = current_streak + 1
         else:
             new_streak = 0
         events.append(SlotSet('low_conf_streak', float(new_streak)))
+        # Consume the KB-miss flag — one-shot per miss, not sticky across turns.
+        events.append(SlotSet('kb_search_missed', False))
 
         # ── Frustration score ──────────────────────────────────────────
         user_text = tracker.latest_message.get('text', '') or ''

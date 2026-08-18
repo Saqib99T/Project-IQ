@@ -40,7 +40,8 @@ def _read_itsm_articles() -> list:
                    a.title,
                    a.body,
                    a.excerpt,
-                   COALESCE(c.name, 'General') AS category
+                   COALESCE(c.name, 'General') AS category,
+                   a.tenant_id::text AS org_id
             FROM kb_articles a
             LEFT JOIN kb_categories c ON c.id = a.category_id
             WHERE a.status = 'published'
@@ -72,9 +73,9 @@ def sync_kb_from_itsm(rebuild_index: bool = True) -> int:
         for r in rows:
             content = (r.get("body") or r.get("excerpt") or "").strip()
             cur.execute(
-                "INSERT INTO kb_articles (id, title, category, keywords, question, content, created_at, updated_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())",
-                (r["id"], r["title"], r.get("category") or "General", None, None, content),
+                "INSERT INTO kb_articles (id, title, category, keywords, question, content, org_id, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())",
+                (r["id"], r["title"], r.get("category") or "General", None, None, content, r.get("org_id")),
             )
         conn.commit()
         logger.info(f"[KB sync] mirrored {len(rows)} articles from itsm-service into local kb_articles")

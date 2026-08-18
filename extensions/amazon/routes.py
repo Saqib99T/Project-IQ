@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('amazon', __name__)
 
 _oauth_state_store: dict = {}
+_OAUTH_STATE_TTL_SECONDS = 600  # 10 min — a little slack over spapi_oauth_code's own 5-min expiry
 
 
 def _cfg() -> dict:
@@ -79,6 +80,9 @@ def amazon_callback():
     state = args.get('state')
     entry = _oauth_state_store.pop(state, None) if state else None
     if not entry:
+        return redirect('/portal/admin/amazon?amazon_error=invalid_state')
+    if time.time() - entry['created_at'] > _OAUTH_STATE_TTL_SECONDS:
+        logger.warning("[Amazon] OAuth callback with expired state for org %s", entry.get('org_id'))
         return redirect('/portal/admin/amazon?amazon_error=invalid_state')
 
     code = args.get('spapi_oauth_code')

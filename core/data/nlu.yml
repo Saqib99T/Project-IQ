@@ -1301,6 +1301,21 @@ nlu:
     - Where is my shipment?
     - I want to track a package
 
+# CHECK AMAZON ORDER STATUS (read-only)
+- intent: check_amazon_order_status
+  examples: |
+    - Where is my Amazon order [112-1234567-1234567](order_number)?
+    - What's the status of my Amazon order [123-4567890-1234567](order_number)?
+    - Track my Amazon order [112-9876543-9876543](order_number)
+    - Can you check my Amazon order number [123-1111111-1111111](order_number)?
+    - Has my Amazon order shipped yet?
+    - Where's my Amazon package?
+    - I want to know the status of my Amazon order
+    - Can you look up my Amazon order for me?
+    - Track my Amazon package
+    - Is my Amazon order out for delivery?
+    - When will my Amazon order arrive?
+
 # REQUEST REFUND (Shopify)
 - intent: request_refund
   examples: |

@@ -176,6 +176,12 @@ def _init_database():
                 searched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )""",
             "CREATE INDEX IF NOT EXISTS idx_kb_gaps_time ON kb_search_gaps(searched_at DESC)",
+            # KB_WIKI_CURATION_RAG_PLAN Phase 5 — org/product scoping (denormalized,
+            # same convention as kb_articles.org_id) + processed-marker so
+            # itsm-service's gap-clustering job doesn't redraft the same gaps.
+            "ALTER TABLE kb_search_gaps ADD COLUMN IF NOT EXISTS org_id TEXT",
+            "ALTER TABLE kb_search_gaps ADD COLUMN IF NOT EXISTS product_id TEXT",
+            "ALTER TABLE kb_search_gaps ADD COLUMN IF NOT EXISTS curation_article_id TEXT",
             # Ticket → sender_id mapping (populated when ticket created through our app)
             """CREATE TABLE IF NOT EXISTS ticket_senders (
                 glpi_ticket_id INTEGER PRIMARY KEY,
@@ -244,6 +250,13 @@ def _init_database():
             # operators — org membership + channel scope
             "ALTER TABLE operators ADD COLUMN IF NOT EXISTS org_id  TEXT",
             "ALTER TABLE operators ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'internal'",
+
+            # kb_articles / kb_chunks — org scoping (NULL = shared/global article,
+            # same convention as canned_responses). kb_chunks carries its own copy
+            # (not just a join back to kb_articles) so the pgvector search query
+            # can filter directly without a join.
+            "ALTER TABLE kb_articles ADD COLUMN IF NOT EXISTS org_id TEXT",
+            "ALTER TABLE kb_chunks   ADD COLUMN IF NOT EXISTS org_id TEXT",
 
             # Canned responses / macros — operator saved replies (org-scoped;
             # org_id NULL = shared across tenants). Free co-pilot feature, no LLM.
@@ -324,6 +337,18 @@ def _init_database():
                 uninstalled_at            TIMESTAMPTZ,
                 updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )""",
+
+            # Amazon Notifications API event log (docs/AMAZON_INTEGRATION_PLAN.md
+            # Phase 4, scaffolding — see extensions/amazon/notifications.py's
+            # module docstring: unvalidated against live SP-API). Audit trail
+            # only for now, not wired to any proactive customer-facing behavior.
+            """CREATE TABLE IF NOT EXISTS amazon_order_events (
+                id                SERIAL PRIMARY KEY,
+                notification_type TEXT,
+                payload           JSONB,
+                received_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_amazon_order_events_time ON amazon_order_events(received_at DESC)",
 
             # Extension installs — one generalized table for every extension's
             # per-tenant config, replacing the pattern of one bespoke table per

@@ -3,15 +3,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def log_kb_gap(query: str, app_id: str = None, sender_id: str = None) -> None:
+def log_kb_gap(query: str, app_id: str = None, sender_id: str = None,
+                org_id: str = None, product_id: str = None) -> None:
+    """org_id/product_id (KB_WIKI_CURATION_RAG_PLAN Phase 5) let itsm-service's
+    gap-clustering job scope drafts to the right tenant without a cross-repo
+    join — denormalized at write time, same convention as kb_articles.org_id."""
     from common.conversation_db import _get_connection, _release_connection
     conn = None
     try:
         conn = _get_connection()
         cur  = conn.cursor()
         cur.execute(
-            "INSERT INTO kb_search_gaps (query, app_id, sender_id) VALUES (%s, %s, %s)",
-            (query[:500], app_id, sender_id),
+            "INSERT INTO kb_search_gaps (query, app_id, sender_id, org_id, product_id) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (query[:500], app_id, sender_id, org_id, product_id),
         )
         conn.commit()
     except Exception as e:

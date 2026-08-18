@@ -74,11 +74,12 @@ class ITSMService:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _headers(self, token: str, tenant_id=None) -> dict:
-        h = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        }
+    def _headers(self, token: Optional[str], tenant_id=None) -> dict:
+        h = {"Content-Type": "application/json"}
+        # Omit Authorization entirely for anonymous calls (e.g. KB chunk search's
+        # public path) rather than sending a "Bearer None"/"Bearer " garbage header.
+        if token:
+            h["Authorization"] = f"Bearer {token}"
         # Explicit tenant context — required by itsm-service for writes when the
         # caller's token doesn't resolve a single tenant (e.g. a platform admin).
         if tenant_id:
@@ -95,7 +96,7 @@ class ITSMService:
         self,
         method: str,
         path: str,
-        token: str,
+        token: Optional[str],
         json_body: dict = None,
         params=None,
         tenant_id=None,
@@ -124,7 +125,7 @@ class ITSMService:
             logger.error("[ITSM] %s %s failed: %r", method, path, exc, exc_info=True)
             return None
 
-    async def _get_list(self, token: str, path: str, params=None) -> list:
+    async def _get_list(self, token: Optional[str], path: str, params=None) -> list:
         """GET a collection endpoint; returns items list (empty on error)."""
         result = await self._request("GET", path, token, params=params)
         if result is None:
@@ -385,6 +386,28 @@ class ITSMService:
         if product:
             params.append(("product", product))
         return await self._get_list(token, "/api/v1/kb/suggest", params=params)
+
+    async def search_kb_chunks(
+        self,
+        token: Optional[str],
+        query: str,
+        space: Optional[str] = None,
+        limit: int = 5,
+    ) -> list:
+        """Focused-snippet chunk search (KB_WIKI_CURATION_RAG_PLAN Phase 3).
+
+        Unlike search_kb/suggest_kb, returns actual chunk text — this is the
+        primary KB retrieval mechanism now (replaces the local vector_search.py
+        mirror). token=None is valid: itsm-service scopes anonymous callers to
+        global public content only, no auth required for that path.
+
+        Returns a list of {article_id, article_title, heading, content, score}
+        dicts (empty on error).
+        """
+        params = [("q", query), ("limit", str(limit))]
+        if space:
+            params.append(("space", space))
+        return await self._get_list(token, "/api/v1/kb/chunks/search", params=params)
 
     async def get_kb_article(self, token: str, article_id: str) -> Optional[dict]:
         """Fetch a single KB article by UUID (also bumps its view count)."""

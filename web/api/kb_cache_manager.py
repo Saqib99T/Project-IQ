@@ -942,9 +942,11 @@ class KBCacheManager:
         except Exception as e:
             logger.error(f"Error loading embeddings cache: {e}")
 
-    def search_articles(self, query: str, app_id: str = None) -> List[Dict]:
+    def search_articles(self, query: str, org_id: str = None) -> List[Dict]:
         """
         Search knowledge base using hybrid semantic + keyword search.
+        org_id scopes results to that tenant's articles plus shared (org_id
+        None) ones; unscoped (org_id=None) callers get all articles.
         Returns list of dicts with: {article, score, semantic_score, keyword_score, source}
         """
         if not query or not self._cache:
@@ -962,6 +964,9 @@ class KBCacheManager:
 
         # Combine scores
         for i, article in enumerate(self._cache):
+            if org_id and article.get('org_id') not in (None, org_id):
+                continue
+
             semantic_score = semantic_scores.get(i, 0.0)
             keyword_score = keyword_scores.get(i, 0.0)
 

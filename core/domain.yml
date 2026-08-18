@@ -41,6 +41,9 @@ intents:
   - request_refund
   - cancel_shopify_order
   - update_shipping_address
+  # ── Amazon intents (read-only; kept separate from check_order_status so
+  # existing Shopify rules/training data are untouched) ──────────────────
+  - check_amazon_order_status
   # ── Handoff intents ──────────────────────────────────────────────────
   - request_human_agent
   - confirm_handoff
@@ -423,6 +426,13 @@ slots:
     mappings:
       - type: custom
 
+  kb_search_missed:
+    type: bool
+    initial_value: false
+    influence_conversation: false
+    mappings:
+      - type: custom
+
   consent_given:
     type: bool
     influence_conversation: false
@@ -475,6 +485,8 @@ I'm here to help you with your IT needs. Please login to manage tickets, or sear
     - text: "I couldn't match that order to your account. What **email address** was used for this order?"
   utter_shopify_not_connected:
     - text: "Order lookup isn't set up for this account yet — an admin needs to connect a Shopify store first."
+  utter_amazon_not_connected:
+    - text: "Order lookup isn't set up for this account yet — an admin needs to connect an Amazon seller account first."
   utter_ask_shipping_address:
     - text: "Please provide the new shipping address — street, city, state/province, zip/postal code, and country."
   utter_ticket_status_info:
@@ -708,6 +720,9 @@ actions:
   - action_shopify_execute_cancel
   - action_shopify_prepare_shipping_update
   - action_shopify_execute_shipping_update
+  # ── Amazon actions (read-only order status; refund/cancel blocked on
+  # Feeds API access — see docs/AMAZON_INTEGRATION_PLAN.md) ────────────────
+  - action_amazon_order_status
 
 forms:
   ticket_form:

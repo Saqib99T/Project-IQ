@@ -413,6 +413,21 @@ def _prewarm_semantic_kb_cache():
 
 threading.Thread(target=_prewarm_semantic_kb_cache, daemon=True, name="KB-Semantic-Prewarm").start()
 
+# Amazon SQS Notifications consumer (docs/AMAZON_INTEGRATION_PLAN.md Phase 4,
+# extensions/amazon/notifications.py — UNVALIDATED against live SP-API, see
+# that module's docstring). Same background-thread pattern as the KB pre-warm
+# above (this file monkey-patches eventlet at import time, so threading.Thread
+# is already a green thread). run_consumer_forever() itself is a no-op unless
+# [AMAZON_NOTIFICATIONS] notifications_enabled=true, so it's always safe to start.
+def _start_amazon_notifications_consumer():
+    try:
+        from extensions.amazon.notifications import run_consumer_forever
+        run_consumer_forever()
+    except Exception as e:
+        print(f"[Amazon Notifications] consumer failed to start (non-fatal): {e}")
+
+threading.Thread(target=_start_amazon_notifications_consumer, daemon=True, name="Amazon-Notifications-Consumer").start()
+
 
 @app.after_request
 def add_header(response):

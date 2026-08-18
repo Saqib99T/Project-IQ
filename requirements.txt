@@ -60,3 +60,8 @@ pytest==7.4.3
 
 # Real-time: green psycopg2 under eventlet (keeps the Socket.IO hub unblocked)
 psycogreen>=1.0.0
+
+# AWS SDK — Amazon SP-API Notifications consumer only (extensions/amazon/notifications.py,
+# docs/AMAZON_INTEGRATION_PLAN.md Phase 4). First AWS dependency in this repo; gated behind
+# [AMAZON_NOTIFICATIONS] notifications_enabled=false by default.
+boto3>=1.34.0

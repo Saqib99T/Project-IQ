@@ -57,9 +57,11 @@ def setup_pgvector():
             content TEXT,
             category VARCHAR(100),
             embedding vector(384),
+            org_id TEXT,
             created_at TIMESTAMP DEFAULT NOW()
         );
     """)
+    cursor.execute("ALTER TABLE kb_chunks ADD COLUMN IF NOT EXISTS org_id TEXT;")
     conn.commit()
     print("   ✓ kb_chunks table created")
     
@@ -102,33 +104,33 @@ def process_articles():
     print(f"   ✓ Loaded {MODEL_NAME}")
     
     print("\n5. Loading articles from kb_articles...")
-    cursor.execute("SELECT id, title, content, category FROM kb_articles")
+    cursor.execute("SELECT id, title, content, category, org_id FROM kb_articles")
     articles = cursor.fetchall()
     print(f"   Found {len(articles)} articles")
-    
+
     print("\n6. Processing articles into chunks...")
     # Clear existing chunks
     cursor.execute("DELETE FROM kb_chunks")
     conn.commit()
-    
+
     total_chunks = 0
-    for article_id, title, content, category in articles:
+    for article_id, title, content, category, org_id in articles:
         if not content:
             continue
-            
+
         # Chunk the content
         chunks = chunk_text(content)
-        
+
         for i, chunk_text_content in enumerate(chunks):
             # Generate embedding
             embedding = model.encode(chunk_text_content)
             embedding_list = embedding.tolist()
-            
+
             # Insert chunk with embedding
             cursor.execute("""
-                INSERT INTO kb_chunks (article_id, chunk_index, title, content, embedding)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (article_id, i, title, chunk_text_content, embedding_list))
+                INSERT INTO kb_chunks (article_id, chunk_index, title, content, embedding, org_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (article_id, i, title, chunk_text_content, embedding_list, org_id))
             
             total_chunks += 1
         

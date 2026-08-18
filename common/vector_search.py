@@ -131,8 +131,12 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE) -> List[str]:
 
 # ── pgvector path ─────────────────────────────────────────────────────────────
 
-def _pg_search(query: str, top_k: int) -> List[Dict]:
-    """Run cosine-similarity search via pgvector <=> operator."""
+def _pg_search(query: str, top_k: int, org_id: Optional[str] = None) -> List[Dict]:
+    """Run cosine-similarity search via pgvector <=> operator.
+
+    org_id filters to that tenant's articles plus shared (org_id IS NULL) ones.
+    Unscoped (org_id=None) callers get today's unfiltered behavior.
+    """
     from common.conversation_db import _get_connection, _release_connection
     model = get_model()
     q_vec = model.encode(query).tolist()
@@ -141,8 +145,14 @@ def _pg_search(query: str, top_k: int) -> List[Dict]:
     try:
         from psycopg2.extras import RealDictCursor
         cur = conn.cursor(cursor_factory=RealDictCursor)
+        where_clause = "WHERE (org_id = %s OR org_id IS NULL)" if org_id else ""
+        params = [q_vec]
+        if org_id:
+            params.append(org_id)
+        params.append(q_vec)
+        params.append(top_k)
         cur.execute(
-            """
+            f"""
             SELECT article_id,
                    title,
                    content,
@@ -150,10 +160,11 @@ def _pg_search(query: str, top_k: int) -> List[Dict]:
                    chunk_index,
                    1 - (embedding <=> %s::vector) AS similarity
             FROM   kb_chunks
+            {where_clause}
             ORDER  BY embedding <=> %s::vector
             LIMIT  %s
             """,
-            (q_vec, q_vec, top_k)
+            params
         )
         rows = cur.fetchall()
     finally:
@@ -170,18 +181,18 @@ def _pg_load_and_process() -> int:
     conn = _get_connection()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, title, content, category FROM kb_articles")
+        cur.execute("SELECT id, title, content, category, org_id FROM kb_articles")
         articles = cur.fetchall()
     finally:
         _release_connection(conn)
 
     logger.info("Processing %d articles...", len(articles))
     all_chunks, all_texts = [], []
-    for article_id, title, content, category in articles:
+    for article_id, title, content, category, org_id in articles:
         if not content:
             continue
         for idx, chunk in enumerate(chunk_text(content)):
-            all_chunks.append((article_id, idx, title, chunk, category or 'General'))
+            all_chunks.append((article_id, idx, title, chunk, category or 'General', org_id))
             all_texts.append(chunk)
 
     if not all_texts:
@@ -193,13 +204,13 @@ def _pg_load_and_process() -> int:
     try:
         cur = conn.cursor()
         cur.execute("DELETE FROM kb_chunks")
-        for (article_id, idx, title, chunk, category), emb in zip(all_chunks, embeddings):
+        for (article_id, idx, title, chunk, category, org_id), emb in zip(all_chunks, embeddings):
             cur.execute(
                 """
-                INSERT INTO kb_chunks (article_id, chunk_index, title, content, category, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO kb_chunks (article_id, chunk_index, title, content, category, embedding, org_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
-                (article_id, idx, title, chunk, category, emb.tolist())
+                (article_id, idx, title, chunk, category, emb.tolist(), org_id)
             )
         # Rebuild ivfflat index (safe to run even if index doesn't exist yet)
         try:
@@ -233,21 +244,21 @@ def _mem_load_and_process() -> int:
     conn = _get_connection()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, title, content, category FROM kb_articles")
+        cur.execute("SELECT id, title, content, category, org_id FROM kb_articles")
         articles = cur.fetchall()
     finally:
         _release_connection(conn)
 
     model = get_model()
     all_chunks, all_texts = [], []
-    for article_id, title, content, category in articles:
+    for article_id, title, content, category, org_id in articles:
         if not content:
             continue
         for idx, chunk in enumerate(chunk_text(content)):
             all_chunks.append({
                 "article_id": article_id, "title": title,
                 "content": chunk, "category": category or "General",
-                "chunk_index": idx,
+                "chunk_index": idx, "org_id": org_id,
             })
             all_texts.append(chunk)
 
@@ -298,7 +309,7 @@ def _mem_ensure_loaded():
             _mem_load_and_process()
 
 
-def _mem_search(query: str, top_k: int) -> List[Dict]:
+def _mem_search(query: str, top_k: int, org_id: Optional[str] = None) -> List[Dict]:
     _mem_ensure_loaded()
     if not _chunks or _embeddings is None:
         return []
@@ -307,12 +318,17 @@ def _mem_search(query: str, top_k: int) -> List[Dict]:
     sims = np.dot(_embeddings, q_vec) / (
         np.linalg.norm(_embeddings, axis=1) * np.linalg.norm(q_vec) + 1e-10
     )
-    top_idx = np.argsort(sims)[-top_k:][::-1]
+    order = np.argsort(sims)[::-1]
     results = []
-    for i in top_idx:
+    for i in order:
+        chunk_org = _chunks[i].get("org_id")
+        if org_id and chunk_org not in (None, org_id):
+            continue
         chunk = _chunks[i].copy()
         chunk["similarity"] = float(sims[i])
         results.append(chunk)
+        if len(results) >= top_k:
+            break
     return results
 
 
@@ -348,16 +364,16 @@ def ensure_loaded():
     _mem_ensure_loaded()
 
 
-def search(query: str, top_k: int = 1) -> List[Dict]:
-    """Return top_k chunks most similar to query."""
+def search(query: str, top_k: int = 1, org_id: Optional[str] = None) -> List[Dict]:
+    """Return top_k chunks most similar to query, scoped to org_id (+ shared/NULL-org chunks)."""
     if _pgvector_available():
-        return _pg_search(query, top_k)
-    return _mem_search(query, top_k)
+        return _pg_search(query, top_k, org_id)
+    return _mem_search(query, top_k, org_id)
 
 
-def search_single(query: str) -> Optional[Dict]:
+def search_single(query: str, org_id: Optional[str] = None) -> Optional[Dict]:
     """Return the single best matching chunk."""
-    results = search(query, top_k=1)
+    results = search(query, top_k=1, org_id=org_id)
     return results[0] if results else None
 
 

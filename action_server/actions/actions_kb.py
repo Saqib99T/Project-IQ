@@ -12,34 +12,22 @@ from rasa_sdk.executor import CollectingDispatcher
 from common import analytics_store
 from action_server.actions._shared import (
     log_bot_response, get_analytics_context, get_effective_session_token,
-    check_user_login, logger, bind_request_id,
+    check_user_login, logger, bind_request_id, get_iam_jwt, itsm_service,
 )
 
 
 class ActionSearchKnowledgeBase(Action):
-    """Searches the knowledge base for relevant articles using hybrid semantic + keyword search."""
+    """Searches the knowledge base via itsm-service's chunked search endpoint
+    (KB_WIKI_CURATION_RAG_PLAN Phase 3) — replaces the local vector_search.py/
+    kb_cache_manager.py mechanisms. Logged-in users get their tenant + global
+    content (via their own IAM JWT); anonymous users get global public content
+    only, scoped server-side by itsm-service — no separate auth needed here.
+    """
+
+    _MATCH_THRESHOLD = 0.35
 
     def name(self) -> Text:
         return "action_search_knowledge_base"
-
-    def __init__(self):
-        # Import KB cache manager (will auto-initialize and start refresh)
-        from web.api.kb_cache_manager import kb_cache
-        self.kb_cache = kb_cache
-        
-        # Import vector search for semantic similarity
-        try:
-            from common.vector_search import search_single, ensure_loaded
-            self.vector_search = search_single
-            ensure_loaded()
-            self.use_vector_search = True
-            logger.info("ActionSearchKnowledgeBase initialized with VECTOR search")
-        except Exception as e:
-            logger.warning(f"Vector search not available: {e}. Falling back to keyword search.")
-            self.vector_search = None
-            self.use_vector_search = False
-        
-        logger.info("ActionSearchKnowledgeBase initialized with KB cache manager")
 
     def _normalize_text(self, text: str) -> str:
         return re.sub(r"\s+", " ", (text or "").strip().lower())
@@ -47,6 +35,18 @@ class ActionSearchKnowledgeBase(Action):
     def _build_article_link(self, article_id: Any) -> Optional[str]:
         # ITSM KB content is shown inline; no external deep link is exposed to the bot.
         return None
+
+    def _chunk_to_option(self, chunk: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize an itsm-service chunk-search result into the {title, summary,
+        score, ...} shape _build_clarify_prompt/_match_clarify_option expect,
+        keeping the original fields (article_id, article_title, heading, content)
+        for _respond_with_chunk."""
+        content = (chunk.get('content') or '').strip()
+        summary = content.split('\n')[0][:140]
+        if len(content) > len(summary):
+            summary = f"{summary.rstrip()}..."
+        title = chunk.get('heading') or chunk.get('article_title') or 'More details'
+        return {**chunk, "title": title, "summary": summary}
 
     def _title_match_ratio(self, query: str, title: str) -> float:
         query_words = [w for w in re.split(r"\W+", (query or "").lower()) if w]
@@ -101,274 +101,142 @@ class ActionSearchKnowledgeBase(Action):
         prompt_text = "I found the right article, but I need a bit more detail. Which section should I focus on?\n\n" + "\n".join(summary_lines)
         return prompt_text, buttons
 
-    def _respond_with_section(self, dispatcher: CollectingDispatcher, section: Dict[str, Any], article: Dict[str, Any], section_score: float) -> List[Dict[str, Any]]:
-        article_title = section.get('article_title') or article.get('title') or section.get('title')
-        response = f"### 📚 {article_title}\n\n"
-        if section.get('title') and section.get('title') != article_title:
-            response += f"**Section:** {section.get('title')}\n\n"
-
-        content = section.get('content', 'No content available.')
-        sentences = re.split(r'(?<=[.!?])\s+', content.strip())
-        short_section = '\n'.join(sentences[:4]).strip()
-        if len(content) > len(short_section):
-            short_section = f"{short_section.rstrip()}..."
-        response += short_section
-
-        itsm_id = section.get('itsm_id') or article.get('itsm_id')
-        article_link = self._build_article_link(itsm_id)
-        if itsm_id:
-            response += f"\n\n_Source: ITSM KB (Article #{itsm_id})_"
-        else:
-            response += "\n\n_Source: Local KB_"
-
-        response += "\n\nWould you like the full article or the KB link?"
+    def _respond_with_chunk(self, dispatcher: CollectingDispatcher, chunk: Dict[str, Any]) -> List[Dict[str, Any]]:
+        article_title = chunk.get('article_title') or 'Knowledge Base'
+        heading = chunk.get('heading')
+        response = f"### KB: {article_title}\n\n"
+        if heading and heading != article_title:
+            response += f"Section: {heading}\n\n"
+        response += (chunk.get('content') or 'No content available.')
+        response += "\n\nSource: ITSM Knowledge Base"
+        response += "\n\nWas this helpful?"
 
         buttons = [
-            {"title": "📄 Show full article", "payload": "/kb_show_full_article"},
+            {"title": "This helped!", "payload": "/feedback_positive"},
+            {"title": "Not helpful", "payload": "/feedback_negative"},
+            {"title": "Create a ticket", "payload": "/create_ticket"},
         ]
-        if article_link:
-            buttons.append({"title": "🔗 Open KB link", "url": article_link})
-        buttons.extend([
-            {"title": "👍 This helped!", "payload": "/feedback_positive"},
-            {"title": "👎 Not helpful", "payload": "/feedback_negative"},
-            {"title": "🎫 Create a ticket", "payload": "/create_ticket"},
-        ])
-
         dispatcher.utter_message(text=response, buttons=buttons)
 
         return [
             SlotSet("kb_last_article_title", article_title),
-            SlotSet("kb_last_article_content", article.get('content') or ''),
-            SlotSet("kb_last_source", section.get('source', 'unknown')),
-            SlotSet("kb_last_itsm_id", itsm_id),
+            SlotSet("kb_last_article_content", chunk.get('content') or ''),
+            SlotSet("kb_last_source", "itsm_chunk_search"),
+            SlotSet("kb_last_itsm_id", chunk.get('article_id')),
             SlotSet("kb_clarify_options", None),
             SlotSet("kb_clarify_attempts", 0),
-            SlotSet("kb_target_article_id", None),
+            SlotSet("kb_search_missed", False),
         ]
 
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
         bind_request_id(tracker)
-        # Get user's original message
         latest_msg = tracker.latest_message
         user_message = latest_msg.get("text", "") if isinstance(latest_msg, dict) else str(latest_msg)
-        app_id = tracker.get_slot("app_id")
+        token = get_iam_jwt(tracker)  # None -> itsm-service scopes to global public content
+        org_id = tracker.get_slot("iam_org_id")  # used only by the local vector_search fallback below
 
-        # Handle pending clarification
+        # Handle pending clarification - match free text against the stored
+        # candidate list (title/heading substring match), same as before.
         clarify_options_json = tracker.get_slot("kb_clarify_options")
-        target_article_id = tracker.get_slot("kb_target_article_id")
-        if clarify_options_json and target_article_id:
+        if clarify_options_json:
             options = self._parse_clarify_options(clarify_options_json)
             selected = self._match_clarify_option(user_message, options)
             if selected:
-                section = self.kb_cache.get_section_by_id(selected.get("section_id"))
-                article = self.kb_cache.get_article_by_id(target_article_id) or {}
-                if section:
-                    logger.info(f"KB clarification resolved to section: {section.get('title')}")
-                    return self._respond_with_section(dispatcher, section, article, selected.get("score", 0.0))
-
-            # If user typed free text, re-run section search within target article
-            section_results = []
-            if getattr(self.kb_cache, 'section_search_enabled', False):
-                section_results = self.kb_cache.search_sections(user_message, target_article_id)
-                logger.info(
-                    f"KB clarification re-search for '{user_message[:50]}' (article {target_article_id}): {len(section_results)} sections"
-                )
-            if section_results:
-                best_section = section_results[0]
-                section = best_section['section']
-                section_score = float(best_section.get('score', 0.0))
-                clarify_max = float(getattr(self.kb_cache, 'section_clarify_max_score', 0.85))
-                title_match = self._title_match_ratio(user_message, section.get('title', ''))
-                logger.info(
-                    f"KB clarification re-search top score={section_score:.2f}, title_match={title_match:.2f}"
-                )
-                if section_score >= clarify_max and title_match >= 0.34:
-                    article = self.kb_cache.get_article_by_id(target_article_id) or {}
-                    return self._respond_with_section(dispatcher, section, article, section_score)
-                options = []
-                for r in section_results[:4]:
-                    sec = r['section']
-                    content = (sec.get('content') or '').strip()
-                    summary = content.split('\n')[0][:140]
-                    if len(content) > 140:
-                        summary = f"{summary.rstrip()}..."
-                    options.append({
-                        "section_id": sec.get('id'),
-                        "title": sec.get('title') or sec.get('article_title') or "More details",
-                        "summary": summary,
-                        "score": float(r.get('score', 0.0))
-                    })
-                if len(options) <= 1:
-                    article = self.kb_cache.get_article_by_id(target_article_id) or {}
-                    return self._respond_with_section(dispatcher, section, article, section_score)
-                prompt_text, buttons = self._build_clarify_prompt(options)
-                dispatcher.utter_message(text=prompt_text, buttons=buttons)
-                return [
-                    SlotSet("kb_clarify_attempts", int(tracker.get_slot("kb_clarify_attempts") or 0)),
-                    SlotSet("kb_clarify_options", json.dumps(options)),
-                ]
+                logger.info(f"KB clarification resolved to: {selected.get('title')}")
+                return self._respond_with_chunk(dispatcher, selected)
 
             attempts = int(tracker.get_slot("kb_clarify_attempts") or 0) + 1
-            if attempts < 2:
+            if attempts < 2 and options:
                 prompt_text, buttons = self._build_clarify_prompt(options)
                 dispatcher.utter_message(text=prompt_text, buttons=buttons)
                 return [SlotSet("kb_clarify_attempts", attempts)]
 
-            article = self.kb_cache.get_article_by_id(target_article_id) or {}
-            itsm_id = article.get('itsm_id')
-            article_link = self._build_article_link(itsm_id)
-            response = f"### 📚 {article.get('title', 'Knowledge Base')}\n\nI couldn't pinpoint a single section."
-            response += "\n\nWould you like the full article or the KB link?"
-            buttons = [{"title": "📄 Show full article", "payload": "/kb_show_full_article"}]
-            if article_link:
-                buttons.append({"title": "🔗 Open KB link", "url": article_link})
-            dispatcher.utter_message(text=response, buttons=buttons)
-            return [
-                SlotSet("kb_last_article_title", article.get('title', 'Knowledge Base')),
-                SlotSet("kb_last_article_content", article.get('content') or ''),
-                SlotSet("kb_last_source", article.get('source', 'unknown')),
-                SlotSet("kb_last_itsm_id", itsm_id),
-                SlotSet("kb_clarify_options", None),
-                SlotSet("kb_clarify_attempts", 0),
-                SlotSet("kb_target_article_id", None),
-            ]
+            # Could not disambiguate - answer with the original best guess rather
+            # than dead-ending the conversation.
+            if options:
+                return self._respond_with_chunk(dispatcher, options[0])
+            return [SlotSet("kb_clarify_options", None), SlotSet("kb_clarify_attempts", 0)]
 
+        # Fresh search via itsm-service's chunked index (KB_WIKI_CURATION_RAG_PLAN Phase 3)
+        try:
+            results = await itsm_service.search_kb_chunks(token, user_message, limit=5)
+        except Exception as e:
+            logger.warning(f"KB chunk search failed: {e}")
+            results = []
 
-        # ===== VECTOR SEARCH (Primary - returns focused single chunk) =====
-        if self.use_vector_search and self.vector_search:
-            try:
-                vector_result = self.vector_search(user_message)
-                if vector_result and vector_result.get('similarity', 0) >= 0.35:
-                    chunk_content = vector_result.get('content', '')
-                    chunk_title = vector_result.get('title', 'Knowledge Base')
-                    similarity = vector_result.get('similarity', 0)
-                    
-                    logger.info(f"VECTOR search hit: '{chunk_title[:50]}' score={similarity:.3f}")
-                    
-                    # Format focused response (single chunk, ~150 words)
-                    response = f"### 📚 {chunk_title}\n\n{chunk_content}"
-                    
-                    dispatcher.utter_message(text=response)
-                    return [
-                        SlotSet("kb_last_article_title", chunk_title),
-                        SlotSet("kb_last_article_content", chunk_content),
-                        SlotSet("kb_last_source", "vector_search"),
-                        SlotSet("kb_clarify_options", None),
-                    ]
-                else:
-                    logger.info(f"Vector search score too low ({vector_result.get('similarity', 0) if vector_result else 0:.3f}), trying keyword search...")
-            except Exception as e:
-                logger.warning(f"Vector search failed: {e}, falling back to keyword search")
-        
-        # ===== KEYWORD SEARCH FALLBACK =====
-        # Search knowledge base using hybrid semantic + keyword search (article first)
-        results = self.kb_cache.search_articles(user_message, app_id)
-        section_results = []
-        if getattr(self.kb_cache, 'section_search_enabled', False) and results:
-            target_article = results[0]['article']
-            section_results = self.kb_cache.search_sections(user_message, target_article.get('id'))
-            logger.info(f"KB section search for '{user_message[:50]}' (article {target_article.get('id')}): {len(section_results)} sections")
-            if section_results:
-                logger.debug(
-                    "Top section scores: " + ", ".join([
-                        f"{r['section'].get('title','')}: {r.get('score', 0):.2f}" for r in section_results[:3]
-                    ])
-                )
-        else:
-            logger.info("KB section search is disabled or no articles matched")
-
-        # Log search with scores for debugging
         if results:
-            logger.info(f"KB search for '{user_message[:50]}': {len(results)} results")
-            for r in results[:3]:
-                logger.debug(f"  - {r['article']['title']}: score={r['score']:.2f} (semantic={r.get('semantic_score', 0):.2f}, keyword={r.get('keyword_score', 0):.2f})")
-        
-        if results:
-            best_match = results[0]
-            article = best_match['article']
+            logger.info(f"KB chunk search for '{user_message[:50]}': {len(results)} results")
+            options = [self._chunk_to_option(r) for r in results]
+            top = options[0]
+            top_score = float(top.get('score', 0.0))
 
-            if section_results:
-                best_section = section_results[0]
-                section = best_section['section']
-                section_score = float(best_section.get('score', 0.0))
-                clarify_max = float(getattr(self.kb_cache, 'section_clarify_max_score', 0.85))
-                title_match = self._title_match_ratio(user_message, section.get('title', ''))
-                logger.info(
-                    f"KB section top score={section_score:.2f}, title_match={title_match:.2f}, clarify_max={clarify_max:.2f}"
-                )
+            if top_score >= self._MATCH_THRESHOLD:
+                logger.info(f"KB chunk search hit: '{top['title'][:50]}' score={top_score:.3f}")
+                return self._respond_with_chunk(dispatcher, top)
 
-                if section_score >= clarify_max and title_match >= 0.34:
-                    return self._respond_with_section(dispatcher, section, article, section_score)
-
-                options_payload = []
-                for r in section_results[:4]:
-                    sec = r['section']
-                    content = (sec.get('content') or '').strip()
-                    summary = content.split('\n')[0][:140]
-                    if len(content) > 140:
-                        summary = f"{summary.rstrip()}..."
-                    options_payload.append({
-                        "section_id": sec.get('id'),
-                        "title": sec.get('title') or sec.get('article_title') or "More details",
-                        "summary": summary,
-                        "score": float(r.get('score', 0.0))
-                    })
-                if len(options_payload) <= 1:
-                    return self._respond_with_section(dispatcher, section, article, section_score)
-
-                prompt_text, buttons = self._build_clarify_prompt(options_payload)
+            if len(options) > 1:
+                # Low confidence - offer the top candidates rather than giving up
+                prompt_text, buttons = self._build_clarify_prompt(options[:4])
                 dispatcher.utter_message(text=prompt_text, buttons=buttons)
-
                 return [
-                    SlotSet("kb_target_article_id", article.get('id')),
-                    SlotSet("kb_last_article_title", article.get('title')),
-                    SlotSet("kb_last_article_content", article.get('content') or ''),
-                    SlotSet("kb_last_source", article.get('source', 'unknown')),
-                    SlotSet("kb_last_itsm_id", article.get('itsm_id')),
-                    SlotSet("kb_clarify_options", json.dumps(options_payload)),
+                    SlotSet("kb_clarify_options", json.dumps(options[:4])),
                     SlotSet("kb_clarify_attempts", 0),
                 ]
 
-            itsm_id = article.get('itsm_id')
-            article_link = self._build_article_link(itsm_id)
-            response = f"### 📚 {article.get('title', 'Knowledge Base')}\n\nI found the right article, but I couldn't isolate a section."
-            response += "\n\nWould you like the full article or the KB link?"
-            buttons = [{"title": "📄 Show full article", "payload": "/kb_show_full_article"}]
-            if article_link:
-                buttons.append({"title": "🔗 Open KB link", "url": article_link})
-            dispatcher.utter_message(text=response, buttons=buttons)
-            return [
-                SlotSet("kb_last_article_title", article.get('title', 'Knowledge Base')),
-                SlotSet("kb_last_article_content", article.get('content') or ''),
-                SlotSet("kb_last_source", article.get('source', 'unknown')),
-                SlotSet("kb_last_itsm_id", itsm_id),
-            ]
-        else:
-            # No matches found — log as knowledge gap
-            try:
-                from common.db._kb_gaps import log_kb_gap
-                meta      = tracker.latest_message.get('metadata', {}) if isinstance(tracker.latest_message, dict) else {}
-                _app_id   = tracker.get_slot('app_id') or meta.get('app_id')
-                _sender   = tracker.sender_id
-                log_kb_gap(query=user_message, app_id=_app_id, sender_id=_sender)
-            except Exception:
-                pass
+            # Only one weak candidate - still better than a bare "no answer"
+            return self._respond_with_chunk(dispatcher, top)
 
-            from action_server.actions._i18n import t, resolve_lang, lang_events
-            _lang = resolve_lang(tracker)
-            dispatcher.utter_message(
-                text=t("kb_no_answer", _lang),
-                buttons=[
-                    {"title": t("btn_create_ticket", _lang), "payload": "/create_ticket"},
-                    {"title": t("btn_my_tickets", _lang), "payload": "/list_tickets"},
-                    {"title": t("btn_get_help", _lang), "payload": "/help"}
-                ]
+        # itsm-service found nothing - fall back to the local index for content
+        # that only exists locally (Firecrawl scrapes, source extensions like
+        # Google Sheets/Website/MS Teams write directly into the local
+        # kb_articles table and never reach itsm-service - see
+        # extensions/_kb_adapter.py, common/firecrawl_ingester.py).
+        try:
+            from common.vector_search import search_single
+            local_result = search_single(user_message, org_id=org_id)
+            if local_result and local_result.get('similarity', 0) >= self._MATCH_THRESHOLD:
+                logger.info(f"Local vector_search fallback hit: '{local_result.get('title','')[:50]}' score={local_result.get('similarity', 0):.3f}")
+                return self._respond_with_chunk(dispatcher, {
+                    "article_title": local_result.get('title', 'Knowledge Base'),
+                    "heading": None,
+                    "content": local_result.get('content', ''),
+                    "article_id": None,
+                })
+        except Exception as e:
+            logger.warning(f"Local vector_search fallback failed: {e}")
+
+        # No matches found - log as knowledge gap
+        try:
+            from common.db._kb_gaps import log_kb_gap
+            meta      = tracker.latest_message.get('metadata', {}) if isinstance(tracker.latest_message, dict) else {}
+            _app_id   = tracker.get_slot('app_id') or meta.get('app_id')
+            _sender   = tracker.sender_id
+            log_kb_gap(
+                query=user_message, app_id=_app_id, sender_id=_sender,
+                org_id=org_id, product_id=tracker.get_slot('product_id'),
             )
-            return lang_events(tracker, _lang)
+        except Exception:
+            pass
 
-        return []
+        from action_server.actions._i18n import t, resolve_lang, lang_events
+        _lang = resolve_lang(tracker)
+        dispatcher.utter_message(
+            text=t("kb_no_answer", _lang),
+            buttons=[
+                {"title": t("btn_create_ticket", _lang), "payload": "/create_ticket"},
+                {"title": t("btn_my_tickets", _lang), "payload": "/list_tickets"},
+                {"title": t("btn_get_help", _lang), "payload": "/help"}
+            ]
+        )
+        # Feed the miss into the same low-confidence signal that drives handoff
+        # escalation (KB_WIKI_CURATION_RAG_PLAN Phase 4) - unifies NLU-confidence
+        # and KB-retrieval-confidence into one streak instead of two disjoint ones.
+        return lang_events(tracker, _lang) + [
+            SlotSet("kb_search_missed", True),
+            FollowupAction("action_track_confidence"),
+        ]
 
 
 class ActionShowKbFullAnswer(Action):
@@ -443,19 +311,13 @@ class ActionSearchKbBeforeTicket(Action):
     def name(self) -> Text:
         return "action_search_kb_before_ticket"
 
-    def __init__(self):
-        # Import KB cache manager
-        from web.api.kb_cache_manager import kb_cache
-        self.kb_cache = kb_cache
-        logger.info("ActionSearchKbBeforeTicket initialized with KB cache manager")
-
     async def run(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
     ) -> List[Dict[Text, Any]]:
         bind_request_id(tracker)
         latest_msg = tracker.latest_message
         user_message = latest_msg.get("text", "") if isinstance(latest_msg, dict) else str(latest_msg)
-        app_id = tracker.get_slot("app_id")
+        token = get_iam_jwt(tracker)
 
         # Also check if there's a description entity extracted
         description = None
@@ -479,17 +341,21 @@ class ActionSearchKbBeforeTicket(Action):
 
         results = []
         if not skip_search:
-            # Search knowledge base using hybrid semantic + keyword search
-            results = self.kb_cache.search_articles(search_query, app_id)
+            # Search knowledge base via itsm-service's chunked index (KB_WIKI_CURATION_RAG_PLAN Phase 3)
+            try:
+                results = await itsm_service.search_kb_chunks(token, search_query, limit=3)
+            except Exception as e:
+                logger.warning(f"KB chunk search failed: {e}")
+                results = []
         
         if results:
             # KB articles found - show them to user
             response = "📚 **Before creating a ticket, check if these solutions help:**\n\n"
             
-            for i, result in enumerate(results, 1):
-                article = result['article']
-                title = article.get('title', 'Untitled')
-                summary = article.get('content', '')[:150] + "..." if len(article.get('content', '')) > 150 else article.get('content', '')
+            for i, chunk in enumerate(results, 1):
+                title = chunk.get('article_title', 'Untitled')
+                content = chunk.get('content', '')
+                summary = content[:150] + "..." if len(content) > 150 else content
                 response += f"**{i}. {title}**\n{summary}\n\n"
             
             response += "---\n**Did any of these help solve your issue?**"

@@ -241,6 +241,28 @@ def get_amazon_config() -> Dict[str, Any]:
     }
 
 
+def get_amazon_notifications_config() -> Dict[str, Any]:
+    """SQS Notifications API settings (docs/AMAZON_INTEGRATION_PLAN.md Phase 4).
+
+    Unvalidated against live SP-API as of this build — client_id (needed for
+    any SP-API call, this endpoint included) isn't populated in this
+    deployment. Defaults everything off/blank; do not flip
+    notifications_enabled on without first confirming register_destination()/
+    subscribe() work in the SP-API sandbox (extensions/amazon/notifications.py).
+    """
+    config = load_config()
+    return {
+        'enabled':      config.getboolean('AMAZON_NOTIFICATIONS', 'notifications_enabled', fallback=False),
+        'aws_region':   config.get('AMAZON_NOTIFICATIONS', 'aws_region', fallback=''),
+        'sqs_queue_arn': config.get('AMAZON_NOTIFICATIONS', 'sqs_queue_arn', fallback=''),
+        'aws_access_key_id': _env_secret('AMAZON_NOTIFICATIONS', 'aws_access_key_id',
+                                          config.get('AMAZON_NOTIFICATIONS', 'aws_access_key_id', fallback='')),
+        'aws_secret_access_key': _env_secret('AMAZON_NOTIFICATIONS', 'aws_secret_access_key',
+                                              config.get('AMAZON_NOTIFICATIONS', 'aws_secret_access_key', fallback='')),
+        'poll_interval_seconds': config.getint('AMAZON_NOTIFICATIONS', 'poll_interval_seconds', fallback=20),
+    }
+
+
 def get_sentry_config() -> Dict[str, Any]:
     """Self-hosted Sentry (sentry.99technologies.com), shared by web/api and
     action_server — inactive (SDK never initialized) until DSN is set, same

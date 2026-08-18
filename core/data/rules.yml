@@ -206,6 +206,26 @@ rules:
       - action: action_shopify_order_status
       - action: utter_ask_anything_else
 
+  # --- AMAZON ORDER STATUS RULES (read-only; kept separate from the Shopify
+  # rules above — see actions_amazon.py's docstring. No email-retry step,
+  # unlike Shopify: find_order() doesn't verify email yet.) ---
+  - rule: Check Amazon order status when order number is present
+    steps:
+      - intent: check_amazon_order_status
+      - slot_was_set:
+          - order_number: true
+      - action: action_amazon_order_status
+      - action: utter_ask_anything_else
+
+  - rule: Ask for order number when checking Amazon order status
+    condition:
+      - slot_was_set:
+          - order_number: null
+    steps:
+      - intent: check_amazon_order_status
+      - action: utter_ask_order_number
+      - action: action_listen
+
   # --- SHOPIFY REFUND (confirm-then-execute) ---
   # action_shopify_prepare_refund looks the order up, shows the computed
   # refund amount, and asks for explicit confirmation via dispatcher buttons

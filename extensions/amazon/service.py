@@ -130,6 +130,35 @@ class AmazonService:
             logger.error("[Amazon] GET %s failed: %r", path, exc, exc_info=True)
             return None
 
+    async def _post(self, org_id: str, path: str, json_body: Optional[Dict[str, Any]] = None) -> Optional[dict]:
+        """POST wrapper, same auth/refresh handling as _get(). Used by
+        extensions/amazon/notifications.py — UNVALIDATED against live SP-API,
+        see that module's docstring before enabling."""
+        conn = get_connection(org_id)
+        if not conn:
+            logger.warning("[Amazon] org %s has no connected seller account", org_id)
+            return None
+        conn = await self._ensure_fresh_token(org_id, conn)
+        if not conn:
+            return None
+
+        session = await self._get_session()
+        timeout = aiohttp.ClientTimeout(total=15)
+        url = f"{self._base_url()}{path}"
+        try:
+            async with session.post(
+                url, headers={"x-amz-access-token": conn["access_token"]},
+                json=json_body or {}, timeout=timeout,
+            ) as resp:
+                body = await resp.json()
+                if resp.status not in (200, 201):
+                    logger.warning("[Amazon] POST %s -> %d: %s", path, resp.status, str(body)[:300])
+                    return None
+                return body
+        except Exception as exc:
+            logger.error("[Amazon] POST %s failed: %r", path, exc, exc_info=True)
+            return None
+
     async def find_order(self, org_id: str, order_number: str, email: Optional[str] = None) -> Optional[Dict]:
         """Look up one order by Amazon Order ID (format nnn-nnnnnnn-nnnnnnn).
         Amazon's getOrders doesn't support a free-text order-number search
