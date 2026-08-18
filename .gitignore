@@ -23,7 +23,12 @@ venv/
 
 # Logs
 *.log
+*.err
+*.out
 Log/
+
+# Scratch/debug output — never meant to be committed
+common/tmp/
 
 # Models (large files) — regenerable Rasa training artifacts, kept out of git
 models/*.tar.gz
@@ -66,6 +71,10 @@ web/ui/dist-widget/modern-web-interface.css
 expo-app/credentials/
 *.jks
 *.keystore
+# Apple auth keys (App Store Connect API / APNs) — never track. Does NOT
+# retroactively untrack docs/Backup/AuthKey_KAT7LHZC7V.p8, which is still
+# tracked pending rotation — see docs/SECURITY_SECRETS.md item 6.
+*.p8
 
 # Build artifacts — regenerable, kept out of git (APK via EAS/Releases, KB cache regenerated at runtime)
 expo-app/*.apk

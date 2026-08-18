@@ -113,5 +113,8 @@ marketplace_ids = ATVPDKIKX0DER
 write_rate_limit = 10 per hour
 
 [SENTRY]
-dsn = https://742c2229bab96cb16678e27fcec7a4d1@sentry.99technologies.com/32
+; Blank = disabled (see get_sentry_config docstring). Local dev runs
+; shouldn't report into the same Sentry project as production — leave this
+; blank unless you're specifically testing Sentry wiring itself.
+dsn =
 

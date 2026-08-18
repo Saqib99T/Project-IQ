@@ -1,6 +1,0 @@
-server=localhost:8181//socket.io/ client=127.0.0.1:56826 socket shutdown error: [WinError 10054] An existing connection was forcibly closed by the remote hostTraceback (most recent call last):
-  File "D:\99T\Code\Project-IQ-V2\web\api\blueprints\bp_user_api.py", line 45, in user_get_conversations
-    cursor.execute(query, tuple(params))
-  File "C:\Users\hp\AppData\Local\Programs\Python\Python310\lib\site-packages\psycopg2\extras.py", line 236, in execute
-    return super().execute(query, vars)
-IndexError: tuple index out of range
