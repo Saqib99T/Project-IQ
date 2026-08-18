@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useItsmResource } from './useItsmApi'
+import { useState, type ReactNode } from 'react'
+import { useItsmResource, type ItsmApi } from './useItsmApi'
 import { LoadingSpinner, ErrorBanner, EmptyState } from './primitives'
 
 /**
@@ -11,7 +11,16 @@ import { LoadingSpinner, ErrorBanner, EmptyState } from './primitives'
  * plain HTML/CSS (stat cards, proportional bar lists, simple tables).
  */
 
-export function StatCard({ label, value }) {
+// itsm-service report endpoints each return a differently-shaped payload and
+// this layer only ever reads/displays them (no writes) — a loose record
+// rather than one interface per endpoint. Real request/response typing lives
+// in useItsmApi.ts, where round-trip correctness actually matters.
+type ReportData = Record<string, any>
+export interface DateRange { startDate: string; endDate: string; [key: string]: string }
+export interface ReportSectionProps { get: ItsmApi['get']; range: DateRange }
+export interface SimpleReportSectionProps { get: ItsmApi['get'] }
+
+export function StatCard({ label, value }: { label: ReactNode; value?: ReactNode }) {
     return (
         <div className="card p-4">
             <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide">{label}</p>
@@ -20,7 +29,7 @@ export function StatCard({ label, value }) {
     )
 }
 
-export function Section({ title, children }) {
+export function Section({ title, children }: { title: ReactNode; children?: ReactNode }) {
     return (
         <div className="card p-5 space-y-3">
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</h3>
@@ -30,7 +39,7 @@ export function Section({ title, children }) {
 }
 
 /** Horizontal bar breakdown of a {label: count} map, e.g. tickets by status. */
-export function BreakdownBars({ data, total }) {
+export function BreakdownBars({ data, total }: { data?: Record<string, number>; total?: number }) {
     const entries = Object.entries(data || {}).sort((a, b) => b[1] - a[1])
     if (!entries.length) return <p className="text-sm text-slate-400 dark:text-slate-500">No data.</p>
     const max = Math.max(...entries.map(([, v]) => v), 1)
@@ -51,10 +60,10 @@ export function BreakdownBars({ data, total }) {
     )
 }
 
-export function RcaComplianceSection({ get }) {
-    const { data: summary, loading, error } = useItsmResource(() => get('/dashboards/rca/summary'), [get])
-    const { data: pipeline } = useItsmResource(() => get('/dashboards/rca/pipeline'), [get])
-    const { data: recordings } = useItsmResource(() => get('/dashboards/recordings/summary'), [get])
+export function RcaComplianceSection({ get }: SimpleReportSectionProps) {
+    const { data: summary, loading, error } = useItsmResource<ReportData>(() => get('/dashboards/rca/summary'), [get])
+    const { data: pipeline } = useItsmResource<ReportData>(() => get('/dashboards/rca/pipeline'), [get])
+    const { data: recordings } = useItsmResource<ReportData>(() => get('/dashboards/recordings/summary'), [get])
     if (loading) return <Section title="RCA & Recording Compliance (last 30 days)"><LoadingSpinner /></Section>
     if (error) return <Section title="RCA & Recording Compliance (last 30 days)"><ErrorBanner message={error.message} /></Section>
     if (!summary) return null
@@ -82,7 +91,7 @@ export function RcaComplianceSection({ get }) {
     )
 }
 
-export function DateRangeFilter({ startDate, endDate, onChange }) {
+export function DateRangeFilter({ startDate, endDate, onChange }: DateRange & { onChange: (range: DateRange) => void }) {
     return (
         <div className="flex items-center gap-2 flex-wrap">
             <label className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
@@ -100,8 +109,8 @@ export function DateRangeFilter({ startDate, endDate, onChange }) {
     )
 }
 
-export function TicketSummarySection({ get, range }) {
-    const { data, loading, error } = useItsmResource(
+export function TicketSummarySection({ get, range }: ReportSectionProps) {
+    const { data, loading, error } = useItsmResource<ReportData>(
         () => get('/reports/tickets/summary', range),
         [get, range.startDate, range.endDate]
     )
@@ -134,8 +143,8 @@ export function TicketSummarySection({ get, range }) {
     )
 }
 
-export function SlaComplianceSection({ get, range }) {
-    const { data, loading, error } = useItsmResource(
+export function SlaComplianceSection({ get, range }: ReportSectionProps) {
+    const { data, loading, error } = useItsmResource<ReportData>(
         () => get('/reports/tickets/sla-compliance', range),
         [get, range.startDate, range.endDate]
     )
@@ -154,7 +163,7 @@ export function SlaComplianceSection({ get, range }) {
                 <div className="pt-2">
                     <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Breached by priority</p>
                     <BreakdownBars
-                        data={Object.fromEntries(Object.entries(data.by_priority).map(([k, v]) => [k, v.breached]))}
+                        data={Object.fromEntries(Object.entries(data.by_priority as ReportData).map(([k, v]) => [k, v.breached]))}
                         total={data.total_tickets}
                     />
                 </div>
@@ -163,13 +172,13 @@ export function SlaComplianceSection({ get, range }) {
     )
 }
 
-export function VolumeTrendSection({ get, range }) {
+export function VolumeTrendSection({ get, range }: ReportSectionProps) {
     const [granularity, setGranularity] = useState('day')
-    const { data, loading, error } = useItsmResource(
+    const { data, loading, error } = useItsmResource<ReportData>(
         () => get('/reports/tickets/volume-trend', { ...range, granularity }),
         [get, range.startDate, range.endDate, granularity]
     )
-    const points = data?.points || []
+    const points: ReportData[] = data?.points || []
     const max = Math.max(...points.map(p => p.count), 1)
     return (
         <Section title="Ticket Volume Trend">
@@ -201,8 +210,8 @@ export function VolumeTrendSection({ get, range }) {
     )
 }
 
-export function AssetSummarySection({ get }) {
-    const { data, loading, error } = useItsmResource(() => get('/reports/assets/summary'), [get])
+export function AssetSummarySection({ get }: SimpleReportSectionProps) {
+    const { data, loading, error } = useItsmResource<ReportData>(() => get('/reports/assets/summary'), [get])
     if (loading) return <Section title="Asset Summary"><LoadingSpinner /></Section>
     if (error) return <Section title="Asset Summary"><ErrorBanner message={error.message} /></Section>
     if (!data) return null
@@ -228,12 +237,12 @@ export function AssetSummarySection({ get }) {
     )
 }
 
-export function TeamWorkloadSection({ get, range }) {
-    const { data, loading, error } = useItsmResource(
+export function TeamWorkloadSection({ get, range }: ReportSectionProps) {
+    const { data, loading, error } = useItsmResource<ReportData>(
         () => get('/reports/teams/workload', range),
         [get, range.startDate, range.endDate]
     )
-    const teams = data?.teams || []
+    const teams: ReportData[] = data?.teams || []
     return (
         <Section title="Team Workload">
             {loading && <LoadingSpinner />}
@@ -266,9 +275,9 @@ export function TeamWorkloadSection({ get, range }) {
     )
 }
 
-export function KbTopArticlesSection({ get }) {
-    const { data, loading, error } = useItsmResource(() => get('/reports/kb/top-articles', { limit: 10 }), [get])
-    const articles = data?.articles || []
+export function KbTopArticlesSection({ get }: SimpleReportSectionProps) {
+    const { data, loading, error } = useItsmResource<ReportData>(() => get('/reports/kb/top-articles', { limit: 10 }), [get])
+    const articles: ReportData[] = data?.articles || []
     return (
         <Section title="Top Knowledge Base Articles">
             {loading && <LoadingSpinner />}
@@ -301,15 +310,15 @@ export function KbTopArticlesSection({ get }) {
     )
 }
 
-export function AiUsageSection({ get, range }) {
-    const { data, loading, error } = useItsmResource(
+export function AiUsageSection({ get, range }: ReportSectionProps) {
+    const { data, loading, error } = useItsmResource<ReportData>(
         () => get('/reports/ai/usage', range),
         [get, range.startDate, range.endDate]
     )
     if (loading) return <Section title="AI Usage"><LoadingSpinner /></Section>
     if (error) return <Section title="AI Usage"><ErrorBanner message={error.message} /></Section>
     if (!data) return null
-    const features = Object.entries(data.by_feature || {})
+    const features = Object.entries((data.by_feature || {}) as ReportData)
     return (
         <Section title="AI Usage">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

@@ -5,11 +5,11 @@
  * lucide-react. Pairs with the simpler presentational helpers in primitives.jsx
  * (StatusBadge, cards, etc.), which remain for backwards compatibility.
  */
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type ButtonHTMLAttributes } from 'react'
 import { createPortal } from 'react-dom'
 import {
     X, Search, ChevronRight, ChevronDown, ChevronUp, AlertTriangle,
-    CheckCircle2, Info, XCircle, ChevronLeft,
+    CheckCircle2, Info, XCircle, ChevronLeft, type LucideIcon,
 } from 'lucide-react'
 import { cn } from './cn'
 
@@ -17,7 +17,10 @@ import { cn } from './cn'
 // Button
 // ---------------------------------------------------------------------------
 
-const BTN_VARIANTS = {
+type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost'
+type BtnSize = 'xs' | 'sm' | 'md'
+
+const BTN_VARIANTS: Record<BtnVariant, string> = {
     primary: 'bg-gradient-to-r from-accentfrom to-accentto text-primary-fg shadow-sm hover:shadow-md hover:brightness-105',
     secondary: 'bg-surface text-fg border border-bordc hover:bg-surface2',
     ghost: 'text-fgmuted hover:bg-surface2',
@@ -25,13 +28,19 @@ const BTN_VARIANTS = {
     'danger-ghost': 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10',
 }
 
-const BTN_SIZES = {
+const BTN_SIZES: Record<BtnSize, string> = {
     xs: 'px-2.5 py-1 text-xs gap-1',
     sm: 'px-3 py-1.5 text-xs gap-1.5',
     md: 'px-4 py-2 text-sm gap-2',
 }
 
-export function Button({ variant = 'primary', size = 'md', icon: Icon, className, children, ...props }) {
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+    variant?: BtnVariant
+    size?: BtnSize
+    icon?: LucideIcon
+}
+
+export function Button({ variant = 'primary', size = 'md', icon: Icon, className, children, ...props }: ButtonProps) {
     return (
         <button
             className={cn(
@@ -47,7 +56,13 @@ export function Button({ variant = 'primary', size = 'md', icon: Icon, className
     )
 }
 
-export function IconButton({ icon: Icon, label, className, size = 'md', ...props }) {
+export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+    icon?: LucideIcon
+    label: string
+    size?: 'sm' | 'md'
+}
+
+export function IconButton({ icon: Icon, label, className, size = 'md', ...props }: IconButtonProps) {
     const dim = size === 'sm' ? 'w-8 h-8' : 'w-9 h-9'
     return (
         <button
@@ -69,7 +84,9 @@ export function IconButton({ icon: Icon, label, className, size = 'md', ...props
 // Badge (semantic)
 // ---------------------------------------------------------------------------
 
-const BADGE_TONES = {
+type BadgeTone = 'gray' | 'blue' | 'green' | 'amber' | 'red' | 'indigo' | 'purple'
+
+const BADGE_TONES: Record<BadgeTone, string> = {
     gray: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
     blue: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
     green: 'bg-green-100 text-green-700 dark:bg-emerald-500/15 dark:text-emerald-300',
@@ -79,7 +96,12 @@ const BADGE_TONES = {
     purple: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300',
 }
 
-export function Badge({ tone = 'gray', icon: Icon, className, children }) {
+export function Badge({ tone = 'gray', icon: Icon, className, children }: {
+    tone?: BadgeTone
+    icon?: LucideIcon
+    className?: string
+    children?: ReactNode
+}) {
     return (
         <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium', BADGE_TONES[tone] || BADGE_TONES.gray, className)}>
             {Icon && <Icon className="w-3 h-3" strokeWidth={2.5} />}
@@ -92,10 +114,20 @@ export function Badge({ tone = 'gray', icon: Icon, className, children }) {
 // Drawer — slide-in panel for create/edit forms
 // ---------------------------------------------------------------------------
 
-export function Drawer({ open, onClose, title, description, children, footer, width = 'max-w-md' }) {
+export interface DrawerProps {
+    open: boolean
+    onClose?: () => void
+    title?: ReactNode
+    description?: ReactNode
+    children?: ReactNode
+    footer?: ReactNode
+    width?: string
+}
+
+export function Drawer({ open, onClose, title, description, children, footer, width = 'max-w-md' }: DrawerProps) {
     useEffect(() => {
         if (!open) return
-        const onKey = (e) => e.key === 'Escape' && onClose?.()
+        const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose?.()
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
     }, [open, onClose])
@@ -127,11 +159,24 @@ export function Drawer({ open, onClose, title, description, children, footer, wi
 // Tabs — pill navigation
 // ---------------------------------------------------------------------------
 
-export function Tabs({ tabs, value, onChange, className }) {
+export interface TabItem {
+    id: string
+    label: ReactNode
+    icon?: LucideIcon
+    count?: number
+}
+
+export function Tabs({ tabs, value, onChange, className }: {
+    tabs: TabItem[]
+    value: string
+    onChange: (id: string) => void
+    className?: string
+}) {
     return (
         <div className={cn('flex items-center gap-1 flex-wrap', className)}>
             {tabs.map((t) => {
                 const active = t.id === value
+                const Icon = t.icon
                 return (
                     <button
                         key={t.id}
@@ -143,7 +188,7 @@ export function Tabs({ tabs, value, onChange, className }) {
                                 : 'text-fgsubtle hover:text-fg hover:bg-surface2',
                         )}
                     >
-                        {t.icon && <t.icon className="w-4 h-4" strokeWidth={2} />}
+                        {Icon && <Icon className="w-4 h-4" strokeWidth={2} />}
                         {t.label}
                         {t.count != null && (
                             <span className={cn('ml-0.5 px-1.5 rounded text-[11px]', active ? 'bg-primary/20 text-primary' : 'bg-surface2 text-fgmuted')}>{t.count}</span>
@@ -159,12 +204,36 @@ export function Tabs({ tabs, value, onChange, className }) {
 // DataTable — sortable, dense, clickable rows
 // ---------------------------------------------------------------------------
 
-/**
- * columns: [{ key, header, render?(row), sortable?, className?, width? }]
- * rows: array of objects (must have stable `id` or pass rowKey)
- */
-export function DataTable({ columns, rows, rowKey = 'id', onRowClick, sort, onSortChange, empty = 'No records found.', loading, indent }) {
-    const handleSort = (col) => {
+export interface SortState {
+    key: string
+    dir: 'asc' | 'desc'
+}
+
+export interface DataTableColumn<T> {
+    key: string
+    header: ReactNode
+    render?: (row: T) => ReactNode
+    sortable?: boolean
+    className?: string
+    width?: string | number
+}
+
+export interface DataTableProps<T> {
+    columns: DataTableColumn<T>[]
+    rows: T[]
+    rowKey?: keyof T
+    onRowClick?: (row: T) => void
+    sort?: SortState
+    onSortChange?: (sort: SortState) => void
+    empty?: ReactNode
+    loading?: boolean
+    indent?: (row: T) => number
+}
+
+export function DataTable<T extends Record<string, unknown>>({
+    columns, rows, rowKey = 'id' as keyof T, onRowClick, sort, onSortChange, empty = 'No records found.', loading, indent,
+}: DataTableProps<T>) {
+    const handleSort = (col: DataTableColumn<T>) => {
         if (!col.sortable || !onSortChange) return
         if (sort?.key === col.key) onSortChange({ key: col.key, dir: sort.dir === 'asc' ? 'desc' : 'asc' })
         else onSortChange({ key: col.key, dir: 'asc' })
@@ -211,7 +280,7 @@ export function DataTable({ columns, rows, rowKey = 'id', onRowClick, sort, onSo
                         ) : (
                             rows.map((row) => (
                                 <tr
-                                    key={row[rowKey]}
+                                    key={String(row[rowKey])}
                                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                                     className={cn(
                                         'border-b border-slate-50 dark:border-slate-800/60 transition-colors',
@@ -223,10 +292,10 @@ export function DataTable({ columns, rows, rowKey = 'id', onRowClick, sort, onSo
                                             {ci === 0 && indent ? (
                                                 <span style={{ paddingLeft: `${(indent(row) || 0) * 18}px` }} className="inline-flex items-center gap-1">
                                                     {indent(row) > 0 && <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />}
-                                                    {col.render ? col.render(row) : row[col.key]}
+                                                    {col.render ? col.render(row) : String(row[col.key] ?? '')}
                                                 </span>
                                             ) : (
-                                                col.render ? col.render(row) : row[col.key]
+                                                col.render ? col.render(row) : String(row[col.key] ?? '')
                                             )}
                                         </td>
                                     ))}
@@ -244,7 +313,12 @@ export function DataTable({ columns, rows, rowKey = 'id', onRowClick, sort, onSo
 // SearchInput
 // ---------------------------------------------------------------------------
 
-export function SearchInput({ value, onChange, placeholder = 'Search…', className }) {
+export function SearchInput({ value, onChange, placeholder = 'Search…', className }: {
+    value: string
+    onChange: (value: string) => void
+    placeholder?: string
+    className?: string
+}) {
     return (
         <div className={cn('relative', className)}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" strokeWidth={2} />
@@ -262,7 +336,7 @@ export function SearchInput({ value, onChange, placeholder = 'Search…', classN
 // FilterBar — toolbar wrapper above tables/lists
 // ---------------------------------------------------------------------------
 
-export function FilterBar({ children, className }) {
+export function FilterBar({ children, className }: { children?: ReactNode; className?: string }) {
     return <div className={cn('flex items-center gap-2 flex-wrap', className)}>{children}</div>
 }
 
@@ -270,7 +344,13 @@ export function FilterBar({ children, className }) {
 // Breadcrumb
 // ---------------------------------------------------------------------------
 
-export function Breadcrumb({ items }) {
+export interface BreadcrumbItem {
+    label: ReactNode
+    onClick?: () => void
+    to?: string
+}
+
+export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
     return (
         <nav className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
             {items.map((it, i) => (
@@ -291,7 +371,13 @@ export function Breadcrumb({ items }) {
 // PageHeader
 // ---------------------------------------------------------------------------
 
-export function PageHeader({ title, subtitle, breadcrumb, actions, icon: Icon }) {
+export function PageHeader({ title, subtitle, breadcrumb, actions, icon: Icon }: {
+    title: ReactNode
+    subtitle?: ReactNode
+    breadcrumb?: BreadcrumbItem[]
+    actions?: ReactNode
+    icon?: LucideIcon
+}) {
     return (
         <div className="space-y-2">
             {breadcrumb && <Breadcrumb items={breadcrumb} />}
@@ -317,7 +403,7 @@ export function PageHeader({ title, subtitle, breadcrumb, actions, icon: Icon })
 // Skeleton
 // ---------------------------------------------------------------------------
 
-export function Skeleton({ className }) {
+export function Skeleton({ className }: { className?: string }) {
     return <div className={cn('rounded bg-slate-100 dark:bg-slate-800 animate-pulse', className)} />
 }
 
@@ -325,7 +411,13 @@ export function Skeleton({ className }) {
 // Pagination (cursor or page based)
 // ---------------------------------------------------------------------------
 
-export function Pagination({ onPrev, onNext, hasPrev, hasNext, label }) {
+export function Pagination({ onPrev, onNext, hasPrev, hasNext, label }: {
+    onPrev?: () => void
+    onNext?: () => void
+    hasPrev?: boolean
+    hasNext?: boolean
+    label?: ReactNode
+}) {
     return (
         <div className="flex items-center justify-between gap-3 pt-3">
             <span className="text-xs text-slate-500 dark:text-slate-400">{label}</span>
@@ -341,24 +433,28 @@ export function Pagination({ onPrev, onNext, hasPrev, hasNext, label }) {
 // Toast system
 // ---------------------------------------------------------------------------
 
-const ToastContext = createContext(null)
-const TOAST_ICON = { success: CheckCircle2, error: XCircle, info: Info, warning: AlertTriangle }
-const TOAST_TONE = {
+type ToastType = 'success' | 'error' | 'info' | 'warning'
+interface ToastEntry { id: string; message: ReactNode; type: ToastType }
+interface ToastContextValue { toast: (message: ReactNode, type?: ToastType) => void }
+
+const ToastContext = createContext<ToastContextValue | null>(null)
+const TOAST_ICON: Record<ToastType, LucideIcon> = { success: CheckCircle2, error: XCircle, info: Info, warning: AlertTriangle }
+const TOAST_TONE: Record<ToastType, string> = {
     success: 'border-green-200 dark:border-emerald-500/30 text-green-700 dark:text-emerald-300',
     error: 'border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300',
     info: 'border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-300',
     warning: 'border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300',
 }
 
-export function useToast() {
+export function useToast(): ToastContextValue {
     const ctx = useContext(ToastContext)
     if (!ctx) return { toast: () => {} }
     return ctx
 }
 
-export function ToastProvider({ children }) {
-    const [toasts, setToasts] = useState([])
-    const toast = useCallback((message, type = 'success') => {
+export function ToastProvider({ children }: { children: ReactNode }) {
+    const [toasts, setToasts] = useState<ToastEntry[]>([])
+    const toast = useCallback((message: ReactNode, type: ToastType = 'success') => {
         const id = Math.random().toString(36).slice(2)
         setToasts((t) => [...t, { id, message, type }])
         setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000)
@@ -389,26 +485,36 @@ export function ToastProvider({ children }) {
 // ConfirmDialog (provider + useConfirm hook)
 // ---------------------------------------------------------------------------
 
-const ConfirmContext = createContext(null)
+export interface ConfirmOptions {
+    title?: ReactNode
+    message?: ReactNode
+    danger?: boolean
+    cancelLabel?: ReactNode
+    confirmLabel?: ReactNode
+}
+type ConfirmFn = (opts: string | ConfirmOptions) => Promise<boolean>
+interface ConfirmContextValue { confirm: ConfirmFn }
 
-export function useConfirm() {
+const ConfirmContext = createContext<ConfirmContextValue | null>(null)
+
+export function useConfirm(): ConfirmFn {
     const ctx = useContext(ConfirmContext)
     if (!ctx) return async () => window.confirm('Are you sure?')
     return ctx.confirm
 }
 
-export function ConfirmProvider({ children }) {
-    const [state, setState] = useState(null)
-    const resolver = useRef(null)
+export function ConfirmProvider({ children }: { children: ReactNode }) {
+    const [state, setState] = useState<ConfirmOptions | null>(null)
+    const resolver = useRef<((result: boolean) => void) | null>(null)
 
-    const confirm = useCallback((opts) => {
+    const confirm = useCallback<ConfirmFn>((opts) => {
         return new Promise((resolve) => {
             resolver.current = resolve
             setState(typeof opts === 'string' ? { message: opts } : opts)
         })
     }, [])
 
-    const close = (result) => {
+    const close = (result: boolean) => {
         resolver.current?.(result)
         resolver.current = null
         setState(null)

@@ -1,26 +1,35 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
+export interface PaginationProps {
+    page: number
+    pageCount: number
+    onChange: (page: number) => void
+    total?: number
+    pageSize?: number
+    window?: number
+}
+
 // Standard page-numbered pagination. Renders Prev · windowed page numbers · Next.
 // page is 1-based. Shows up to `window` numbers around the current page with
 // first/last anchors and ellipses.
-export default function Pagination({ page, pageCount, onChange, total, pageSize, window = 1 }) {
+export default function Pagination({ page, pageCount, onChange, total, pageSize, window: pageWindow = 1 }: PaginationProps) {
     if (pageCount <= 1) return null
 
-    const nums = []
-    const push = (n) => { if (!nums.includes(n)) nums.push(n) }
+    const nums: number[] = []
+    const push = (n: number) => { if (!nums.includes(n)) nums.push(n) }
     push(1)
-    for (let p = page - window; p <= page + window; p++) if (p >= 1 && p <= pageCount) push(p)
+    for (let p = page - pageWindow; p <= page + pageWindow; p++) if (p >= 1 && p <= pageCount) push(p)
     push(pageCount)
     nums.sort((a, b) => a - b)
 
     // Insert ellipsis markers between non-consecutive numbers
-    const items = []
+    const items: (number | string)[] = []
     for (let i = 0; i < nums.length; i++) {
         if (i > 0 && nums[i] - nums[i - 1] > 1) items.push(`gap-${i}`)
         items.push(nums[i])
     }
 
-    const go = (p) => { if (p >= 1 && p <= pageCount && p !== page) onChange(p) }
+    const go = (p: number) => { if (p >= 1 && p <= pageCount && p !== page) onChange(p) }
     const btn = 'min-w-[34px] h-[34px] px-2 inline-flex items-center justify-center rounded-lg text-sm border transition-colors'
 
     return (

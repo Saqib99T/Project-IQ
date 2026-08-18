@@ -1,8 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Ticket, MonitorSmartphone, BookOpen, Loader2 } from 'lucide-react'
+import { Search, Ticket, MonitorSmartphone, BookOpen, Loader2, type LucideIcon } from 'lucide-react'
 import { useItsmApi } from './useItsmApi'
 import { StatusBadge } from './primitives'
+
+interface SearchTicket { id: string; title?: string; ticket_number?: string; status?: string }
+interface SearchAsset { id: string; name?: string; asset_tag?: string; serial_number?: string }
+interface SearchArticle { id: string; title?: string; excerpt?: string; slug?: string }
+interface SearchResults { tickets: SearchTicket[]; assets: SearchAsset[]; articles: SearchArticle[] }
 
 /**
  * Top-bar global search across tickets, assets and KB articles. Debounced;
@@ -15,11 +20,11 @@ export default function GlobalSearch() {
     const [q, setQ] = useState('')
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [results, setResults] = useState({ tickets: [], assets: [], articles: [] })
-    const boxRef = useRef(null)
+    const [results, setResults] = useState<SearchResults>({ tickets: [], assets: [], articles: [] })
+    const boxRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        const onClick = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
+        const onClick = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
         window.addEventListener('mousedown', onClick)
         return () => window.removeEventListener('mousedown', onClick)
     }, [])
@@ -36,9 +41,12 @@ export default function GlobalSearch() {
             }
             setLoading(true)
             const [tickets, assets, articles] = await Promise.all([
-                get('/tickets', { search: term, page_size: 5 }).then(d => d?.tickets || d?.items || []).catch(() => []),
-                get('/assets', { search: term, page_size: 5 }).then(d => d?.assets || d?.items || []).catch(() => []),
-                get('/kb/search', { q: term, limit: 5 }).then(r => (r || []).map(x => x.article)).catch(() => []),
+                get<{ tickets?: SearchTicket[]; items?: SearchTicket[] }>('/tickets', { search: term, page_size: 5 })
+                    .then(d => d?.tickets || d?.items || []).catch(() => [] as SearchTicket[]),
+                get<{ assets?: SearchAsset[]; items?: SearchAsset[] }>('/assets', { search: term, page_size: 5 })
+                    .then(d => d?.assets || d?.items || []).catch(() => [] as SearchAsset[]),
+                get<{ article: SearchArticle }[]>('/kb/search', { q: term, limit: 5 })
+                    .then(r => (r || []).map(x => x.article)).catch(() => [] as SearchArticle[]),
             ])
             setResults({ tickets: tickets.slice(0, 5), assets: assets.slice(0, 5), articles: articles.slice(0, 5) })
             setLoading(false)
@@ -46,7 +54,7 @@ export default function GlobalSearch() {
         return () => clearTimeout(handle)
     }, [q, get])
 
-    const go = (path) => { setOpen(false); setQ(''); navigate(path) }
+    const go = (path: string) => { setOpen(false); setQ(''); navigate(path) }
     const total = results.tickets.length + results.assets.length + results.articles.length
 
     return (
@@ -103,7 +111,7 @@ export default function GlobalSearch() {
     )
 }
 
-function Group({ label, icon: Icon, children }) {
+function Group({ label, icon: Icon, children }: { label: ReactNode; icon?: LucideIcon; children?: ReactNode }) {
     return (
         <div className="mb-1 last:mb-0">
             <div className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
@@ -114,7 +122,12 @@ function Group({ label, icon: Icon, children }) {
     )
 }
 
-function Row({ onClick, primary, secondary, trailing }) {
+function Row({ onClick, primary, secondary, trailing }: {
+    onClick?: () => void
+    primary?: ReactNode
+    secondary?: ReactNode
+    trailing?: ReactNode
+}) {
     return (
         <button onClick={onClick} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors">
             <div className="min-w-0 flex-1">

@@ -114,12 +114,12 @@ export function useItsmApi(explicitTenantId?: TenantId): ItsmApi {
  */
 export type NameById = Record<string, string>
 
-interface TenantEntry {
+export interface TenantEntry {
     id: string
     name?: string
     alias?: string
 }
-interface TenantListResponse {
+export interface TenantListResponse {
     tenants?: TenantEntry[]
     items?: TenantEntry[]
 }
@@ -302,7 +302,11 @@ export function withQuery(path: string, params?: QueryParams | null): string {
 export interface ItsmResourceState<T> {
     data: T | null
     loading: boolean
-    error: unknown
+    // Loosely `Error` rather than `unknown`: every call() failure throws an
+    // ApiError (extends Error, see above), so every real caller of this hook
+    // reads `.message` off it — `unknown` would just force an unsafe cast at
+    // every call site instead of here, once.
+    error: Error | null
 }
 export interface ItsmResource<T> extends ItsmResourceState<T> {
     reload: () => void
@@ -318,7 +322,9 @@ export function useItsmResource<T>(loader: () => Promise<T>, deps: unknown[] = [
         setState(s => ({ ...s, loading: true, error: null }))
         loader()
             .then(data => { if (!cancelled) setState({ data, loading: false, error: null }) })
-            .catch(error => { if (!cancelled) setState({ data: null, loading: false, error }) })
+            .catch((error: unknown) => {
+                if (!cancelled) setState({ data: null, loading: false, error: error instanceof Error ? error : new Error(String(error)) })
+            })
         return () => { cancelled = true }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [...deps, tick])

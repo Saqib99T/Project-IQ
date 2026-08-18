@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useItsmApi } from './useItsmApi'
+import { useItsmApi, type TenantEntry, type TenantListResponse } from './useItsmApi'
+
+export interface TenantSwitcherProps {
+    value: string | null | undefined
+    onChange: (tenantId: string | null) => void
+}
 
 /**
  * Lets a platform (super_admin) user pick which tenant's ITSM data to view.
@@ -8,16 +13,16 @@ import { useItsmApi } from './useItsmApi'
  *
  * Calls /platform/tenants — itsm-service only allows this for platform_admin/support.
  */
-export function TenantSwitcher({ value, onChange }) {
+export function TenantSwitcher({ value, onChange }: TenantSwitcherProps) {
     const { get } = useItsmApi()
-    const [tenants, setTenants] = useState([])
-    const [error, setError] = useState(null)
+    const [tenants, setTenants] = useState<TenantEntry[]>([])
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         let cancelled = false
-        get('/platform/tenants')
+        get<TenantListResponse>('/platform/tenants')
             .then(data => { if (!cancelled) setTenants(data.tenants || data.items || []) })
-            .catch(e => { if (!cancelled) setError(e.message) })
+            .catch((e: Error) => { if (!cancelled) setError(e.message) })
         return () => { cancelled = true }
     }, [get])
 

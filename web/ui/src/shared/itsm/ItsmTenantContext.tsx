@@ -1,4 +1,15 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+
+// Kept local rather than imported from useItsmApi.ts, which imports
+// useItsmTenant from this module — a type-only import back would work (types
+// are erased), but there's no need to introduce the circular reference at all
+// for a one-line alias.
+export type TenantId = string | null | undefined
+
+export interface ItsmTenantValue {
+    tenantId: TenantId
+    setTenantId: (id: TenantId) => void
+}
 
 /**
  * Holds the "currently inspected tenant" for ITSM views.
@@ -9,10 +20,10 @@ import { createContext, useContext, useMemo, useState } from 'react'
  *   scope requests to one tenant (X-Tenant-ID header), or left null for the
  *   cross-tenant/platform view.
  */
-const ItsmTenantContext = createContext({ tenantId: null, setTenantId: () => {} })
+const ItsmTenantContext = createContext<ItsmTenantValue>({ tenantId: null, setTenantId: () => {} })
 
-export function ItsmTenantProvider({ children }) {
-    const [tenantId, setTenantId] = useState(null)
+export function ItsmTenantProvider({ children }: { children: ReactNode }) {
+    const [tenantId, setTenantId] = useState<TenantId>(null)
     const value = useMemo(() => ({ tenantId, setTenantId }), [tenantId])
     return <ItsmTenantContext.Provider value={value}>{children}</ItsmTenantContext.Provider>
 }
@@ -26,7 +37,7 @@ export function ItsmTenantProvider({ children }) {
  *
  * tenantId null/undefined → no override (behaves like the cross-tenant view).
  */
-export function ItsmTenantScope({ tenantId, children }) {
+export function ItsmTenantScope({ tenantId, children }: { tenantId: TenantId; children: ReactNode }) {
     const value = useMemo(
         () => ({ tenantId: tenantId ?? null, setTenantId: () => {} }),
         [tenantId],
@@ -34,6 +45,6 @@ export function ItsmTenantScope({ tenantId, children }) {
     return <ItsmTenantContext.Provider value={value}>{children}</ItsmTenantContext.Provider>
 }
 
-export function useItsmTenant() {
+export function useItsmTenant(): ItsmTenantValue {
     return useContext(ItsmTenantContext)
 }

@@ -24,12 +24,27 @@ const ITSM_TEAMLEAD_ROLES = ['team_lead', 'manager', 'admin']
 const ITSM_MANAGER_ROLES = ['manager', 'admin']
 const ITSM_ADMIN_ROLES = ['admin']
 
-export function useItsmPermissions() {
-    const { user } = useIam()
+interface IamUser {
+    realm_roles?: string[]
+    client_roles?: string[]
+    is_admin?: boolean
+}
+
+export interface ItsmPermissions {
+    isAdmin: boolean
+    isManager: boolean
+    isTeamLead: boolean
+    isAgent: boolean
+    isPlatform: boolean
+    roles: string[]
+}
+
+export function useItsmPermissions(): ItsmPermissions {
+    const { user }: { user?: IamUser } = useIam()
 
     return useMemo(() => {
         const all = [...(user?.realm_roles || []), ...(user?.client_roles || [])]
-        const has = (set) => all.some(r => set.includes(r))
+        const has = (set: string[]) => all.some(r => set.includes(r))
         // IAM admin/org_admin (tenant admins AND 99T platform users) get full
         // capability — they are the highest-privilege actors in this app.
         const iamAdmin = has(IAM_ADMIN_ROLES) || !!user?.is_admin

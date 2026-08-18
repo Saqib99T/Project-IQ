@@ -7,31 +7,51 @@
  * Callers describe *what* to manage via a config object; the component owns
  * the *how* (loading, forms, validation, toasts, confirms).
  */
-import { useEffect, useMemo, useState } from 'react'
-import { Plus, Pencil, Trash2, FolderTree } from 'lucide-react'
-import { useItsmApi, useItsmResource } from './useItsmApi'
+import { useEffect, useMemo, useState, type ReactNode, type FormEvent } from 'react'
+import { Plus, Pencil, Trash2, FolderTree, type LucideIcon } from 'lucide-react'
+import { useItsmApi, useItsmResource, type ItsmApi } from './useItsmApi'
 import {
     Button, IconButton, Badge, Drawer, DataTable, SearchInput, FilterBar,
-    PageHeader, useToast, useConfirm,
+    PageHeader, useToast, useConfirm, type DataTableColumn,
 } from './ui'
 import { ErrorBanner, FormField } from './primitives'
 
-/**
- * @param {object}   cfg
- * @param {string}   cfg.title
- * @param {string}   [cfg.description]
- * @param {Function} [cfg.icon]            lucide icon component
- * @param {string}   cfg.listPath          GET endpoint (returns array)
- * @param {string}   cfg.createPath        POST endpoint
- * @param {Function} cfg.itemPath          (id) => PATCH/DELETE endpoint
- * @param {boolean}  [cfg.canDelete]
- * @param {boolean}  [cfg.canManage=true]  whether the user may create/edit
- * @param {boolean}  [cfg.hierarchical]    indent by parent_id + parent picker
- * @param {Array}    cfg.columns           extra display columns (besides name)
- * @param {Array}    cfg.fields            form fields
- * @param {Function} [cfg.nameKey='name']
- */
-export default function ReferenceDataManager(cfg) {
+// Rows are whatever shape the backend entity is (departments, categories,
+// vendors, KB tags, ...) — this component is generic over all of them, so a
+// loose record rather than one interface per entity type.
+export type ReferenceRow = Record<string, any>
+
+export interface ReferenceField {
+    name: string
+    label: string
+    type?: 'text' | 'textarea' | 'json' | 'select' | 'checkbox' | 'number'
+    required?: boolean
+    default?: unknown
+    placeholder?: string
+    help?: string
+    nullable?: boolean
+    checkboxLabel?: string
+    options?: { value: string; label: string }[]
+}
+
+export interface ReferenceDataConfig {
+    title: string
+    description?: string
+    icon?: LucideIcon
+    listPath: string
+    createPath: string
+    itemPath: (id: string) => string
+    canDelete?: boolean
+    canManage?: boolean
+    hierarchical?: boolean
+    isPlatform?: boolean
+    columns?: DataTableColumn<ReferenceRow>[]
+    fields?: ReferenceField[]
+    nameKey?: string
+    canDeleteRow?: (row: ReferenceRow) => boolean
+}
+
+export default function ReferenceDataManager(cfg: ReferenceDataConfig) {
     const {
         title, description, icon, listPath, itemPath,
         canDelete = true, canManage = true, hierarchical = false, isPlatform = false,
@@ -45,27 +65,27 @@ export default function ReferenceDataManager(cfg) {
     const { toast } = useToast()
     const confirm = useConfirm()
 
-    const { data, loading, error, reload } = useItsmResource(() => get(listPath), [get, listPath])
+    const { data, loading, error, reload } = useItsmResource<ReferenceRow[]>(() => get(listPath), [get, listPath])
     const items = useMemo(() => data || [], [data])
 
     const [search, setSearch] = useState('')
     const [showInactive, setShowInactive] = useState(false)
-    const [editing, setEditing] = useState(null)   // null | {} (new) | row (edit)
+    const [editing, setEditing] = useState<ReferenceRow | null>(null)   // null | {} (new) | row (edit)
     const hasActiveFlag = items.some(i => 'is_active' in i)
     const hasScope = items.some(i => 'tenant_id' in i)
 
     // ---- tree ordering (parent → children, depth for indent) --------------
     const { ordered, depthOf } = useMemo(() => {
         if (!hierarchical) return { ordered: items, depthOf: () => 0 }
-        const byParent = new Map()
+        const byParent = new Map<string, ReferenceRow[]>()
         for (const it of items) {
             const p = it.parent_id || '__root__'
             if (!byParent.has(p)) byParent.set(p, [])
-            byParent.get(p).push(it)
+            byParent.get(p)!.push(it)
         }
-        const depth = new Map()
-        const out = []
-        const walk = (parentKey, d) => {
+        const depth = new Map<string, number>()
+        const out: ReferenceRow[] = []
+        const walk = (parentKey: string, d: number) => {
             const kids = (byParent.get(parentKey) || []).sort((a, b) => (a[nameKey] || '').localeCompare(b[nameKey] || ''))
             for (const k of kids) {
                 depth.set(k.id, d)
@@ -76,7 +96,7 @@ export default function ReferenceDataManager(cfg) {
         walk('__root__', 0)
         // include any orphans whose parent isn't in the set
         for (const it of items) if (!depth.has(it.id)) { depth.set(it.id, 0); out.push(it) }
-        return { ordered: out, depthOf: (row) => depth.get(row.id) || 0 }
+        return { ordered: out, depthOf: (row: ReferenceRow) => depth.get(row.id) || 0 }
     }, [items, hierarchical, nameKey])
 
     const filtered = useMemo(() => {
@@ -89,7 +109,7 @@ export default function ReferenceDataManager(cfg) {
     }, [ordered, search, showInactive, hasActiveFlag, nameKey])
 
     // ---- columns ----------------------------------------------------------
-    const tableColumns = [
+    const tableColumns: DataTableColumn<ReferenceRow>[] = [
         {
             key: nameKey, header: 'Name', sortable: false,
             render: (row) => (
@@ -99,19 +119,19 @@ export default function ReferenceDataManager(cfg) {
         ...columns,
         ...(hasScope ? [{
             key: 'tenant_id', header: 'Scope', width: '100px',
-            render: (row) => row.tenant_id == null
+            render: (row: ReferenceRow) => row.tenant_id == null
                 ? <Badge tone="indigo">Global</Badge>
                 : <Badge tone="gray">Tenant</Badge>,
         }] : []),
         ...(hasActiveFlag ? [{
             key: 'is_active', header: 'Status', width: '110px',
-            render: (row) => row.is_active === false
+            render: (row: ReferenceRow) => row.is_active === false
                 ? <Badge tone="gray">Inactive</Badge>
                 : <Badge tone="green">Active</Badge>,
         }] : []),
         ...(canManage ? [{
             key: '_actions', header: '', width: '90px', className: 'text-right',
-            render: (row) => {
+            render: (row: ReferenceRow) => {
                 // Tenant users can't edit global rows (platform-managed); backend
                 // enforces this too — we just avoid showing dead buttons.
                 const locked = row.tenant_id == null && !isPlatform
@@ -130,7 +150,7 @@ export default function ReferenceDataManager(cfg) {
         }] : []),
     ]
 
-    const handleDelete = async (row) => {
+    const handleDelete = async (row: ReferenceRow) => {
         const ok = await confirm({
             title: `Delete ${title.replace(/s$/, '').toLowerCase()}?`,
             message: `"${row[nameKey]}" will be permanently removed. This cannot be undone.`,
@@ -142,7 +162,7 @@ export default function ReferenceDataManager(cfg) {
             toast(`Deleted "${row[nameKey]}"`, 'success')
             reload()
         } catch (err) {
-            toast(err.message || 'Delete failed', 'error')
+            toast((err as Error).message || 'Delete failed', 'error')
         }
     }
 
@@ -196,12 +216,23 @@ export default function ReferenceDataManager(cfg) {
 // Create / edit drawer
 // ---------------------------------------------------------------------------
 
-function EditorDrawer({ cfg, open, row, items, onClose, onSaved, api, toast }) {
+interface EditorDrawerProps {
+    cfg: ReferenceDataConfig
+    open: boolean
+    row: ReferenceRow | null
+    items: ReferenceRow[]
+    onClose: () => void
+    onSaved: () => void
+    api: { post: ItsmApi['post']; patch: ItsmApi['patch'] }
+    toast: (message: ReactNode, type?: 'success' | 'error' | 'info' | 'warning') => void
+}
+
+function EditorDrawer({ cfg, open, row, items, onClose, onSaved, api, toast }: EditorDrawerProps) {
     const { title, createPath, itemPath, fields = [], hierarchical, nameKey = 'name' } = cfg
     const isEdit = !!row
 
-    const buildInitial = () => {
-        const base = {}
+    const buildInitial = (): ReferenceRow => {
+        const base: ReferenceRow = {}
         for (const f of fields) {
             let v = row ? (row[f.name] ?? '') : (f.default ?? '')
             if (f.type === 'json' && v && typeof v === 'object') v = JSON.stringify(v, null, 2)
@@ -211,9 +242,9 @@ function EditorDrawer({ cfg, open, row, items, onClose, onSaved, api, toast }) {
         return base
     }
 
-    const [form, setForm] = useState(buildInitial)
+    const [form, setForm] = useState<ReferenceRow>(buildInitial)
     const [saving, setSaving] = useState(false)
-    const [err, setErr] = useState(null)
+    const [err, setErr] = useState<Error | null>(null)
     // Re-seed the form whenever the drawer opens for a different row
     const [seed, setSeed] = useState(0)
     useEffect(() => {
@@ -221,34 +252,34 @@ function EditorDrawer({ cfg, open, row, items, onClose, onSaved, api, toast }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, row])
 
-    const setField = (name, value) => setForm(f => ({ ...f, [name]: value }))
+    const setField = (name: string, value: unknown) => setForm(f => ({ ...f, [name]: value }))
 
     // descendants of the edited row can't be its parent (cycle guard)
     const parentOptions = useMemo(() => {
-        if (!hierarchical) return []
-        const blocked = new Set()
+        if (!hierarchical) return [] as ReferenceRow[]
+        const blocked = new Set<string>()
         if (row) {
             blocked.add(row.id)
-            const byParent = new Map()
+            const byParent = new Map<string, ReferenceRow[]>()
             for (const it of items) {
                 const p = it.parent_id || '__root__'
                 if (!byParent.has(p)) byParent.set(p, [])
-                byParent.get(p).push(it)
+                byParent.get(p)!.push(it)
             }
             const stack = [row.id]
             while (stack.length) {
-                const cur = stack.pop()
+                const cur = stack.pop()!
                 for (const c of byParent.get(cur) || []) { blocked.add(c.id); stack.push(c.id) }
             }
         }
         return items.filter(i => !blocked.has(i.id))
     }, [items, row, hierarchical])
 
-    const submit = async (e) => {
+    const submit = async (e: FormEvent) => {
         e.preventDefault()
         setSaving(true); setErr(null)
         try {
-            const payload = {}
+            const payload: ReferenceRow = {}
             for (const f of fields) {
                 let v = form[f.name]
                 if (f.type === 'json') {
@@ -263,12 +294,12 @@ function EditorDrawer({ cfg, open, row, items, onClose, onSaved, api, toast }) {
             }
             if (hierarchical) payload.parent_id = form.parent_id || null
 
-            if (isEdit) await api.patch(itemPath(row.id), payload)
+            if (isEdit) await api.patch(itemPath(row!.id), payload)
             else await api.post(createPath, payload)
             toast(isEdit ? 'Changes saved' : `${title.replace(/s$/, '')} created`, 'success')
             onSaved()
         } catch (e2) {
-            setErr(e2)
+            setErr(e2 as Error)
         } finally {
             setSaving(false)
         }

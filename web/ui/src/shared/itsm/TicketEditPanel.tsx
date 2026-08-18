@@ -5,9 +5,25 @@ import { ErrorBanner } from './primitives'
 const STATUSES = ['open', 'in_progress', 'pending', 'pending_approval', 'approved', 'rejected', 'resolved', 'closed', 'cancelled']
 const PRIORITIES = ['low', 'medium', 'high', 'critical']
 
-function userLabel(u) {
+interface TenantUser {
+    id: string
+    first_name?: string
+    last_name?: string
+    email?: string
+}
+interface Team { id: string; name?: string }
+interface TicketDetail {
+    id: string
+    status: string
+    priority: string
+    assignee_id?: string | null
+    team_id?: string | null
+    [key: string]: unknown
+}
+
+function userLabel(u: TenantUser): string {
     const name = `${u.first_name || ''} ${u.last_name || ''}`.trim()
-    return name ? `${name} (${u.email})` : u.email
+    return name ? `${name} (${u.email})` : (u.email || u.id)
 }
 
 /**
@@ -16,17 +32,20 @@ function userLabel(u) {
  *
  * Shared by the portal (admin + operator) and the standalone itsm-app.
  */
-export default function TicketEditPanel({ ticket, onUpdated }) {
+export default function TicketEditPanel({ ticket, onUpdated }: {
+    ticket: TicketDetail
+    onUpdated: (updated: TicketDetail) => void
+}) {
     const { get, patch } = useItsmApi()
-    const [saving, setSaving] = useState(null)
-    const [error, setError] = useState(null)
+    const [saving, setSaving] = useState<string | null>(null)
+    const [error, setError] = useState<Error | null>(null)
 
-    const { data: users }  = useItsmResource(() => get('/tenant/users', { limit: 100 }), [get])
-    const { data: teams }  = useItsmResource(() => get('/tenant/teams'), [get])
+    const { data: users }  = useItsmResource<{ items?: TenantUser[] }>(() => get('/tenant/users', { limit: 100 }), [get])
+    const { data: teams }  = useItsmResource<Team[]>(() => get('/tenant/teams'), [get])
     // Only offer statuses the state machine actually allows from the current one
     // (plus the current status itself). Picking an unreachable status otherwise
     // returns a 409 "Cannot transition from X to Y". Reloads when status changes.
-    const { data: trans }  = useItsmResource(
+    const { data: trans }  = useItsmResource<{ valid?: string[] }>(
         () => get(`/tickets/${ticket.id}/transitions`), [get, ticket.id, ticket.status])
     const userList = users?.items || []
     const teamList = teams || []
@@ -34,17 +53,17 @@ export default function TicketEditPanel({ ticket, onUpdated }) {
         ? [ticket.status, ...trans.valid.filter(s => s !== ticket.status)]
         : STATUSES
 
-    const save = async (field, value) => {
+    const save = async (field: string, value: string | null) => {
         if (!value && (field === 'assignee_id' || field === 'team_id')) return
         setSaving(field)
         setError(null)
         try {
             // itsm-service's UpdateTicketRequest drops null fields (exclude_none),
             // so clearing assignee/team back to "Unassigned" isn't possible via PATCH.
-            const updated = await patch(`/tickets/${ticket.id}`, { [field]: value })
+            const updated = await patch<TicketDetail>(`/tickets/${ticket.id}`, { [field]: value })
             onUpdated(updated)
         } catch (err) {
-            setError(err)
+            setError(err as Error)
         } finally {
             setSaving(null)
         }

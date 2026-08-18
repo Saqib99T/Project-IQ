@@ -1,30 +1,45 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useIam } from '../../widget/hooks/useIam'
 import { useItsmApi, useItsmResource } from './useItsmApi'
 import { useItsmPermissions } from './useItsmPermissions'
 import { LoadingSpinner, ErrorBanner, EmptyState } from './primitives'
 import { useConfirm } from './ui'
 
-function formatDate(iso) {
+export interface Comment {
+    id: string
+    ticket_id: string
+    author_id: string
+    author_name?: string
+    body: string
+    is_internal?: boolean
+    created_at?: string
+}
+
+function formatDate(iso?: string): string {
     if (!iso) return '—'
     return new Date(iso).toLocaleString()
 }
 
-function CommentItem({ comment, canEdit, onSaved, onDeleted }) {
+function CommentItem({ comment, canEdit, onSaved, onDeleted }: {
+    comment: Comment
+    canEdit: (c: Comment) => boolean
+    onSaved: (updated: Comment) => void
+    onDeleted: (id: string) => void
+}) {
     const { patch, remove } = useItsmApi()
     const confirm = useConfirm()
     const [editing, setEditing] = useState(false)
     const [body, setBody] = useState(comment.body)
     const [busy, setBusy] = useState(false)
-    const [error, setError] = useState(null)
+    const [error, setError] = useState<Error | null>(null)
 
     const save = async () => {
         setBusy(true); setError(null)
         try {
-            const updated = await patch(`/tickets/${comment.ticket_id}/comments/${comment.id}`, { body })
+            const updated = await patch<Comment>(`/tickets/${comment.ticket_id}/comments/${comment.id}`, { body })
             onSaved(updated)
             setEditing(false)
-        } catch (err) { setError(err) } finally { setBusy(false) }
+        } catch (err) { setError(err as Error) } finally { setBusy(false) }
     }
 
     const del = async () => {
@@ -33,7 +48,7 @@ function CommentItem({ comment, canEdit, onSaved, onDeleted }) {
         try {
             await remove(`/tickets/${comment.ticket_id}/comments/${comment.id}`)
             onDeleted(comment.id)
-        } catch (err) { setError(err); setBusy(false) }
+        } catch (err) { setError(err as Error); setBusy(false) }
     }
 
     return (
@@ -81,16 +96,16 @@ function CommentItem({ comment, canEdit, onSaved, onDeleted }) {
  * may post internal notes; the backend enforces the real authorization and the
  * internal/public visibility filter. Shared by the portal and the itsm-app.
  */
-export default function CommentsSection({ ticketId }) {
-    const { user } = useIam()
+export default function CommentsSection({ ticketId }: { ticketId: string }) {
+    const { user }: { user?: { sub?: string; local_user_id?: string } } = useIam()
     const { isAgent } = useItsmPermissions()
     const { get, post } = useItsmApi()
     const [body, setBody] = useState('')
     const [isInternal, setIsInternal] = useState(false)
     const [posting, setPosting] = useState(false)
-    const [postError, setPostError] = useState(null)
+    const [postError, setPostError] = useState<Error | null>(null)
 
-    const { data, loading, error, reload } = useItsmResource(
+    const { data, loading, error, reload } = useItsmResource<Comment[]>(
         () => get(`/tickets/${ticketId}/comments`),
         [get, ticketId]
     )
@@ -98,9 +113,9 @@ export default function CommentsSection({ ticketId }) {
 
     // Server enforces author-only edits + 5-minute window; this just hides the
     // controls for comments that obviously aren't the current user's.
-    const canEdit = (c) => c.author_id === user?.sub || c.author_id === user?.local_user_id
+    const canEdit = (c: Comment) => c.author_id === user?.sub || c.author_id === user?.local_user_id
 
-    const submit = async (e) => {
+    const submit = async (e: FormEvent) => {
         e.preventDefault()
         if (!body.trim()) return
         setPosting(true); setPostError(null)
@@ -108,7 +123,7 @@ export default function CommentsSection({ ticketId }) {
             await post(`/tickets/${ticketId}/comments`, { body, is_internal: isInternal })
             setBody(''); setIsInternal(false)
             reload()
-        } catch (err) { setPostError(err) } finally { setPosting(false) }
+        } catch (err) { setPostError(err as Error) } finally { setPosting(false) }
     }
 
     return (

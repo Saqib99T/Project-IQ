@@ -1,10 +1,21 @@
+import type { ReactNode } from 'react'
+import type { NameById } from './useItsmApi'
+
 /**
  * Shared ITSM UI primitives — used by both the embedded admin-portal pages
  * and the standalone ITSM app. Styling matches the existing portal's
  * Tailwind + dark-mode conventions (see admin/OperatorsPage.jsx).
  */
 
-export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }) {
+export interface ModalProps {
+    open: boolean
+    onClose: () => void
+    title?: ReactNode
+    children?: ReactNode
+    maxWidth?: string
+}
+
+export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }: ModalProps) {
     if (!open) return null
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -20,7 +31,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' })
     )
 }
 
-export function FormField({ label, children }) {
+export function FormField({ label, children }: { label: ReactNode; children: ReactNode }) {
     return (
         <label className="block space-y-1">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">{label}</span>
@@ -29,7 +40,7 @@ export function FormField({ label, children }) {
     )
 }
 
-const STATUS_STYLE = {
+const STATUS_STYLE: Record<string, string> = {
     open:             'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400',
     in_progress:      'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400',
     pending:          'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
@@ -41,28 +52,28 @@ const STATUS_STYLE = {
     cancelled:        'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
 }
 
-const PRIORITY_STYLE = {
+const PRIORITY_STYLE: Record<string, string> = {
     low:      'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
     medium:   'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400',
     high:     'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400',
     critical: 'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400',
 }
 
-function pillClass(map, key) {
+function pillClass(map: Record<string, string>, key?: string): string {
     return `inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
-        map[key] || 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+        (key && map[key]) || 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
     }`
 }
 
-export function StatusBadge({ status }) {
+export function StatusBadge({ status }: { status?: string }) {
     return <span className={pillClass(STATUS_STYLE, status)}>{(status || 'unknown').replace(/_/g, ' ')}</span>
 }
 
-export function PriorityBadge({ priority }) {
+export function PriorityBadge({ priority }: { priority?: string }) {
     return <span className={pillClass(PRIORITY_STYLE, priority)}>{priority || 'unknown'}</span>
 }
 
-export function LoadingSpinner({ className = '' }) {
+export function LoadingSpinner({ className = '' }: { className?: string }) {
     return (
         <div className={`flex justify-center py-16 ${className}`}>
             <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -70,7 +81,7 @@ export function LoadingSpinner({ className = '' }) {
     )
 }
 
-export function ErrorBanner({ message }) {
+export function ErrorBanner({ message }: { message?: ReactNode }) {
     if (!message) return null
     return (
         <div className="card p-4 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm">
@@ -79,7 +90,7 @@ export function ErrorBanner({ message }) {
     )
 }
 
-export function EmptyState({ children }) {
+export function EmptyState({ children }: { children: ReactNode }) {
     return (
         <div className="card p-10 text-center text-sm text-slate-500 dark:text-slate-400">
             {children}
@@ -93,7 +104,7 @@ export function EmptyState({ children }) {
  * Resolves the display name from the tenant directory map; falls back to
  * a truncated id while the directory is still loading.
  */
-export function TenantBadge({ tenantId, tenantNames }) {
+export function TenantBadge({ tenantId, tenantNames }: { tenantId?: string | null; tenantNames?: NameById }) {
     if (!tenantId) return null
     const name = tenantNames?.[tenantId] || `${tenantId.slice(0, 8)}…`
     return (
@@ -103,7 +114,23 @@ export function TenantBadge({ tenantId, tenantNames }) {
     )
 }
 
-export function TicketCard({ ticket, onClick, tenantNames }) {
+export interface TicketSummary {
+    id: string
+    ticket_number?: string
+    product_name?: string
+    tenant_id?: string
+    title?: string
+    description?: string
+    status?: string
+    priority?: string
+    [key: string]: unknown
+}
+
+export function TicketCard({ ticket, onClick, tenantNames }: {
+    ticket: TicketSummary
+    onClick?: () => void
+    tenantNames?: NameById
+}) {
     return (
         <button
             onClick={onClick}
@@ -130,7 +157,7 @@ export function TicketCard({ ticket, onClick, tenantNames }) {
     )
 }
 
-const ASSET_STATUS_STYLE = {
+const ASSET_STATUS_STYLE: Record<string, string> = {
     in_use:         'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400',
     in_stock:       'bg-green-100 dark:bg-emerald-500/10 text-green-700 dark:text-emerald-400',
     in_maintenance: 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400',
@@ -139,7 +166,23 @@ const ASSET_STATUS_STYLE = {
     lost:           'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400',
 }
 
-export function AssetCard({ asset, onClick, tenantNames }) {
+export interface AssetSummary {
+    id: string
+    asset_tag?: string
+    tenant_id?: string
+    name?: string
+    manufacturer?: string
+    model_number?: string
+    location?: string
+    status?: string
+    [key: string]: unknown
+}
+
+export function AssetCard({ asset, onClick, tenantNames }: {
+    asset: AssetSummary
+    onClick?: () => void
+    tenantNames?: NameById
+}) {
     return (
         <button
             onClick={onClick}
@@ -160,7 +203,20 @@ export function AssetCard({ asset, onClick, tenantNames }) {
     )
 }
 
-export function KbArticleCard({ article, onClick, tenantNames }) {
+export interface KbArticleSummary {
+    id: string
+    tenant_id?: string
+    _spaceTenantId?: string
+    title?: string
+    excerpt?: string
+    [key: string]: unknown
+}
+
+export function KbArticleCard({ article, onClick, tenantNames }: {
+    article: KbArticleSummary
+    onClick?: () => void
+    tenantNames?: NameById
+}) {
     const tenantId = article.tenant_id || article._spaceTenantId
     return (
         <button

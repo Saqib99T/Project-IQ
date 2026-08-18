@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useItsmApi } from './useItsmApi'
 import { LoadingSpinner, ErrorBanner } from './primitives'
 
-const METRIC_LABELS = {
+const METRIC_LABELS: Record<string, string> = {
     first_response: 'First response',
     next_response: 'Next response',
     periodic_update: 'Periodic update',
@@ -11,7 +11,18 @@ const METRIC_LABELS = {
     resolution: 'Resolution',
 }
 
-function fmtDuration(sec) {
+interface SlaInstance {
+    id: string
+    metric: string
+    status: string
+    due_at?: string
+    consumed_pct?: number
+    attributed_party?: { kind: string }
+}
+interface SlaData { instances?: SlaInstance[] }
+interface SlaAgreement { id: string; name: string; kind: string }
+
+function fmtDuration(sec: number): string {
     const s = Math.abs(Math.round(sec))
     const d = Math.floor(s / 86400)
     const h = Math.floor((s % 86400) / 3600)
@@ -24,7 +35,7 @@ function fmtDuration(sec) {
 
 // Per-instance clock row. Recomputes remaining from due_at each tick so the
 // countdown is accurate without re-fetching.
-function ClockRow({ inst, now }) {
+function ClockRow({ inst, now }: { inst: SlaInstance; now: number }) {
     const terminal = ['met', 'stopped', 'cancelled'].includes(inst.status)
     const dueMs = inst.due_at ? new Date(inst.due_at).getTime() : null
     const remaining = dueMs != null ? (dueMs - now) / 1000 : null
@@ -74,28 +85,28 @@ function ClockRow({ inst, now }) {
  * Live SLA clocks for a ticket (Phase 7). Reads GET /tickets/{id}/sla and lets a
  * manager override which agreement applies. Countdown ticks locally every second.
  */
-export default function TicketSlaPanel({ ticketId, canManage = false }) {
+export default function TicketSlaPanel({ ticketId, canManage = false }: { ticketId: string; canManage?: boolean }) {
     const { get, post } = useItsmApi()
-    const [data, setData] = useState(null)
-    const [error, setError] = useState(null)
+    const [data, setData] = useState<SlaData | null>(null)
+    const [error, setError] = useState<Error | null>(null)
     const [loading, setLoading] = useState(true)
     const [now, setNow] = useState(Date.now())
-    const [agreements, setAgreements] = useState([])
+    const [agreements, setAgreements] = useState<SlaAgreement[]>([])
     const [overrideId, setOverrideId] = useState('')
     const [saving, setSaving] = useState(false)
 
     const load = useCallback(() => {
         setLoading(true)
-        get(`/tickets/${ticketId}/sla`)
+        get<SlaData>(`/tickets/${ticketId}/sla`)
             .then(d => { setData(d); setError(null) })
-            .catch(e => setError(e))
+            .catch((e: Error) => setError(e))
             .finally(() => setLoading(false))
     }, [get, ticketId])
 
     useEffect(() => { load() }, [load])
     useEffect(() => {
         if (!canManage) return
-        get('/sla/agreements').then(rows => setAgreements(rows || [])).catch(() => {})
+        get<SlaAgreement[]>('/sla/agreements').then(rows => setAgreements(rows || [])).catch(() => {})
     }, [get, canManage])
     // 1s tick for the countdown.
     useEffect(() => {
@@ -107,9 +118,9 @@ export default function TicketSlaPanel({ ticketId, canManage = false }) {
         if (!overrideId) return
         setSaving(true); setError(null)
         try {
-            const d = await post(`/tickets/${ticketId}/sla/override`, { agreement_id: overrideId })
+            const d = await post<SlaData>(`/tickets/${ticketId}/sla/override`, { agreement_id: overrideId })
             setData(d); setOverrideId('')
-        } catch (e) { setError(e) } finally { setSaving(false) }
+        } catch (e) { setError(e as Error) } finally { setSaving(false) }
     }
 
     const instances = data?.instances || []
