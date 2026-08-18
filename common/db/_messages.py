@@ -91,7 +91,7 @@ def log_feedback(sender_id: str, feedback_type: str, app_id: str = "General",
             (conv_id, feedback_type, app_id, user_id, ticket_id, rating, comments, datetime.now())
         )
         if feedback_type == 'positive':
-            cursor.execute('UPDATE conversations SET resolved = 1 WHERE id = %s', (conv_id,))
+            cursor.execute('UPDATE conversations SET resolved = TRUE WHERE id = %s', (conv_id,))
         conn.commit()
     except Exception as e:
         logger.error("Error saving feedback: %s", e)

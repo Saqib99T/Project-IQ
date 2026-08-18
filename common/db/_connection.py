@@ -13,6 +13,12 @@ logger = logging.getLogger(__name__)
 # ── Connection pool ───────────────────────────────────────────────────────────
 
 _connection_pool = None
+_replica_pool = None
+_replica_unavailable = False  # sticky: one failed connect attempt stops
+                               # retrying the replica for the rest of this
+                               # process's life, rather than adding replica
+                               # connect latency to every read after the first
+                               # failure. Restart the process to retry.
 
 
 def _get_db_config() -> dict:
@@ -25,7 +31,7 @@ def _get_db_config() -> dict:
             return get_db_config()
         except ImportError:
             return {'host': 'localhost', 'port': 5432, 'database': 'Chatbot',
-                    'user': 'postgres', 'password': '12345'}
+                    'user': 'postgres', 'password': ''}
 
 
 def _get_pool():
@@ -43,13 +49,46 @@ def _release_connection(conn):
     _get_pool().putconn(conn)
 
 
+def _get_replica_pool():
+    """Returns the replica pool, or None if no replica is configured or its
+    pool failed to initialize (e.g. host unreachable)."""
+    global _replica_pool, _replica_unavailable
+    if _replica_unavailable:
+        return None
+    if _replica_pool is None:
+        from common.config_manager import get_db_replica_config
+        cfg = get_db_replica_config()
+        if not cfg:
+            _replica_unavailable = True
+            return None
+        try:
+            _replica_pool = pool.ThreadedConnectionPool(minconn=1, maxconn=20, **cfg)
+        except Exception as e:
+            logger.warning("[db] Replica pool init failed, reads will use the primary: %s", e)
+            _replica_unavailable = True
+            return None
+    return _replica_pool
+
+
 def _get_read_connection():
-    """Returns (conn, is_replica). No replica configured — uses write pool."""
+    """Returns (conn, is_replica). Routes to the replica pool when
+    [DATABASE_REPLICA] db_replica_host is configured and reachable;
+    otherwise (the default — no replica configured, or the replica pool
+    failed to init) falls back to the primary write pool."""
+    replica_pool = _get_replica_pool()
+    if replica_pool is not None:
+        try:
+            return replica_pool.getconn(), True
+        except Exception as e:
+            logger.warning("[db] Replica getconn failed, falling back to primary: %s", e)
     return _get_connection(), False
 
 
 def _release_read_connection(conn, is_replica):
-    _release_connection(conn)
+    if is_replica and _replica_pool is not None:
+        _replica_pool.putconn(conn)
+    else:
+        _release_connection(conn)
 
 
 # ── Schema init ───────────────────────────────────────────────────────────────
@@ -62,7 +101,7 @@ def _init_database():
             '''CREATE TABLE IF NOT EXISTS conversations (
                 id SERIAL PRIMARY KEY, sender_id TEXT UNIQUE NOT NULL,
                 app_id TEXT DEFAULT 'General', started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP, resolved INTEGER DEFAULT 0)''',
+                last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP, resolved BOOLEAN DEFAULT FALSE)''',
             '''CREATE TABLE IF NOT EXISTS messages (
                 id SERIAL PRIMARY KEY, conversation_id INTEGER NOT NULL, sender TEXT NOT NULL,
                 text TEXT, intent TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

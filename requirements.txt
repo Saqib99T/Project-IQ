@@ -20,6 +20,10 @@ eventlet==0.35.2
 # Database
 psycopg2-binary==2.9.9
 sqlalchemy<2.0
+# Schema migrations for common/db (see common/db/migrations/) — replaces
+# ad-hoc inline DDL for anything new; the legacy bootstrap in
+# common/db/_connection.py stays in place for existing deployments.
+alembic==1.19.1
 
 # Config
 python-dotenv>=1.0.0

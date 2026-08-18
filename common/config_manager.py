@@ -71,7 +71,29 @@ def get_db_config() -> Dict[str, Any]:
         'database': config.get('DATABASE', 'DB_NAME', fallback='Chatbot'),
         'user': config.get('DATABASE', 'DB_USER', fallback='postgres'),
         'password': _env_secret('DATABASE', 'DB_PASSWORD',
-                                config.get('DATABASE', 'DB_PASSWORD', fallback='12345')),
+                                config.get('DATABASE', 'DB_PASSWORD', fallback='')),
+    }
+
+
+def get_db_replica_config() -> Dict[str, Any]:
+    """Read-replica connection settings, or None when no replica is configured.
+
+    Disabled by leaving [DATABASE_REPLICA] db_replica_host blank — the
+    documented convention in app.config.prod. None (not a dict with an empty
+    host) so callers can `if cfg:` rather than re-checking the host field
+    themselves.
+    """
+    config = load_config()
+    host = config.get('DATABASE_REPLICA', 'DB_REPLICA_HOST', fallback='').strip()
+    if not host:
+        return None
+    return {
+        'host': host,
+        'port': config.getint('DATABASE_REPLICA', 'DB_REPLICA_PORT', fallback=5432),
+        'database': config.get('DATABASE_REPLICA', 'DB_REPLICA_NAME', fallback='Chatbot'),
+        'user': config.get('DATABASE_REPLICA', 'DB_REPLICA_USER', fallback='postgres'),
+        'password': _env_secret('DATABASE_REPLICA', 'DB_REPLICA_PASSWORD',
+                                config.get('DATABASE_REPLICA', 'DB_REPLICA_PASSWORD', fallback='')),
     }
 
 

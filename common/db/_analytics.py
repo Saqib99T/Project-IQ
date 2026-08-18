@@ -173,7 +173,7 @@ def get_recent_conversations(limit: int = 50, app_id: str = None, user_search: s
         if ticket_status == 'created':
             query += " AND EXISTS (SELECT 1 FROM actions a WHERE a.conversation_id=c.id AND a.action_name='action_create_glpi_ticket' AND a.success=1)"
         elif ticket_status == 'resolved':
-            query += " AND (c.resolved=1 OR EXISTS (SELECT 1 FROM actions a WHERE a.conversation_id=c.id AND a.action_name='action_verify_glpi_resolution'))"
+            query += " AND (c.resolved = TRUE OR EXISTS (SELECT 1 FROM actions a WHERE a.conversation_id=c.id AND a.action_name='action_verify_glpi_resolution'))"
         elif ticket_status == 'updated':
             query += " AND EXISTS (SELECT 1 FROM actions a WHERE a.conversation_id=c.id AND a.action_name IN ('action_update_glpi_ticket','action_view_ticket_comments'))"
         elif ticket_status == 'none':
