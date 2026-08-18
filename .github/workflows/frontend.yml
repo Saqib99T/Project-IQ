@@ -29,6 +29,9 @@ jobs:
       - name: Run vitest suite
         run: npm run test -- --run
 
+      - name: Type-check (.ts/.tsx files — see docs/ARCHITECTURE_REVIEW.md H-05)
+        run: npm run typecheck
+
       - name: Build all bundles (widget / portal / itsm)
         run: |
           npm run build

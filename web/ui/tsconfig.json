@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Vite handles actual transpilation (esbuild) — tsc here is type-checking only */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Incremental adoption (docs/ARCHITECTURE_REVIEW.md H-05): .ts/.tsx files are
+       type-checked; existing .js/.jsx stays untouched and unchecked. Loosen these
+       as more of the codebase converts — don't turn on strict/noUnused* repo-wide
+       before there's enough converted code for it to mean anything. */
+    "allowJs": true,
+    "checkJs": false,
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}

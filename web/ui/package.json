@@ -11,6 +11,7 @@
     "build:itsm": "vite build --config vite.itsm.config.js --mode production",
     "serve:widget": "npx -y http-server dist-widget -p 80 --cors -c-1",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -46,6 +47,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "jsdom": "^29.1.1",
+    "typescript": "^7.0.2",
     "vite": "^7.3.2",
     "vitest": "^4.1.10"
   }
