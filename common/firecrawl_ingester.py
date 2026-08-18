@@ -416,7 +416,7 @@ def _save_article_to_kb(title: str, content: str, category: str = '') -> bool:
     """Persist a scraped article into the bot's local KB store (kb_articles), so it's
     searchable via the vector index. The canonical KB lives in itsm-service; the next
     KB sync mirrors itsm and will overwrite this local store, so durable articles
-    should be authored in the ITSM portal. (GLPI ingestion has been removed.)"""
+    should be authored in the ITSM portal."""
     try:
         import uuid as _uuid
         from common.db._connection import _get_connection, _release_connection

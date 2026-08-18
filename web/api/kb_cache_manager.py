@@ -1,6 +1,6 @@
 """
 Knowledge Base Cache Manager
-Manages in-memory cache of GLPI KB articles with semantic search and periodic refresh
+Manages in-memory cache of KB articles with semantic search and periodic refresh
 """
 import logging
 import threading
@@ -21,7 +21,7 @@ import eventlet
 logger = logging.getLogger(__name__)
 
 class KBCacheManager:
-    """Singleton class managing GLPI KB cache with semantic search and auto-refresh."""
+    """Singleton class managing the KB cache with semantic search and auto-refresh."""
 
     _instance = None
     _lock = threading.Lock()
@@ -114,7 +114,7 @@ class KBCacheManager:
     def _start_refresh_thread(self):
         """Start background thread for periodic refresh."""
         if not self.enabled:
-            logger.info("GLPI KB cache disabled")
+            logger.info("KB cache disabled")
             # Load JSON fallback instead
             if self.fallback_to_json:
                 logger.info("Loading JSON KB fallback")
@@ -149,12 +149,12 @@ class KBCacheManager:
                 self.refresh_cache()
 
     async def refresh_cache_async(self) -> bool:
-        """Rebuild the cache from the local KB mirror (Path B — no GLPI).
+        """Rebuild the cache from the local KB mirror.
 
         itsm-service is the source of truth; `common.kb_sync` mirrors its published
-        articles into the local `kb_articles` table (a backend job — no GLPI, no live
-        bot token) and rebuilds the bot's vector index. The cache and semantic search
-        are derived from that local mirror.
+        articles into the local `kb_articles` table (a backend job, no live bot
+        token needed) and rebuilds the bot's vector index. The cache and semantic
+        search are derived from that local mirror.
         """
         try:
             # 1. Mirror itsm-service KB → local kb_articles (+ rebuild vector index
@@ -290,10 +290,6 @@ class KBCacheManager:
                     'video': None,
                     'related': [],
                     'source': 'itsm',
-                    # Not a GLPI article — no GLPI deep link applies. itsm-service
-                    # doesn't expose internal metadata (e.g. a migrated glpi_id)
-                    # via its public article responses.
-                    'glpi_id': None,
                     'itsm_id': article.get('id'),
                     'is_faq': False,
                     'date_modified': article.get('updated_at', ''),
@@ -409,7 +405,6 @@ class KBCacheManager:
                 'category': article.get('category'),
                 'keywords': article.get('keywords', []),
                 'source': article.get('source'),
-                'glpi_id': article.get('glpi_id')
             })
             idx += 1
             current = []
@@ -572,7 +567,6 @@ class KBCacheManager:
                     'keywords': article.get('keywords', []),
                     'category': article.get('category'),
                     'source': article.get('source'),
-                    'glpi_id': article.get('glpi_id')
                 })
 
                 # Add a secondary QA using title when it differs from question
@@ -586,7 +580,6 @@ class KBCacheManager:
                         'keywords': article.get('keywords', []),
                         'category': article.get('category'),
                         'source': article.get('source'),
-                        'glpi_id': article.get('glpi_id')
                     })
             elif title and answer:
                 # Fallback: use title as question if explicit question missing
@@ -599,7 +592,6 @@ class KBCacheManager:
                     'keywords': article.get('keywords', []),
                     'category': article.get('category'),
                     'source': article.get('source'),
-                    'glpi_id': article.get('glpi_id')
                 })
 
         self._qa_cache = qa_cache

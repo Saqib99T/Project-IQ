@@ -8,9 +8,8 @@ function StatusBadge({ ok }) {
 }
 
 const SOURCE_META = {
-    glpi: { label: 'Project IQ KB (GLPI)', icon: '🌐', cls: 'bg-green-100 dark:bg-emerald-500/10', detail: 'Live from GLPI API' },
     itsm: { label: 'Project IQ ITSM', icon: '🛠️', cls: 'bg-blue-100 dark:bg-blue-500/10', detail: 'Live from itsm-service' },
-    json: { label: 'Local JSON', icon: '📄', cls: 'bg-yellow-100', detail: 'Fallback mode' },
+    'local-mirror': { label: 'Local mirror', icon: '📦', cls: 'bg-yellow-100', detail: 'Fallback — local kb_articles mirror' },
 }
 
 function sourceMeta(source) {
@@ -59,7 +58,6 @@ function SearchResultCard({ result, index }) {
             <div className="flex gap-4 text-xs text-gray-500 dark:text-slate-400">
                 <span>🧠 Semantic: {(scores.semantic_score ?? 0).toFixed(3)}</span>
                 <span>🔤 Keyword: {(scores.keyword_score ?? 0).toFixed(3)}</span>
-                {article.glpi_id && <span>📋 Ticket ID: {article.glpi_id}</span>}
                 {article.itsm_id && <span>🛠️ Article ID: {article.itsm_id}</span>}
             </div>
         </div>
@@ -84,7 +82,6 @@ function ArticleModal({ article, onClose }) {
                         <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded">{article.category}</span>
                         {article.is_faq && <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 rounded">FAQ</span>}
                         <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 rounded">{article.source || 'unknown'}</span>
-                        {article.glpi_id && <span className="text-xs px-2 py-1 bg-green-100 dark:bg-emerald-500/10 text-green-700 dark:text-emerald-400 rounded">Ticket #{article.glpi_id}</span>}
                         {article.itsm_id && <span className="text-xs px-2 py-1 bg-green-100 dark:bg-emerald-500/10 text-green-700 dark:text-emerald-400 rounded">Article #{article.itsm_id}</span>}
                     </div>
                     {article.question && (
@@ -447,7 +444,7 @@ export default function KnowledgeBasePage() {
                                         </td>
                                         <td className="px-4 py-3"><span className="px-2 py-1 bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded text-xs">{a.category || 'Uncategorized'}</span></td>
                                         <td className="px-4 py-3 text-gray-600 dark:text-slate-400">
-                                            {a.source || 'unknown'}{a.glpi_id ? ` #${a.glpi_id}` : ''}{a.itsm_id ? ` #${a.itsm_id}` : ''}
+                                            {a.source || 'unknown'}{a.itsm_id ? ` #${a.itsm_id}` : ''}
                                         </td>
                                         <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{a.date_modified ? new Date(a.date_modified).toLocaleDateString() : '—'}</td>
                                         <td className="px-4 py-3">

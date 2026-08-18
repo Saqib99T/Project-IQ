@@ -83,7 +83,7 @@ def get_kb_articles():
             limit=int(request.args.get('limit', 50)),
             search_filter=request.args.get('filter', '')
         )
-        return jsonify({"success": True, **result, "source": getattr(cache, 'source', 'glpi')})
+        return jsonify({"success": True, **result, "source": getattr(cache, 'source', 'unknown')})
     except Exception as e:
         return jsonify({"success": False, "error": str(e), "articles": []}), 500
 
@@ -113,7 +113,7 @@ def test_kb_search():
         results = kb_cache.search_articles(query)
         formatted = [{
             "article": {k: r['article'].get(k) for k in
-                        ('id', 'title', 'category', 'source', 'glpi_id', 'itsm_id', 'is_faq', 'date_modified')},
+                        ('id', 'title', 'category', 'source', 'itsm_id', 'is_faq', 'date_modified')},
             "scores": {
                 "final_score":    round(r.get('score', 0), 3),
                 "semantic_score": round(r.get('semantic_score', 0), 3),

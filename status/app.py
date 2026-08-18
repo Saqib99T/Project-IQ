@@ -46,7 +46,7 @@ def get_services():
     return services
 
 def get_containers():
-    raw = run("docker ps -a --format '{{.Names}}\t{{.Status}}' 2>/dev/null | grep -E 'glpi|firecrawl'")
+    raw = run("docker ps -a --format '{{.Names}}\t{{.Status}}' 2>/dev/null | grep -E 'firecrawl'")
     containers = []
     for line in raw.splitlines():
         if "\t" in line:
@@ -56,7 +56,7 @@ def get_containers():
 
 def get_ports():
     labels = {5005:"Rasa Core", 5055:"Rasa Actions", 8181:"Admin API",
-              5432:"PostgreSQL", 8083:"GLPI", 3002:"Firecrawl"}
+              5432:"PostgreSQL", 3002:"Firecrawl"}
     return [{"port": p, "label": labels[p], "ok": port_listening(p)} for p in labels]
 
 def get_health():
@@ -70,11 +70,6 @@ def get_health():
     # Admin API
     code = curl_status("http://localhost:8181/")
     items.append({"name":"Admin API", "ok": code in ("200","301","302"), "detail": f"HTTP {code or 'timeout'}"})
-
-    # GLPI
-    title = run("curl -s --max-time 4 http://localhost:8083/ 2>/dev/null | grep -oP '<title>\\K[^<]+'")
-    ok = bool(re.search(r'Authentication|GLPI', title, re.I))
-    items.append({"name":"GLPI", "ok": ok, "detail": title or "no response"})
 
     # PostgreSQL
     db = run("psql -h 127.0.0.1 -U postgres -d Chatbot -t -c \"SELECT COUNT(*) FROM conversations;\" 2>/dev/null")

@@ -202,25 +202,6 @@ def test_require_role_401_when_unauthenticated():
         assert wrapped()[1] == 401
 
 
-# ── Password hashing ─────────────────────────────────────────────────────────
-def test_password_roundtrip():
-    stored = shared.hash_password("s3cret")
-    assert shared.verify_password("s3cret", stored) is True
-
-
-def test_password_rejects_wrong():
-    stored = shared.hash_password("s3cret")
-    assert shared.verify_password("nope", stored) is False
-
-
-def test_password_rejects_glpi_managed():
-    assert shared.verify_password("anything", "glpi-managed") is False
-
-
-def test_password_rejects_malformed_record():
-    assert shared.verify_password("x", "no-colon-here") is False
-
-
 # ── Storage proxy ────────────────────────────────────────────────────────────
 def test_storage_proxy_bucket():
     assert bp_storage_proxy._BUCKET == "itsm-files"

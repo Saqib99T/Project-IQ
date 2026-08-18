@@ -217,7 +217,7 @@ def _build_context_package(sender_id: str, conversation_id: int,
             'consent_given': True,
             'user_profile': {
                 'display_name': conv.get('user_name'),
-                'glpi_user_id': conv.get('user_id'),
+                'user_id': conv.get('user_id'),
                 'app_id': conv.get('app_id'),
             },
             'session': {
@@ -1246,7 +1246,7 @@ def operator_ai_draft(**kwargs):
         last_user_msg = row['text']
         sender_id     = row['sender_id']
 
-        # Get the user's GLPI session token so the bot can make authenticated calls.
+        # Get the user's IAM session token so the bot can make authenticated calls.
         # After login the widget creates a new senderId → the new Rasa conversation
         # has no session_token SLOT (login ran on the old senderId), but the widget
         # always sends session_token in message metadata.  Check both places.

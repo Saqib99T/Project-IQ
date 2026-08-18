@@ -205,7 +205,6 @@ _HANDOFF_RUNTIME_DEFAULTS = {
         "mask_passwords": True, "mask_card_numbers": True, "mask_ibans": True,
         "mask_emails": False, "consent_version": "1.0"
     },
-    "glpi": {"auto_create_ticket_on_handoff": False},
     "transcript": {"allow_user_download": True, "allow_user_email": True, "retention_days": 365},
     "ai_summary": {"mode": "rule_based", "max_turns_in_summary": 20}
 }

@@ -22,7 +22,7 @@ const RASA_API_URL  = `${ADMIN_API_URL}/webhooks/rest/webhook`;
 // Storage keys with appId prefix for multi-widget support
 // Cookies: auth data (senderId, isAuthenticated, authUser, privacyDismissed)
 // localStorage: large data (messages)
-const getStorageKey = (appId, key) => `glpi-chat-${appId}-${key}`;
+const getStorageKey = (appId, key) => `itsm-chat-${appId}-${key}`;
 
 
 const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) => {
@@ -273,7 +273,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         iam_org_name:     iam.user?.organization_alias || undefined,
         channel:          iam.user?.organization_id ? 'internal' : undefined,
         iam_token:        iam.token || undefined,
-        session_token:    getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined,
+        session_token:    getCookie(getStorageKey(appId, 'sessionToken')) || undefined,
         // Per-session epoch so the server keys THIS session's conversation
         // record to the same id the widget uses (iam-{sub}-{product}-{epoch}).
         // Without it the server drops the epoch and every session collapses
@@ -901,7 +901,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         setAuthUser('');
         deleteCookie(getStorageKey(appId, 'isAuthenticated'));
         deleteCookie(getStorageKey(appId, 'authUser'));
-        deleteCookie(getStorageKey(appId, 'glpiSessionToken'));
+        deleteCookie(getStorageKey(appId, 'sessionToken'));
         localStorage.removeItem(getStorageKey(appId, 'messages'));
         // New guest session; clear the signed-in session markers so a later
         // login is detected as a fresh session. We set our own welcome below.
@@ -1555,8 +1555,6 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
         if (!ticketIdInput.trim()) return;
 
         setShowTicketIdPopup(false);
-        // Clean ID - remove "GLPI-" prefix if user typed it, though backend might handle it
-        // sending standard entity payload
         const payload = `/check_status{"ticket_id":"${ticketIdInput.trim()}"}`;
         handleButtonClick(payload);
         setTicketIdInput('');
@@ -2363,7 +2361,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                                 userIconColor={userIconColor}
                                                 buttonFontSize={buttonFontSize}
                                                 ticketPrefill={msg.ticket_form ? prefillFromMessages(messages.slice(0, idx)) : {}}
-                                                sessionToken={getCookie(getStorageKey(appId, 'glpiSessionToken')) || undefined}
+                                                sessionToken={getCookie(getStorageKey(appId, 'sessionToken')) || undefined}
                                             />
                                         ))}
                                         {isLoading && handoffState === 'bot_active' && (

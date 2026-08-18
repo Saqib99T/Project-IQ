@@ -209,7 +209,7 @@ class AdminKBCache:
     """Lightweight KB cache for admin panel - loads articles at startup.
 
     Sources from itsm-service (via the KB bot service account) when configured,
-    falling back to the legacy GLPI KB otherwise.
+    falling back to the local kb_articles mirror otherwise.
     """
     def __init__(self):
         self.articles = []
@@ -218,7 +218,7 @@ class AdminKBCache:
         self.source = "itsm"
 
     def load_articles(self):
-        """Load articles, preferring itsm-service over the legacy GLPI KB."""
+        """Load articles, preferring itsm-service over the local mirror."""
         if self.is_loading:
             return False
 
@@ -256,7 +256,6 @@ class AdminKBCache:
                     "title": r.get('title') or 'Untitled',
                     "category": r.get('category') or 'general',
                     "source": "local",
-                    "glpi_id": None,
                     "itsm_id": None,
                     "is_faq": False,
                     "date_modified": r['updated_at'].isoformat() if r.get('updated_at') else '',
@@ -328,7 +327,6 @@ class AdminKBCache:
                     "title": article.get('title', 'Untitled'),
                     "category": "general",
                     "source": "itsm",
-                    "glpi_id": None,
                     "itsm_id": article.get('id'),
                     "is_faq": False,
                     "date_modified": article.get('updated_at', ''),
@@ -352,7 +350,6 @@ class AdminKBCache:
             "article_count": len(self.articles),
             "last_refresh": self.last_update,
             "source": self.source,
-            "glpi_connected": True
         }
 
     def get_articles(self, page=1, limit=50, search_filter=""):

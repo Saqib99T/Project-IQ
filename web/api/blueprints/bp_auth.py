@@ -404,8 +404,8 @@ def operator_iam_login():
         # operators (platform-org operators carry the platform org id).
         update_operator_org(op['id'], user.get('org_id') or None, user.get('channel') or 'internal')
 
-        # Issue a JWT (same mechanism as GLPI login) so the operator panel
-        # can use it for all subsequent API calls without re-sending the IAM token.
+        # Issue a JWT so the operator panel can use it for all subsequent API
+        # calls without re-sending the IAM token.
         expiry_hours = _s.get_operator_jwt_expiry_hours()
         now          = int(time.time())
         jwt_token    = _s.jwt_encode({

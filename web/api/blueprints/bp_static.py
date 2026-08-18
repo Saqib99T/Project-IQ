@@ -6,7 +6,7 @@ Canonical URLs:
   /portal    — unified admin/operator/member portal (React SPA)
   /itsm      — standalone ITSM app, IAM login, tenant-scoped (React SPA)
   /admin     — redirects to /portal/admin  (301)
-  /opt       — operator console  (public/operator/)
+  /opt       — retired legacy operator console; redirects to /portal/  (301)
   /          — redirects to /bot
 """
 import os
@@ -159,8 +159,7 @@ def serve_docs(path):
 
 
 # ── Static asset fallback ─────────────────────────────────────────────────────
-# Serves: /web/js/*.js  /web/components/*.html  /operator/*
-#         /glpi-chat-widget.js  /modern-web-interface.css  /assets/*
+# Serves: /modern-web-interface.css  /assets/*
 
 @bp.route('/<path:filename>')
 def serve_static_assets(filename):

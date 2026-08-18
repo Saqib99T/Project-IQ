@@ -4,11 +4,11 @@ import { useApi } from '../useApi'
 const SECTIONS = {
     'ML CORE':      ['rasa_api_url', 'rasa_action_url'],
     SERVER:         ['admin_port', 'cors_origins'],
-    KNOWLEDGE_BASE: ['kb_glpi_enabled', 'kb_refresh_interval', 'kb_semantic_enabled',
+    KNOWLEDGE_BASE: ['kb_refresh_interval', 'kb_semantic_enabled',
                      'kb_semantic_model', 'kb_semantic_weight', 'kb_keyword_weight',
                      'kb_min_score', 'kb_max_results'],
     HANDOFF:        ['operator_jwt_secret', 'operator_jwt_expiry_hours',
-                     'operator_heartbeat_timeout_secs', 'glpi_group_enforcement'],
+                     'operator_heartbeat_timeout_secs'],
     SESSION:        ['session_timeout_minutes', 'session_warning_minutes'],
     SMTP:           ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_from', 'smtp_use_tls'],
     REDIS:          ['redis_enabled', 'redis_host', 'redis_port', 'redis_db'],

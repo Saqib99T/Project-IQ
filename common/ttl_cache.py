@@ -1,8 +1,7 @@
 """
 common.ttl_cache — lightweight in-process TTL caches.
 
-Two pre-built singletons used across the API:
-  glpi_group_cache      — caches GLPI user-group lookups (5 min TTL)
+Pre-built singleton used across the API:
   handoff_config_cache  — caches handoff config in-process (5 min TTL)
 """
 import time
@@ -43,5 +42,4 @@ class TTLCache:
             self._store.clear()
 
 
-glpi_group_cache     = TTLCache(ttl_seconds=300)   # 5 min — GLPI group lookups
 handoff_config_cache = TTLCache(ttl_seconds=300)   # 5 min — handoff config

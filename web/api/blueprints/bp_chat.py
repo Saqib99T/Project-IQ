@@ -331,7 +331,7 @@ def chat_webhook_proxy():
                 metadata.setdefault('iam_email', iam_user['email'])
                 metadata.setdefault('app_id',    (iam_user['apps'] or ['General'])[0])
                 # Forward the verified access token so Rasa actions (ticket
-                # create/list/status) can call the ITSM/GLPI API as the user.
+                # create/list/status) can call the itsm-service API as the user.
                 # Without this, get_iam_jwt(tracker) is empty → actions reply
                 # "❌ Authentication required." even for signed-in users.
                 metadata['iam_token'] = auth_header[7:]

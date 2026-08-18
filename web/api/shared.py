@@ -11,7 +11,6 @@ import hashlib
 import hmac
 import base64
 import json
-import os
 import logging
 from functools import wraps
 from typing import Optional
@@ -33,11 +32,6 @@ RASA_URL:    str = ''
 ACTION_URL:  str = ''
 STATIC_DIR:  str = ''
 WIDGET_DIR:  str = ''
-
-
-# Admin dashboard: GLPI profile IDs / names allowed to log in
-ALLOWED_ADMIN_PROFILE_IDS:   list = [4]               # 4 = GLPI Super-Admin
-ALLOWED_ADMIN_PROFILE_NAMES: list = ['Super-Admin']
 
 
 def configure(rasa_url: str, action_url: str, static_dir: str, widget_dir: str) -> None:
@@ -321,20 +315,3 @@ def require_admin_token(f):
             return f(*args, **kwargs)
         return jsonify({'error': 'Admin authentication required'}), 401
     return decorated
-
-
-# ── Password helpers ──────────────────────────────────────────────────────────
-def hash_password(plain: str) -> str:
-    salt = os.urandom(16).hex()
-    h = hashlib.sha256(f"{salt}{plain}".encode()).hexdigest()
-    return f"{salt}:{h}"
-
-
-def verify_password(plain: str, stored: str) -> bool:
-    try:
-        if stored == 'glpi-managed':
-            return False
-        salt, hashed = stored.split(':', 1)
-        return hashlib.sha256(f"{salt}{plain}".encode()).hexdigest() == hashed
-    except Exception:
-        return False

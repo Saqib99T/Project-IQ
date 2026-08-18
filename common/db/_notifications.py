@@ -6,7 +6,7 @@ Types used across the system:
   handoff_queued   — user entered the support queue
   handoff_assigned — operator accepted the session
   handoff_ended    — session closed by operator
-  ticket_update    — ticket status changed in GLPI
+  ticket_update    — ticket status changed in itsm-service
 """
 import logging
 from typing import List, Optional, Dict, Any
