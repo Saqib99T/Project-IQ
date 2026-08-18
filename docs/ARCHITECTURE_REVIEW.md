@@ -1,9 +1,9 @@
 # Project IQ — Architecture & Code Review
 
-**Date:** 2026-08-18 (seven remediation passes same day)
+**Date:** 2026-08-18 (eight remediation passes same day)
 **Branch reviewed:** V3-Shopify
 **Scope:** `core/`, `action_server/`, `common/` (backend + IAM), `extensions/` + `shopify-app/` (commerce integrations), `web/` + `expo-app/` (frontends), `.github/` + `infra/` + `scripts/` + `docs/` (CI/infra/hygiene)
-**Status:** 14 resolved (one uncovered and fixed a live bug, another a live leaked credential, another a live production incident during its own fix), 3 reassessed (corrected, no action needed), 1 in progress by design (a complete, bounded slice of it finished), 1 still fully open, 6 patterns commended
+**Status:** 15 resolved (one uncovered and fixed a live bug, another a live leaked credential, another a live production incident during its own fix), 3 reassessed (corrected, no action needed), 1 in progress by design (a complete, bounded slice of it finished), 6 patterns commended. Every item from the original review is now resolved, reassessed, or (H-05 only, by design) partially done.
 
 An interactive version of the original findings (severity color-coding, at-a-glance counts) is also available as a published artifact; this file is the durable, versioned copy and the one that gets updated as items close.
 
@@ -11,11 +11,11 @@ An interactive version of the original findings (severity color-coding, at-a-gla
 
 ## At a glance
 
-| Resolved | Reassessed | In progress | Open | Commended |
-|---|---|---|---|---|
-| 14 | 3 | 1 | 1 | 6 |
+| Resolved | Reassessed | In progress | Commended |
+|---|---|---|---|
+| 15 | 3 | 1 | 6 |
 
-**M-09** is the one item still fully open — a larger infra decision, not started. **H-05** (TypeScript) is deliberately multi-session: tooling is in place and the entire proposed "starting slice" (`web/ui/src/shared/itsm/`, 15/15 files) is fully converted with real types (see the sixth- and seventh-pass notes below); the rest of the ~350-file frontend is left for follow-up sessions. **M-01** (itsm-service's JWKS proxy) and **M-11** (the Apple key) are now resolved — see the fifth- and fourth-pass notes below. The `docs/SECURITY_SECRETS.md` items 1–5 backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords) remains completely untouched — it's outside this review's original findings and still needs a scheduled maintenance window.
+**H-05** (TypeScript) is the only item not fully closed, deliberately — it's multi-session by design. Tooling is in place and the entire proposed "starting slice" (`web/ui/src/shared/itsm/`, 15/15 files) is fully converted with real types (see the sixth- and seventh-pass notes below); the rest of the ~350-file frontend is left for follow-up sessions. **M-01** (itsm-service's JWKS proxy), **M-09** (docker-compose for local dev), and **M-11** (the Apple key) are now resolved — see the fifth, eighth, and fourth-pass notes below. The `docs/SECURITY_SECRETS.md` items 1–5 backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords) remains completely untouched — it's outside this review's original findings and still needs a scheduled maintenance window.
 
 ---
 
@@ -105,7 +105,8 @@ Investigated both examples from the original finding — they turned out to be t
 - **`debug_api.py` / `debug_api2.py` — RESOLVED.** Both genuinely dead: they test `/operator/login`, `/operator/conversation/<id>`, `/operator/queue` — endpoints from `bp_operator`, which `register.py` confirms was fully retired in favor of `bp_portal_operator`/`bp_portal_admin`. Deleted both.
 - **`gen_itsm_seed.py` / `gen_itsm_seed2.py` / `gen_itsm_seed3.py` — REASSESSED, not a real instance of this smell.** These aren't duplicates or superseded drafts — they're sequential phases of one seed pipeline (Phase 1 base entities, Phase 2 SLO/error-budget, Phase 3 Support Recording/RCA governance), each re-deriving the prior phase's UUIDs so foreign keys line up across all three. Correcting the original finding: left as-is.
 
-### ⬜ M-09 — No docker-compose for the core stack — OPEN
+### ✅ M-09 — No docker-compose for the core stack — RESOLVED (Option A)
+Implemented the recommended Option A from the proposal below (see the eighth-pass note) — `docker-compose.dev.yml` for Postgres (pgvector) + Redis only, app processes still run directly via venv. Verified end-to-end, not just syntax-checked: brought the stack up (on temporary alternate ports — this dev machine already has its own itsm-service Postgres/Redis containers bound to 5432/6379), confirmed both health checks pass, created the `vector` extension successfully, and connected with `psycopg2` using the exact credentials the app itself uses. Fully torn down afterward.
 
 ### ✅ M-10 — Local dev shared a Sentry project with production — RESOLVED (found and fixed same day, not in the original pass)
 `common/app.config.local` had a live Sentry DSN pointing at the same self-hosted project (`sentry.99technologies.com`) production uses — every local dev run's errors were reporting into the same stream as real incidents. **Resolution:** blanked the DSN in `common/app.config.local` (blank = disabled, same pattern the codebase already uses elsewhere). Confirmed via `get_sentry_config()` returning `{'dsn': ''}`.
@@ -179,10 +180,13 @@ Real types throughout, not blanket `any`: request/response shapes per endpoint, 
 
 Verified end-to-end after all 15 files: `tsc --noEmit` clean (zero errors), all 27 vitest tests pass unmodified, and all 4 build targets succeed (default, widget, portal, and `itsm` — the heaviest consumer of this folder). eslint still doesn't cover `.ts`/`.tsx` (unchanged from the sixth pass) — confirmed the overall lint problem count *dropped* (1644→1641) simply because 14 fewer files are in its scan glob, not because of any new issue elsewhere.
 
+### Eighth pass (same day): M-09, Option A
+Added `docker-compose.dev.yml` (Postgres via `pgvector/pgvector:pg16` + Redis via `redis:7-alpine`) — the option recommended in the original proposal, not B or C. This dev machine already had its own itsm-service Postgres/Redis containers bound to the standard ports, which incidentally confirms the problem this solves: local Postgres for this app has only ever come from *happening to* have the sibling itsm-service repo checked out and running, since the "Chatbot" database lives in the same instance as itsm-service's `itsm_db` (see the M-01 investigation). Verified for real rather than just syntax-checked: brought the stack up on temporary alternate ports to avoid the existing local containers, confirmed both health checks pass, ran `CREATE EXTENSION vector` successfully, and connected with `psycopg2` using the exact host/user/db credentials the app itself would use — then fully tore it down. Added a pointer in `.env.example` so the instructions are discoverable from the file someone actually copies to get started.
+
 ### What's left, roughly in order of value
 1. **`docs/SECURITY_SECRETS.md` items 1–5** — pre-existing, separately-tracked rotation backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords). Not part of this review's original findings — needs a scheduled maintenance window and live-system access this review hasn't exercised.
-2. **M-09** — docker-compose for the core stack; a real infra decision (how much of prod's systemd/nginx/gunicorn topology to mirror). See proposal below.
-3. **H-05 (continued)** — expand outward from `shared/itsm/` into `portal/`, `itsm-app/`, and `widget/`; set up `@typescript-eslint` now that there's a real body of `.ts`/`.tsx` to justify it.
+2. **H-05 (continued)** — expand outward from `shared/itsm/` into `portal/`, `itsm-app/`, and `widget/`; set up `@typescript-eslint` now that there's a real body of `.ts`/`.tsx` to justify it.
+3. **M-09, options B/C** — only if the team actually wants full containerized dev or a prod-parity staging story; Option A already solves the actual onboarding gap.
 
 ### Unrelated finding from the M-01 work: itsm-service's `docker-compose` is outdated
 v1.29.2 has a known compatibility bug with the current Docker Engine that makes `--force-recreate` unreliable on any service with anonymous volumes tied to an existing container (worked around this time by removing the old container first). Worth a deliberate upgrade to the `docker compose` v2 plugin during a maintenance window, rather than working around this bug every time a container needs recreating.
@@ -196,13 +200,13 @@ Whenever this branch's changes reach a database for real: run `alembic upgrade h
 
 Neither of these was implemented — both are real scope calls, not quick fixes.
 
-### M-09 — docker-compose for the core stack
+### M-09 — docker-compose for the core stack (Option A implemented — see eighth pass above)
 
 Today: prod runs the app via systemd (`project-iq-admin.service`, `rasa-core@.service`) + nginx + gunicorn directly on the VM (`infra/`); only auxiliary services (firecrawl, infisical) have docker-compose files. Worth noting: Postgres for this app *already runs in Docker* in prod today — it shares the same `pgvector/pgvector:pg16` container itsm-service provisions, just not via anything in this repo.
 
 Three options, increasing in scope/effort:
 
-- **A — Dev backing-services only** (recommended starting point): `docker-compose.dev.yml` with just Postgres + Redis. The app processes (web API, action server, Rasa core) keep running directly via venv/`start_local.ps1` as today. Lowest effort, no Dockerfiles needed for the Python app, no prod-parity claim — just removes "go install/configure Postgres and Redis yourself" from onboarding.
+- ✅ **A — Dev backing-services only** (recommended starting point, now implemented): `docker-compose.dev.yml` with just Postgres + Redis. The app processes (web API, action server, Rasa core) keep running directly via venv/`start_local.ps1` as today. Lowest effort, no Dockerfiles needed for the Python app, no prod-parity claim — just removes "go install/configure Postgres and Redis yourself" from onboarding.
 - **B — Full local stack**: adds Dockerfiles for web API / action server / Rasa core, containerizing the whole local dev topology. Meaningfully better reproducibility, but real effort: needs volume-mounted live-reload, careful env wiring, and verifying eventlet/Socket.IO behave correctly inside a container network.
 - **C — Full prod-parity stack**: B plus nginx + pgbouncer, mirroring production exactly — useful for pre-prod validation, but the most effort and carries ongoing risk of drifting from the real systemd/nginx configs it's supposed to mirror.
 
