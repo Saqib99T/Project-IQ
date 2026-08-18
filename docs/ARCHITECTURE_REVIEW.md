@@ -1,9 +1,9 @@
 # Project IQ — Architecture & Code Review
 
-**Date:** 2026-08-18 (five remediation passes same day)
+**Date:** 2026-08-18 (six remediation passes same day)
 **Branch reviewed:** V3-Shopify
 **Scope:** `core/`, `action_server/`, `common/` (backend + IAM), `extensions/` + `shopify-app/` (commerce integrations), `web/` + `expo-app/` (frontends), `.github/` + `infra/` + `scripts/` + `docs/` (CI/infra/hygiene)
-**Status:** 14 resolved (one uncovered and fixed a live bug, another a live leaked credential, another a live production incident during its own fix), 3 reassessed (corrected, no action needed), 2 still open, 6 patterns commended
+**Status:** 14 resolved (one uncovered and fixed a live bug, another a live leaked credential, another a live production incident during its own fix), 3 reassessed (corrected, no action needed), 1 in progress by design, 1 still fully open, 6 patterns commended
 
 An interactive version of the original findings (severity color-coding, at-a-glance counts) is also available as a published artifact; this file is the durable, versioned copy and the one that gets updated as items close.
 
@@ -11,11 +11,11 @@ An interactive version of the original findings (severity color-coding, at-a-gla
 
 ## At a glance
 
-| Resolved | Reassessed | Still open | Commended |
-|---|---|---|---|
-| 14 | 3 | 2 | 6 |
+| Resolved | Reassessed | In progress | Open | Commended |
+|---|---|---|---|---|
+| 14 | 3 | 1 | 1 | 6 |
 
-Of the 2 still open: **M-09** needs a larger infra decision; **H-05** (TypeScript migration) is a large, incremental effort out of scope for a drive-by fix. **M-01** (itsm-service's JWKS proxy) and **M-11** (the Apple key) are now resolved — see the fifth- and fourth-pass notes below. The `docs/SECURITY_SECRETS.md` items 1–5 backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords) remains completely untouched — it's outside this review's original findings and still needs a scheduled maintenance window.
+**M-09** is the one item still fully open — a larger infra decision, not started. **H-05** (TypeScript) is deliberately multi-session: tooling is in place and the first file is converted (see the sixth-pass note below), with the bulk of the migration left for follow-up sessions. **M-01** (itsm-service's JWKS proxy) and **M-11** (the Apple key) are now resolved — see the fifth- and fourth-pass notes below. The `docs/SECURITY_SECRETS.md` items 1–5 backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords) remains completely untouched — it's outside this review's original findings and still needs a scheduled maintenance window.
 
 ---
 
@@ -47,8 +47,8 @@ Originally flagged as High. On investigation: this app authenticates via Bearer 
 ### ✅ H-04 — `bp_portal_api.py` is a 1,685-line god-file — RESOLVED
 **Resolution:** split into `bp_portal_operator.py` (queue, sessions, live chat, canned responses, AI draft, user history, transfer, presence — 1,137 lines) and `bp_portal_admin.py` (stats, analytics, operator roster, org directory, history, IAM user management — 571 lines). No test coverage existed for these routes at all, so the split was done mechanically (exact line-range extraction, not retyping) to eliminate transcription risk, then verified two ways: byte-for-byte diff of every route body against the original file (identical), and actually registering all blueprints on a real Flask app to confirm the exact same 29 routes/methods come up under `/portal/api/*` with zero duplicate-endpoint conflicts. Both new blueprints share the original's `url_prefix`, so no URL changed.
 
-### ⬜ H-05 — Zero TypeScript across the entire frontend — OPEN
-Not addressed in this pass — a gradual migration, not a drop-in fix.
+### 🟡 H-05 — Zero TypeScript across the entire frontend — TOOLING DONE, MIGRATION STARTED
+Not a drop-in fix — this is intentionally a multi-session effort. This pass did steps 1 and 4 of the proposal below (see the sixth-pass note), leaving 2 and 3 (broader shared-layer conversion, established convention) for follow-up sessions.
 
 ### ✅ H-06 — No frontend CI — RESOLVED
 **Resolution:** added `.github/workflows/frontend.yml`. Verified locally before wiring anything in: `web/ui`'s vitest suite (27/27) and all three build targets (default/widget/portal/itsm) pass, so those are blocking checks. Lint has 1,621 pre-existing findings never triaged before — wired as advisory (`continue-on-error`), matching the same pattern this repo already uses for `pip-audit`, rather than turning every future PR red on day one. `expo-app` has no lint config or devDependencies at all; gets `npm ci` + a syntax check as the smallest useful check rather than inventing a lint setup as a side effect.
@@ -167,10 +167,15 @@ The owner rotated the Apple key in App Store Connect (revoked `KAT7LHZC7V`, issu
 ### Fifth pass (same day): M-01
 See the M-01 section above for the full account, including two brief production incidents (Redis and the API container each down for ~15-20s) caused by a `docker-compose` 1.29.2 bug encountered while applying the fix — both caught and recovered immediately, no data loss, verified end-to-end afterward.
 
+### Sixth pass (same day): H-05, steps 1 and 4 of the proposal below
+- **Tooling**: added `typescript` (^7.0.2), `web/ui/tsconfig.json` (`allowJs: true`, `strict: false` — incremental adoption, not repo-wide strictness on day one), and a `typecheck` npm script wired into `frontend.yml` as a blocking CI step (unlike lint, this passes clean today with zero errors, so no reason to make it advisory).
+- **Proof-of-concept conversion**: `web/ui/src/shared/itsm/useItsmApi.js` → `.ts` (71 other files import it, none by extension, so nothing else needed to change). Added real types — request/response generics on `call`/`get`/`post`/`put`/`patch`/`remove`, an `ApiError` interface, typed shapes for the tenant/user-directory and KB-article responses — not just `: any` everywhere. `tsc --noEmit` passes with zero errors. Verified the whole toolchain handles the mix correctly: vitest (27/27, including this file's existing test, unmodified), the default build and the `itsm` build target (the heaviest consumer), all pass. Confirmed eslint doesn't yet cover `.ts` files (silently skips them) — deliberately left the `.ts`-ESLint setup for a follow-up rather than scope-creeping this pass; `tsc` already catches the correctness class of bug that mattered here.
+- Steps 2 (converting the rest of the shared layer) and 3 (established convention for future files) are intentionally left for follow-up sessions — see the original proposal below, now partially executed.
+
 ### What's left, roughly in order of value
 1. **`docs/SECURITY_SECRETS.md` items 1–5** — pre-existing, separately-tracked rotation backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords). Not part of this review's original findings — needs a scheduled maintenance window and live-system access this review hasn't exercised.
 2. **M-09** — docker-compose for the core stack; a real infra decision (how much of prod's systemd/nginx/gunicorn topology to mirror). See proposal below.
-3. **H-05** — TypeScript migration (large, incremental). See proposed starting slice below.
+3. **H-05 (continued)** — convert the rest of `web/ui/src/shared/itsm/`, then expand outward; set up `@typescript-eslint` once there's enough `.ts` to make it worthwhile.
 
 ### Unrelated finding from the M-01 work: itsm-service's `docker-compose` is outdated
 v1.29.2 has a known compatibility bug with the current Docker Engine that makes `--force-recreate` unreliable on any service with anonymous volumes tied to an existing container (worked around this time by removing the old container first). Worth a deliberate upgrade to the `docker compose` v2 plugin during a maintenance window, rather than working around this bug every time a container needs recreating.
@@ -196,14 +201,14 @@ Three options, increasing in scope/effort:
 
 **Recommendation:** A now, B later if the team actually wants containerized dev, C only if a staging-via-compose story becomes a real need.
 
-### H-05 — TypeScript migration starting slice
+### H-05 — TypeScript migration starting slice (steps 1 and 4 now done — see sixth pass above)
 
-~350 `.js`/`.jsx` files across `web/ui` and `expo-app`, zero `.ts` today. A big-bang rewrite isn't realistic; proposed staged approach:
+~350 `.js`/`.jsx` files across `web/ui` and `expo-app`, zero `.ts` before this pass. A big-bang rewrite isn't realistic; staged approach:
 
-1. **Tooling only, near-zero risk:** add `typescript`, a `tsconfig.json` with `allowJs: true` — Vite already supports `.ts`/`.tsx` coexisting with existing `.jsx`/`.js` with no changes to existing files.
-2. **Starting slice:** the shared API/data layer, not pages — e.g. `web/ui/src/shared/itsm/` (the itsm API client + permission helpers, imported by both `itsm-app` and `portal/admin/itsm`) or narrower still, just the `useApi`/`call()` fetch wrapper plus type definitions for the core data shapes (`Conversation`, `HandoffQueueItem`, `Operator`). Type safety pays off most where it's imported everywhere — and would have caught the exact class of bug M-02 just found (a field's shape silently changing under callers) at compile time instead of at request time.
-3. **Convention going forward:** convert leaf utility/hook/API-client files before page/component files, which carry more JSX surface area and conversion risk per file.
-4. **Suggested first step:** one proof-of-concept file conversion (e.g. `useItsmApi.js` → `.ts`) to validate the Vite/vitest/eslint toolchain handles mixed `.ts`/`.jsx` cleanly, before committing to converting anything else.
+1. ✅ **Tooling only, near-zero risk:** add `typescript`, a `tsconfig.json` with `allowJs: true` — Vite already supports `.ts`/`.tsx` coexisting with existing `.jsx`/`.js` with no changes to existing files. Done.
+2. ⬜ **Starting slice:** the shared API/data layer, not pages — e.g. the rest of `web/ui/src/shared/itsm/` (the itsm API client + permission helpers, imported by both `itsm-app` and `portal/admin/itsm`). Type safety pays off most where it's imported everywhere — and would have caught the exact class of bug M-02 found (a field's shape silently changing under callers) at compile time instead of at request time. Not yet done beyond the one proof-of-concept file.
+3. ⬜ **Convention going forward:** convert leaf utility/hook/API-client files before page/component files, which carry more JSX surface area and conversion risk per file. Not yet formally adopted.
+4. ✅ **Proof-of-concept file conversion:** `useItsmApi.js` → `.ts`, with real types (not blanket `any`) on every exported function. Validated the Vite/vitest toolchain handles mixed `.ts`/`.jsx` cleanly — `tsc --noEmit` passes with zero errors, all 27 vitest tests pass, both the default and `itsm` build targets succeed. eslint doesn't cover `.ts` yet (`@typescript-eslint` setup deferred to when there's more converted code to justify it).
 
 ---
 
