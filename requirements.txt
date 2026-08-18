@@ -4,7 +4,10 @@ rasa-sdk==3.6.2
 
 # Rasa Critical Dependencies (pinned for compatibility)
 packaging==20.9
-typing-extensions==4.5.0
+# typing-extensions: rasa/rasa-sdk/pydantic/alembic all accept a wide range
+# here (>=4.1.1 / >=4.2.0 / >=4); the floor is actually set by torch (below),
+# which needs >=4.10.0.
+typing-extensions==4.15.0
 pydantic==1.10.9
 
 # API & Web
@@ -35,7 +38,15 @@ psutil==7.2.1
 pyyaml==6.0.1
 
 # Machine Learning & Semantic Search
-sentence-transformers==2.3.1
+# Pinned together with transformers/torch: sentence-transformers==2.3.1's own
+# unbounded torch requirement let pip's resolver backtrack to torch==2.1.2
+# paired with a much newer transformers==4.57.6 in CI's clean install — that
+# combo is broken (transformers calls torch.utils._pytree.register_pytree_node,
+# which torch 2.1.2 doesn't have; only the private _register_pytree_node).
+# This trio is verified compatible together.
+sentence-transformers==5.2.2
+transformers==5.1.0
+torch==2.10.0
 
 # Data Ingestion
 firecrawl-py>=1.0.0
