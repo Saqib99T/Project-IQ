@@ -1,9 +1,9 @@
 # Project IQ — Architecture & Code Review
 
-**Date:** 2026-08-18 (three remediation passes same day)
+**Date:** 2026-08-18 (four remediation passes same day)
 **Branch reviewed:** V3-Shopify
 **Scope:** `core/`, `action_server/`, `common/` (backend + IAM), `extensions/` + `shopify-app/` (commerce integrations), `web/` + `expo-app/` (frontends), `.github/` + `infra/` + `scripts/` + `docs/` (CI/infra/hygiene)
-**Status:** 12 resolved (one of which uncovered and fixed a live bug), 3 reassessed (corrected, no action needed), 4 still open, 6 patterns commended
+**Status:** 13 resolved (one of which uncovered and fixed a live bug, another a live leaked credential), 3 reassessed (corrected, no action needed), 3 still open, 6 patterns commended
 
 An interactive version of the original findings (severity color-coding, at-a-glance counts) is also available as a published artifact; this file is the durable, versioned copy and the one that gets updated as items close.
 
@@ -13,9 +13,9 @@ An interactive version of the original findings (severity color-coding, at-a-gla
 
 | Resolved | Reassessed | Still open | Commended |
 |---|---|---|---|
-| 12 | 3 | 4 | 6 |
+| 13 | 3 | 3 | 6 |
 
-Of the 4 still open: **M-11** is a live, currently-used Apple API key found mid-review, deliberately left untouched pending the owner's rotation; **M-01** and **M-09** need a separate repo/deployment or a larger infra decision; **H-05** (TypeScript migration) is a large, incremental effort out of scope for a drive-by fix.
+Of the 3 still open: **M-01** and **M-09** need a separate repo/deployment or a larger infra decision; **H-05** (TypeScript migration) is a large, incremental effort out of scope for a drive-by fix. **M-11** (the Apple key) is now resolved — see the fourth-pass note below. The `docs/SECURITY_SECRETS.md` items 1–5 backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords) remains completely untouched — it's outside this review's original findings and still needs a scheduled maintenance window.
 
 ---
 
@@ -98,12 +98,16 @@ Investigated both examples from the original finding — they turned out to be t
 ### ✅ M-10 — Local dev shared a Sentry project with production — RESOLVED (found and fixed same day, not in the original pass)
 `common/app.config.local` had a live Sentry DSN pointing at the same self-hosted project (`sentry.99technologies.com`) production uses — every local dev run's errors were reporting into the same stream as real incidents. **Resolution:** blanked the DSN in `common/app.config.local` (blank = disabled, same pattern the codebase already uses elsewhere). Confirmed via `get_sentry_config()` returning `{'dsn': ''}`.
 
-### 🔴 M-11 — A live, currently-used Apple App Store Connect API key is committed — OPEN, NOT a routine fix
-Found mid-cleanup while going through `docs/Backup/`: **`docs/Backup/AuthKey_KAT7LHZC7V.p8`** is a real PKCS8 EC private key, committed 2026-06-10, present on `V2`/`V3-ShopiFy`/`V3-improve`/`V4-sla` (clean on `main`). Unlike CRIT-01's token, this one **does not expire on its own**, and it's **actively referenced by the live EAS build config**:
-```
-expo-app/eas.json:44-46 — ascApiKeyId: "KAT7LHZC7V"
-```
-This was already independently discovered and documented in `docs/SECURITY_SECRETS.md` (item 6, dated 2026-06-24) — that audit also lists five other unrotated exposed secrets (Keycloak client secret, operator-JWT secret, DB passwords, a reused SSH+Postgres password, Android keystore passwords) that predate this review and remain outstanding. None of those were touched in this pass; they require live-system access (Keycloak admin, Apple Developer portal, prod SSH) that only the owner can act on. **Deliberately left in place per explicit instruction — rotation is the owner's action, not something this review can perform.** `*.p8` added to `.gitignore` so no *new* key gets committed the same way; the existing file stays tracked until rotated, at which point delete it and repeat the same history-purge process as CRIT-01.
+### ✅ M-11 — A live, currently-used Apple App Store Connect API key was committed — RESOLVED
+Found mid-cleanup while going through `docs/Backup/`: **`docs/Backup/AuthKey_KAT7LHZC7V.p8`** was a real PKCS8 EC private key, committed 2026-06-10, present on `V2`/`V3-ShopiFy`/`V3-improve`/`V4-sla` (clean on `main`). Unlike CRIT-01's token, this one didn't expire on its own, and it was actively referenced by the live EAS build config (`expo-app/eas.json`).
+
+This was already independently discovered and documented in `docs/SECURITY_SECRETS.md` (item 6, dated 2026-06-24) — that audit also lists five other unrotated exposed secrets (Keycloak client secret, operator-JWT secret, DB passwords, a reused SSH+Postgres password, Android keystore passwords) that predate this review and remain outstanding, untouched here — they require live-system access (Keycloak admin, prod SSH) only the owner can act on.
+
+**Resolution:** the owner revoked key ID `KAT7LHZC7V` in App Store Connect and generated a replacement (`VP6WWM4XHN`), updated `expo-app/eas.json` to point at it, and stored the new key outside the repo (`expo-app/secrets/`, gitignored — verified not tracked). Only then was history purged, in that order deliberately: purging git history without rotating first would only have hidden the leak, not neutralized it, since anyone who already had the old key would still be able to use it.
+
+The purge itself needed a second pass: the file had been renamed at one point (`docs/AuthKey_KAT7LHZC7V.p8` → `docs/Backup/AuthKey_KAT7LHZC7V.p8` in an earlier commit), and `git filter-repo --path` matches exact historical paths, not renames — the first pass only stripped the post-rename path and left the same blob reachable at the pre-rename one. Caught by checking the actual blob hash across all objects rather than trusting a path-based search, before anything was pushed. Second pass targeted both paths, verified clean by blob hash after an aggressive `git gc`, then pushed to all 4 affected branches and synced local refs the same way as CRIT-01.
+
+`*.p8` is in `.gitignore` (both the repo root's and `expo-app/`'s) so this can't recur silently.
 
 ---
 
@@ -145,12 +149,14 @@ Picked up from the "what's left" list below. `bp_portal_api.py` split into two b
 ### Third pass (same day): M-02, M-03, M-04, M-05
 M-03 implemented for real (read-replica routing — config existed, the routing logic never did). M-05 added (npm audit, matrix over the three JS projects). M-04 reassessed and left alone (not real duplication). M-02 fully resolved: found a live 500 in the Studio Inspector's ticket filter, patched it surgically, then verified `web/ui` has no dependence on the field's JSON serialization and completed the proper fix — an Alembic migration converting `conversations.resolved` to real `BOOLEAN`, with all 3 call sites and the legacy bootstrap DDL updated to match, verified end-to-end against a real database.
 
+### Fourth pass (same day): M-11
+The owner rotated the Apple key in App Store Connect (revoked `KAT7LHZC7V`, issued `VP6WWM4XHN`, updated `expo-app/eas.json`, stored the new key outside the repo) before any history was touched — rotation neutralizes the exposure; purging history without it would only hide the evidence while the old key stayed valid. History purge needed two attempts: the file had been renamed early in its history (`docs/AuthKey_KAT7LHZC7V.p8` → `docs/Backup/AuthKey_KAT7LHZC7V.p8`), and `git filter-repo --path` doesn't follow renames, so the first pass only stripped the post-rename path. Caught by verifying via blob hash rather than trusting a path search, before pushing anything. Second pass targeted both paths, verified clean, pushed to all 4 affected branches.
+
 ### What's left, roughly in order of value
-1. **M-11** — rotate the Apple API key (`docs/Backup/AuthKey_KAT7LHZC7V.p8`), then delete + purge from history. Needs the repo owner (Apple Developer portal access); highest-value remaining item.
-2. **`docs/SECURITY_SECRETS.md` items 1–5** — pre-existing, separately-tracked rotation backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords). Not part of this review's original findings, but discovered adjacent to M-11 — needs live-system access this review can't exercise.
-3. **M-01** — itsm-service JWKS proxy fix (needs that repo/deployment).
-4. **M-09** — docker-compose for the core stack; a real infra decision (how much of prod's systemd/nginx/gunicorn topology to mirror). See proposal below.
-5. **H-05** — TypeScript migration (large, incremental). See proposed starting slice below.
+1. **`docs/SECURITY_SECRETS.md` items 1–5** — pre-existing, separately-tracked rotation backlog (Keycloak client secret, operator-JWT secret, DB passwords, reused SSH+Postgres password, Android keystore passwords). Not part of this review's original findings — needs a scheduled maintenance window and live-system access this review hasn't exercised.
+2. **M-01** — itsm-service JWKS proxy fix (needs that repo/deployment).
+3. **M-09** — docker-compose for the core stack; a real infra decision (how much of prod's systemd/nginx/gunicorn topology to mirror). See proposal below.
+4. **H-05** — TypeScript migration (large, incremental). See proposed starting slice below.
 
 ### Deploy reminder for M-02
 Whenever this branch's changes reach a database for real: run `alembic upgrade head` (or apply `12bd2020ac48` specifically) *before or with* the code deploy — the new code writes `resolved = TRUE`, which a database still on the old `INTEGER` column would reject.
