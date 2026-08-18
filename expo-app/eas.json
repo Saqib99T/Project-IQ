@@ -41,9 +41,9 @@
     "submit": {
         "production": {
             "ios": {
-                "ascApiKeyPath": "./secrets/AuthKey_KAT7LHZC7V.p8",
+                "ascApiKeyPath": "./secrets/AuthKey_VP6WWM4XHN.p8",
                 "ascApiKeyIssuerId": "ce084d5f-b904-4dd6-8819-69b17ed50bdd",
-                "ascApiKeyId": "KAT7LHZC7V"
+                "ascApiKeyId": "VP6WWM4XHN"
             }
         }
     }
