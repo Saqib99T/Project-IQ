@@ -1,0 +1,65 @@
+name: frontend
+
+# CI for web/ui (React/Vite) and expo-app (React Native), which previously had
+# no CI coverage at all despite being the majority of tracked files in the
+# repo — see docs/ARCHITECTURE_REVIEW.md H-06.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  web-ui:
+    name: web/ui — test & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run vitest suite
+        run: npm run test -- --run
+
+      - name: Build all bundles (widget / portal / itsm)
+        run: |
+          npm run build
+          npm run build:widget
+          npm run build:portal
+          npm run build:itsm
+
+      - name: Lint (advisory — 1,600+ pre-existing findings not yet triaged)
+        continue-on-error: true
+        run: npm run lint
+
+  expo-app:
+    name: expo-app — install & syntax check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expo-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: expo-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # No lint config exists yet in expo-app (no .eslintrc / eslint.config.js,
+      # no devDependencies at all) — a full setup is a separate follow-up, not
+      # bundled into this first CI pass. This is the smallest check that still
+      # catches real breakage (a bad merge, a stray brace) rather than nothing.
+      - name: Syntax-check all source files
+        run: find src App.js index.js -name "*.js" | xargs -I{} node --check {}
