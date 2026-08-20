@@ -6,6 +6,7 @@ import { StatusBadge, PriorityBadge, LoadingSpinner, ErrorBanner } from '../../.
 import TicketEditPanel from '../../../shared/itsm/TicketEditPanel'
 import TicketSlaPanel from '../../../shared/itsm/TicketSlaPanel'
 import CommentsSection from '../../../shared/itsm/CommentsSection'
+import KbDraftButton from '../../../shared/itsm/KbDraftButton'
 
 function formatDate(iso) {
     if (!iso) return '—'
@@ -62,6 +63,13 @@ export default function ItsmTicketDetailPage() {
                     {isAgent && (
                         <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
                             <TicketSlaPanel ticketId={ticket.id} canManage={isManager} />
+                        </div>
+                    )}
+
+                    {isAgent && ticket.status === 'resolved' && (
+                        <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
+                            <p className="text-xs text-gray-400 dark:text-slate-500 uppercase tracking-wide mb-2">Knowledge Base</p>
+                            <KbDraftButton ticketId={ticket.id} />
                         </div>
                     )}
 

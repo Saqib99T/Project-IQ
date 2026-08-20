@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useOutletContext } from 'react-router-dom'
 import {
     ArrowLeft, ArrowUpCircle, Trash2, RefreshCw, MessageSquare, History,
-    Paperclip, MonitorSmartphone, Eye, Tag, Video, BookOpen,
+    Paperclip, MonitorSmartphone, Eye, Tag, Video,
 } from 'lucide-react'
 import {
     useItsmApi, useItsmResource, useTenantDirectory, useUserDirectory,
-    triggerKbCurationFromTicket,
 } from '../../shared/itsm/useItsmApi'
+import KbDraftButton from '../../shared/itsm/KbDraftButton'
 import { useItsmTenant, ItsmTenantScope } from '../../shared/itsm/ItsmTenantContext'
 import { StatusBadge, PriorityBadge, TenantBadge, LoadingSpinner, ErrorBanner } from '../../shared/itsm/primitives'
 import { Button, IconButton, Badge, Breadcrumb, Tabs, useConfirm } from '../../shared/itsm/ui'
@@ -69,48 +69,6 @@ function TitleDescriptionEditor({ ticket, onSaved }) {
                 <Button size="sm" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
                 <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={saving}>Cancel</Button>
             </div>
-        </div>
-    )
-}
-
-// Drafts a KB article from this ticket right now, instead of waiting for the
-// nightly auto_draft_kb_from_tickets batch (03:30 UTC). Only shown once the
-// ticket is resolved — the backend rejects earlier states. Idempotent: a
-// second click (or an earlier nightly-batch draft) just returns the existing
-// draft rather than erroring or duplicating it.
-function KbDraftButton({ ticketId }) {
-    const { post } = useItsmApi()
-    const [state, setState] = useState('idle') // idle | working | done | error
-    const [result, setResult] = useState(null)
-    const [error, setError] = useState(null)
-
-    const trigger = async () => {
-        setState('working'); setError(null)
-        try {
-            const draft = await triggerKbCurationFromTicket(post, ticketId)
-            setResult(draft)
-            setState('done')
-        } catch (err) {
-            setError(err)
-            setState('error')
-        }
-    }
-
-    if (state === 'done' && result) {
-        const already = result.curation_source?.state && result.curation_source.state !== 'running'
-        return (
-            <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                {already ? 'Already drafted' : 'KB draft created'} — see Knowledge Base → Pending Review.
-            </p>
-        )
-    }
-
-    return (
-        <div className="space-y-1">
-            <Button size="sm" variant="secondary" icon={BookOpen} onClick={trigger} disabled={state === 'working'}>
-                {state === 'working' ? 'Drafting…' : 'Draft KB Article'}
-            </Button>
-            {state === 'error' && <ErrorBanner message={error.message} />}
         </div>
     )
 }
