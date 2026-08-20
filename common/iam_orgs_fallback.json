@@ -1,0 +1,6 @@
+[
+    {"org_id": "c05f6ddc-8433-4ae1-aea2-2a1b1785599f", "name": "PIQ-Client", "alias": "piq-client"},
+    {"org_id": "5f75b273-7b21-4877-8c49-79408ba094e1", "name": "Blue Team", "alias": "blue-team"},
+    {"org_id": "demo-acme-org", "name": "Acme Corp", "alias": "acme-corp"},
+    {"org_id": "5d74ffb7-6685-4175-aa3a-bf22b7779c7d", "name": "Green Team", "alias": "green-team"}
+]

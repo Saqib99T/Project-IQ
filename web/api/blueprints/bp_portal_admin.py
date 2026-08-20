@@ -236,13 +236,23 @@ def portal_admin_iam_orgs(**kwargs):
     if not user.get('is_platform_admin'):
         return jsonify({'orgs': []})
     # Cache the IAM org directory (changes rarely) so this isn't a blocking IAM
-    # HTTP call on every admin page load — under eventlet that stalls the server.
+    # HTTP call on every admin page load — under eventlet that stalls the
+    # server. Backed by common.redis_cache (Redis when configured, in-process
+    # TTLCache otherwise) rather than a plain process-local global — a global
+    # gets wiped on every deploy/restart, which silently turned "IAM is slow"
+    # into "the tenant switcher is empty" the moment the process bounced.
+    # Snapshot TTL is long (30 days) on purpose: it's a last-known-good
+    # fallback for when IAM is unreachable, not a freshness cache — the
+    # `< 300` check below is what enforces the actual 5-minute refresh
+    # cadence when IAM is reachable. Same "stale beats an outright empty
+    # result" pattern as _load_jwks_fallback in itsm-service's iam_service.py.
     import time as _t
-    global _IAM_ORGS_CACHE
+    from common.redis_cache import cache as _shared_cache
+    _CACHE_KEY = 'iam_orgs_snapshot'
     now = _t.time()
-    cached = globals().get('_IAM_ORGS_CACHE')
-    if cached and (now - cached[0] < 300):
-        return jsonify({'orgs': cached[1]})
+    cached = _shared_cache.get(_CACHE_KEY)
+    if cached and (now - cached['ts'] < 300):
+        return jsonify({'orgs': cached['rows']})
     from common.iam_service import _iam_admin
     try:
         orgs = _iam_admin('GET', '/organizations', params={'max': 500}) or []
@@ -251,10 +261,29 @@ def portal_admin_iam_orgs(**kwargs):
                  'alias': o.get('alias')}
                 for o in (orgs if isinstance(orgs, list) else []) if o.get('id')]
         rows.sort(key=lambda r: (r['name'] or '').lower())
-        _IAM_ORGS_CACHE = (now, rows)
+        _shared_cache.set(_CACHE_KEY, {'ts': now, 'rows': rows}, ttl=30 * 24 * 3600)
         return jsonify({'orgs': rows})
     except Exception as e:
-        return jsonify({'orgs': (cached[1] if cached else []), 'error': str(e)})
+        if cached:
+            return jsonify({'orgs': cached['rows'], 'error': str(e)})
+        # Redis itself has no persistence configured in prod either (no
+        # volume, no AOF) — a Redis restart wipes the snapshot too. Last
+        # resort: a bundled, hand-updated snapshot committed to the repo, so
+        # the switcher never shows a flat-out empty list. It goes stale if a
+        # tenant is added/renamed while IAM stays unreachable — update
+        # common/iam_orgs_fallback.json by hand if that ever matters; this is
+        # a "never empty" backstop, not a source of truth.
+        try:
+            import json as _json
+            import os as _os
+
+            import common as _common
+            fallback_path = _os.path.join(_os.path.dirname(_common.__file__), 'iam_orgs_fallback.json')
+            with open(fallback_path, encoding='utf-8') as f:
+                rows = _json.load(f)
+        except Exception:
+            rows = []
+        return jsonify({'orgs': rows, 'error': str(e)})
 
 
 # ── Admin: Orgs ───────────────────────────────────────────────────────────────

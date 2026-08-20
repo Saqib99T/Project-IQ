@@ -332,6 +332,12 @@ export const loadPendingKbDrafts = (get: ItsmApi['get']): Promise<KbCurationDraf
 export const triggerKbCuration = (post: ItsmApi['post'], body: TriggerKbCurationBody): Promise<KbCurationDraft> =>
     post<KbCurationDraft>('/kb/curation/run', body)
 
+// Draft a KB article from a resolved ticket immediately, instead of waiting
+// for the nightly auto_draft_kb_from_tickets batch (03:30 UTC). Idempotent —
+// returns the existing draft if this ticket was already linked to one.
+export const triggerKbCurationFromTicket = (post: ItsmApi['post'], ticketId: string): Promise<KbCurationDraft> =>
+    post<KbCurationDraft>(`/kb/curation/from-ticket/${ticketId}`, {})
+
 export const approveKbDraft = (post: ItsmApi['post'], id: string): Promise<KbCurationDraft> =>
     post<KbCurationDraft>(`/kb/curation/${id}/approve`, {})
 

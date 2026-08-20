@@ -15,27 +15,39 @@ function TenantSwitcher({ isPlatformAdmin }) {
     const { call } = useApi()
     const { orgId, setOrgId } = useAdminOrgScope()
     const [orgs, setOrgs] = useState([])
+    const [error, setError] = useState(null)
 
     useEffect(() => {
         if (!isPlatformAdmin) return
         let cancelled = false
         call('/portal/api/admin/iam-orgs')
-            .then(d => { if (!cancelled) setOrgs(d?.orgs || []) })
-            .catch(() => { if (!cancelled) setOrgs([]) })
+            .then(d => {
+                if (cancelled) return
+                setOrgs(d?.orgs || [])
+                // Backend degrades to a stale/empty snapshot with an `error`
+                // field when IAM itself is unreachable — surface that instead
+                // of silently showing an empty-looking dropdown with no clue
+                // why (was previously discarded entirely).
+                setError(d?.error ? 'Tenant list may be stale — IAM is unreachable' : null)
+            })
+            .catch(() => { if (!cancelled) { setOrgs([]); setError('Failed to load tenants') } })
         return () => { cancelled = true }
     }, [call, isPlatformAdmin])
 
     if (!isPlatformAdmin) return null
     return (
-        <select
-            value={orgId}
-            onChange={e => setOrgId(e.target.value)}
-            title="Filter data by tenant"
-            className="border border-bordc rounded-lg px-3 py-1.5 text-sm bg-surface text-fg focus:outline-none focus:ring-2 focus:ring-primary/40"
-        >
-            <option value="">All tenants</option>
-            {orgs.map(o => <option key={o.org_id} value={o.org_id}>{o.name}</option>)}
-        </select>
+        <div className="flex items-center gap-2">
+            <select
+                value={orgId}
+                onChange={e => setOrgId(e.target.value)}
+                title={error || 'Filter data by tenant'}
+                className="border border-bordc rounded-lg px-3 py-1.5 text-sm bg-surface text-fg focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+                <option value="">All tenants</option>
+                {orgs.map(o => <option key={o.org_id} value={o.org_id}>{o.name}</option>)}
+            </select>
+            {error && <span className="text-xs text-amber-600 dark:text-amber-400" title={error}>⚠</span>}
+        </div>
     )
 }
 
