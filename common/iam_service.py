@@ -324,8 +324,15 @@ def get_iam_user_from_request(request) -> Optional[dict]:
 # Requires a service account (client_credentials) with manage-users realm role.
 # Credentials: backend_client_id / backend_client_secret in app.config [IAM].
 
-_admin_tok: dict = {'token': None, 'exp': 0.0}
+_admin_tok: dict = {'token': None, 'exp': 0.0, 'last_fail': 0.0}
 _admin_tok_lock  = threading.Lock()
+
+# Once the token endpoint has just failed (e.g. IAM unreachable from this
+# network), skip straight to failing instead of blocking every caller for a
+# fresh 10s timeout — a burst of calls (one per org on the admin dashboard)
+# would otherwise serialize into a many-times-10s page load. Matches the
+# JWKS client's own graceful-degradation pattern above.
+_ADMIN_TOK_FAIL_BACKOFF_S = 30
 
 # Cached client UUID for project-iq client (looked up once per process)
 _client_uuid_cache: dict = {}
@@ -339,17 +346,25 @@ def _get_admin_token() -> str:
     with _admin_tok_lock:
         if _admin_tok['token'] and now < _admin_tok['exp'] - 30:
             return _admin_tok['token']
+        if now < _admin_tok['last_fail'] + _ADMIN_TOK_FAIL_BACKOFF_S:
+            raise ConnectionError(
+                "IAM token endpoint recently failed — skipping retry during backoff window"
+            )
         cfg = _get_iam_cfg()
-        resp = _req.post(
-            f"{cfg['keycloak_url']}/realms/{cfg['realm']}/protocol/openid-connect/token",
-            data={
-                'grant_type':    'client_credentials',
-                'client_id':     cfg['backend_client_id'],
-                'client_secret': cfg['backend_client_secret'],
-            },
-            timeout=10,
-        )
-        resp.raise_for_status()
+        try:
+            resp = _req.post(
+                f"{cfg['keycloak_url']}/realms/{cfg['realm']}/protocol/openid-connect/token",
+                data={
+                    'grant_type':    'client_credentials',
+                    'client_id':     cfg['backend_client_id'],
+                    'client_secret': cfg['backend_client_secret'],
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+        except Exception:
+            _admin_tok['last_fail'] = now
+            raise
         tok = resp.json()
         _admin_tok['token'] = tok['access_token']
         _admin_tok['exp']   = now + tok.get('expires_in', 300)
