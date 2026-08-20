@@ -120,6 +120,18 @@ def _make_jwks_client(jwks_url: str, proxy: str):
     )
 
 
+def _iam_proxies() -> Optional[dict]:
+    """SOCKS proxy for every outbound IAM call, when this host can't reach
+    IAM directly. Reuses IAM_JWKS_PROXY (same env var _make_jwks_client
+    already reads above) — despite the name, it's not JWKS-specific; every
+    other IAM call site below routes through it too when set. Returns None
+    (no proxy) when unset, so this is a no-op wherever IAM is reachable
+    directly (e.g. local dev).
+    """
+    proxy = os.environ.get('IAM_JWKS_PROXY', '')
+    return {'http': proxy, 'https': proxy} if proxy else None
+
+
 def _get_jwks_client():
     """Return a cached PyJWKClient, refreshing if older than TTL."""
     global _jwks_client, _jwks_loaded_at
@@ -360,6 +372,7 @@ def _get_admin_token() -> str:
                     'client_secret': cfg['backend_client_secret'],
                 },
                 timeout=10,
+                proxies=_iam_proxies(),
             )
             resp.raise_for_status()
         except Exception:
@@ -413,6 +426,7 @@ def get_kb_bot_token() -> Optional[str]:
                     'client_secret': bot_cfg['client_secret'],
                 },
                 timeout=10,
+                proxies=_iam_proxies(),
             )
             resp.raise_for_status()
             tok = resp.json()
@@ -435,6 +449,7 @@ def _iam_admin(method: str, path: str, json=None, params=None, expected_status=N
         json=json,
         params=params,
         timeout=15,
+        proxies=_iam_proxies(),
     )
     if expected_status and resp.status_code not in (expected_status
         if isinstance(expected_status, (list, tuple)) else [expected_status]):
@@ -507,7 +522,8 @@ def _app_id_name_map() -> dict:
     cfg = _get_iam_cfg()
     api = (cfg.get('api_url') or '').rstrip('/')
     r = _req.get(f"{api}/v1/application",
-                 headers={'Authorization': f'Bearer {_get_admin_token()}'}, timeout=12)
+                 headers={'Authorization': f'Bearer {_get_admin_token()}'}, timeout=12,
+                 proxies=_iam_proxies())
     r.raise_for_status()
     j = r.json()
     data = j.get('data', j) if isinstance(j, dict) else j
@@ -534,7 +550,8 @@ def iam_list_org_subscribed_products(org_id: str) -> list:
     api = (cfg.get('api_url') or '').rstrip('/')
     try:
         r = _req.get(f"{api}/v1/organization/{org_id}/subscription",
-                     headers={'Authorization': f'Bearer {_get_admin_token()}'}, timeout=12)
+                     headers={'Authorization': f'Bearer {_get_admin_token()}'}, timeout=12,
+                     proxies=_iam_proxies())
         r.raise_for_status()
         j = r.json()
         data = j.get('data', j) if isinstance(j, dict) else j
@@ -617,6 +634,7 @@ def iam_invite_user(email: str, first_name: str, last_name: str,
         headers={'Authorization': f'Bearer {_get_admin_token()}'},
         json=user_payload,
         timeout=15,
+        proxies=_iam_proxies(),
     )
     if resp.status_code == 409:
         raise IamTokenError(f"User with email {email!r} already exists")
