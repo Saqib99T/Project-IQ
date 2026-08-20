@@ -14,7 +14,7 @@ import Pagination from '../../../shared/itsm/Pagination'
 // approve/reject that fired an async Celery task) — the DB row only changes
 // once that task finishes, so there's nothing to await synchronously here.
 const WATCH_WINDOW_MS = 32000
-const POLL_INTERVAL_MS = 4000
+const POLL_INTERVAL_MS = 15000
 const PENDING_PAGE_SIZE = 10
 
 const TRIGGER_LABEL = {
