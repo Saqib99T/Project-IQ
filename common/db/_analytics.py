@@ -73,29 +73,34 @@ def get_deflection_metrics(window: str = "30 days", org_id: str = None,
         _release_connection(conn)
 
 
-def get_analytics_summary(app_id: str = None, org_id: str = None) -> Dict:
+def get_analytics_summary(app_id: str = None, org_id: str = None, days: int = None) -> Dict:
     """org_id scopes every figure to one tenant (None = all, for platform admins).
+    days scopes every figure to conversations started in the last N days (None = all-time).
     messages/feedback have no org column, so they are scoped by joining conversations."""
     conn = _get_connection()
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         _app = app_id and app_id != "all"
+        _days = days if (days and days > 0) else None
 
         # conversations — has org_id directly
         cw, cp = [], []
         if org_id: cw.append("org_id = %s"); cp.append(org_id)
         if _app:   cw.append("app_id = %s"); cp.append(app_id)
+        if _days:  cw.append("started_at >= NOW() - (%s || ' days')::interval"); cp.append(_days)
         c_where = (" WHERE " + " AND ".join(cw)) if cw else ""
         cursor.execute(f'SELECT COUNT(*) as count FROM conversations{c_where}', tuple(cp))
         total_conversations = cursor.fetchone()['count']
 
         # messages/feedback/intents have no org column → scope via conversations join.
         # mw/mp build the shared WHERE for a table aliased `m` joined to conversations `c`.
+        # The join to `c` is needed whenever org- or date-scoping is in play, not just org.
         def _scoped(table_alias):
             w, p = [], []
             if org_id: w.append("c.org_id = %s"); p.append(org_id)
             if _app:   w.append(f"{table_alias}.app_id = %s"); p.append(app_id)
-            join = "JOIN conversations c ON c.id = {0}.conversation_id".format(table_alias) if org_id else ""
+            if _days:  w.append("c.started_at >= NOW() - (%s || ' days')::interval"); p.append(_days)
+            join = "JOIN conversations c ON c.id = {0}.conversation_id".format(table_alias) if (org_id or _days) else ""
             where = (" WHERE " + " AND ".join(w)) if w else ""
             return join, where, p
 

@@ -137,6 +137,9 @@ export default function AnalyticsPage() {
     }, [call])
 
     const appParam = appId && appId !== 'all' ? `?app_id=${appId}` : ''
+    // Summary/intents/feedback are scoped by the same day range as the trend
+    // charts — append `days` (as `&` if app_id is already there, else `?`).
+    const statsParam = `${appParam}${appParam ? '&' : '?'}days=${days}`
 
     const loadAll = useCallback(async () => {
         setLoading(true)
@@ -144,9 +147,9 @@ export default function AnalyticsPage() {
         try {
             const [trendData, summaryData, intentsData, feedbackData, convosData] = await Promise.allSettled([
                 call(`/portal/api/admin/analytics?days=${days}`),
-                call(`/admin/analytics/summary${appParam}`),
-                call(`/admin/analytics/intents${appParam}`),
-                call(`/admin/analytics/feedback${appParam}`),
+                call(`/admin/analytics/summary${statsParam}`),
+                call(`/admin/analytics/intents${statsParam}`),
+                call(`/admin/analytics/feedback${statsParam}`),
                 call(`/admin/analytics/conversations${appParam}`),
             ])
             if (trendData.status   === 'fulfilled') setTrend(trendData.value)

@@ -1,8 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useIam } from '../../../widget/hooks/useIam'
 import { usePortalAuth } from '../../PortalAuth'
-import { ItsmTenantProvider, useItsmTenant } from '../../../shared/itsm/ItsmTenantContext'
-import { TenantSwitcher } from '../../../shared/itsm/TenantSwitcher'
+import { useDerivedItsmTenantId } from '../../useDerivedItsmTenantId'
+import { ItsmTenantScope, useItsmTenant } from '../../../shared/itsm/ItsmTenantContext'
 
 function ItsmTab({ to, label, end }) {
     return (
@@ -24,7 +24,7 @@ function ItsmTab({ to, label, end }) {
 
 function ItsmHeader() {
     const { user } = useIam()
-    const { tenantId, setTenantId } = useItsmTenant()
+    const { tenantId } = useItsmTenant()
     // Use the backend's authoritative platform-admin flag (covers org_admin of the
     // platform org, e.g. projectiq-admin@…) — not just the super_admin realm role,
     // which a platform-org admin doesn't carry.
@@ -32,16 +32,13 @@ function ItsmHeader() {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">ITSM</h2>
-                    <p className="text-sm text-gray-500 dark:text-slate-400">
-                        {isPlatformAdmin
-                            ? (tenantId ? 'Viewing a single tenant' : 'Cross-tenant platform view')
-                            : `${user?.organization_alias || 'Your organization'}'s tickets, assets and knowledge base`}
-                    </p>
-                </div>
-                {isPlatformAdmin && <TenantSwitcher value={tenantId} onChange={setTenantId} />}
+            <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">ITSM</h2>
+                <p className="text-sm text-gray-500 dark:text-slate-400">
+                    {isPlatformAdmin
+                        ? (tenantId ? 'Viewing a single tenant' : 'Cross-tenant platform view')
+                        : `${user?.organization_alias || 'Your organization'}'s tickets, assets and knowledge base`}
+                </p>
             </div>
             <nav className="flex items-center gap-1.5">
                 <ItsmTab to="/admin/itsm"         label="Tickets"        end />
@@ -54,12 +51,13 @@ function ItsmHeader() {
 }
 
 export default function ItsmLayout() {
+    const tenantId = useDerivedItsmTenantId()
     return (
-        <ItsmTenantProvider>
+        <ItsmTenantScope tenantId={tenantId}>
             <div className="max-w-5xl space-y-6">
                 <ItsmHeader />
                 <Outlet />
             </div>
-        </ItsmTenantProvider>
+        </ItsmTenantScope>
     )
 }

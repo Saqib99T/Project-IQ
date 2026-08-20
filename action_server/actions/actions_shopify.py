@@ -86,7 +86,19 @@ class ActionShopifyOrderStatus(Action):
             if not explicit_email:
                 # First attempt failed — whether we tried the caller's IAM
                 # email or had none at all — ask for the order's own email
-                # instead of giving up immediately.
+                # instead of giving up immediately. Uttered directly here
+                # (rather than relying solely on a standalone
+                # slot_was_set-only rule to catch order_lookup_needs_email)
+                # because that rule has no real trigger of its own — a plain
+                # `condition:`-gated rule with no preceding intent step
+                # doesn't reliably get predicted right after this action in
+                # this Rasa version (confirmed live 2026-08-20: policy
+                # prediction came back completely empty). The slot is still
+                # set so "Retry order status check once the order email is
+                # provided" (which DOES have a real trigger — intent: inform
+                # — anchored after this utterance) keeps working.
+                dispatcher.utter_message(response="utter_ask_order_email")
+                log_bot_response(tracker, "utter_ask_order_email")
                 return [SlotSet("order_lookup_needs_email", True)]
             error_msg = f"❌ Couldn't find an order matching **{order_number}**. Please double-check the number."
             dispatcher.utter_message(text=error_msg)

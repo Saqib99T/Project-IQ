@@ -16,8 +16,10 @@ from web.api.impl.metrics_queries import avg_bot_response_ms, error_rate_pct
 logger = logging.getLogger(__name__)
 def system_status():
     """System status dashboard — Python-native checks, safe under eventlet."""
-    import socket, re, os, glob, urllib.request, urllib.error
+    import socket, re, os, glob, platform, urllib.request, urllib.error
     from datetime import datetime
+
+    _is_windows = platform.system() == 'Windows'
 
     def _tpool(fn, *args, **kwargs):
         """Run a blocking call in a real thread (safe under eventlet monkey-patch)."""
@@ -56,7 +58,22 @@ def system_status():
         pass
 
     def port_listening(port):
-        return port in _listening_ports
+        if port in _listening_ports:
+            return True
+        if not _is_windows or _listening_ports:
+            # Linux host, or /proc/net/tcp[6] was readable and just didn't
+            # list this port — trust that result, don't fall through.
+            return False
+        # Windows dev box: /proc doesn't exist, so _listening_ports is always
+        # empty here. A raw connect attempt is the cross-platform equivalent —
+        # tpool'd so a slow/refused connection can't block the eventlet hub.
+        def _try_connect():
+            try:
+                with socket.create_connection(('127.0.0.1', port), timeout=0.3):
+                    return True
+            except Exception:
+                return False
+        return bool(_tpool(_try_connect))
 
     # ── Services (systemctl) ──────────────────────────────────────────────
     # Service check: read systemd private state files (works in any user context)
@@ -80,14 +97,47 @@ def system_status():
         except Exception:
             pass
 
+        keyword_map = {
+            'project-iq-rasa':    'rasa run',
+            'project-iq-actions': 'rasa run actions',
+            'project-iq-admin':   'web.api.web_api',
+        }
+
+        # Windows dev box: no /run/systemd, no /proc — start_local.ps1 launches
+        # these directly (e.g. `python web_api.py`, cwd=web/api) rather than
+        # the `-m web.api.web_api`-style invocation systemd uses in prod, so
+        # the admin keyword needs a second, local-launch-shaped match too.
+        if _is_windows:
+            try:
+                import psutil
+                windows_keywords = dict(keyword_map, **{'project-iq-admin': ('web.api.web_api', 'web_api.py')})
+                wanted = windows_keywords.get(svc, svc)
+                if isinstance(wanted, str):
+                    wanted = (wanted,)
+                for proc in psutil.process_iter(['pid', 'cmdline']):
+                    cmd = ' '.join(proc.info.get('cmdline') or [])
+                    if any(w in cmd for w in wanted):
+                        pid = proc.info['pid']
+                        state = 'active'
+                        try:
+                            p = psutil.Process(pid)
+                            mem_str = f'{p.memory_info().rss // (1024*1024)}M'
+                            elapsed = int(datetime.now().timestamp() - p.create_time())
+                            if elapsed < 60: uptime = f'{elapsed}s'
+                            elif elapsed < 3600: uptime = f'{elapsed//60}m {elapsed%60}s'
+                            else: uptime = f'{elapsed//3600}h {(elapsed%3600)//60}m'
+                        except Exception:
+                            pass
+                        break
+                if state == 'unknown':
+                    state = 'inactive'
+            except Exception:
+                pass
+            return state, mem_str, uptime
+
         # Fallback: search /proc for the process name
         if state == 'unknown' or pid is None:
             try:
-                keyword_map = {
-                    'project-iq-rasa':    'rasa run',
-                    'project-iq-actions': 'rasa run actions',
-                    'project-iq-admin':   'web.api.web_api',
-                }
                 keyword = keyword_map.get(svc, svc)
                 for entry in os.listdir('/proc'):
                     if not entry.isdigit():
@@ -150,13 +200,18 @@ def system_status():
                          'ok':     state == 'active'})
 
     # ── Docker containers ─────────────────────────────────────────────────
-    raw = _shell('docker ps -a --format "{{.Names}}\t{{.Status}}" 2>/dev/null | grep -E "itsm|firecrawl"')
+    # Filter in Python rather than piping through `grep`/`2>/dev/null` — those
+    # are POSIX shell syntax, and subprocess's shell=True spawns cmd.exe on
+    # Windows (no grep, "/dev/null" isn't a real path), so the whole command
+    # silently failed on a Windows dev box and always returned no containers.
+    raw = _shell('docker ps -a --format "{{.Names}}\t{{.Status}}"')
     containers = []
     for line in raw.splitlines():
         if '\t' in line:
             name, status = line.split('\t', 1)
-            containers.append({'name': name, 'status': status,
-                                'ok': status.lower().startswith('up')})
+            if 'itsm' in name.lower() or 'firecrawl' in name.lower():
+                containers.append({'name': name, 'status': status,
+                                    'ok': status.lower().startswith('up')})
 
     # ── Ports ─────────────────────────────────────────────────────────────
     port_labels = {5005: 'ML Platform Core', 5055: 'ML Platform Actions', 8181: 'Admin API',
@@ -949,6 +1004,20 @@ _DIAG_LOG_SOURCES = [
     {'key': 'firecrawl',   'group': '',      'label': 'Firecrawl', 'kind': 'docker',  'match': 'firecrawl-selfhost_api'},
 ]
 
+# Windows dev box: no systemd/journalctl at all, so 'systemd' sources fall
+# back to the plain log files start_local.ps1 already redirects each
+# process's stdout/stderr into (see repo-root Log/ — most real output lands
+# in *.err, since Python's default logging StreamHandler writes to stderr).
+_WINDOWS_LOG_FILE_BASE = {
+    'project-iq-admin':   'web_api',
+    'project-iq-actions': 'actions',
+    'project-iq-rasa':    'core',
+}
+_REPO_ROOT_LOG_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+    'Log',
+)
+
 
 def diagnostics_log_sources():
     """List the log sources the Diagnostics page can tail."""
@@ -1033,8 +1102,24 @@ def diagnostics_logs():
         return eventlet.tpool.execute(_x)
 
     if src['kind'] == 'systemd':
-        out = _run(['journalctl', '-u', src['unit'], '-n', str(lines),
-                    '--no-pager', '--output=short-iso'])
+        import platform
+        if platform.system() == 'Windows':
+            base = _WINDOWS_LOG_FILE_BASE.get(src['unit'])
+            def _tail_file(path, n):
+                try:
+                    with open(path, encoding='utf-8', errors='replace') as f:
+                        return f.readlines()[-n:]
+                except Exception:
+                    return []
+            out_lines = []
+            if base:
+                err_path = os.path.join(_REPO_ROOT_LOG_DIR, f'{base}.err')
+                log_path = os.path.join(_REPO_ROOT_LOG_DIR, f'{base}.log')
+                out_lines = _tail_file(err_path, lines) + _tail_file(log_path, lines)
+            out = ''.join(out_lines) if out_lines else f'[diagnostics] no local log file found for {src["unit"]}'
+        else:
+            out = _run(['journalctl', '-u', src['unit'], '-n', str(lines),
+                        '--no-pager', '--output=short-iso'])
     else:
         def _names():
             try:

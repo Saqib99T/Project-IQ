@@ -5,7 +5,8 @@ import {
     Search, Database, ArrowRight, Check, Minus, Code2,
 } from 'lucide-react'
 import { useApi } from '../useApi'
-import { useItsmApi, useTenantDirectory } from '../../shared/itsm/useItsmApi'
+import { useItsmApi } from '../../shared/itsm/useItsmApi'
+import { useDerivedItsmTenantId } from '../useDerivedItsmTenantId'
 
 // ── Managed services (read-only status strip) ──────────────────────────────────
 // Status is derived from the platform config (/admin/config) — a key being set
@@ -392,15 +393,17 @@ function IntegrationsTab() {
         post:   (path, body) => call(path, { method: 'POST', body: JSON.stringify(body) }),
         remove: (path)       => call(path, { method: 'DELETE' }),
     }), [call])
-    const tenants = useTenantDirectory(true)
-    const tenantList = Object.entries(tenants)
-    // A non-empty directory means this is a platform user (super_admin) who must
-    // pick a tenant to scope into. Tenant admins (org_admin/Admin) get an empty
-    // directory — they operate on their OWN org, resolved from the JWT when
-    // tenantId stays null (useItsmApi(null) sends no X-Tenant-ID).
-    const isPlatform = tenantList.length > 0
-    const [tenantId, setTenantId] = useState(null)
-    const itsm = useItsmApi(tenantId)
+    // Reuse the SAME tenant scope every other admin page uses (the "Blue Team"-
+    // style switcher in the header, portal/admin/Layout.jsx's TenantSwitcher) —
+    // not a separate one.
+    //
+    // The org picked up there is IAM's org id — itsm-service's X-Tenant-ID
+    // expects its own internal Tenant.id, a different UUID, so it goes
+    // through the iam_org_id -> itsm tenant id lookup rather than being
+    // passed straight through (passing it directly 404'd with "tenant
+    // '<iam org id>' not found" — confirmed live, 2026-08-20).
+    const itsmTenantId = useDerivedItsmTenantId()
+    const itsm = useItsmApi(itsmTenantId)
 
     const [catalog, setCatalog] = useState(null)
     const [eventTypes, setEventTypes] = useState([])
@@ -410,9 +413,6 @@ function IntegrationsTab() {
     const [extInstalls, setExtInstalls] = useState([])
     const [err, setErr] = useState(null)
 
-    // Platform users: auto-select the first tenant once the directory loads.
-    useEffect(() => { if (isPlatform && !tenantId && tenantList.length) setTenantId(tenantList[0][0]) }, [tenantList, tenantId, isPlatform])
-
     useEffect(() => {
         itsm.get('/integrations/catalog')
             .then(d => { setCatalog(d.integrations || []); setEventTypes(d.event_types || []) })
@@ -421,13 +421,10 @@ function IntegrationsTab() {
     }, [itsm, call])
 
     const loadEndpoints = useCallback(() => {
-        // Platform users must pick a tenant first; tenant admins load their own
-        // org's endpoints directly (tenantId === null → JWT-resolved tenant).
-        if (isPlatform && !tenantId) { setEndpoints([]); return }
         itsm.get('/webhooks-config/endpoints', { page_size: 100 })
             .then(d => setEndpoints(d.items || []))
             .catch(e => setErr(e.message))
-    }, [itsm, tenantId, isPlatform])
+    }, [itsm])
 
     useEffect(() => { loadEndpoints() }, [loadEndpoints])
 
@@ -458,7 +455,7 @@ function IntegrationsTab() {
 
     return (
         <div className="space-y-6">
-            {err && <div className="card p-3 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm">{err}</div>}
+            {err && <div className="card p-3 bg-danger/10 text-danger text-sm">{err}</div>}
 
             {/* One unified grid for everything connectable — notifications and
                 native extensions are different backends underneath, but to
@@ -466,16 +463,9 @@ function IntegrationsTab() {
                 connect". Splitting them into two full sections with their own
                 headers doubled the visual weight for no real benefit. */}
             <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h3 className="text-sm font-semibold text-fg">Connect a tool</h3>
-                        <p className="text-xs text-fgmuted">Deliver events to chat/webhooks, pull in content, or connect a commerce provider.</p>
-                    </div>
-                    {tenantList.length > 0 && (
-                        <select value={tenantId || ''} onChange={e => setTenantId(e.target.value)} className="select w-auto text-sm">
-                            {tenantList.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-                        </select>
-                    )}
+                <div>
+                    <h3 className="text-sm font-semibold text-fg">Connect a tool</h3>
+                    <p className="text-xs text-fgmuted">Deliver events to chat/webhooks, pull in content, or connect a commerce provider.</p>
                 </div>
                 {!loaded ? (
                     <div className="text-sm text-fgsubtle py-10 text-center">Loading…</div>

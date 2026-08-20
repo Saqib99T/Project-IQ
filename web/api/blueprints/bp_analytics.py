@@ -47,7 +47,8 @@ def list_apps():
 def analytics_summary():
     try:
         app_id  = request.args.get('app_id') or None
-        summary = get_analytics_summary(app_id=app_id, org_id=_s.caller_org_scope())
+        summary = get_analytics_summary(app_id=app_id, org_id=_s.caller_org_scope(),
+                                        days=request.args.get('days', type=int))
         return jsonify({"success": True, "data": summary})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -101,7 +102,8 @@ def recent_conversations():
 def intent_distribution():
     try:
         summary = get_analytics_summary(app_id=request.args.get('app_id') or None,
-                                        org_id=_s.caller_org_scope())
+                                        org_id=_s.caller_org_scope(),
+                                        days=request.args.get('days', type=int))
         return jsonify({"success": True, "data": {
             "intents": summary.get("intent_distribution", {}),
             "top_intents": summary.get("top_intents", [])
@@ -115,7 +117,8 @@ def intent_distribution():
 def feedback_metrics():
     try:
         summary = get_analytics_summary(app_id=request.args.get('app_id') or None,
-                                        org_id=_s.caller_org_scope())
+                                        org_id=_s.caller_org_scope(),
+                                        days=request.args.get('days', type=int))
         return jsonify({"success": True, "data": {
             "positive":       summary.get("feedback_positive", 0),
             "negative":       summary.get("feedback_negative", 0),

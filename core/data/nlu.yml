@@ -1445,6 +1445,17 @@ nlu:
     - The email is [blue.bot@example.com](order_email)
     - I used [customer123@gmail.com](order_email) at checkout
     - My email is [test.user@outlook.com](order_email)
+    # A handful more bare-address-only examples (no framing words at all) —
+    # a lone email reply to utter_ask_order_email was misclassifying as
+    # update_shipping_address (confirmed live, 2026-08-20); one bare example
+    # wasn't enough weight for DIET to prefer inform over that intent for
+    # this exact "just a short string, nothing else" input shape.
+    - [customer@realaddress.com](order_email)
+    - [sarah.jones@yahoo.com](order_email)
+    - [orders@mystore.net](order_email)
+    - [m.patel123@gmail.com](order_email)
+    - [contact@business.co](order_email)
+    - [alex_w@hotmail.com](order_email)
 
 # DENY
 - intent: deny

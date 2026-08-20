@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KB Wiki Curation + Federated RAG — How It Works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F6F7FC;--surface:#ffffff;--surface-2:#EEF0FA;
+  --border:#E2E5F3;--border-strong:#CBD1EC;
+  --text:#171A2B;--muted:#5B6178;--faint:#9096AE;
+  --accent:#6E8CFF;--accent-2:#8B6FF0;--ink:#4353C9;
+  --blue:#2563eb;--teal:#0d9488;--green:#15803d;--amber:#B45309;--red:#B91C1C;
+  --font-display:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  --radius:14px;--shadow:0 2px 10px rgba(38,43,84,0.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.6;padding:2.5rem 1.5rem 4rem}
+.wrap{max-width:920px;margin:0 auto}
+h1,h2,h3{font-family:var(--font-display);letter-spacing:-.01em;text-wrap:balance}
+h1{font-size:1.7rem;font-weight:800;margin-bottom:.4rem}
+.sub{color:var(--muted);font-size:.95rem;margin-bottom:2rem}
+h2{font-size:1.05rem;font-weight:800;margin:2.4rem 0 .9rem;display:flex;align-items:center;gap:.5rem}
+h2 .n{font-family:var(--font-mono);font-size:.75rem;font-weight:600;color:var(--faint);background:var(--surface-2);border-radius:6px;padding:.15rem .5rem}
+p{margin:0 0 .6rem;font-size:.92rem}
+a{color:var(--ink)}
+code{font-family:var(--font-mono);font-size:.85em;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:.05em .4em}
+
+.headline{background:var(--surface);border:1px solid var(--border-strong);border-left:4px solid var(--ink);border-radius:var(--radius);padding:1.25rem 1.5rem;box-shadow:var(--shadow);font-size:1rem}
+.headline b{color:var(--ink)}
+.status{display:inline-block;font-family:var(--font-mono);font-size:.72rem;font-weight:600;color:var(--green);background:rgba(21,128,61,.09);border:1px solid rgba(21,128,61,.25);border-radius:999px;padding:.2rem .65rem;margin-bottom:1.1rem}
+
+.flow-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem 1.4rem;margin-bottom:1rem;box-shadow:var(--shadow)}
+.flow-title{font-family:var(--font-display);font-weight:800;font-size:.92rem;margin-bottom:.85rem;color:var(--text)}
+
+.diagram-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.3rem 1.1rem;margin:1rem 0 1.4rem;box-shadow:var(--shadow);overflow-x:auto}
+.diagram-card .mermaid{display:flex;justify-content:center}
+
+.note{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.3rem;margin-bottom:.9rem;box-shadow:var(--shadow);font-size:.87rem}
+.note b{color:var(--ink)}
+
+.trigger-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.8rem;margin-bottom:1.2rem}
+.trigger{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--tone,var(--ink));border-radius:var(--radius);padding:.9rem 1.05rem;box-shadow:var(--shadow)}
+.trigger .k{font-family:var(--font-mono);font-size:.68rem;font-weight:700;color:var(--tone,var(--ink));text-transform:uppercase;letter-spacing:.04em}
+.trigger .t{font-family:var(--font-display);font-weight:800;font-size:.92rem;margin:.25rem 0 .4rem}
+.trigger .d{font-size:.83rem;color:var(--muted)}
+.tr-1{--tone:#2563eb}.tr-2{--tone:#0d9488}.tr-3{--tone:#7C5CE0}
+
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);font-size:.85rem}
+th,td{text-align:left;padding:.6rem .9rem;border-bottom:1px solid var(--border)}
+th{background:var(--surface-2);font-family:var(--font-display);font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+tr:last-child td{border-bottom:none}
+td code{white-space:nowrap}
+
+footer{margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--border);font-size:.72rem;color:var(--faint)}
+@media print{body{padding:0;background:#fff}.flow-block,.note,.trigger,.diagram-card,table{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="status">● Implemented — all 5 phases shipped 2026-08-18</div>
+  <h1>KB Wiki Curation + Federated RAG — How It Works</h1>
+  <div class="sub">Spans two repos: <b>itsm-service</b> (curation/authoring) and <b>Project-IQ-V2</b> (bot query path). This reflects the real, current implementation — several phases diverged from the original plan once real code was checked; see <code>docs/plans/KB_WIKI_CURATION_RAG_PLAN.md</code> for that history.</div>
+
+  <div class="headline">
+    <b>The 30-second version:</b> content gets curated in <b>itsm-service</b> by an AI pipeline that always pauses for human review before publishing. The bot in <b>Project-IQ-V2</b> searches that curated index first, falls back to a local index for content that never reaches itsm-service, and — this is the loop-closing part — <b>logs every question it couldn't answer</b> so a recurring gap can turn into a new draft article automatically.
+  </div>
+
+  <h2><span class="n">01</span> Content curation (itsm-service) — how an article gets written</h2>
+  <p>Three independent triggers feed one shared synthesis pipeline. A human always reviews before anything goes live.</p>
+
+  <div class="trigger-grid">
+    <div class="trigger tr-1">
+      <div class="k">Trigger A</div>
+      <div class="t">Manual</div>
+      <div class="d">An agent pastes raw text via <code>POST /api/v1/kb/curation/run</code> — has content but wants it turned into a proper article.</div>
+    </div>
+    <div class="trigger tr-2">
+      <div class="k">Trigger B</div>
+      <div class="t">Ticket resolved</div>
+      <div class="d">Nightly beat job <code>auto_draft_kb_from_tickets</code>. Replaces the old single-LLM-call <code>KBDrafter</code> outright — one synthesis mechanism now, not two.</div>
+    </div>
+    <div class="trigger tr-3">
+      <div class="k">Trigger C</div>
+      <div class="t">KB gap feedback</div>
+      <div class="d">Nightly beat job <code>cluster_kb_gaps_and_draft</code> — clusters of ≥5 similar unanswered bot questions in 7 days become a draft automatically.</div>
+    </div>
+  </div>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+flowchart TD
+    subgraph Triggers
+        A1["Manual trigger\nPOST /api/v1/kb/curation/run\n(agent pastes raw text)"]
+        A2["Ticket resolved\n(nightly beat: auto_draft_kb_from_tickets)"]
+        A3["KB gap feedback\n(nightly beat: cluster_kb_gaps_and_draft\ncluster &gt;= 5 similar misses / 7 days)"]
+    end
+
+    A1 --> B["Create pending KBArticle\nstatus = ai_curated_pending_review"]
+    A2 --> B
+    A3 --> B
+
+    B --> C["run_kb_curation (Celery task, queue=low)"]
+
+    subgraph KBCurator ["KBCurator — LangGraph StateGraph"]
+        D1[discover_perspectives] --> D2[interview]
+        D2 --> D3[generate_outline]
+        D3 --> D4[write_sections]
+        D4 --> D5[polish]
+        D5 --> D6[lint_check]
+        D6 --> D7["human_review\n(interrupt() — pauses here)"]
+    end
+
+    C --> D1
+
+    D7 -. "checkpointed to Postgres\n(AsyncPostgresSaver)\nsurvives restarts" .-> CP[(Checkpoint store)]
+
+    D7 --> E{"Reviewer decision\nGET /pending\nPOST /{id}/approve or /reject"}
+
+    E -->|approve| F["resume_kb_curation\nKBService.publish_article()"]
+    F --> G["Article LIVE\nnightly refresh_kb_embeddings\nchunks it into kb_chunks\n(text-embedding-3-small)"]
+
+    E -->|"reject (resynthesize=false)"| H["Archive draft"]
+    E -->|"reject (resynthesize=true,\nreviewer notes)"| D4
+    </pre>
+  </div>
+
+  <h2><span class="n">02</span> Bot query path (Project-IQ-V2) — how a question gets answered</h2>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+flowchart TD
+    U["User asks a question\n(Rasa NLU routes to ask_knowledge intent)"] --> A["ActionSearchKnowledgeBase.run()"]
+
+    A --> B{"Mid-clarification?\n(kb_clarify_options slot set)"}
+    B -->|yes, match found| Z1["Answer with matched candidate"]
+    B -->|yes, no match / retry| B2["Re-prompt with buttons\n(max 2 attempts, then answer\nwith best guess anyway)"]
+    B -->|no| C
+
+    C["Primary search:\nitsm_service.search_kb_chunks(token, message)\nGET /kb/chunks/search"]
+    C --> D{"Any results?"}
+
+    D -->|yes| E{"Top result score\n&gt;= match threshold?"}
+    E -->|yes| Z2["Answer directly with top chunk\n(kb_search_missed = False)"]
+    E -->|"no, multiple close candidates"| F["Show up to 4 candidates\nas clarification buttons"]
+    E -->|"no, only one weak candidate"| Z3["Answer anyway\n(better than a dead end)"]
+
+    D -->|no results| G["Fallback: local vector_search.py\n(catches Firecrawl scrapes +\nsource extensions written\ndirectly into local kb_articles,\nwhich never reach itsm-service)"]
+    G --> H{"Local match\n&gt;= threshold?"}
+    H -->|yes| Z4["Answer with local result"]
+    H -->|no| I["Log knowledge gap\n(log_kb_gap: org_id, product_id)\n-&gt; feeds section 1's gap-clustering job"]
+    I --> J["kb_search_missed = True\nFollowupAction(action_track_confidence)"]
+    J --> K["Offer: create ticket / my tickets / help\n(no dead end)"]
+
+    style Z1 fill:#dcfce7,stroke:#15803d,color:#14532d
+    style Z2 fill:#dcfce7,stroke:#15803d,color:#14532d
+    style Z3 fill:#dcfce7,stroke:#15803d,color:#14532d
+    style Z4 fill:#dcfce7,stroke:#15803d,color:#14532d
+    style K fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
+    </pre>
+  </div>
+
+  <div class="note"><b>Auth scoping on the primary search:</b> a logged-in user's own IAM JWT is forwarded, so itsm-service scopes results to that tenant's private + public content. An anonymous user (no token) is scoped to <b>global public only</b> (<code>tenant_id IS NULL AND visibility = public</code>) — no special auth mechanism, just a query-scoping rule.</div>
+
+  <div class="note"><b>Why two search paths instead of one:</b> itsm-service's chunked index (<code>kb_chunks</code>, heading-aware chunks + <code>text-embedding-3-small</code> embeddings) is the system of record and does real RAG-grade search — it's primary. The local <code>vector_search.py</code> index is a deliberate fallback, kept alive because Firecrawl scraping and source extensions (Google Sheets / Website / MS Teams) write content straight into Project-IQ-V2's own DB and never reach itsm-service — without the fallback, that content would be permanently unsearchable.</div>
+
+  <h2><span class="n">03</span> The full loop, end to end</h2>
+  <p>A question the bot couldn't answer today becomes, after enough repeats, a candidate KB article the bot <i>can</i> answer tomorrow — without anyone manually noticing the pattern.</p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+flowchart LR
+    Q["Bot query"] -->|answered| A["User gets help"]
+    Q -->|"KB miss (logged as gap)"| G[("kb_search_gaps\ntable, Project-IQ-V2")]
+    G -->|"nightly: cluster_kb_gaps_and_draft\nreads PIQ's DB directly"| C["itsm-service curation pipeline\n(same KBCurator graph as §1)"]
+    C -->|human approves| P["New published article\n+ chunked + embedded"]
+    P -->|next similar query| Q
+    </pre>
+  </div>
+
+  <h2><span class="n">04</span> Where the code lives</h2>
+  <table>
+    <tr><th>Concern</th><th>Repo</th><th>File(s)</th></tr>
+    <tr><td>Curation orchestration</td><td>itsm-service</td><td><code>app/services/ai/kb_curator.py</code></td></tr>
+    <tr><td>Curation triggers (Celery tasks + beat schedule)</td><td>itsm-service</td><td><code>app/workers/tasks_kb.py</code>, <code>app/workers/celery_app.py</code></td></tr>
+    <tr><td>Human review checkpoint store</td><td>itsm-service</td><td><code>app/services/ai/kb_curation_checkpointer.py</code></td></tr>
+    <tr><td>Curation review API</td><td>itsm-service</td><td><code>app/api/v1/kb_curation.py</code></td></tr>
+    <tr><td>Chunking + chunk search API</td><td>itsm-service</td><td><code>app/services/ai/kb_chunker.py</code>, <code>app/api/v1/kb_chunk_search.py</code></td></tr>
+    <tr><td>Gap clustering</td><td>itsm-service</td><td><code>app/services/ai/kb_gap_clusterer.py</code></td></tr>
+    <tr><td>Bot query action</td><td>Project-IQ-V2</td><td><code>action_server/actions/actions_kb.py</code></td></tr>
+    <tr><td>Local fallback index</td><td>Project-IQ-V2</td><td><code>common/vector_search.py</code></td></tr>
+    <tr><td>Gap logging</td><td>Project-IQ-V2</td><td><code>common/db/_kb_gaps.py</code></td></tr>
+    <tr><td>Confidence/frustration signal unification</td><td>Project-IQ-V2</td><td><code>action_server/actions/actions_general.py</code> (<code>ActionTrackConfidence</code>)</td></tr>
+  </table>
+
+  <footer>Project IQ — internal engineering doc. Markdown source + decision history: <code>docs/KB_WIKI_CURATION_FLOW.md</code> and <code>docs/plans/KB_WIKI_CURATION_RAG_PLAN.md</code>.</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      fontFamily: "'IBM Plex Sans', sans-serif",
+      primaryColor: '#EEF0FA',
+      primaryTextColor: '#171A2B',
+      primaryBorderColor: '#CBD1EC',
+      lineColor: '#9096AE',
+      secondaryColor: '#EEF0FA',
+      tertiaryColor: '#F6F7FC',
+      clusterBkg: '#F6F7FC',
+      clusterBorder: '#CBD1EC'
+    },
+    flowchart: { curve: 'basis' }
+  });
+</script>
+</body>
+</html>

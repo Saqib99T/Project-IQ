@@ -175,6 +175,22 @@ rules:
       - slot_was_set:
           - order_number: true
       - action: action_shopify_order_status
+
+  # Split from the rule above (rather than chaining utter_ask_anything_else
+  # straight after action_shopify_order_status there) because a fixed
+  # action-then-action sequence in one rule always runs to its end once
+  # triggered — it doesn't re-check order_lookup_needs_email in between, so
+  # the "ask for order email" rule below could never win the turn even
+  # though its condition matched. Gating this rule on
+  # order_lookup_needs_email: false (the action always sets it explicitly,
+  # true or false, on every path that reaches a final answer) means the
+  # "ask for email" rule is the only one that matches when it's true.
+  - rule: Confirm anything else after order status check resolves
+    condition:
+      - slot_was_set:
+          - order_lookup_needs_email: false
+    steps:
+      - action: action_shopify_order_status # Was previously executed
       - action: utter_ask_anything_else
 
   - rule: Ask for order number when checking order status
@@ -186,20 +202,16 @@ rules:
       - action: utter_ask_order_number
       - action: action_listen
 
-  - rule: Ask for order email when the IAM email didn't match
-    condition:
-      - slot_was_set:
-          - order_lookup_needs_email: true
-    steps:
-      - action: utter_ask_order_email
-      - action: action_listen
+  # (No standalone "ask for order email" rule here — action_shopify_order_status
+  # utters utter_ask_order_email directly itself now; see its docstring for why
+  # a trigger-less condition-only rule didn't reliably fire on its own.)
 
   - rule: Retry order status check once the order email is provided
     condition:
       - slot_was_set:
           - order_lookup_needs_email: true
     steps:
-      - action: utter_ask_order_email # Was previously executed
+      - action: action_shopify_order_status # Was previously executed (uttered utter_ask_order_email itself)
       - intent: inform
       - slot_was_set:
           - order_email: true

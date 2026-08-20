@@ -94,6 +94,7 @@ slots:
   # giving up immediately.
   order_lookup_needs_email:
     type: bool
+    initial_value: false
     influence_conversation: true
     mappings:
       - type: custom

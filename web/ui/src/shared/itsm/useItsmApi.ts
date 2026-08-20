@@ -118,6 +118,7 @@ export interface TenantEntry {
     id: string
     name?: string
     alias?: string
+    iam_org_id?: string
 }
 export interface TenantListResponse {
     tenants?: TenantEntry[]
@@ -270,6 +271,72 @@ export async function loadKbArticles(
     const perSpace = await Promise.all(spaces.map(fetchSpace))
     return { articles: perSpace.flat() }
 }
+
+// ---------------------------------------------------------------------------
+// KB wiki curation (docs/KB_WIKI_CURATION_FLOW.md) — trigger a manual
+// curation run and review/approve/reject AI-drafted articles.
+// ---------------------------------------------------------------------------
+
+export interface KbCurationSpace {
+    id: string
+    name: string
+    slug: string
+    description?: string | null
+}
+export interface KbCurationCategory {
+    id: string
+    name: string
+    space_id: string
+}
+export interface KbCurationDraft {
+    id: string
+    tenant_id?: string | null
+    space_id: string
+    title: string
+    status: string
+    excerpt?: string | null
+    body: string
+    curation_source?: {
+        trigger?: string
+        state?: string
+        error?: string
+        citations?: string[]
+        lint_findings?: string[]
+        reviewer_notes?: string
+        [key: string]: unknown
+    } | null
+    created_at: string
+    updated_at: string
+}
+export interface TriggerKbCurationBody {
+    space_id: string
+    title: string
+    source_text: string
+    category_id?: string
+    product_id?: string
+}
+export interface RejectKbDraftBody {
+    reviewer_notes: string
+    resynthesize?: boolean
+}
+
+export const loadKbSpaces = (get: ItsmApi['get']): Promise<KbCurationSpace[]> =>
+    get<KbCurationSpace[]>('/kb/spaces')
+
+export const loadKbCategories = (get: ItsmApi['get'], spaceId: string): Promise<KbCurationCategory[]> =>
+    get<KbCurationCategory[]>(`/kb/spaces/${spaceId}/categories`)
+
+export const loadPendingKbDrafts = (get: ItsmApi['get']): Promise<KbCurationDraft[]> =>
+    get<KbCurationDraft[]>('/kb/curation/pending')
+
+export const triggerKbCuration = (post: ItsmApi['post'], body: TriggerKbCurationBody): Promise<KbCurationDraft> =>
+    post<KbCurationDraft>('/kb/curation/run', body)
+
+export const approveKbDraft = (post: ItsmApi['post'], id: string): Promise<KbCurationDraft> =>
+    post<KbCurationDraft>(`/kb/curation/${id}/approve`, {})
+
+export const rejectKbDraft = (post: ItsmApi['post'], id: string, body: RejectKbDraftBody): Promise<KbCurationDraft> =>
+    post<KbCurationDraft>(`/kb/curation/${id}/reject`, { resynthesize: false, ...body })
 
 /**
  * Uploads a file directly to a presigned storage URL (S3-style PUT).
