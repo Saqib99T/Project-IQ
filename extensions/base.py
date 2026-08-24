@@ -17,6 +17,9 @@ class ExtensionKind(str, Enum):
     SOURCE = "source"          # pulls external data IN (knowledge base, etc.)
     DESTINATION = "destination"  # pushes Project IQ events OUT (webhook, chat channel)
     COMMERCE = "commerce"      # bidirectional, transactional (order lookup/refund/cancel)
+    CHANNEL = "channel"        # bidirectional, conversational (inbound message -> bot brain -> outbound reply);
+                               # distinct from COMMERCE (transactional) and DESTINATION (one-way push) —
+                               # see docs/plans/WHATSAPP_INTEGRATION_PLAN.md §2.4 for why this got its own kind
 
 
 @dataclass

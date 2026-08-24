@@ -299,6 +299,52 @@ def get_sentry_config() -> Dict[str, Any]:
     }
 
 
+def get_whatsapp_config() -> Dict[str, Any]:
+    """Global WhatsApp Cloud API credentials (one business number per Project
+    IQ deployment, same one-per-deployment shape as get_shopify_config() /
+    get_amazon_config()). Per-org customization (which mode is on, proactivity
+    dial, known-group/participant mapping) is NOT here — it's per-tenant state
+    stored via common/db/_extensions.py's generic install/config table, keyed
+    (org_id, 'whatsapp'), because unlike a Shopify shop_domain this app has no
+    natural per-tenant OAuth handshake to hang a DB row off of.
+
+    *** UNVALIDATED as of this build — no live Meta Business/WABA account
+    exists yet (docs/plans/WHATSAPP_INTEGRATION_PLAN.md §8 Phase 0, §1.1 in
+    the group-assistant plan). whatsapp_enabled stays false, and nothing in
+    extensions/whatsapp/ makes a live call, until real credentials are set. ***
+    """
+    config = load_config()
+    return {
+        'enabled':        config.getboolean('WHATSAPP', 'whatsapp_enabled', fallback=False),
+        # Groups API needs an Official Business Account, a materially higher
+        # bar than the base WABA (docs/plans/WHATSAPP_GROUP_ASSISTANT_PLAN.md
+        # §1.1) — kept as its own flag so 1:1 support can go live without
+        # group support being ready, and vice versa.
+        'groups_enabled': config.getboolean('WHATSAPP', 'groups_enabled', fallback=False),
+        'graph_api_version': config.get('WHATSAPP', 'graph_api_version', fallback='v23.0'),
+        'phone_number_id': config.get('WHATSAPP', 'phone_number_id', fallback=''),
+        'waba_id':        config.get('WHATSAPP', 'waba_id', fallback=''),
+        # SECRETS — supply at runtime via env vars (see .env.example). Never
+        # commit real values to app.config.
+        'access_token':   _env_secret('WHATSAPP', 'access_token',
+                                       config.get('WHATSAPP', 'access_token', fallback='')),
+        'app_secret':     _env_secret('WHATSAPP', 'app_secret',
+                                       config.get('WHATSAPP', 'app_secret', fallback='')),
+        'verify_token':   _env_secret('WHATSAPP', 'verify_token',
+                                       config.get('WHATSAPP', 'verify_token', fallback='')),
+        # Default proactivity dial for a group that hasn't set its own — see
+        # extensions/whatsapp/decision.py. Deliberately defaults to the most
+        # conservative setting (plan doc §9 decision #2's recommendation).
+        'default_proactivity_level': config.get('WHATSAPP', 'default_proactivity_level', fallback='mention_only'),
+        'proactive_cooldown_seconds': config.getint('WHATSAPP', 'proactive_cooldown_seconds', fallback=600),
+        # Per-org cap on outbound sends (mirrors Shopify/Amazon's
+        # write_rate_limit) — every WhatsApp send is billed per-message
+        # (docs/plans/WHATSAPP_GROUP_ASSISTANT_PLAN.md §4), so a runaway
+        # proactive loop is a cost incident, not just a UX one.
+        'send_rate_limit': config.get('WHATSAPP', 'send_rate_limit', fallback='60 per hour'),
+    }
+
+
 def get_platform_config() -> Dict[str, str]:
     """Get 99Tech platform-level identifiers."""
     config = load_config()
@@ -333,6 +379,8 @@ def get_all_config() -> Dict[str, str]:
     # not here); this just controls whether the feature is exposed at all.
     result['SHOPIFY_ENABLED'] = config.get('SHOPIFY', 'shopify_enabled', fallback='false')
     result['AMAZON_ENABLED'] = config.get('AMAZON', 'amazon_enabled', fallback='false')
+    result['WHATSAPP_ENABLED'] = config.get('WHATSAPP', 'whatsapp_enabled', fallback='false')
+    result['WHATSAPP_GROUPS_ENABLED'] = config.get('WHATSAPP', 'groups_enabled', fallback='false')
 
     return result
 
@@ -342,7 +390,7 @@ def set_all_config(settings: Dict[str, str]):
     config = load_config()
 
     # Ensure sections exist
-    for section in ['DATABASE', 'RASA', 'WIDGET', 'SESSION', 'SHOPIFY', 'AMAZON']:
+    for section in ['DATABASE', 'RASA', 'WIDGET', 'SESSION', 'SHOPIFY', 'AMAZON', 'WHATSAPP']:
         if not config.has_section(section):
             config.add_section(section)
 
@@ -360,6 +408,8 @@ def set_all_config(settings: Dict[str, str]):
         'SESSION_WARNING_MINUTES': ('SESSION', 'SESSION_WARNING_MINUTES'),
         'SHOPIFY_ENABLED': ('SHOPIFY', 'shopify_enabled'),
         'AMAZON_ENABLED': ('AMAZON', 'amazon_enabled'),
+        'WHATSAPP_ENABLED': ('WHATSAPP', 'whatsapp_enabled'),
+        'WHATSAPP_GROUPS_ENABLED': ('WHATSAPP', 'groups_enabled'),
     }
 
     for key, value in settings.items():

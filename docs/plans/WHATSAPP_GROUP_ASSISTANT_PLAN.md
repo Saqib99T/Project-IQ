@@ -1,7 +1,7 @@
 # WhatsApp Group Assistant — Deep Analysis, Requirements & Plan
 
-Status: **planning only — no implementation**. Living document — will be revised as decisions are made and the Phase 0 spike retires open unknowns.
-Last updated: 2026-08-21.
+Status: **Phase 0a implementation landed on `V3-WhatsApp`** (`extensions/whatsapp/`) — self-contained extension code + fixture/unit tests, zero dependency on a verified business account, per §8's Phase 0a. Still blocked on real Meta credentials for anything beyond that (Phase 0b onward). Living document — will be revised as decisions are made and the Phase 0b spike retires open unknowns.
+Last updated: 2026-08-24.
 
 Related but distinct from [`docs/plans/WHATSAPP_INTEGRATION_PLAN.md`](./WHATSAPP_INTEGRATION_PLAN.md), which covers a customer messaging the business 1:1 for support. That doc predates the fact below and assumes WhatsApp is 1:1-only for a business account — it isn't anymore. This doc covers a different shape entirely: a small multi-party group where ProjectIQ is a participant, not a support desk. They'll likely share some plumbing (the `extensions/` framework, the action-server "brain") but have different identity models, different trigger models, and different risk profiles. Read both if building either.
 
@@ -217,6 +217,7 @@ The net read: build the proactive/ambient piece — it's clearly where the marke
 
 ## Changelog
 
+- 2026-08-24 — Phase 0a implemented on `V3-WhatsApp`: `extensions/whatsapp/` (extension.py, routes.py, service.py, decision.py, identity.py, bridge.py, store.py), `ExtensionKind.CHANNEL` added, `[WHATSAPP]` config section (disabled by default), fixture/unit tests (`tests/test_whatsapp_routes.py`, `tests/test_whatsapp_decision.py`, 25 tests, zero live-account dependency). Covers baseline FR1–FR3/FR5/FR6/FR8/FR10/FR11 and an initial (heuristic, not yet KB/LLM-backed) version of FR4's proactive decision engine. Does NOT cover FR7 (tool-use), FR9 (escalation), real group-management calls (create/invite/approve — written but unconfirmed), or the 24h-window/template branch — those, plus confirming the mention-payload and group-id extraction shapes this build guesses at (§2.1), wait on Phase 0b's real Meta credentials.
 - 2026-08-21 — Initial version: use case analysis, Groups API research, requirements (FR1–FR11), architecture, phased plan, open decisions.
 - 2026-08-21 — Added §1.1 account prerequisites (Tier 1 WABA vs Tier 2 OBA); flagged OBA's "notability" (unpaid media coverage) requirement as the top risk, ahead of everything else in §7 — it's the one gate not fully in 99T's control.
 - 2026-08-21 — Confirmed no sandbox exists yet (repo has zero WhatsApp scaffolding). Corrected Phase 0: Meta's Groups API sandbox does not waive the OBA gate, so it splits into 0a (Cloud API mechanics, OBA-independent) and 0b (actual group testing, blocked on OBA). Flagged third-party "OBA-free Groups API sandbox" vendors as the unofficial-automation route in disguise, not a real shortcut.
