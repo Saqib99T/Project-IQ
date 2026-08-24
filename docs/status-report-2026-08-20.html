@@ -1,0 +1,665 @@
+<title>Project IQ — Product Status Report</title>
+<style>
+  :root {
+    --ink: #171b21;
+    --ink-soft: #4b535e;
+    --paper: #f1f2f4;
+    --surface: #ffffff;
+    --rule: #dbdee3;
+    --accent: #b5541f;
+    --accent-soft: #f2e2d6;
+    --teal: #1f5c58;
+    --shadow: 0 1px 2px rgba(23, 27, 33, 0.06), 0 8px 24px rgba(23, 27, 33, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e7e9ec;
+      --ink-soft: #a7afba;
+      --paper: #14171c;
+      --surface: #1b1f26;
+      --rule: #2a2f37;
+      --accent: #e08a4e;
+      --accent-soft: #3a2a1e;
+      --teal: #4fa39d;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e7e9ec;
+    --ink-soft: #a7afba;
+    --paper: #14171c;
+    --surface: #1b1f26;
+    --rule: #2a2f37;
+    --accent: #e08a4e;
+    --accent-soft: #3a2a1e;
+    --teal: #4fa39d;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px rgba(0, 0, 0, 0.35);
+  }
+  :root[data-theme="light"] {
+    --ink: #171b21;
+    --ink-soft: #4b535e;
+    --paper: #f1f2f4;
+    --surface: #ffffff;
+    --rule: #dbdee3;
+    --accent: #b5541f;
+    --accent-soft: #f2e2d6;
+    --teal: #1f5c58;
+    --shadow: 0 1px 2px rgba(23, 27, 33, 0.06), 0 8px 24px rgba(23, 27, 33, 0.05);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Segoe UI Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sheet {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 4.5rem 1.75rem 6rem;
+  }
+
+  /* ---------- Masthead ---------- */
+  .masthead {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 1.75rem;
+    margin-bottom: 2.5rem;
+  }
+  .masthead .kicker {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 0.9rem;
+  }
+  .masthead h1 {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-weight: 700;
+    font-size: clamp(2rem, 5vw, 2.6rem);
+    line-height: 1.12;
+    margin: 0 0 0.6rem;
+    text-wrap: balance;
+  }
+  .masthead .dek {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    max-width: 34rem;
+    margin: 0 0 1.3rem;
+    text-wrap: balance;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.6rem;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+  .meta-row span b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ---------- Executive summary ---------- */
+  .exec-summary {
+    border-left: 3px solid var(--teal);
+    padding: 0.2rem 0 0.2rem 1.1rem;
+    margin: 0 0 2.75rem;
+    color: var(--ink-soft);
+    font-size: 1.02rem;
+    max-width: 42rem;
+  }
+  .exec-summary b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Stat strip ---------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 3.25rem;
+    box-shadow: var(--shadow);
+  }
+  .stat {
+    background: var(--surface);
+    padding: 1.15rem 1rem;
+    border-top: 3px solid var(--accent);
+  }
+  .stat .num {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .stat .label {
+    font-size: 0.74rem;
+    color: var(--ink-soft);
+    margin-top: 0.25rem;
+    line-height: 1.35;
+  }
+  @media (max-width: 560px) {
+    .stats { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Section structure ---------- */
+  section.block { margin-bottom: 3.1rem; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    border-left: 4px solid var(--accent);
+    padding-left: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+  .section-head h2 {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0;
+  }
+  .section-head .count {
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+  }
+  .section-note {
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+    margin: -0.8rem 0 1.6rem 0.85rem;
+    max-width: 40rem;
+  }
+
+  /* ---------- Feature items ---------- */
+  .item {
+    display: grid;
+    grid-template-columns: 7.5rem 1fr;
+    gap: 1.25rem;
+    padding: 1.15rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  .item:last-child { padding-bottom: 0; }
+  .item-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    height: 1.5rem;
+    padding: 0 0.55rem;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .tag.live { background: var(--accent); color: #fff; }
+  .tag.shipped { background: var(--accent-soft); color: var(--accent); }
+  .tag.planned {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--rule);
+  }
+  .item-meta .date {
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    padding-left: 0.1rem;
+  }
+  .item h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0 0 0.35rem;
+  }
+  .item p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.96rem;
+  }
+  .item p + p { margin-top: 0.5rem; }
+  .item .impact {
+    display: block;
+    margin-top: 0.55rem;
+    font-size: 0.86rem;
+    color: var(--teal);
+  }
+  .item .impact b { font-weight: 700; }
+  @media (max-width: 560px) {
+    .item { grid-template-columns: 1fr; gap: 0.5rem; }
+    .item-meta { flex-direction: row; align-items: center; }
+  }
+
+  /* ---------- Current state panel ---------- */
+  .state-panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 1.6rem 1.75rem;
+    box-shadow: var(--shadow);
+  }
+  .state-list { list-style: none; margin: 0; padding: 0; }
+  .state-list li {
+    display: flex;
+    gap: 0.9rem;
+    padding: 0.7rem 0;
+    border-top: 1px solid var(--rule);
+    font-size: 0.96rem;
+  }
+  .state-list li:first-child { border-top: none; padding-top: 0; }
+  .state-list .dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: 0.55rem;
+  }
+  .state-list b { font-weight: 700; }
+  .state-list .sub { color: var(--ink-soft); }
+
+  /* ---------- WhatsApp callout ---------- */
+  .callout {
+    border: 1px dashed var(--rule);
+    border-radius: 10px;
+    padding: 1.5rem 1.75rem;
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+  }
+  .callout .mark {
+    flex: none;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 50%;
+    border: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+  .callout h3 {
+    margin: 0 0 0.4rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  .callout p { margin: 0 0 0.5rem; color: var(--ink-soft); font-size: 0.96rem; }
+  .callout .blocker {
+    display: inline-block;
+    font-size: 0.78rem;
+    color: var(--accent);
+    font-weight: 600;
+    background: var(--accent-soft);
+    padding: 0.15rem 0.55rem;
+    border-radius: 3px;
+  }
+
+  /* ---------- Accounts table ---------- */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  table.accounts {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    background: var(--surface);
+    font-size: 0.88rem;
+  }
+  table.accounts th, table.accounts td {
+    text-align: left;
+    padding: 0.7rem 0.85rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
+  table.accounts th:nth-child(1), table.accounts td:nth-child(1) { width: 24%; }
+  table.accounts th:nth-child(2), table.accounts td:nth-child(2) { width: 34%; }
+  table.accounts th:nth-child(3), table.accounts td:nth-child(3) { width: 20%; }
+  table.accounts th:nth-child(4), table.accounts td:nth-child(4) { width: 22%; }
+  table.accounts thead th {
+    font-size: 0.68rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 700;
+    background: var(--paper);
+  }
+  table.accounts tbody tr:last-child td { border-bottom: none; }
+  table.accounts td.service { font-weight: 600; line-height: 1.35; }
+  table.accounts td.cost { line-height: 1.35; }
+  .pill-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .pill-status::before {
+    content: "";
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--ink-soft);
+  }
+  .pill-status.on::before { background: var(--accent); }
+  .pill-status.off { color: var(--ink-soft); }
+  .table-footnote {
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    margin: 0.85rem 0 0;
+    max-width: 44rem;
+  }
+
+  footer {
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  footer .confidential { color: var(--ink-soft); }
+
+  @media print {
+    body { background: #fff; }
+    .sheet { max-width: none; padding: 0 0.25in; }
+    .stats, .state-panel, .callout { box-shadow: none; }
+    .item, section.block { break-inside: avoid; }
+  }
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="kicker mono">Product Status Report</div>
+    <h1>Where Project IQ stands, and what just shipped</h1>
+    <p class="dek">A recap of platform work completed in the last 20 days, the current state of the product, and what's queued up next.</p>
+    <div class="meta-row mono">
+      <span><b>Prepared:</b> Aug 20, 2026</span>
+      <span><b>Prepared by:</b> Engineering</span>
+      <span><b>Distribution:</b> Internal / stakeholders</span>
+    </div>
+  </header>
+
+  <p class="exec-summary">In the past three weeks, Project IQ went live with two commerce integrations, shipped its first AI-assisted content workflow for the Knowledge Base, and closed out a full security and reliability review with every finding resolved. The web and mobile apps remain in full feature parity, and the test suite is passing clean. The next major initiative, <b>WhatsApp support</b>, is fully scoped and ready to start as soon as account verification clears.</p>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="num mono">2</div>
+      <div class="label">Commerce integrations now live (Shopify, Amazon)</div>
+    </div>
+    <div class="stat">
+      <div class="num mono">235/235</div>
+      <div class="label">Automated tests passing</div>
+    </div>
+    <div class="stat">
+      <div class="num mono">100%</div>
+      <div class="label">Feature parity, web &amp; mobile chat</div>
+    </div>
+  </div>
+
+  <section class="block">
+    <div class="section-head">
+      <h2>Shipped this period</h2>
+      <span class="count mono">8 items</span>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag live">Live</span><span class="date mono">Ongoing</span></div>
+      <div>
+        <h3>Error monitoring with Sentry</h3>
+        <p>Sentry has been monitoring backend errors in production for some time now, catching and surfacing issues automatically instead of relying on someone noticing. This period, local development was separated from production reporting, so test errors no longer pollute the live error feed.</p>
+        <span class="impact"><b>Impact:</b> cleaner signal means real production issues get noticed and fixed faster.</span>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag live">Live</span><span class="date mono">Aug 5–20</span></div>
+      <div>
+        <h3>Shopify orders, right inside the chat</h3>
+        <p>Customers can ask the bot to check an order's status, request a refund, cancel an order, or update a shipping address — with a confirmation step before anything changes. Live in production and verified against a real store, including a refund processed end to end.</p>
+        <span class="impact"><b>Impact:</b> deflects order-status and post-purchase requests from support queues into self-serve chat.</span>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag live">Live</span><span class="date mono">Aug 13–18</span></div>
+      <div>
+        <h3>Amazon order tracking (Pending Testing)</h3>
+        <p>Amazon-connected stores can now offer order-status lookups the same way Shopify does. This is read-only for now — refunds and cancellations are on hold until Amazon approves the additional API access they require.</p>
+        <span class="impact"><b>Impact:</b> extends the same self-serve order support to Amazon-based merchants, no additional setup required.</span>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag live">Live</span><span class="date mono">Aug 18–20</span></div>
+      <div>
+        <h3>AI-drafted Knowledge Base articles, with human review</h3>
+        <p>A new pipeline watches for recurring support gaps and drafts Knowledge Base articles to fill them automatically. Nothing publishes unread — admins get a Pending Review queue to approve, edit, or reject each draft first.</p>
+        <span class="impact"><b>Impact:</b> shrinks the time from "customers keep asking this" to "there's an article for it," without sacrificing editorial control.</span>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag shipped">Shipped</span><span class="date mono">Aug 18</span></div>
+      <div>
+        <h3>Cleaner admin experience</h3>
+        <p>The Diagnostics and Integrations pages in the admin portal were rebuilt for clarity, and the organization/tenant switcher was unified into a single control — no more two dropdowns that could quietly disagree with each other.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag shipped">Shipped</span><span class="date mono">Aug 18</span></div>
+      <div>
+        <h3>Platform hardening</h3>
+        <p>Removed exposed credentials from the codebase, added automated scanning to catch that class of issue before it happens again, and put automated test coverage in place for both the web and mobile apps for the first time.</p>
+        <span class="impact"><b>Impact:</b> closes the highest-severity items from a full security and reliability review — no open findings remain.</span>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag shipped">Shipped</span><span class="date mono">Aug 18–20</span></div>
+      <div>
+        <h3>Steadier under outages</h3>
+        <p>The platform now degrades gracefully instead of stalling when the identity provider or a connected service is slow or unreachable — including a fix for a page load that could previously hang for tens of seconds.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag shipped">Shipped</span><span class="date mono">Aug 18</span></div>
+      <div>
+        <h3>Mobile app update &amp; legacy retirement</h3>
+        <p>Shipped mobile app version 1.0.42 and fixed the App Store submission credentials for smoother future releases. Separately, the old legacy ticketing system that Project IQ was migrating away from has now been fully retired — every workflow runs natively.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="section-head">
+      <h2>Current state</h2>
+    </div>
+    <div class="state-panel">
+      <ul class="state-list">
+        <li><span class="dot"></span><div><b>Shopify integration</b> — connected and configured in production at piq.99technologies.com; order lookup, refunds, cancellations, and shipping updates have been built and verified against a test store. <span class="sub">Basic configuration and integration are done — the complete, production-grade use case still needs to be properly implemented and hardened before general rollout.</span></div></li>
+        <li><span class="dot"></span><div><b>Amazon integration</b> — connected and configured for read-only order tracking. <span class="sub">Basic configuration and integration are done, but the complete use case still needs to be properly implemented; refunds/cancellations also remain blocked pending Amazon's approval of additional API access.</span></div></li>
+        <li><span class="dot"></span><div><b>Knowledge Base curation</b> — pipeline and review workflow are shipped and ready. <span class="sub">Awaiting its first live review cycle with real support content.</span></div></li>
+        <li><span class="dot"></span><div><b>Web &amp; mobile chat apps</b> — audited this week and confirmed at full feature parity. <span class="sub">Every user-facing capability on web also exists on mobile, and vice versa.</span></div></li>
+        <li><span class="dot"></span><div><b>Sentry error monitoring</b> — live on both the main application and the ITSM service. <span class="sub">Local development no longer reports into the same feed as production, so the signal stays clean.</span></div></li>
+        <li><span class="dot"></span><div><b>Platform reliability</b> — automated tests passing at 235/235, secret-scanning active, CI coverage extended to both frontends. <span class="sub">No known open security issues.</span></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="section-head">
+      <h2>Planned / next up</h2>
+      <span class="count mono">2 items</span>
+    </div>
+    <div class="callout" style="margin-bottom: 1.1rem;">
+      <div class="mark mono">WA</div>
+      <div>
+        <h3>WhatsApp integration</h3>
+        <p>Customers will be able to chat with Project IQ directly over WhatsApp, using the same conversation engine that powers the web and mobile apps today. The design and rollout plan are fully worked out (see <code>docs/plans/WHATSAPP_INTEGRATION_PLAN.md</code>) — but that's the blueprint, not the build. Turning it into a working, end-to-end customer experience is real development work still ahead of us once the account below is in place.</p>
+        <span class="blocker mono">Blocked — awaiting WhatsApp Business Account verification</span>
+      </div>
+    </div>
+    <div class="callout">
+      <div class="mark mono">QA</div>
+      <div>
+        <h3>Testing &amp; verification</h3>
+        <p>Amazon order tracking and the Knowledge Base curation pipeline are built, but not yet fully tested end-to-end — real verification needs a live Amazon seller account and a genuine KB review cycle to run against, neither of which we have in hand yet. Once those accounts/access come through, testing these properly is next in line.</p>
+        <span class="blocker mono">Blocked — awaiting account access to complete testing</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="section-head">
+      <h2>External accounts &amp; API keys needed</h2>
+      <span class="count mono">9 services</span>
+    </div>
+    <p class="section-note">Third-party accounts and API keys Project IQ integrates with, whether already configured or still required. No key values are recorded here — configuration happens via environment variables, never in source control.</p>
+    <div class="table-wrap">
+      <table class="accounts">
+        <thead>
+          <tr><th>Service</th><th>Used for</th><th>Cost</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="service">Shopify Partner App</td>
+            <td>Order lookup, refunds, cancellations, shipping updates in chat</td>
+            <td class="cost mono">Free to register</td>
+            <td><span class="pill-status on">Configured — live</span></td>
+          </tr>
+          <tr>
+            <td class="service">Amazon Selling Partner API (Solution Provider Portal)</td>
+            <td>Amazon order tracking in chat</td>
+            <td class="cost mono">Free to register</td>
+            <td><span class="pill-status on">Configured — pending testing</span></td>
+          </tr>
+          <tr>
+            <td class="service">Groq / Anthropic (Claude) API</td>
+            <td>AI provider for Knowledge Base article drafting — Anthropic primary, Groq as a free-tier fallback</td>
+            <td class="cost mono">Paid (Anthropic) / free tier (Groq)</td>
+            <td><span class="pill-status on">Configured</span></td>
+          </tr>
+          <tr>
+            <td class="service">OpenAI API</td>
+            <td>Knowledge Base semantic search (embeddings) — required regardless of AI provider above</td>
+            <td class="cost mono">Paid, usage-based</td>
+            <td><span class="pill-status on">Configured</span></td>
+          </tr>
+          <tr>
+            <td class="service">WhatsApp Business (Meta Cloud API)</td>
+            <td>Planned WhatsApp channel support</td>
+            <td class="cost mono">Free to register; per-message pricing from Oct 2026</td>
+            <td><span class="pill-status off">Not started — awaiting business account</span></td>
+          </tr>
+          <tr>
+            <td class="service">Sentry</td>
+            <td>Error monitoring, main app + ITSM service</td>
+            <td class="cost mono">Self-hosted, no added cost</td>
+            <td><span class="pill-status on">Configured</span></td>
+          </tr>
+          <tr>
+            <td class="service">Firecrawl</td>
+            <td>Knowledge Base web-content ingestion</td>
+            <td class="cost mono">Self-hosted, no added cost</td>
+            <td><span class="pill-status on">Configured</span></td>
+          </tr>
+          <tr>
+            <td class="service">AWS (SQS)</td>
+            <td>Real-time Amazon order-event notifications</td>
+            <td class="cost mono">Paid, usage-based (minimal)</td>
+            <td><span class="pill-status off">Not enabled — optional</span></td>
+          </tr>
+          <tr>
+            <td class="service">SMTP / email provider</td>
+            <td>Outbound email notifications</td>
+            <td class="cost mono">Depends on provider</td>
+            <td><span class="pill-status on">Configured</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-footnote">"Configured" means the integration point exists and reads its key from environment/config at runtime — it doesn't guarantee a production-grade key is currently loaded in every environment. Confirm live values with Engineering before relying on any of these in a specific deployment.</p>
+  </section>
+
+  <section class="block">
+    <div class="section-head">
+      <h2>Plan to final release</h2>
+      <span class="count mono">2–3 weeks</span>
+    </div>
+    <p class="section-note">Testing, verification, and bug fixing of the full application as it stands today — not new feature or module development — run at roughly half a day, about 4 focused hours, dedicated to it per working day.</p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="num mono">2–3 wks</div>
+        <div class="label">Estimated time to final release</div>
+      </div>
+      <div class="stat">
+        <div class="num mono">~4 hrs</div>
+        <div class="label">Dedicated testing/fix time per day</div>
+      </div>
+      <div class="stat">
+        <div class="num mono">0</div>
+        <div class="label">New modules — testing &amp; bug fixing only</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag live">Week 1</span><span class="date mono">Days 1–5</span></div>
+      <div>
+        <h3>Full-application testing pass</h3>
+        <p>Systematic testing across the entire application as it exists today — chat/bot core, Shopify, Amazon order tracking, Knowledge Base curation, and the admin portal, on both web and mobile. Every issue found gets logged and triaged immediately rather than deferred.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag live">Week 2</span><span class="date mono">Days 6–10</span></div>
+      <div>
+        <h3>Bug fixing &amp; re-testing</h3>
+        <p>Fix everything flagged in Week 1, then re-test each fix against the whole application — not in isolation — to catch any regression the fix itself might introduce. Any areas that couldn't be fully verified in Week 1 (Amazon, KB curation) get finished here as account access allows.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-meta"><span class="tag planned">Week 3</span><span class="date mono">Days 11–15</span></div>
+      <div>
+        <h3>Final regression &amp; sign-off</h3>
+        <p>One more complete pass across the full application after all fixes land, then release sign-off. Best case, everything closes clean by the end of Week 2 and this week is a formality; if not, this is the outer bound of the estimate — not an open-ended tail.</p>
+      </div>
+    </div>
+
+    <p class="table-footnote">Estimate assumes roughly 4 focused hours a day, not full-time availability — a full working day on this would compress the timeline; fewer hours per day would push it toward the 3-week end.</p>
+  </section>
+
+  <footer class="mono">
+    <span class="confidential">Project IQ — internal status report · confidential, for internal/stakeholder distribution only</span>
+    <span>Covers Aug 1–20, 2026 · prepared Aug 20, 2026</span>
+  </footer>
+
+</div>

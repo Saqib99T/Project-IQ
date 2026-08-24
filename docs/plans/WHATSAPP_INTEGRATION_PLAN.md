@@ -3,6 +3,8 @@
 Status: **planning only — no implementation**
 Supersedes/updates: the 2026-06-23 "inbound channels deferred" decision record in `docs/Backup/P3_IMPLEMENTATION_PLANS.md` §"Decision record — #4 inbound channels" — same core findings, re-grounded against the `extensions/` framework that didn't exist yet when that decision was written.
 
+**2026-08-21 note:** this doc covers a customer messaging the business 1:1 for support, and its identity-gap analysis (§2.2) assumes WhatsApp is 1:1-only for a business account. That assumption is now outdated — Meta shipped an official Groups API in 2026. A different, separately-scoped use case (ProjectIQ as a participant in a small multi-party WhatsApp group) is analyzed in [`docs/plans/WHATSAPP_GROUP_ASSISTANT_PLAN.md`](./WHATSAPP_GROUP_ASSISTANT_PLAN.md) — read both if either is in scope, since they'll share some plumbing (extensions framework, action-server brain) but differ on identity model, trigger model, and risk profile.
+
 ---
 
 ## 0. What This Actually Is
