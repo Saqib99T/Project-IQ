@@ -33,7 +33,17 @@ from extensions.whatsapp.store import get_org_settings, resolve_proactivity_leve
 
 logger = logging.getLogger(__name__)
 
-_RASA_TIMEOUT = 30
+_RASA_TIMEOUT = 60
+# Bumped from 30s after live-device testing (2026-08-27) showed a rapid
+# sequence of real messages getting silently dropped mid-conversation — most
+# likely Rasa's per-conversation lock (rasa.core.lock_store) serializing
+# messages combined with cold-start action-server latency (KB embedding
+# model load + intent-index build, observed taking 25-30s on a cold cache)
+# pushing a queued message past this timeout. The cache is warm after first
+# use, so this is mostly headroom, not a real fix for sustained rapid-fire
+# messages — see docs/plans/WHATSAPP_INTEGRATION_PLAN.md's note on message
+# queuing/backpressure as the real follow-up if this keeps happening once
+# warm.
 
 
 def _call_brain(sender_id: str, text: str, metadata: dict) -> list:

@@ -112,6 +112,24 @@ redirect_uri = http://localhost:8181/admin/amazon/callback
 marketplace_ids = ATVPDKIKX0DER
 write_rate_limit = 10 per hour
 
+[WHATSAPP]
+; Level B/C testing against Meta's free test WABA (docs/plans/
+; WHATSAPP_INTEGRATION_PLAN.md §8 Phase 0a/0b). access_token/app_secret/
+; verify_token stay blank here on purpose, same convention as SHOPIFY/AMAZON's
+; client_secret above — set those in .env instead (PIQ_WHATSAPP_ACCESS_TOKEN /
+; PIQ_WHATSAPP_APP_SECRET / PIQ_WHATSAPP_VERIFY_TOKEN).
+whatsapp_enabled = true
+groups_enabled = false
+graph_api_version = v23.0
+phone_number_id = 1314538265077787
+waba_id = 2108520466418577
+access_token =
+app_secret =
+verify_token =
+default_proactivity_level = mention_only
+proactive_cooldown_seconds = 600
+send_rate_limit = 60 per hour
+
 [SENTRY]
 ; Blank = disabled (see get_sentry_config docstring). Local dev runs
 ; shouldn't report into the same Sentry project as production — leave this

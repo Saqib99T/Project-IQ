@@ -1,6 +1,14 @@
 # WhatsApp Integration — Strategy & Architecture Plan
 
-Status: **Phase 0a implementation landed on `V3-WhatsApp`** (`extensions/whatsapp/` — shared with the group-assistant plan, self-contained, zero live-account dependency, disabled by default). Still blocked on real Meta credentials for anything past that.
+Status: **Phase 0b validated live on a real device (2026-08-27)** — full 1:1 round trip confirmed working end-to-end and unassisted: real WhatsApp message from a real phone → Meta → our webhook → signature verified → parsed → logged → Rasa → action server → reply → sent back → landed on the phone, repeatedly and consistently.
+
+**The gotcha that cost most of the debugging time, written down so it doesn't repeat:** Meta's guided "Connect on WhatsApp" wizard's "Configure Webhooks" step (Callback URL + verify token) does **not** subscribe your own app to receive that WABA's real message events — the WABA is subscribed, by default, to Meta's own internal demo app (`WA DevX Webhook Events 1P App`, the one behind the "Try it out" quickstart's sample replies). Real messages route there, not to your configured webhook, until you explicitly call:
+
+    POST https://graph.facebook.com/{version}/{WABA_ID}/subscribed_apps
+    Authorization: Bearer {your app's access token}
+
+with no body needed. Confirm current subscriptions first with the matching `GET` on the same path. Every symptom that looked like a deep bug during this session — signature checks passing fine on synthetic self-tests, zero log entries at all for real phone-sent messages, no errors anywhere — was this one missing call. `extensions/whatsapp/service.py` should probably do this automatically on connect/setup rather than leave it as a manual step (flagged as a follow-up below).
+
 Supersedes/updates: the 2026-06-23 "inbound channels deferred" decision record in `docs/Backup/P3_IMPLEMENTATION_PLANS.md` §"Decision record — #4 inbound channels" — same core findings, re-grounded against the `extensions/` framework that didn't exist yet when that decision was written.
 
 **2026-08-21 note:** this doc covers a customer messaging the business 1:1 for support, and its identity-gap analysis (§2.2) assumes WhatsApp is 1:1-only for a business account. That assumption is now outdated — Meta shipped an official Groups API in 2026. A different, separately-scoped use case (ProjectIQ as a participant in a small multi-party WhatsApp group) is analyzed in [`docs/plans/WHATSAPP_GROUP_ASSISTANT_PLAN.md`](./WHATSAPP_GROUP_ASSISTANT_PLAN.md) — read both if either is in scope, since they'll share some plumbing (extensions framework, action-server brain) but differ on identity model, trigger model, and risk profile.

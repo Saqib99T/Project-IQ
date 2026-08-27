@@ -84,9 +84,16 @@ class WhatsAppExtension(Extension):
 
     def test(self, config: dict) -> RunResult:
         """Best-effort connectivity check — a cheap authenticated GET against
-        the configured phone number, per Meta's Cloud API. UNVALIDATED (§
-        above) — do not treat a failure here as conclusive until Phase 0
-        confirms the wire shape."""
+        the configured phone number, per Meta's Cloud API — PLUS re-asserting
+        this app's webhook subscription on the WABA every time.
+
+        That second part is load-bearing, not defensive boilerplate: confirmed
+        live (2026-08-27) that Meta's "Connect on WhatsApp" wizard leaves the
+        WABA subscribed to Meta's own internal demo app instead of yours, and
+        nothing in that wizard's UI ever tells you so — the webhook verifies
+        fine and silently never receives a real message. Re-running this call
+        here means clicking "test" on this extension is also the fix, not
+        just a diagnostic. Idempotent, safe to call every time."""
         from extensions.whatsapp.service import whatsapp_service
         from common.config_manager import get_whatsapp_config
 
@@ -97,7 +104,11 @@ class WhatsAppExtension(Extension):
                          "access_token, phone_number_id all required)."
             })
         ok, detail = whatsapp_service.check_connectivity()
-        return RunResult(status="success" if ok else "error", detail=detail)
+        if not ok:
+            return RunResult(status="error", detail=detail)
+        sub_ok, sub_detail = whatsapp_service.ensure_subscribed_to_webhooks()
+        detail["webhook_subscription"] = sub_detail if sub_ok else {"error": sub_detail.get("error")}
+        return RunResult(status="success" if sub_ok else "error", detail=detail)
 
 
 EXTENSION = WhatsAppExtension()

@@ -81,7 +81,14 @@ def whatsapp_webhook():
     raw_body = request.get_data()
     provided = request.headers.get('X-Hub-Signature-256', '')
     if not cfg['app_secret'] or not _verify_signature(raw_body, provided, cfg['app_secret']):
-        logger.warning("[WhatsApp] webhook signature verification failed")
+        # Diagnostic detail is metadata only (presence/length/prefix) — never
+        # the app_secret or signature value itself — safe to log at WARNING.
+        logger.warning(
+            "[WhatsApp] webhook signature verification failed "
+            "(signature_header_present=%s, signature_prefix_ok=%s, app_secret_configured=%s, body_len=%d)",
+            bool(provided), provided.startswith('sha256=') if provided else None,
+            bool(cfg['app_secret']), len(raw_body),
+        )
         return jsonify({'error': 'invalid signature'}), 403
 
     payload = request.get_json(silent=True) or {}

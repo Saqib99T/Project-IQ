@@ -101,6 +101,29 @@ class WhatsAppService:
             return True, {"phone_number_id": cfg["phone_number_id"]}
         return False, {"error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
 
+    def ensure_subscribed_to_webhooks(self) -> tuple:
+        """POST /{WABA_ID}/subscribed_apps — subscribes THIS app to the
+        WABA's real message/status events.
+
+        Confirmed live and load-bearing (2026-08-27): configuring the
+        Callback URL + verify token in Meta's "Connect on WhatsApp" wizard
+        does NOT do this on its own. Without this call, the WABA keeps
+        routing real events to Meta's own internal demo app (the one behind
+        the wizard's "Try it out" sample replies) — the webhook can pass its
+        own verification handshake perfectly and still never receive a
+        single real message, with zero errors anywhere to point at why.
+        Idempotent (safe to call repeatedly / on every connect). See
+        docs/plans/WHATSAPP_INTEGRATION_PLAN.md for the full story."""
+        cfg = get_whatsapp_config()
+        url = f"{self._base_url()}/{cfg['waba_id']}/subscribed_apps"
+        try:
+            resp = requests.post(url, headers=self._headers(), timeout=_REQUEST_TIMEOUT)
+        except requests.RequestException as exc:
+            return False, {"error": str(exc)}
+        if resp.status_code == 200:
+            return True, resp.json() if resp.content else {}
+        return False, {"error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+
     # ------------------------------------------------------------------
     # Sending
     # ------------------------------------------------------------------

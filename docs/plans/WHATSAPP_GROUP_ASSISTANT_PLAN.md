@@ -1,7 +1,9 @@
 # WhatsApp Group Assistant — Deep Analysis, Requirements & Plan
 
-Status: **Phase 0a implementation landed on `V3-WhatsApp`** (`extensions/whatsapp/`) — self-contained extension code + fixture/unit tests, zero dependency on a verified business account, per §8's Phase 0a. Still blocked on real Meta credentials for anything beyond that (Phase 0b onward). Living document — will be revised as decisions are made and the Phase 0b spike retires open unknowns.
-Last updated: 2026-08-24.
+Status: **1:1 path validated live on a real device (2026-08-27)** — full round trip confirmed end-to-end via the sibling plan's Phase 0b. Group-specific unknowns (§2.1, mention payload shape) still wait on OBA approval. Living document — will be revised as decisions are made.
+Last updated: 2026-08-27.
+
+**2026-08-27 — critical gotcha, applies here too once OBA lands:** confirmed live that Meta's "Connect on WhatsApp" wizard does NOT subscribe your app to a WABA's real webhook events just by configuring the Callback URL/verify token — the WABA stays subscribed to Meta's own internal demo app until you explicitly call `POST /{WABA_ID}/subscribed_apps` with your app's access token. No error, no warning anywhere — the webhook verifies fine and simply never receives a real message. `extensions/whatsapp/service.py`'s `ensure_subscribed_to_webhooks()` now does this automatically as part of the extension's connectivity test, so this shouldn't bite again — but flagging here since the group flow will hit the exact same WABA-level gate. Full story in the sibling plan's status note.
 
 Related but distinct from [`docs/plans/WHATSAPP_INTEGRATION_PLAN.md`](./WHATSAPP_INTEGRATION_PLAN.md), which covers a customer messaging the business 1:1 for support. That doc predates the fact below and assumes WhatsApp is 1:1-only for a business account — it isn't anymore. This doc covers a different shape entirely: a small multi-party group where ProjectIQ is a participant, not a support desk. They'll likely share some plumbing (the `extensions/` framework, the action-server "brain") but have different identity models, different trigger models, and different risk profiles. Read both if building either.
 
