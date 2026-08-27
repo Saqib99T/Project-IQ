@@ -438,6 +438,34 @@ def get_kb_bot_token() -> Optional[str]:
             return None
 
 
+def get_kb_bot_org_id() -> Optional[str]:
+    """The fixed org_id claim baked into the KB bot service-account's own
+    Keycloak profile — decoded from a token we just minted ourselves via a
+    trusted client_credentials grant, so this reads the claim WITHOUT
+    signature verification (there's nothing to gain verifying a token this
+    process itself just obtained straight from the token endpoint).
+
+    Exists so extensions/whatsapp/bridge.py can safely decide whether it's
+    safe to forward this token for a given WhatsApp-linked user: only when
+    their linked org_id matches this one exactly — see
+    docs/plans/WHATSAPP_INTEGRATION_PLAN.md's 2026-08-27 note on why
+    forwarding this token for an org it does NOT represent would resolve
+    the wrong tenant in itsm-service. Returns None if the bot isn't
+    configured or the token can't be decoded — callers must treat that as
+    "no match", never as a wildcard match."""
+    import jwt
+
+    token = get_kb_bot_token()
+    if not token:
+        return None
+    try:
+        claims = jwt.decode(token, options={"verify_signature": False})
+    except Exception as e:
+        logger.warning(f"KB bot token could not be decoded to read its org_id claim: {e}")
+        return None
+    return claims.get("org_id")
+
+
 def _iam_admin(method: str, path: str, json=None, params=None, expected_status=None):
     """Make an authenticated Keycloak Admin REST API call."""
     import requests as _req

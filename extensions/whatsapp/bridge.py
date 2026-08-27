@@ -75,16 +75,22 @@ def handle_inbound_individual(org_id: str, wa_id: str, display_name: str, text: 
     widget's iam-{sub}-{product} scheme, and the real name for
     personalization.
 
-    Deliberately does NOT attach metadata['iam_token'] even when linked —
-    there is no live IAM JWT to forward, and this deployment is
-    multi-tenant, so there is no single service-account token that's safe to
-    substitute across every tenant's WhatsApp users (see this plan doc's
-    2026-08-27 note). Account-scoped itsm-service actions still correctly
-    prompt to sign in; only Project IQ's OWN attribution/personalization
-    benefits from the link today."""
+    Only attaches metadata['iam_token'] — and only then — when the linked
+    user's own org_id matches the KB bot service-account's fixed org_id
+    claim (common.iam_service.get_kb_bot_org_id()). That token is backed by
+    ONE global Keycloak client with a fixed tenant; this deployment is
+    multi-tenant, so forwarding it for a user in a DIFFERENT org would risk
+    itsm-service resolving the wrong tenant's data (see this plan doc's
+    2026-08-27 note — this is the exact gate that note said any real fix
+    needed). For every org that ISN'T the one this bot represents,
+    account-scoped itsm-service actions still correctly prompt to sign in —
+    only the one org this bot is provisioned for gets real ticket access
+    through WhatsApp today; everyone else still just gets attribution/
+    personalization from the link."""
     if not text:
         return
     from common.db._whatsapp_links import get_confirmed_link
+    from common.iam_service import get_kb_bot_org_id, get_kb_bot_token
 
     link = get_confirmed_link(wa_id)
     if link:
@@ -93,6 +99,10 @@ def handle_inbound_individual(org_id: str, wa_id: str, display_name: str, text: 
         user_id = link["iam_sub"]
         user_name = link.get("display_name") or display_name
         extra_metadata = {"iam_sub": link["iam_sub"], "iam_name": user_name}
+        if get_kb_bot_org_id() == org_id:
+            bot_token = get_kb_bot_token()
+            if bot_token:
+                extra_metadata["iam_token"] = bot_token
     else:
         sender_id = individual_sender_id(wa_id, org_id)
         user_id = None
