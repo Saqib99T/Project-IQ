@@ -384,6 +384,83 @@ def _get_admin_token() -> str:
         return _admin_tok['token']
 
 
+# ── Token exchange (impersonation) ────────────────────────────────────────────
+# The scalable way to let a trusted backend act as a SPECIFIC user, for a
+# multi-tenant deployment — one client, works for any user in any org,
+# because the exchanged token carries the TARGET user's own real identity/org
+# claim, not a fixed service-account identity. Explicitly NOT the
+# per-org-bot-token approach (get_kb_bot_token above): that requires one
+# Keycloak client per tenant to stay safe, which doesn't scale — see
+# docs/plans/WHATSAPP_INTEGRATION_PLAN.md's 2026-08-27 notes for the full
+# reasoning, including why the per-org approach was tried first and
+# correctly rejected.
+#
+# Requires Keycloak's Standard Token Exchange (RFC 8693) enabled for this
+# realm, and THIS deployment's existing backend/admin client (same one
+# _get_admin_token() above already uses) granted permission to exchange for
+# arbitrary users. That's a ONE-TIME, deployment-wide IAM admin-console
+# setup step — not per-tenant, not something this code can do for you.
+# exchange_token_for_user() returns None (never raises) when exchange isn't
+# enabled/permitted or the request fails; callers must treat that exactly
+# like an unconfigured KB bot — "impersonation unavailable," fall back to
+# guest/unauthenticated behavior, never assume success.
+
+_exchange_tok_cache: dict = {}
+_exchange_tok_lock  = threading.Lock()
+_EXCHANGE_TOK_CACHE_SECONDS = 60  # short — this mints a real per-user token,
+                                  # not a shared service-account one; cache
+                                  # briefly to absorb a burst of messages
+                                  # from the same user, not to avoid ever
+                                  # re-checking their current permissions.
+
+
+def exchange_token_for_user(user_sub: str) -> Optional[str]:
+    """Mint a short-lived, real Keycloak access token for `user_sub` via
+    RFC 8693 Standard Token Exchange, using this deployment's existing
+    backend service client. See the module comment above for the
+    prerequisite IAM-side setup and why this replaces per-org bot tokens."""
+    import requests as _req
+
+    now = time.time()
+    with _exchange_tok_lock:
+        cached = _exchange_tok_cache.get(user_sub)
+        if cached and now < cached['exp']:
+            return cached['token']
+
+    cfg = _get_iam_cfg()
+    try:
+        resp = _req.post(
+            f"{cfg['keycloak_url']}/realms/{cfg['realm']}/protocol/openid-connect/token",
+            data={
+                'grant_type':          'urn:ietf:params:oauth:grant-type:token-exchange',
+                'client_id':           cfg['backend_client_id'],
+                'client_secret':       cfg['backend_client_secret'],
+                'requested_subject':   user_sub,
+                'requested_token_type': 'urn:ietf:params:oauth:token-type:access_token',
+            },
+            timeout=10,
+            proxies=_iam_proxies(),
+        )
+        if resp.status_code != 200:
+            logger.warning(
+                f"[IAM] Token exchange for user {user_sub} -> {resp.status_code}: {resp.text[:200]}"
+            )
+            return None
+        tok = resp.json()
+        access_token = tok.get('access_token')
+        if not access_token:
+            return None
+        with _exchange_tok_lock:
+            _exchange_tok_cache[user_sub] = {
+                'token': access_token,
+                'exp': now + min(tok.get('expires_in', 300), _EXCHANGE_TOK_CACHE_SECONDS),
+            }
+        return access_token
+    except Exception as e:
+        logger.warning(f"[IAM] Token exchange for user {user_sub} failed: {e}")
+        return None
+
+
 # ── KB bot / service-account token ────────────────────────────────────────────
 # Lets background processes (e.g. KBCacheManager's refresh thread, which has
 # no logged-in user to forward a JWT from) call itsm-service as a tenant user.
@@ -436,34 +513,6 @@ def get_kb_bot_token() -> Optional[str]:
         except Exception as e:
             logger.warning(f"KB bot token request failed: {e}")
             return None
-
-
-def get_kb_bot_org_id() -> Optional[str]:
-    """The fixed org_id claim baked into the KB bot service-account's own
-    Keycloak profile — decoded from a token we just minted ourselves via a
-    trusted client_credentials grant, so this reads the claim WITHOUT
-    signature verification (there's nothing to gain verifying a token this
-    process itself just obtained straight from the token endpoint).
-
-    Exists so extensions/whatsapp/bridge.py can safely decide whether it's
-    safe to forward this token for a given WhatsApp-linked user: only when
-    their linked org_id matches this one exactly — see
-    docs/plans/WHATSAPP_INTEGRATION_PLAN.md's 2026-08-27 note on why
-    forwarding this token for an org it does NOT represent would resolve
-    the wrong tenant in itsm-service. Returns None if the bot isn't
-    configured or the token can't be decoded — callers must treat that as
-    "no match", never as a wildcard match."""
-    import jwt
-
-    token = get_kb_bot_token()
-    if not token:
-        return None
-    try:
-        claims = jwt.decode(token, options={"verify_signature": False})
-    except Exception as e:
-        logger.warning(f"KB bot token could not be decoded to read its org_id claim: {e}")
-        return None
-    return claims.get("org_id")
 
 
 def _iam_admin(method: str, path: str, json=None, params=None, expected_status=None):

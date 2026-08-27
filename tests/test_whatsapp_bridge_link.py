@@ -1,21 +1,21 @@
 """Tests for extensions/whatsapp/bridge.py's account-link-aware branching in
 handle_inbound_individual — confirms a linked user gets real identity
-attribution and an UNLINKED (guest) fallback still works, and that
-metadata['iam_token'] is NEVER set either way (the deliberate scope limit,
-docs/plans/WHATSAPP_INTEGRATION_PLAN.md 2026-08-27 note).
+attribution, that metadata['iam_token'] comes from real per-user token
+exchange (not a shared/fixed-org bot token — see docs/plans/
+WHATSAPP_INTEGRATION_PLAN.md's 2026-08-27 notes for why that approach was
+tried and rejected), and that an unlinked user still gets guest treatment.
 """
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from extensions.whatsapp.bridge import handle_inbound_individual
 
 
-def test_linked_user_no_iam_token_when_bot_org_does_not_match():
+def test_linked_user_gets_exchanged_token_when_exchange_succeeds():
     link = {"wa_id": "923214421327", "org_id": "org-1", "iam_sub": "sub-1", "display_name": "Saqib"}
     with patch("common.db._whatsapp_links.get_confirmed_link", return_value=link), \
-         patch("common.iam_service.get_kb_bot_org_id", return_value="a-DIFFERENT-org"), \
-         patch("common.iam_service.get_kb_bot_token", return_value="bot-token-value") as mock_bot_token, \
+         patch("common.iam_service.exchange_token_for_user", return_value="exchanged-jwt") as mock_exchange, \
          patch("extensions.whatsapp.bridge.log_conversation_start") as mock_conv_start, \
-         patch("extensions.whatsapp.bridge.log_message") as mock_log_msg, \
+         patch("extensions.whatsapp.bridge.log_message"), \
          patch("extensions.whatsapp.bridge._call_brain", return_value=[{"text": "hi Saqib"}]) as mock_brain, \
          patch("extensions.whatsapp.bridge.whatsapp_service") as mock_service:
         handle_inbound_individual("fallback-org", "923214421327", "Someone", "hello")
@@ -24,21 +24,23 @@ def test_linked_user_no_iam_token_when_bot_org_does_not_match():
     mock_conv_start.assert_called_once_with(
         "iam-sub-1-whatsapp", app_id="General", user_id="sub-1", user_name="Saqib", org_id="org-1",
     )
+    mock_exchange.assert_called_once_with("sub-1")
     brain_call = mock_brain.call_args[0]
     assert brain_call[0] == "iam-sub-1-whatsapp"
     metadata = brain_call[2]
     assert metadata["iam_sub"] == "sub-1"
     assert metadata["iam_name"] == "Saqib"
-    # Bot org != linked user's org -> the safety gate must refuse to forward it
-    assert "iam_token" not in metadata
+    assert metadata["iam_token"] == "exchanged-jwt"
     mock_service.send_text.assert_called_once_with("923214421327", "hi Saqib", recipient_type="individual")
 
 
-def test_linked_user_gets_iam_token_when_bot_org_matches():
+def test_linked_user_no_iam_token_when_exchange_unavailable():
+    """Token exchange not yet enabled in Keycloak (or the call fails) ->
+    degrade exactly like an unlinked guest for account-scoped actions,
+    never silently grant access that isn't actually backed."""
     link = {"wa_id": "923214421327", "org_id": "org-1", "iam_sub": "sub-1", "display_name": "Saqib"}
     with patch("common.db._whatsapp_links.get_confirmed_link", return_value=link), \
-         patch("common.iam_service.get_kb_bot_org_id", return_value="org-1"), \
-         patch("common.iam_service.get_kb_bot_token", return_value="bot-token-value"), \
+         patch("common.iam_service.exchange_token_for_user", return_value=None), \
          patch("extensions.whatsapp.bridge.log_conversation_start"), \
          patch("extensions.whatsapp.bridge.log_message"), \
          patch("extensions.whatsapp.bridge._call_brain", return_value=[]) as mock_brain, \
@@ -46,23 +48,8 @@ def test_linked_user_gets_iam_token_when_bot_org_matches():
         handle_inbound_individual("fallback-org", "923214421327", "Someone", "hello")
 
     metadata = mock_brain.call_args[0][2]
-    # Bot org == linked user's org -> safe to forward, and only then
-    assert metadata["iam_token"] == "bot-token-value"
-
-
-def test_linked_user_no_iam_token_when_bot_not_configured():
-    link = {"wa_id": "923214421327", "org_id": "org-1", "iam_sub": "sub-1", "display_name": "Saqib"}
-    with patch("common.db._whatsapp_links.get_confirmed_link", return_value=link), \
-         patch("common.iam_service.get_kb_bot_org_id", return_value=None), \
-         patch("common.iam_service.get_kb_bot_token", return_value=None), \
-         patch("extensions.whatsapp.bridge.log_conversation_start"), \
-         patch("extensions.whatsapp.bridge.log_message"), \
-         patch("extensions.whatsapp.bridge._call_brain", return_value=[]) as mock_brain, \
-         patch("extensions.whatsapp.bridge.whatsapp_service"):
-        handle_inbound_individual("fallback-org", "923214421327", "Someone", "hello")
-
-    metadata = mock_brain.call_args[0][2]
-    assert "iam_token" not in metadata
+    assert metadata["iam_sub"] == "sub-1"  # attribution/personalization still works
+    assert "iam_token" not in metadata      # but no forwardable access
 
 
 def test_unlinked_user_stays_guest():

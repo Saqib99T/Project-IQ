@@ -75,22 +75,23 @@ def handle_inbound_individual(org_id: str, wa_id: str, display_name: str, text: 
     widget's iam-{sub}-{product} scheme, and the real name for
     personalization.
 
-    Only attaches metadata['iam_token'] — and only then — when the linked
-    user's own org_id matches the KB bot service-account's fixed org_id
-    claim (common.iam_service.get_kb_bot_org_id()). That token is backed by
-    ONE global Keycloak client with a fixed tenant; this deployment is
-    multi-tenant, so forwarding it for a user in a DIFFERENT org would risk
-    itsm-service resolving the wrong tenant's data (see this plan doc's
-    2026-08-27 note — this is the exact gate that note said any real fix
-    needed). For every org that ISN'T the one this bot represents,
-    account-scoped itsm-service actions still correctly prompt to sign in —
-    only the one org this bot is provisioned for gets real ticket access
-    through WhatsApp today; everyone else still just gets attribution/
-    personalization from the link."""
+    Attaches metadata['iam_token'] via common.iam_service.exchange_token_for_user()
+    — RFC 8693 Standard Token Exchange, minting a real short-lived token for
+    THIS SPECIFIC user's own actual identity/org, not a fixed service-account
+    org. This is what scales for a multi-tenant deployment: one backend
+    client, safe for every tenant, no per-org provisioning (an earlier
+    version of this function gated a shared KB-bot token on an org match,
+    which only ever worked for the one org that bot happened to represent —
+    correctly rejected as not a real fix; see this plan doc's 2026-08-27
+    notes for the full history). Requires Standard Token Exchange enabled in
+    Keycloak for this realm (a one-time IAM-side setup step) — until that's
+    done, exchange_token_for_user() returns None and this degrades exactly
+    like an unlinked guest for account-scoped actions, never silently
+    granting access it can't actually back."""
     if not text:
         return
     from common.db._whatsapp_links import get_confirmed_link
-    from common.iam_service import get_kb_bot_org_id, get_kb_bot_token
+    from common.iam_service import exchange_token_for_user
 
     link = get_confirmed_link(wa_id)
     if link:
@@ -99,10 +100,9 @@ def handle_inbound_individual(org_id: str, wa_id: str, display_name: str, text: 
         user_id = link["iam_sub"]
         user_name = link.get("display_name") or display_name
         extra_metadata = {"iam_sub": link["iam_sub"], "iam_name": user_name}
-        if get_kb_bot_org_id() == org_id:
-            bot_token = get_kb_bot_token()
-            if bot_token:
-                extra_metadata["iam_token"] = bot_token
+        exchanged_token = exchange_token_for_user(link["iam_sub"])
+        if exchanged_token:
+            extra_metadata["iam_token"] = exchanged_token
     else:
         sender_id = individual_sender_id(wa_id, org_id)
         user_id = None
