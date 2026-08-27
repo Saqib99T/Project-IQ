@@ -2260,6 +2260,7 @@ const ChatWindow = ({ title = "Project IQ", appId = "General", theme = null }) =
                                 appId={appId}
                                 primaryColor={primaryColor}
                                 isDark={isDarkMode}
+                                iamToken={iam.token}
                                 onToggleDark={toggleDark}
                                 onClose={() => setShowProfile(false)}
                                 onLogout={() => { setShowProfile(false); handleLogout(); }}

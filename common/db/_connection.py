@@ -418,6 +418,33 @@ def _init_database():
             # ON CONFLICT upserts in common/db/_extensions.py.
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_ext_installs_org_ext ON extension_installs (COALESCE(org_id, ''), extension_id)",
             "CREATE INDEX IF NOT EXISTS idx_ext_installs_org ON extension_installs(org_id)",
+
+            # WhatsApp account-linking (docs/plans/WHATSAPP_INTEGRATION_PLAN.md
+            # Phase 3) — proves which IAM account owns a given WhatsApp number,
+            # via an OTP the linking user (already authenticated in the portal)
+            # receives on that number and types back. wa_id is the PK since
+            # extensions/whatsapp/bridge.py always looks up by wa_id on every
+            # inbound message; a phone number links to at most one account at
+            # a time (re-linking overwrites). Deliberately does NOT grant
+            # itsm-service API access on its own — see that plan doc's
+            # 2026-08-27 note on why (multi-tenant deployment, no safe
+            # per-org service-account token to forward yet). This table only
+            # establishes identity for Project IQ's own attribution/
+            # personalization, e.g. conversation logs and greetings.
+            """CREATE TABLE IF NOT EXISTS whatsapp_links (
+                wa_id               TEXT PRIMARY KEY,
+                org_id              TEXT NOT NULL,
+                iam_sub             TEXT NOT NULL,
+                display_name        TEXT,
+                status              TEXT NOT NULL DEFAULT 'pending',
+                verification_code   TEXT,
+                code_expires_at     TIMESTAMPTZ,
+                confirmed_at        TIMESTAMPTZ,
+                created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_wa_links_iam_sub ON whatsapp_links(iam_sub)",
+            "CREATE INDEX IF NOT EXISTS idx_wa_links_org     ON whatsapp_links(org_id)",
         ]
         for stmt in migrations:
             try: cursor.execute(stmt)

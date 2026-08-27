@@ -66,22 +66,49 @@ def _call_brain(sender_id: str, text: str, metadata: dict) -> list:
 
 
 def handle_inbound_individual(org_id: str, wa_id: str, display_name: str, text: str) -> None:
-    """1:1 support path (docs/plans/WHATSAPP_INTEGRATION_PLAN.md) — guest
-    session, one conversation per WhatsApp user, same KB-first/guest-ticket
-    capability an unauthenticated widget visitor already gets."""
+    """1:1 support path (docs/plans/WHATSAPP_INTEGRATION_PLAN.md) — guest by
+    default, same KB-first/guest-ticket capability an unauthenticated widget
+    visitor already gets. If this wa_id has a CONFIRMED account link
+    (Phase 3, common/db/_whatsapp_links.py), the conversation is instead
+    attributed to that real account — its own org_id (not whatever fallback
+    org the caller passed), a stable per-account sender_id matching the
+    widget's iam-{sub}-{product} scheme, and the real name for
+    personalization.
+
+    Deliberately does NOT attach metadata['iam_token'] even when linked —
+    there is no live IAM JWT to forward, and this deployment is
+    multi-tenant, so there is no single service-account token that's safe to
+    substitute across every tenant's WhatsApp users (see this plan doc's
+    2026-08-27 note). Account-scoped itsm-service actions still correctly
+    prompt to sign in; only Project IQ's OWN attribution/personalization
+    benefits from the link today."""
     if not text:
         return
-    sender_id = individual_sender_id(wa_id, org_id)
+    from common.db._whatsapp_links import get_confirmed_link
+
+    link = get_confirmed_link(wa_id)
+    if link:
+        sender_id = f"iam-{link['iam_sub']}-whatsapp"
+        org_id = link["org_id"]
+        user_id = link["iam_sub"]
+        user_name = link.get("display_name") or display_name
+        extra_metadata = {"iam_sub": link["iam_sub"], "iam_name": user_name}
+    else:
+        sender_id = individual_sender_id(wa_id, org_id)
+        user_id = None
+        user_name = display_name
+        extra_metadata = {}
+
     try:
-        log_conversation_start(sender_id, app_id="General", user_name=display_name, org_id=org_id)
-        log_message(sender_id, "user", text, app_id="General", org_id=org_id)
+        log_conversation_start(sender_id, app_id="General", user_id=user_id, user_name=user_name, org_id=org_id)
+        log_message(sender_id, "user", text, app_id="General", user_id=user_id, org_id=org_id)
 
         responses = _call_brain(sender_id, text, {
-            "channel": "whatsapp", "wa_id": wa_id, "org_id": org_id,
+            "channel": "whatsapp", "wa_id": wa_id, "org_id": org_id, **extra_metadata,
         })
         for r in responses:
             if r.get("text"):
-                log_message(sender_id, "bot", r["text"], app_id="General", org_id=org_id)
+                log_message(sender_id, "bot", r["text"], app_id="General", user_id=user_id, org_id=org_id)
                 whatsapp_service.send_text(wa_id, r["text"], recipient_type="individual")
     except Exception as exc:
         logger.error("[WhatsApp] 1:1 handling failed for wa_id=%s: %r", wa_id, exc, exc_info=True)

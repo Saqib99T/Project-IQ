@@ -18,10 +18,14 @@ Response contract mirrors Shopify's webhook receiver: 200 = processed/ignored
 import hashlib
 import hmac
 import logging
+import secrets
 
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, request, jsonify, Response, g
 
 from common.config_manager import get_whatsapp_config
+from common.db._whatsapp_links import confirm_link, get_link_status_for_user, initiate_link, unlink
+from web.api.rate_limiting import MemoryStore
+import web.api.shared as _s
 
 logger = logging.getLogger(__name__)
 
@@ -133,3 +137,86 @@ def whatsapp_webhook():
     except Exception as e:
         logger.error("[WhatsApp] webhook processing failed: %r", e, exc_info=True)
         return jsonify({'error': 'processing failed'}), 500
+
+
+# ------------------------------------------------------------------
+# Account linking (docs/plans/WHATSAPP_INTEGRATION_PLAN.md Phase 3) — portal
+# endpoints for an already-authenticated user to prove they own a WhatsApp
+# number. Deliberately does NOT grant itsm-service API access on its own
+# (see that plan doc's 2026-08-27 note) — this only establishes identity for
+# Project IQ's own attribution/personalization.
+# ------------------------------------------------------------------
+
+# Separate from whatsapp_service's own send_rate_limit (which still applies
+# to the actual OTP send) — this caps how often ONE account can trigger a
+# fresh code, independent of how many different accounts might be sending
+# at once. 5 per hour is generous for a real "I mistyped, resend" case,
+# tight enough to stop someone hammering a number they don't own with OTP
+# texts as a harassment vector.
+_link_initiate_limiter = MemoryStore()
+
+
+@bp.route('/portal/whatsapp/link/initiate', methods=['POST'])
+@_s.require_iam_token
+def whatsapp_link_initiate():
+    org_id = _s.caller_org_scope()
+    iam_sub = g.iam_user['sub']
+    if not org_id:
+        return jsonify({'error': 'Select a tenant before linking a WhatsApp number'}), 400
+
+    data = request.get_json(silent=True) or {}
+    wa_id = (data.get('wa_id') or '').strip().lstrip('+').replace(' ', '').replace('-', '')
+    if not wa_id.isdigit() or len(wa_id) < 8:
+        return jsonify({'error': 'wa_id must be a phone number in E.164 digits, e.g. 923214421327'}), 400
+
+    allowed, retry_after = _link_initiate_limiter.hit(f"whatsapp_link_initiate:{iam_sub}", 5, 3600)
+    if not allowed:
+        return jsonify({'error': f'Too many attempts — try again in {retry_after}s'}), 429
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    display_name = g.iam_user.get('name')
+    ok = initiate_link(org_id, iam_sub, wa_id, code, display_name=display_name)
+    if not ok:
+        return jsonify({'error': 'This WhatsApp number is already linked to a different account'}), 409
+
+    from extensions.whatsapp.service import whatsapp_service
+    sent = whatsapp_service.send_text(
+        wa_id, f"Your Project IQ verification code is {code}. It expires in 10 minutes.",
+        recipient_type="individual",
+    )
+    if not sent:
+        logger.warning("[WhatsApp Link] org %s / iam_sub %s: OTP send failed for wa_id %s", org_id, iam_sub, wa_id)
+        return jsonify({'error': 'Could not send the verification code — check the number and try again'}), 502
+    return jsonify({'sent': True})
+
+
+@bp.route('/portal/whatsapp/link/confirm', methods=['POST'])
+@_s.require_iam_token
+def whatsapp_link_confirm():
+    iam_sub = g.iam_user['sub']
+    data = request.get_json(silent=True) or {}
+    wa_id = (data.get('wa_id') or '').strip().lstrip('+').replace(' ', '').replace('-', '')
+    code = (data.get('code') or '').strip()
+    if not wa_id or not code:
+        return jsonify({'error': 'wa_id and code are both required'}), 400
+
+    ok = confirm_link(iam_sub, wa_id, code)
+    if not ok:
+        return jsonify({'error': 'Invalid or expired code'}), 400
+    return jsonify({'confirmed': True})
+
+
+@bp.route('/portal/whatsapp/link/status', methods=['GET'])
+@_s.require_iam_token
+def whatsapp_link_status():
+    iam_sub = g.iam_user['sub']
+    status = get_link_status_for_user(iam_sub)
+    return jsonify({'link': status})
+
+
+@bp.route('/portal/whatsapp/link', methods=['DELETE'])
+@_s.require_iam_token
+def whatsapp_link_remove():
+    iam_sub = g.iam_user['sub']
+    ok = unlink(iam_sub)
+    return jsonify({'success': ok})
