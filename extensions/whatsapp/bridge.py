@@ -75,23 +75,34 @@ def handle_inbound_individual(org_id: str, wa_id: str, display_name: str, text: 
     widget's iam-{sub}-{product} scheme, and the real name for
     personalization.
 
-    Attaches metadata['iam_token'] via common.iam_service.exchange_token_for_user()
-    — RFC 8693 Standard Token Exchange, minting a real short-lived token for
-    THIS SPECIFIC user's own actual identity/org, not a fixed service-account
-    org. This is what scales for a multi-tenant deployment: one backend
-    client, safe for every tenant, no per-org provisioning (an earlier
-    version of this function gated a shared KB-bot token on an org match,
-    which only ever worked for the one org that bot happened to represent —
-    correctly rejected as not a real fix; see this plan doc's 2026-08-27
-    notes for the full history). Requires Standard Token Exchange enabled in
-    Keycloak for this realm (a one-time IAM-side setup step) — until that's
-    done, exchange_token_for_user() returns None and this degrades exactly
-    like an unlinked guest for account-scoped actions, never silently
-    granting access it can't actually back."""
+    Attaches metadata['iam_token'] via TWO chained mechanisms, tried in
+    order, both defined in common/iam_service.py — see this plan doc's
+    2026-08-27 notes for the full history of why both exist:
+
+    1. exchange_token_for_user() — RFC 8693 Standard Token Exchange, a real
+       Keycloak-signed token for this SPECIFIC user's own identity/org.
+       Architecturally the right answer (one backend client, safe for every
+       tenant, no per-org provisioning — an earlier version of this
+       function instead gated a shared KB-bot token on an org match, which
+       only ever worked for one tenant and was correctly rejected as not a
+       real fix). Requires Keycloak's legacy Token Exchange feature +
+       impersonation permission, which needs IAM admin access this
+       deployment doesn't currently have — so in practice this returns None
+       today, not because the code is wrong, but because the prerequisite
+       IAM-side setup hasn't happened.
+    2. mint_internal_assertion() — the working fallback. Signs a token with
+       a secret only this app and itsm-service hold; Keycloak isn't
+       involved at all. Needs a matching itsm-service-side trust addition
+       (not yet built) before it does anything beyond producing a token
+       nothing accepts yet.
+
+    Both return None (never raise) when unavailable/unconfigured, in which
+    case this degrades exactly like an unlinked guest for account-scoped
+    actions — never silently granting access it can't actually back."""
     if not text:
         return
     from common.db._whatsapp_links import get_confirmed_link
-    from common.iam_service import exchange_token_for_user
+    from common.iam_service import exchange_token_for_user, mint_internal_assertion
 
     link = get_confirmed_link(wa_id)
     if link:
@@ -100,9 +111,9 @@ def handle_inbound_individual(org_id: str, wa_id: str, display_name: str, text: 
         user_id = link["iam_sub"]
         user_name = link.get("display_name") or display_name
         extra_metadata = {"iam_sub": link["iam_sub"], "iam_name": user_name}
-        exchanged_token = exchange_token_for_user(link["iam_sub"])
-        if exchanged_token:
-            extra_metadata["iam_token"] = exchanged_token
+        token = exchange_token_for_user(link["iam_sub"]) or mint_internal_assertion(link["iam_sub"], org_id)
+        if token:
+            extra_metadata["iam_token"] = token
     else:
         sender_id = individual_sender_id(wa_id, org_id)
         user_id = None

@@ -126,6 +126,7 @@ waba_id = 2108520466418577
 access_token =
 app_secret =
 verify_token =
+internal_assertion_secret =
 default_proactivity_level = mention_only
 proactive_cooldown_seconds = 600
 send_rate_limit = 60 per hour

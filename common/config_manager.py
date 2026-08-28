@@ -332,6 +332,14 @@ def get_whatsapp_config() -> Dict[str, Any]:
                                        config.get('WHATSAPP', 'app_secret', fallback='')),
         'verify_token':   _env_secret('WHATSAPP', 'verify_token',
                                        config.get('WHATSAPP', 'verify_token', fallback='')),
+        # Shared secret with itsm-service for the Keycloak-independent
+        # internal service assertion (common.iam_service.mint_internal_assertion)
+        # — the fallback used when Keycloak token-exchange access isn't
+        # available (docs/plans/WHATSAPP_INTEGRATION_PLAN.md's 2026-08-27
+        # note). Blank disables it; account-scoped WhatsApp actions then
+        # just correctly stay "sign in required" as before this existed.
+        'internal_assertion_secret': _env_secret('WHATSAPP', 'internal_assertion_secret',
+                                       config.get('WHATSAPP', 'internal_assertion_secret', fallback='')),
         # Default proactivity dial for a group that hasn't set its own — see
         # extensions/whatsapp/decision.py. Deliberately defaults to the most
         # conservative setting (plan doc §9 decision #2's recommendation).

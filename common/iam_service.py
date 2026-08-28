@@ -461,6 +461,65 @@ def exchange_token_for_user(user_sub: str) -> Optional[str]:
         return None
 
 
+# ── Internal service assertion (Keycloak-independent fallback) ───────────────
+# exchange_token_for_user() above is the architecturally right answer, but it
+# needs Keycloak's legacy (Preview, deprecated) Token Exchange feature
+# enabled plus an impersonation permission grant — confirmed 2026-08-27 that
+# this deployment's IAM admin access doesn't extend to making that change.
+# Rather than block on access that may never come, this mints a short-lived
+# token SIGNED WITH A SECRET ONLY THIS APP AND ITSM-SERVICE HOLD — Keycloak
+# is not involved in issuing, signing, or validating it at all. itsm-service
+# needs a small, explicit trust addition (see docs/plans/
+# WHATSAPP_INTEGRATION_PLAN.md's note) to accept this SECOND token shape
+# alongside its normal Keycloak-JWT validation. Safe for every tenant by
+# construction — the org_id it carries is the linked user's own real org
+# (from whatsapp_links), not a shared/fixed identity.
+#
+# If Keycloak access ever changes, exchange_token_for_user() should be tried
+# first (it produces a genuine Keycloak-signed token itsm-service already
+# trusts, no itsm-service change needed) — see how
+# extensions/whatsapp/bridge.py chains the two.
+
+_INTERNAL_ASSERTION_ISSUER = "project-iq-whatsapp"
+_INTERNAL_ASSERTION_AUDIENCE = "itsm-service"
+_INTERNAL_ASSERTION_TTL_SECONDS = 300
+
+
+def mint_internal_assertion(user_sub: str, org_id: str) -> Optional[str]:
+    """Sign a short-lived HS256 token asserting `user_sub`/`org_id` directly
+    — no Keycloak call at all. Returns None (never raises) if the shared
+    secret isn't configured, same "unavailable, fall back to guest"
+    contract as exchange_token_for_user()/get_kb_bot_token().
+
+    `products: ["itsm"]` is included because itsm-service's
+    get_current_user() checks this claim before resolving the tenant
+    (app/auth/dependencies.py's SubscriptionRequiredError check) — without
+    it every request would be rejected regardless of the assertion being
+    otherwise valid. `roles` is deliberately left minimal/absent: itsm-
+    service looks up this user's REAL assigned roles from its own DB first
+    (they're an existing user who's logged in normally before) and only
+    falls back to a role derived from this claim if none are assigned —
+    so this assertion doesn't need to (and shouldn't try to) assert a role
+    on their behalf."""
+    import jwt
+    from common.config_manager import get_whatsapp_config
+
+    secret = get_whatsapp_config().get('internal_assertion_secret')
+    if not secret:
+        return None
+    now = int(time.time())
+    claims = {
+        'sub': user_sub,
+        'org_id': org_id,
+        'products': ['itsm'],
+        'iss': _INTERNAL_ASSERTION_ISSUER,
+        'aud': _INTERNAL_ASSERTION_AUDIENCE,
+        'iat': now,
+        'exp': now + _INTERNAL_ASSERTION_TTL_SECONDS,
+    }
+    return jwt.encode(claims, secret, algorithm='HS256')
+
+
 # ── KB bot / service-account token ────────────────────────────────────────────
 # Lets background processes (e.g. KBCacheManager's refresh thread, which has
 # no logged-in user to forward a JWT from) call itsm-service as a tenant user.

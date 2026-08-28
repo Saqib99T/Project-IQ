@@ -34,13 +34,33 @@ def test_linked_user_gets_exchanged_token_when_exchange_succeeds():
     mock_service.send_text.assert_called_once_with("923214421327", "hi Saqib", recipient_type="individual")
 
 
-def test_linked_user_no_iam_token_when_exchange_unavailable():
-    """Token exchange not yet enabled in Keycloak (or the call fails) ->
-    degrade exactly like an unlinked guest for account-scoped actions,
-    never silently grant access that isn't actually backed."""
+def test_linked_user_falls_back_to_internal_assertion_when_exchange_unavailable():
+    """Token exchange not yet enabled in Keycloak -> chain to the internal
+    assertion, the mechanism that doesn't need Keycloak access at all."""
+    link = {"wa_id": "923214421327", "org_id": "org-1", "iam_sub": "sub-1", "display_name": "Saqib"}
+    with patch("common.db._whatsapp_links.get_confirmed_link", return_value=link), \
+         patch("common.iam_service.exchange_token_for_user", return_value=None) as mock_exchange, \
+         patch("common.iam_service.mint_internal_assertion", return_value="internal-jwt") as mock_internal, \
+         patch("extensions.whatsapp.bridge.log_conversation_start"), \
+         patch("extensions.whatsapp.bridge.log_message"), \
+         patch("extensions.whatsapp.bridge._call_brain", return_value=[]) as mock_brain, \
+         patch("extensions.whatsapp.bridge.whatsapp_service"):
+        handle_inbound_individual("fallback-org", "923214421327", "Someone", "hello")
+
+    mock_exchange.assert_called_once_with("sub-1")
+    mock_internal.assert_called_once_with("sub-1", "org-1")
+    metadata = mock_brain.call_args[0][2]
+    assert metadata["iam_token"] == "internal-jwt"
+
+
+def test_linked_user_no_iam_token_when_both_mechanisms_unavailable():
+    """Neither Keycloak exchange nor the internal assertion secret is
+    configured -> degrade exactly like an unlinked guest for account-scoped
+    actions, never silently grant access that isn't actually backed."""
     link = {"wa_id": "923214421327", "org_id": "org-1", "iam_sub": "sub-1", "display_name": "Saqib"}
     with patch("common.db._whatsapp_links.get_confirmed_link", return_value=link), \
          patch("common.iam_service.exchange_token_for_user", return_value=None), \
+         patch("common.iam_service.mint_internal_assertion", return_value=None), \
          patch("extensions.whatsapp.bridge.log_conversation_start"), \
          patch("extensions.whatsapp.bridge.log_message"), \
          patch("extensions.whatsapp.bridge._call_brain", return_value=[]) as mock_brain, \
