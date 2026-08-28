@@ -413,6 +413,20 @@ _EXCHANGE_TOK_CACHE_SECONDS = 60  # short — this mints a real per-user token,
                                   # from the same user, not to avoid ever
                                   # re-checking their current permissions.
 
+# Confirmed 2026-08-28 live: every attempt in this deployment fails with
+# "Parameter 'requested_subject' is not supported for standard token
+# exchange" (legacy Token Exchange isn't enabled — see the module comment
+# above). Without a backoff, EVERY WhatsApp message pays for a real,
+# doomed-to-fail network round trip to Keycloak before bridge.py's chain
+# falls through to mint_internal_assertion() — measured contributing
+# several seconds of pure waste to the 8+s reply latency the user flagged.
+# Same shape as _get_admin_token()'s backoff above: skip the call entirely
+# for this long after a failure, so a real IAM-side fix (enabling the
+# feature) starts working again within this window, not instantly but
+# without needing a restart either.
+_exchange_last_failure: float = 0.0
+_EXCHANGE_FAIL_BACKOFF_SECONDS = 300  # 5 min
+
 
 def exchange_token_for_user(user_sub: str) -> Optional[str]:
     """Mint a short-lived, real Keycloak access token for `user_sub` via
@@ -420,12 +434,16 @@ def exchange_token_for_user(user_sub: str) -> Optional[str]:
     backend service client. See the module comment above for the
     prerequisite IAM-side setup and why this replaces per-org bot tokens."""
     import requests as _req
+    global _exchange_last_failure
 
     now = time.time()
     with _exchange_tok_lock:
         cached = _exchange_tok_cache.get(user_sub)
         if cached and now < cached['exp']:
             return cached['token']
+
+    if now - _exchange_last_failure < _EXCHANGE_FAIL_BACKOFF_SECONDS:
+        return None  # skip the doomed network call entirely during backoff
 
     cfg = _get_iam_cfg()
     try:
@@ -445,10 +463,12 @@ def exchange_token_for_user(user_sub: str) -> Optional[str]:
             logger.warning(
                 f"[IAM] Token exchange for user {user_sub} -> {resp.status_code}: {resp.text[:200]}"
             )
+            _exchange_last_failure = now
             return None
         tok = resp.json()
         access_token = tok.get('access_token')
         if not access_token:
+            _exchange_last_failure = now
             return None
         with _exchange_tok_lock:
             _exchange_tok_cache[user_sub] = {
@@ -458,6 +478,7 @@ def exchange_token_for_user(user_sub: str) -> Optional[str]:
         return access_token
     except Exception as e:
         logger.warning(f"[IAM] Token exchange for user {user_sub} failed: {e}")
+        _exchange_last_failure = now
         return None
 
 
