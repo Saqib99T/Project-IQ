@@ -181,9 +181,14 @@ deploy_unit() {
   say "=== $name done ==="
 }
 
-# Restart commands (overridable). 'main' restarts the admin API + rasa-core
-# instances + the action server. Adjust to your unit names if they differ.
-MAIN_RESTART="${MAIN_RESTART:-sudo systemctl restart project-iq-admin; sudo systemctl restart 'rasa-core@*' 2>/dev/null || true}"
+# Restart commands (overridable). 'main' restarts the admin API + Rasa core
+# + the action server. Adjust to your unit names if they differ.
+# NOTE (2026-09-01): this used to target a 'rasa-core@*' unit that never
+# existed on prod (real units are project-iq-rasa / project-iq-actions), so
+# it silently no-op'd via `|| true` on every deploy — Rasa core and the
+# action server were never actually restarted by this script. Fixed here;
+# verified against `systemctl list-units` on prod before landing.
+MAIN_RESTART="${MAIN_RESTART:-sudo systemctl restart project-iq-admin project-iq-rasa project-iq-actions}"
 ITSM_RESTART="${ITSM_RESTART:-cd '$ITSM_REMOTE_DIR' && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d}"
 
 case "$COMPONENT" in
