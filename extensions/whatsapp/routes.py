@@ -113,9 +113,24 @@ def whatsapp_webhook():
             for change in entry.get('changes', []):
                 value = change.get('value', {})
                 for message in value.get('messages', []):
-                    if message.get('type') != 'text':
-                        continue  # media/interactive/etc not handled yet
-                    text = (message.get('text') or {}).get('body', '')
+                    msg_type = message.get('type')
+                    if msg_type == 'text':
+                        text = (message.get('text') or {}).get('body', '')
+                    elif msg_type == 'interactive':
+                        # A tap on a native button/list message we sent (see
+                        # service.py's send_buttons(), 2026-09-01) — the id we
+                        # set on each option IS the Rasa payload (e.g.
+                        # "/check_status"), so forwarding it as-is round-trips
+                        # through Rasa exactly like the widget's own button
+                        # clicks already do (a message starting with "/" is a
+                        # direct intent trigger, bypassing NLU).
+                        interactive = message.get('interactive') or {}
+                        reply = interactive.get('button_reply') or interactive.get('list_reply') or {}
+                        text = reply.get('id', '')
+                    else:
+                        continue  # media/location/etc not handled yet
+                    if not text:
+                        continue
                     wa_id = message.get('from', '')
                     contact = next(
                         (c for c in value.get('contacts', []) if c.get('wa_id') == wa_id), {}

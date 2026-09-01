@@ -53,3 +53,94 @@ def test_ensure_subscribed_returns_error_on_request_exception():
 
     assert ok is False
     assert "boom" in detail["error"]
+
+
+# ------------------------------------------------------------------
+# send_buttons() — 2026-09-01 fix. Rasa's dispatcher buttons were being
+# dropped on the way out (send_text() only ever sent `body`), leaving
+# disambiguation/login/KB prompts as dead-end plain text over WhatsApp.
+# ------------------------------------------------------------------
+
+def test_send_buttons_with_no_buttons_falls_back_to_plain_text():
+    from extensions.whatsapp.service import WhatsAppService
+
+    mock_resp = MagicMock(status_code=200, content=b'{}')
+    mock_resp.json.return_value = {}
+    with patch("extensions.whatsapp.service.get_whatsapp_config", return_value=_FAKE_CFG), \
+         patch("extensions.whatsapp.service.requests.post", return_value=mock_resp) as mock_post:
+        ok = WhatsAppService().send_buttons("923214421327", "hi", [])
+
+    assert ok is True
+    sent = mock_post.call_args[1]["json"]
+    assert sent["type"] == "text"
+
+
+def test_send_buttons_up_to_three_sends_native_reply_buttons():
+    from extensions.whatsapp.service import WhatsAppService
+
+    mock_resp = MagicMock(status_code=200, content=b'{}')
+    mock_resp.json.return_value = {}
+    buttons = [
+        {"title": "🔍 Check ticket status", "payload": "/check_status"},
+        {"title": "🔑 Login", "payload": "/login"},
+    ]
+    with patch("extensions.whatsapp.service.get_whatsapp_config", return_value=_FAKE_CFG), \
+         patch("extensions.whatsapp.service.requests.post", return_value=mock_resp) as mock_post:
+        ok = WhatsAppService().send_buttons("923214421327", "Did you mean:", buttons)
+
+    assert ok is True
+    sent = mock_post.call_args[1]["json"]
+    assert sent["type"] == "interactive"
+    assert sent["interactive"]["type"] == "button"
+    assert sent["interactive"]["body"]["text"] == "Did you mean:"
+    wa_buttons = sent["interactive"]["action"]["buttons"]
+    assert len(wa_buttons) == 2
+    assert wa_buttons[0]["reply"]["id"] == "/check_status"
+    # Meta's 20-char title cap -- emoji-prefixed labels get truncated, not rejected.
+    assert len(wa_buttons[0]["reply"]["title"]) <= 20
+    assert wa_buttons[1]["reply"]["id"] == "/login"
+
+
+def test_send_buttons_over_three_falls_back_to_list_message():
+    from extensions.whatsapp.service import WhatsAppService
+
+    mock_resp = MagicMock(status_code=200, content=b'{}')
+    mock_resp.json.return_value = {}
+    buttons = [{"title": f"Option {i}", "payload": f"/opt{i}"} for i in range(5)]
+    with patch("extensions.whatsapp.service.get_whatsapp_config", return_value=_FAKE_CFG), \
+         patch("extensions.whatsapp.service.requests.post", return_value=mock_resp) as mock_post:
+        ok = WhatsAppService().send_buttons("923214421327", "Pick one:", buttons)
+
+    assert ok is True
+    sent = mock_post.call_args[1]["json"]
+    assert sent["interactive"]["type"] == "list"
+    rows = sent["interactive"]["action"]["sections"][0]["rows"]
+    assert len(rows) == 5
+    assert rows[0]["id"] == "/opt0"
+
+
+def test_send_buttons_empty_body_gets_a_default_prompt():
+    from extensions.whatsapp.service import WhatsAppService
+
+    mock_resp = MagicMock(status_code=200, content=b'{}')
+    mock_resp.json.return_value = {}
+    buttons = [{"title": "🔑 Login", "payload": "/login"}]
+    with patch("extensions.whatsapp.service.get_whatsapp_config", return_value=_FAKE_CFG), \
+         patch("extensions.whatsapp.service.requests.post", return_value=mock_resp) as mock_post:
+        WhatsAppService().send_buttons("923214421327", "", buttons)
+
+    sent = mock_post.call_args[1]["json"]
+    assert sent["interactive"]["body"]["text"]  # non-empty -- Meta rejects a blank body
+
+
+def test_send_buttons_respects_the_send_rate_limit():
+    from extensions.whatsapp.service import WhatsAppService
+
+    svc = WhatsAppService()
+    with patch.object(svc, "_check_send_rate_limit", return_value=False), \
+         patch("extensions.whatsapp.service.get_whatsapp_config", return_value=_FAKE_CFG), \
+         patch("extensions.whatsapp.service.requests.post") as mock_post:
+        ok = svc.send_buttons("923214421327", "hi", [{"title": "Login", "payload": "/login"}])
+
+    assert ok is False
+    mock_post.assert_not_called()

@@ -92,3 +92,22 @@ def test_empty_text_is_a_noop():
     with patch("common.db._whatsapp_links.get_confirmed_link") as mock_link:
         handle_inbound_individual("org-1", "923214421327", "Jane", "")
     mock_link.assert_not_called()
+
+
+def test_response_with_buttons_routes_to_send_buttons_not_send_text():
+    """2026-09-01 fix: a Rasa response carrying buttons (disambiguation,
+    login/KB fallback) must go out as a native WhatsApp interactive message,
+    not get silently reduced to dead-end plain text."""
+    buttons = [{"title": "🔍 Check ticket status", "payload": "/check_status"}]
+    with patch("common.db._whatsapp_links.get_confirmed_link", return_value=None), \
+         patch("extensions.whatsapp.bridge.log_conversation_start"), \
+         patch("extensions.whatsapp.bridge.log_message"), \
+         patch("extensions.whatsapp.bridge._call_brain",
+               return_value=[{"text": "Did you mean:", "buttons": buttons}]), \
+         patch("extensions.whatsapp.bridge.whatsapp_service") as mock_service:
+        handle_inbound_individual("org-1", "923214421327", "Jane", "chk 1170")
+
+    mock_service.send_buttons.assert_called_once_with(
+        "923214421327", "Did you mean:", buttons, recipient_type="individual",
+    )
+    mock_service.send_text.assert_not_called()

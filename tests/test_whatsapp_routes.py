@@ -168,3 +168,71 @@ def test_webhook_ignores_group_message_when_groups_disabled(client):
         )
     assert resp.status_code == 200
     mock_group.assert_not_called()
+
+
+# ------------------------------------------------------------------
+# POST — inbound interactive (button/list tap) replies, 2026-09-01 fix.
+# A tap on a native WhatsApp button we sent (service.py's send_buttons())
+# arrives as type='interactive', not type='text' -- must round-trip the
+# button's id back through the bridge as if it were typed, matching the
+# widget's own "/payload" button-click convention.
+# ------------------------------------------------------------------
+
+def _interactive_payload(reply_id="/check_status", wa_id="15551234567", name="Jane"):
+    return {
+        "entry": [{"changes": [{"value": {
+            "contacts": [{"wa_id": wa_id, "profile": {"name": name}}],
+            "messages": [{
+                "from": wa_id, "type": "interactive",
+                "interactive": {"type": "button_reply", "button_reply": {"id": reply_id, "title": "Check ticket status"}},
+            }],
+        }}]}]
+    }
+
+
+def test_webhook_dispatches_button_reply_id_as_text_to_bridge(client):
+    body = json.dumps(_interactive_payload()).encode("utf-8")
+    sig = _sign(body, _FAKE_CFG["app_secret"])
+    with patch("extensions.whatsapp.routes.get_whatsapp_config", return_value=_FAKE_CFG), \
+         patch("common.config_manager.get_platform_config", return_value={"org_id": "org-1"}), \
+         patch("extensions.whatsapp.bridge.handle_inbound_individual") as mock_individual:
+        resp = client.post(
+            "/webhooks/whatsapp", data=body, content_type="application/json",
+            headers={"X-Hub-Signature-256": sig},
+        )
+    assert resp.status_code == 200
+    mock_individual.assert_called_once_with("org-1", "15551234567", "Jane", "/check_status")
+
+
+def test_webhook_dispatches_list_reply_id_as_text_to_bridge(client):
+    payload = _interactive_payload()
+    payload["entry"][0]["changes"][0]["value"]["messages"][0]["interactive"] = {
+        "type": "list_reply", "list_reply": {"id": "/opt3", "title": "Option 3"},
+    }
+    body = json.dumps(payload).encode("utf-8")
+    sig = _sign(body, _FAKE_CFG["app_secret"])
+    with patch("extensions.whatsapp.routes.get_whatsapp_config", return_value=_FAKE_CFG), \
+         patch("common.config_manager.get_platform_config", return_value={"org_id": "org-1"}), \
+         patch("extensions.whatsapp.bridge.handle_inbound_individual") as mock_individual:
+        resp = client.post(
+            "/webhooks/whatsapp", data=body, content_type="application/json",
+            headers={"X-Hub-Signature-256": sig},
+        )
+    assert resp.status_code == 200
+    mock_individual.assert_called_once_with("org-1", "15551234567", "Jane", "/opt3")
+
+
+def test_webhook_ignores_unhandled_message_types(client):
+    payload = _individual_payload()
+    payload["entry"][0]["changes"][0]["value"]["messages"][0] = {"from": "15551234567", "type": "image"}
+    body = json.dumps(payload).encode("utf-8")
+    sig = _sign(body, _FAKE_CFG["app_secret"])
+    with patch("extensions.whatsapp.routes.get_whatsapp_config", return_value=_FAKE_CFG), \
+         patch("common.config_manager.get_platform_config", return_value={"org_id": "org-1"}), \
+         patch("extensions.whatsapp.bridge.handle_inbound_individual") as mock_individual:
+        resp = client.post(
+            "/webhooks/whatsapp", data=body, content_type="application/json",
+            headers={"X-Hub-Signature-256": sig},
+        )
+    assert resp.status_code == 200
+    mock_individual.assert_not_called()

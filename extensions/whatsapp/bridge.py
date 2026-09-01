@@ -130,6 +130,10 @@ def handle_inbound_individual(org_id: str, wa_id: str, display_name: str, text: 
         for r in responses:
             if r.get("text"):
                 log_message(sender_id, "bot", r["text"], app_id="General", user_id=user_id, org_id=org_id)
+            buttons = r.get("buttons")
+            if buttons:
+                whatsapp_service.send_buttons(wa_id, r.get("text", ""), buttons, recipient_type="individual")
+            elif r.get("text"):
                 whatsapp_service.send_text(wa_id, r["text"], recipient_type="individual")
     except Exception as exc:
         logger.error("[WhatsApp] 1:1 handling failed for wa_id=%s: %r", wa_id, exc, exc_info=True)
@@ -178,6 +182,10 @@ def handle_inbound_group(
         for r in responses:
             if r.get("text"):
                 log_message(sender_id, "bot", r["text"], app_id="General", org_id=org_id)
+            buttons = r.get("buttons")
+            if buttons:
+                whatsapp_service.send_buttons(group_id, r.get("text", ""), buttons, recipient_type="group")
+            elif r.get("text"):
                 whatsapp_service.send_text(group_id, r["text"], recipient_type="group")
     except Exception as exc:
         logger.error("[WhatsApp] group handling failed for group_id=%s: %r", group_id, exc, exc_info=True)

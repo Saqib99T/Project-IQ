@@ -152,6 +152,80 @@ class WhatsAppService:
         result = self._post(f"{cfg['phone_number_id']}/messages", payload)
         return result is not None
 
+    def send_buttons(self, to: str, body: str, buttons: List[dict],
+                      recipient_type: str = "individual") -> bool:
+        """Send Rasa's `dispatcher.utter_message(buttons=[...])` output as a
+        native WhatsApp interactive message instead of dropping the buttons
+        on the floor (2026-09-01 fix — the fallback/login/KB prompts were
+        rendering as dead-end plain text over WhatsApp, since send_text()
+        only ever sent `body`, never the buttons Rasa attached to the same
+        response). `buttons` is Rasa's own shape: [{"title": ..., "payload":
+        ...}, ...] — same objects the web widget already renders natively.
+
+        Meta caps native "reply buttons" at 3 (id<=256 chars, title<=20
+        chars — titles get truncated to fit, since our labels carry emoji
+        prefixes that push some past 20). More than 3 falls back to a
+        "list" message (Meta's other interactive type, up to 10 rows, no
+        20-char title cap) rather than silently dropping the extras.
+
+        The `payload` field (e.g. "/check_status") becomes the button's
+        `id` verbatim, so a tap round-trips through routes.py's inbound
+        handler as if the user had typed that payload themselves — matching
+        how the widget's own button clicks work.
+        """
+        if not buttons:
+            return self.send_text(to, body, recipient_type=recipient_type)
+        if not self._check_send_rate_limit(to):
+            return False
+        cfg = get_whatsapp_config()
+        body = body or "Please choose an option:"
+
+        if len(buttons) <= 3:
+            interactive = {
+                "type": "button",
+                "body": {"text": body},
+                "action": {
+                    "buttons": [
+                        {
+                            "type": "reply",
+                            "reply": {
+                                "id": (b.get("payload") or b.get("title") or "")[:256],
+                                "title": (b.get("title") or "")[:20],
+                            },
+                        }
+                        for b in buttons[:3]
+                    ]
+                },
+            }
+        else:
+            interactive = {
+                "type": "list",
+                "body": {"text": body},
+                "action": {
+                    "button": "Choose an option",
+                    "sections": [{
+                        "title": "Options",
+                        "rows": [
+                            {
+                                "id": (b.get("payload") or b.get("title") or "")[:200],
+                                "title": (b.get("title") or "")[:24],
+                            }
+                            for b in buttons[:10]
+                        ],
+                    }],
+                },
+            }
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": recipient_type,
+            "to": to,
+            "type": "interactive",
+            "interactive": interactive,
+        }
+        result = self._post(f"{cfg['phone_number_id']}/messages", payload)
+        return result is not None
+
     # ------------------------------------------------------------------
     # Group management (docs/plans/WHATSAPP_GROUP_ASSISTANT_PLAN.md §1/§5) —
     # no bulk-add exists on Meta's side; this mirrors that one-at-a-time
