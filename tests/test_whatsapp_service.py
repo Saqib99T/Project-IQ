@@ -101,17 +101,30 @@ def test_send_buttons_up_to_three_sends_native_reply_buttons():
     assert wa_buttons[1]["reply"]["id"] == "/login"
 
 
-def test_fit_title_regression_no_mid_word_mangling():
-    """2026-09-01 regression, caught live on prod: a naive title[:20] turned
-    '🔍 Check ticket status' (21 chars) into 'Check ticket statu' --
-    truncation must land on a word boundary with a visible ellipsis, never
-    mid-word."""
+def test_fit_title_regression_drops_emoji_to_show_full_label():
+    """2026-09-01 regression, caught live on prod, in two stages:
+    1) a naive title[:20] turned '🔍 Check ticket status' (21 chars) into
+       the mangled 'Check ticket statu'.
+    2) word-boundary+ellipsis truncation fixed the mangling but still
+       truncated every time ('Check ticket…'), even though the overflow
+       was ONLY the decorative emoji prefix (fine on the widget, no cap
+       there). Dropping it gets the FULL, untruncated label here."""
     from extensions.whatsapp.service import WhatsAppService
 
     fitted = WhatsAppService._fit_title("🔍 Check ticket status", 20)
+    assert fitted == "Check ticket status"
+
+
+def test_fit_title_falls_back_to_ellipsis_when_still_too_long_without_emoji():
+    """A title that overflows even with the emoji stripped still needs the
+    word-boundary+ellipsis fallback -- no plain-text title in this app is
+    actually this long today, but the fallback path must still behave."""
+    from extensions.whatsapp.service import WhatsAppService
+
+    fitted = WhatsAppService._fit_title("This is a genuinely long button title", 20)
     assert len(fitted) <= 20
-    assert not fitted.endswith("statu")
     assert fitted.endswith("…")
+    assert "genuinely long button title" not in fitted
 
 
 def test_fit_title_leaves_short_titles_untouched():

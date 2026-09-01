@@ -19,6 +19,7 @@ extensions/amazon/notifications.py's SQS scaffolding. ***
 Never log access_token/app_secret values.
 """
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -152,18 +153,32 @@ class WhatsAppService:
         result = self._post(f"{cfg['phone_number_id']}/messages", payload)
         return result is not None
 
+    # Leading decorative emoji + following space — e.g. "🔍 Check ticket
+    # status" — added for the web widget, which has no title-length cap.
+    _LEADING_EMOJI_RE = re.compile(
+        r'^[\U0001F300-\U0001FAFF☀-➿←-⇿⬀-⯿]\s*'
+    )
+
     @staticmethod
     def _fit_title(title: str, max_len: int) -> str:
-        """Fit a button/list-row label into Meta's title cap without
-        mangling a word mid-letter (2026-09-01 fix — a naive title[:20]
-        turned '🔍 Check ticket status' (21 chars) into the confusing
-        'Check ticket statu' on a real prod run). Trims at the last whole
-        word where that doesn't lose too much, and appends an ellipsis so
-        truncation reads as intentional rather than a typo."""
+        """Fit a button/list-row label into Meta's title cap, preferring a
+        clean full label over a truncated one (2026-09-01 fix — a naive
+        title[:20] first turned '🔍 Check ticket status' (21 chars) into
+        the mangled 'Check ticket statu'; word-boundary+ellipsis truncation
+        fixed the mangling but still truncated every single time, since the
+        real overflow is almost always just the emoji prefix). Order:
+        1) use the title as-is if it already fits, 2) drop the leading
+        emoji (decorative, only there for the widget) and use THAT if it
+        now fits — the common case, e.g. 'Check ticket status' is 19 chars
+        on its own, 3) only if still too long, truncate at the last whole
+        word and append an ellipsis so it reads as intentional."""
         title = (title or "").strip()
         if len(title) <= max_len:
             return title
-        cut = title[:max_len - 1].rstrip()
+        stripped = WhatsAppService._LEADING_EMOJI_RE.sub("", title).strip()
+        if len(stripped) <= max_len:
+            return stripped
+        cut = stripped[:max_len - 1].rstrip()
         last_space = cut.rfind(" ")
         if last_space > max_len // 2:
             cut = cut[:last_space]
