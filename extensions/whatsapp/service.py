@@ -152,6 +152,23 @@ class WhatsAppService:
         result = self._post(f"{cfg['phone_number_id']}/messages", payload)
         return result is not None
 
+    @staticmethod
+    def _fit_title(title: str, max_len: int) -> str:
+        """Fit a button/list-row label into Meta's title cap without
+        mangling a word mid-letter (2026-09-01 fix — a naive title[:20]
+        turned '🔍 Check ticket status' (21 chars) into the confusing
+        'Check ticket statu' on a real prod run). Trims at the last whole
+        word where that doesn't lose too much, and appends an ellipsis so
+        truncation reads as intentional rather than a typo."""
+        title = (title or "").strip()
+        if len(title) <= max_len:
+            return title
+        cut = title[:max_len - 1].rstrip()
+        last_space = cut.rfind(" ")
+        if last_space > max_len // 2:
+            cut = cut[:last_space]
+        return cut + "…"
+
     def send_buttons(self, to: str, body: str, buttons: List[dict],
                       recipient_type: str = "individual") -> bool:
         """Send Rasa's `dispatcher.utter_message(buttons=[...])` output as a
@@ -190,7 +207,7 @@ class WhatsAppService:
                             "type": "reply",
                             "reply": {
                                 "id": (b.get("payload") or b.get("title") or "")[:256],
-                                "title": (b.get("title") or "")[:20],
+                                "title": self._fit_title(b.get("title") or "", 20),
                             },
                         }
                         for b in buttons[:3]
@@ -208,7 +225,7 @@ class WhatsAppService:
                         "rows": [
                             {
                                 "id": (b.get("payload") or b.get("title") or "")[:200],
-                                "title": (b.get("title") or "")[:24],
+                                "title": self._fit_title(b.get("title") or "", 24),
                             }
                             for b in buttons[:10]
                         ],

@@ -101,6 +101,25 @@ def test_send_buttons_up_to_three_sends_native_reply_buttons():
     assert wa_buttons[1]["reply"]["id"] == "/login"
 
 
+def test_fit_title_regression_no_mid_word_mangling():
+    """2026-09-01 regression, caught live on prod: a naive title[:20] turned
+    '🔍 Check ticket status' (21 chars) into 'Check ticket statu' --
+    truncation must land on a word boundary with a visible ellipsis, never
+    mid-word."""
+    from extensions.whatsapp.service import WhatsAppService
+
+    fitted = WhatsAppService._fit_title("🔍 Check ticket status", 20)
+    assert len(fitted) <= 20
+    assert not fitted.endswith("statu")
+    assert fitted.endswith("…")
+
+
+def test_fit_title_leaves_short_titles_untouched():
+    from extensions.whatsapp.service import WhatsAppService
+
+    assert WhatsAppService._fit_title("🔑 Login", 20) == "🔑 Login"
+
+
 def test_send_buttons_over_three_falls_back_to_list_message():
     from extensions.whatsapp.service import WhatsAppService
 
