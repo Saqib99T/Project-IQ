@@ -7,7 +7,11 @@ import { Badge, Button, useToast } from '../../../shared/itsm/ui'
 // endpoint lists "known providers" (fixed set, not dynamic data) — same
 // duplication as the Orders/Returns pages' filter dropdowns.
 const PROVIDERS = [
-    { id: 'shopify', label: 'Shopify', oauth: true },
+    // Shopify's authorize URL is per-shop (https://{shop_domain}/admin/oauth/
+    // authorize) — the only OAuth connector that needs one extra field
+    // before it can redirect at all. needsShopDomain drives ProviderCard to
+    // show ShopifyConnectModal instead of a plain "Connect" button.
+    { id: 'shopify', label: 'Shopify', oauth: true, needsShopDomain: true },
     { id: 'amazon', label: 'Amazon', oauth: true },
     // Walmart has no OAuth redirect flow — the tenant submits their own
     // Walmart-issued client_id/client_secret directly (see
@@ -74,6 +78,49 @@ function WalmartConnectModal({ open, onClose, onConnected }) {
     )
 }
 
+// Collects the one extra field Shopify needs (shop_domain) before it can
+// even build an authorize URL — every other OAuth connector here (Amazon,
+// eBay, Etsy) needs nothing beyond the click itself. Still redirects via
+// window.location.href same as the plain connectOAuth() path, unlike
+// Walmart which never leaves the app at all.
+function ShopifyConnectModal({ open, onClose, onError }) {
+    const { post } = useItsmApi()
+    const [shopDomain, setShopDomain] = useState('')
+    const [busy, setBusy] = useState(false)
+    const [error, setError] = useState(null)
+
+    const submit = async () => {
+        setBusy(true); setError(null)
+        try {
+            const result = await post('/marketplaces/shopify/connect', { shop_domain: shopDomain.trim() })
+            if (result.error) throw new Error(result.error)
+            window.location.href = result.authorize_url
+        } catch (err) { setError(err); setBusy(false); onError?.(err) }
+    }
+
+    return (
+        <Modal open={open} onClose={onClose} title="Connect Shopify">
+            <div className="space-y-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Enter the store's myshopify.com domain — you'll be redirected to Shopify's
+                    consent screen to approve access.
+                </p>
+                {error && <ErrorBanner message={error.message} />}
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Shop domain
+                    <input
+                        className="input text-sm mt-1"
+                        placeholder="your-store.myshopify.com"
+                        value={shopDomain}
+                        onChange={e => setShopDomain(e.target.value)}
+                    />
+                </label>
+                <Button onClick={submit} disabled={busy || !shopDomain.trim()}>Connect</Button>
+            </div>
+        </Modal>
+    )
+}
+
 // Each card owns its own connection fetch (one useItsmResource call per
 // mounted instance) rather than the parent calling the hook once per
 // provider inside a .map() — PROVIDERS is a stable constant so that would
@@ -86,6 +133,7 @@ function ProviderCard({ provider }) {
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState(null)
     const [showWalmartModal, setShowWalmartModal] = useState(false)
+    const [showShopifyModal, setShowShopifyModal] = useState(false)
 
     const { data, loading, reload } = useItsmResource(
         () => get(`/marketplaces/${provider.id}/connection`), [get, provider.id],
@@ -155,6 +203,11 @@ function ProviderCard({ provider }) {
                         <Button variant="secondary" size="sm" disabled={busy} onClick={() => syncNow('orders')}>Sync orders</Button>
                         <Button variant="secondary" size="sm" disabled={busy} onClick={() => syncNow('returns')}>Sync returns</Button>
                         <Button variant="secondary" size="sm" disabled={busy} onClick={disconnect}>Disconnect</Button>
+                    </>
+                ) : provider.needsShopDomain ? (
+                    <>
+                        <Button size="sm" disabled={busy} onClick={() => setShowShopifyModal(true)}>Connect</Button>
+                        <ShopifyConnectModal open={showShopifyModal} onClose={() => setShowShopifyModal(false)} onError={setError} />
                     </>
                 ) : provider.oauth ? (
                     <Button size="sm" disabled={busy} onClick={connectOAuth}>Connect</Button>
