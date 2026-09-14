@@ -1,10 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PackageX, RefreshCw, ExternalLink } from 'lucide-react'
+import { PackageX, RefreshCw, ExternalLink, MessageSquare } from 'lucide-react'
 import { useItsmApi, useItsmResource } from '../../shared/itsm/useItsmApi'
 import { PageHeader, FilterBar, DataTable, Pagination, Badge, Button, useToast } from '../../shared/itsm/ui'
+import SendBuyerMessageModal from '../../shared/itsm/SendBuyerMessageModal'
 
 const PROVIDERS = ['shopify', 'amazon', 'walmart', 'ebay', 'etsy']
+// See MarketplaceOrdersPage.jsx's own copy of this list for why it's
+// duplicated rather than shared — same "no dynamic-providers endpoint"
+// reasoning already noted for PROVIDERS above.
+const MESSAGING_PROVIDERS = ['amazon', 'ebay']
 // Matches app/models/ticket.py's TicketStatus enum in itsm-service.
 const TICKET_STATUSES = ['open', 'in_progress', 'pending', 'pending_approval', 'approved', 'rejected', 'resolved', 'closed', 'cancelled']
 
@@ -35,6 +40,7 @@ export default function MarketplaceReturnsPage() {
     const [linkedTo, setLinkedTo] = useState('')
     const [offset, setOffset] = useState(0)
     const [syncing, setSyncing] = useState(false)
+    const [messagingOrderId, setMessagingOrderId] = useState(null)
     const limit = 50
 
     const { data, loading, error, reload } = useItsmResource(
@@ -146,6 +152,19 @@ export default function MarketplaceReturnsPage() {
                         ) : <span className="font-mono text-xs">{r.order.external_order_id}</span>,
                     },
                     { key: 'linked_at', header: 'Raised', render: (r) => formatDate(r.linked_at) },
+                    {
+                        key: 'message', header: '',
+                        render: (r) => MESSAGING_PROVIDERS.includes(r.order.provider) ? (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setMessagingOrderId(r.order.id) }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-surface2"
+                                title="Message buyer"
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                            </button>
+                        ) : null,
+                    },
                 ]}
             />
 
@@ -155,6 +174,12 @@ export default function MarketplaceReturnsPage() {
                 hasNext={offset + limit < total}
                 onPrev={() => setOffset(o => Math.max(0, o - limit))}
                 onNext={() => setOffset(o => o + limit)}
+            />
+
+            <SendBuyerMessageModal
+                open={messagingOrderId != null}
+                orderId={messagingOrderId}
+                onClose={() => setMessagingOrderId(null)}
             />
         </div>
     )

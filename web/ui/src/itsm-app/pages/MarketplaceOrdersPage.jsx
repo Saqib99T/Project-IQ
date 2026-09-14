@@ -1,13 +1,20 @@
 import { useState } from 'react'
-import { ShoppingCart, RefreshCw, ExternalLink } from 'lucide-react'
+import { ShoppingCart, RefreshCw, ExternalLink, MessageSquare } from 'lucide-react'
 import { useItsmApi, useItsmResource } from '../../shared/itsm/useItsmApi'
 import { PageHeader, FilterBar, DataTable, Pagination, Badge, Button, useToast } from '../../shared/itsm/ui'
+import SendBuyerMessageModal from '../../shared/itsm/SendBuyerMessageModal'
 
 // Matches the registry in itsm-service's app/services/marketplaces/registry.py
 // — no backend endpoint to list "known providers" exists (they're a fixed set,
 // not dynamic data), so this is duplicated here rather than fetched.
 const PROVIDERS = ['shopify', 'amazon', 'walmart', 'ebay', 'etsy']
 const ORDER_STATUSES = ['new', 'acknowledged', 'shipped', 'delivered', 'cancelled']
+// Only Amazon/eBay have ANY buyer-messaging path (outbound_only / full,
+// though both are currently blocked externally — see SendBuyerMessageModal's
+// header comment). Shopify/Etsy/Walmart have no messaging API at all
+// (confirmed platform limitations, connectors/*.py) — no point showing a
+// button that can never work there.
+const MESSAGING_PROVIDERS = ['amazon', 'ebay']
 
 const STATUS_TONE = {
     new: 'blue', acknowledged: 'indigo', shipped: 'amber', delivered: 'green', cancelled: 'red',
@@ -32,6 +39,7 @@ export default function MarketplaceOrdersPage() {
     const [placedTo, setPlacedTo] = useState('')
     const [offset, setOffset] = useState(0)
     const [syncing, setSyncing] = useState(false)
+    const [messagingOrderId, setMessagingOrderId] = useState(null)
     const limit = 50
 
     const { data, loading, error, reload } = useItsmResource(
@@ -151,6 +159,19 @@ export default function MarketplaceOrdersPage() {
                         render: (o) => o.buyer_name || o.buyer_email || '—',
                     },
                     { key: 'placed_at', header: 'Placed', render: (o) => formatDate(o.placed_at) },
+                    {
+                        key: 'message', header: '',
+                        render: (o) => MESSAGING_PROVIDERS.includes(o.provider) ? (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setMessagingOrderId(o.id) }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-surface2"
+                                title="Message buyer"
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                            </button>
+                        ) : null,
+                    },
                 ]}
             />
 
@@ -160,6 +181,12 @@ export default function MarketplaceOrdersPage() {
                 hasNext={offset + limit < total}
                 onPrev={() => setOffset(o => Math.max(0, o - limit))}
                 onNext={() => setOffset(o => o + limit)}
+            />
+
+            <SendBuyerMessageModal
+                open={messagingOrderId != null}
+                orderId={messagingOrderId}
+                onClose={() => setMessagingOrderId(null)}
             />
         </div>
     )
