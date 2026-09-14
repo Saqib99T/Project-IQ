@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ShoppingCart, RefreshCw } from 'lucide-react'
+import { ShoppingCart, RefreshCw, ExternalLink } from 'lucide-react'
 import { useItsmApi, useItsmResource } from '../../shared/itsm/useItsmApi'
 import { PageHeader, FilterBar, DataTable, Pagination, Badge, Button, useToast } from '../../shared/itsm/ui'
 
@@ -116,7 +116,29 @@ export default function MarketplaceOrdersPage() {
                 rows={items}
                 columns={[
                     { key: 'provider', header: 'Marketplace', render: (o) => <span className="capitalize">{o.provider}</span> },
-                    { key: 'external_order_id', header: 'Order ID', render: (o) => <span className="font-mono text-xs">{o.external_order_id}</span> },
+                    {
+                        key: 'external_order_id', header: 'Order ID',
+                        // Links out to the real record in the marketplace's
+                        // own seller UI (Shopify Admin, Amazon Seller
+                        // Central, ...) when the backend could build one —
+                        // see connectors/*.order_url() in itsm-service for
+                        // per-marketplace confidence notes (Shopify/Amazon
+                        // are well-established; eBay/Walmart are best-effort
+                        // guesses, not confirmed). Plain text, no link, when
+                        // external_url is null (e.g. no connection on record).
+                        render: (o) => o.external_url ? (
+                            <a
+                                href={o.external_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="font-mono text-xs text-primary hover:underline inline-flex items-center gap-1"
+                            >
+                                {o.external_order_id}
+                                <ExternalLink className="w-3 h-3 shrink-0" />
+                            </a>
+                        ) : <span className="font-mono text-xs">{o.external_order_id}</span>,
+                    },
                     { key: 'status', header: 'Status', render: (o) => <Badge tone={STATUS_TONE[o.status] || 'gray'}>{o.status}</Badge> },
                     { key: 'total_amount', header: 'Total', render: (o) => formatMoney(o.total_amount, o.currency) },
                     {

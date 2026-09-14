@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PackageX, RefreshCw } from 'lucide-react'
+import { PackageX, RefreshCw, ExternalLink } from 'lucide-react'
 import { useItsmApi, useItsmResource } from '../../shared/itsm/useItsmApi'
 import { PageHeader, FilterBar, DataTable, Pagination, Badge, Button, useToast } from '../../shared/itsm/ui'
 
@@ -126,7 +126,25 @@ export default function MarketplaceReturnsPage() {
                     { key: 'ticket_status', header: 'Status', render: (r) => <Badge tone={TICKET_STATUS_TONE[r.ticket.status] || 'gray'}>{r.ticket.status?.replace('_', ' ')}</Badge> },
                     { key: 'priority', header: 'Priority', render: (r) => <span className="capitalize">{r.ticket.priority}</span> },
                     { key: 'provider', header: 'Marketplace', render: (r) => <span className="capitalize">{r.order.provider}</span> },
-                    { key: 'external_order_id', header: 'Order ID', render: (r) => <span className="font-mono text-xs">{r.order.external_order_id}</span> },
+                    {
+                        key: 'external_order_id', header: 'Order ID',
+                        // Same deep-link-to-real-record pattern as
+                        // MarketplaceOrdersPage — stopPropagation matters
+                        // here since rows are clickable (navigate to the
+                        // ticket) unlike the Orders page.
+                        render: (r) => r.order.external_url ? (
+                            <a
+                                href={r.order.external_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="font-mono text-xs text-primary hover:underline inline-flex items-center gap-1"
+                            >
+                                {r.order.external_order_id}
+                                <ExternalLink className="w-3 h-3 shrink-0" />
+                            </a>
+                        ) : <span className="font-mono text-xs">{r.order.external_order_id}</span>,
+                    },
                     { key: 'linked_at', header: 'Raised', render: (r) => formatDate(r.linked_at) },
                 ]}
             />
