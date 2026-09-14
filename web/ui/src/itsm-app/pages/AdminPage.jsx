@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import {
     Building2, Tags, Boxes, Layers, Truck, FolderTree, Hash, Users, ShieldCheck,
     Clock, Gauge, Workflow, Webhook, Wallet, ScrollText, BookOpen, Settings, Lock, FileWarning,
-    Info, ChevronDown, ChevronRight, FileText, Package, Siren, Activity,
+    Info, ChevronDown, ChevronRight, FileText, Package, Siren, Activity, Store,
 } from 'lucide-react'
 import { useIam } from '../../widget/hooks/useIam'
 import { useItsmTenant } from '../../shared/itsm/ItsmTenantContext'
@@ -26,6 +26,7 @@ import UserRolesSection from '../components/admin/UserRolesSection'
 import AiBudgetSection from '../components/admin/AiBudgetSection'
 import AuditLogSection from '../components/admin/AuditLogSection'
 import SystemLogsSection from '../components/admin/SystemLogsSection'
+import MarketplacesSection from '../components/admin/MarketplacesSection'
 // New reference-data sections
 import {
     DepartmentsSection, ProductsSection, AssetCategoriesSection, AssetTypesSection, VendorsSection,
@@ -87,6 +88,12 @@ const GROUPS = [
         items: [
             { id: 'automation-rules', label: 'Automation Rules', icon: Workflow, adminOnly: true, tenantScoped: true, render: () => <AutomationRulesSection /> },
             { id: 'webhooks', label: 'Webhooks', icon: Webhook, adminOnly: true, tenantScoped: true, render: () => <WebhooksSection /> },
+        ],
+    },
+    {
+        id: 'marketplaces', label: 'Marketplaces',
+        items: [
+            { id: 'marketplaces', label: 'Connections', icon: Store, adminOnly: true, tenantScoped: true, render: () => <MarketplacesSection /> },
         ],
     },
     {
