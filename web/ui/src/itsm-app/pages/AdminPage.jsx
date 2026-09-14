@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
     Building2, Tags, Boxes, Layers, Truck, FolderTree, Hash, Users, ShieldCheck,
@@ -8,7 +8,7 @@ import {
 import { useIam } from '../../widget/hooks/useIam'
 import { useItsmTenant } from '../../shared/itsm/ItsmTenantContext'
 import { cn } from '../../shared/itsm/cn'
-import { PageHeader } from '../../shared/itsm/ui'
+import { PageHeader, useToast } from '../../shared/itsm/ui'
 
 // Existing sections
 import AutomationRulesSection from '../components/admin/AutomationRulesSection'
@@ -109,10 +109,35 @@ const GROUPS = [
 const ADMIN_ROLE_NAMES = ['admin', 'Admin', 'org_admin', 'super_admin']
 const MANAGER_ROLE_NAMES = ['manager', ...ADMIN_ROLE_NAMES]
 
+// Matches registry.py / MarketplacesSection.jsx's PROVIDERS — used to notice
+// a landing from itsm-service's OAuth callback redirects (?connected=shopify
+// or ?shopify_error=...), which always land here since itsm-service has no
+// frontend of its own to redirect to directly (see marketplace_shopify.py's
+// callback docstring, 2026-09-14).
+const MARKETPLACE_PROVIDERS = ['shopify', 'amazon', 'walmart', 'ebay', 'etsy']
+
+// One-time read of the landing query string — used both for the initial
+// activeId/openGroups state and the toast effect below. A function (not a
+// module constant) so it re-reads window.location.search fresh on every
+// mount rather than caching a stale value across client-side navigations.
+function readMarketplaceLanding() {
+    const params = new URLSearchParams(window.location.search)
+    const connected = params.get('connected')
+    if (connected && MARKETPLACE_PROVIDERS.includes(connected)) {
+        return { provider: connected, ok: true }
+    }
+    for (const p of MARKETPLACE_PROVIDERS) {
+        const err = params.get(`${p}_error`)
+        if (err) return { provider: p, ok: false, error: err }
+    }
+    return null
+}
+
 export default function AdminPage() {
     const { user } = useIam()
     const { isPlatformOrg } = useOutletContext() || {}
     const { tenantId } = useItsmTenant()
+    const { toast } = useToast()
     const roles = user?.realm_roles || []
     // Platform-org users administer any tenant; tenant users need an itsm
     // manager/admin role (realm_roles carry IAM names, so accept both).
@@ -124,12 +149,31 @@ export default function AdminPage() {
     const needsTenantPick = isPlatformOrg && tenantId === null
 
     const allItems = useMemo(() => GROUPS.flatMap(g => g.items.map(it => ({ ...it, group: g.label }))), [])
-    const [activeId, setActiveId] = useState('departments')
+    // Landing from an itsm-service OAuth callback (?connected=shopify or
+    // ?shopify_error=...) should open straight to Marketplaces instead of
+    // the Departments default — otherwise the connect/error feedback below
+    // fires on a section the user isn't even looking at.
+    const [activeId, setActiveId] = useState(() => (readMarketplaceLanding() ? 'marketplaces' : 'departments'))
     const active = allItems.find(it => it.id === activeId) || allItems[0]
 
     const groupOf = (itemId) => GROUPS.find(g => g.items.some(it => it.id === itemId))?.id
     // Accordion: only the group holding the active item starts expanded.
-    const [openGroups, setOpenGroups] = useState(() => new Set([groupOf('departments')]))
+    const [openGroups, setOpenGroups] = useState(() => new Set([groupOf(activeId)]))
+
+    // Fires once on mount: toast the OAuth callback's outcome, then strip the
+    // query string so a page refresh doesn't re-fire the same toast.
+    useEffect(() => {
+        const landing = readMarketplaceLanding()
+        if (!landing) return
+        if (landing.ok) {
+            toast(`${landing.provider[0].toUpperCase()}${landing.provider.slice(1)} connected`, 'success')
+        } else {
+            toast(`${landing.provider} connection failed: ${landing.error}`, 'error')
+        }
+        window.history.replaceState({}, '', window.location.pathname)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
     const toggleGroup = (gid) => setOpenGroups(prev => {
         const next = new Set(prev)
         next.has(gid) ? next.delete(gid) : next.add(gid)
