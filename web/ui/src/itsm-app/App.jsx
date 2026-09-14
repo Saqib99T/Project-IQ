@@ -25,6 +25,7 @@ const AdminPage = lazy(() => import('./pages/AdminPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const MarketplaceOrdersPage = lazy(() => import('./pages/MarketplaceOrdersPage'))
 const MarketplaceReturnsPage = lazy(() => import('./pages/MarketplaceReturnsPage'))
+const MarketplaceMessagesPage = lazy(() => import('./pages/MarketplaceMessagesPage'))
 
 const ITSM_ROLES = ['Admin', 'org_admin', 'super_admin']
 
@@ -97,6 +98,7 @@ export default function App() {
                     <Route path="notifications"     element={<NotificationsPage />} />
                     <Route path="marketplace-orders"  element={<MarketplaceOrdersPage />} />
                     <Route path="marketplace-returns" element={<MarketplaceReturnsPage />} />
+                    <Route path="marketplace-messages" element={<MarketplaceMessagesPage />} />
                     <Route path="admin"             element={<AdminPage />} />
                 </Route>
 
