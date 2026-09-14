@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PackageX } from 'lucide-react'
+import { PackageX, RefreshCw } from 'lucide-react'
 import { useItsmApi, useItsmResource } from '../../shared/itsm/useItsmApi'
-import { PageHeader, FilterBar, DataTable, Pagination, Badge } from '../../shared/itsm/ui'
+import { PageHeader, FilterBar, DataTable, Pagination, Badge, Button, useToast } from '../../shared/itsm/ui'
 
 const PROVIDERS = ['shopify', 'amazon', 'walmart', 'ebay', 'etsy']
 // Matches app/models/ticket.py's TicketStatus enum in itsm-service.
@@ -25,7 +25,8 @@ function formatDate(iso) {
 // land there as ordinary comments once a connector's messaging actually
 // produces one (see MarketplacesSection's messaging-capability note).
 export default function MarketplaceReturnsPage() {
-    const { get } = useItsmApi()
+    const { get, post } = useItsmApi()
+    const { toast } = useToast()
     const navigate = useNavigate()
     const [provider, setProvider] = useState('')
     const [linkType, setLinkType] = useState('')
@@ -33,9 +34,10 @@ export default function MarketplaceReturnsPage() {
     const [linkedFrom, setLinkedFrom] = useState('')
     const [linkedTo, setLinkedTo] = useState('')
     const [offset, setOffset] = useState(0)
+    const [syncing, setSyncing] = useState(false)
     const limit = 50
 
-    const { data, loading, error } = useItsmResource(
+    const { data, loading, error, reload } = useItsmResource(
         () => get('/marketplaces/returns', {
             provider: provider || undefined,
             link_type: linkType || undefined,
@@ -52,12 +54,44 @@ export default function MarketplaceReturnsPage() {
 
     const setFilter = (setter) => (value) => { setter(value); setOffset(0) }
 
+    // Hits /marketplaces/sync (all connected providers at once) — a repeat
+    // sync is safe: map_return_to_ticket() keys each ticket's idempotency
+    // on the return case's external_case_id, so an already-synced case
+    // won't produce a duplicate ticket, only genuinely new cases do.
+    const syncAll = async () => {
+        setSyncing(true)
+        try {
+            const result = await post('/marketplaces/sync?kind=returns', {})
+            if (result.error) throw new Error(result.error)
+            const failed = (result.results || []).filter(r => r.error)
+            const totalCreated = (result.results || []).reduce((sum, r) => sum + (r.tickets_created || 0), 0)
+            if (failed.length) {
+                toast(`Created ${totalCreated} tickets, ${failed.length} marketplace(s) failed`, 'error')
+            } else if (!result.results?.length) {
+                toast('No connected marketplaces to sync', 'info')
+            } else {
+                toast(`Created ${totalCreated} return/replacement ticket(s) across ${result.results.length} marketplace(s)`, 'success')
+            }
+            reload()
+        } catch (err) {
+            toast(err.message, 'error')
+        } finally {
+            setSyncing(false)
+        }
+    }
+
     return (
         <div className="space-y-4">
             <PageHeader
                 title="Returns & Replacements"
                 subtitle="Return and replacement requests synced from connected marketplaces — each one is a regular ticket underneath."
                 icon={PackageX}
+                actions={
+                    <Button variant="secondary" size="sm" disabled={syncing} onClick={syncAll}>
+                        <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                        {syncing ? 'Syncing…' : 'Sync now'}
+                    </Button>
+                }
             />
 
             <FilterBar>

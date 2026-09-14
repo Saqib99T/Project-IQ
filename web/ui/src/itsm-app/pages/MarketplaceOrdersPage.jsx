@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { ShoppingCart } from 'lucide-react'
+import { ShoppingCart, RefreshCw } from 'lucide-react'
 import { useItsmApi, useItsmResource } from '../../shared/itsm/useItsmApi'
-import { PageHeader, FilterBar, DataTable, Pagination, Badge } from '../../shared/itsm/ui'
+import { PageHeader, FilterBar, DataTable, Pagination, Badge, Button, useToast } from '../../shared/itsm/ui'
 
 // Matches the registry in itsm-service's app/services/marketplaces/registry.py
 // — no backend endpoint to list "known providers" exists (they're a fixed set,
@@ -24,15 +24,17 @@ function formatDate(iso) {
 }
 
 export default function MarketplaceOrdersPage() {
-    const { get } = useItsmApi()
+    const { get, post } = useItsmApi()
+    const { toast } = useToast()
     const [provider, setProvider] = useState('')
     const [status, setStatus] = useState('')
     const [placedFrom, setPlacedFrom] = useState('')
     const [placedTo, setPlacedTo] = useState('')
     const [offset, setOffset] = useState(0)
+    const [syncing, setSyncing] = useState(false)
     const limit = 50
 
-    const { data, loading, error } = useItsmResource(
+    const { data, loading, error, reload } = useItsmResource(
         () => get('/marketplaces/orders', {
             provider: provider || undefined,
             status: status || undefined,
@@ -51,12 +53,46 @@ export default function MarketplaceOrdersPage() {
     // "no orders" when there actually are some, just on page 1.
     const setFilter = (setter) => (value) => { setter(value); setOffset(0) }
 
+    // Hits /marketplaces/sync (all connected providers at once), distinct
+    // from the admin Marketplaces section's per-provider "Sync orders"
+    // button (POST /marketplaces/{provider}/sync). Same underlying
+    // ingestion.map_order() either way — it upserts by (tenant, provider,
+    // external_order_id), so this also picks up status/total/line-item
+    // changes on orders already synced, not just brand-new ones.
+    const syncAll = async () => {
+        setSyncing(true)
+        try {
+            const result = await post('/marketplaces/sync?kind=orders', {})
+            if (result.error) throw new Error(result.error)
+            const failed = (result.results || []).filter(r => r.error)
+            const totalSynced = (result.results || []).reduce((sum, r) => sum + (r.synced || 0), 0)
+            if (failed.length) {
+                toast(`Synced ${totalSynced} orders, ${failed.length} marketplace(s) failed`, 'error')
+            } else if (!result.results?.length) {
+                toast('No connected marketplaces to sync', 'info')
+            } else {
+                toast(`Synced ${totalSynced} orders across ${result.results.length} marketplace(s)`, 'success')
+            }
+            reload()
+        } catch (err) {
+            toast(err.message, 'error')
+        } finally {
+            setSyncing(false)
+        }
+    }
+
     return (
         <div className="space-y-4">
             <PageHeader
                 title="Marketplace Orders"
                 subtitle="Orders synced from every connected marketplace, native connectors (V3-Marketplaces)."
                 icon={ShoppingCart}
+                actions={
+                    <Button variant="secondary" size="sm" disabled={syncing} onClick={syncAll}>
+                        <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                        {syncing ? 'Syncing…' : 'Sync now'}
+                    </Button>
+                }
             />
 
             <FilterBar>
