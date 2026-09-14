@@ -119,7 +119,15 @@ export default function MarketplaceOrdersPage() {
                     { key: 'external_order_id', header: 'Order ID', render: (o) => <span className="font-mono text-xs">{o.external_order_id}</span> },
                     { key: 'status', header: 'Status', render: (o) => <Badge tone={STATUS_TONE[o.status] || 'gray'}>{o.status}</Badge> },
                     { key: 'total_amount', header: 'Total', render: (o) => formatMoney(o.total_amount, o.currency) },
-                    { key: 'buyer_email', header: 'Buyer', render: (o) => o.buyer_email || '—' },
+                    {
+                        key: 'buyer', header: 'Buyer',
+                        // Prefer the display name (buyer_name) — email is
+                        // frequently unavailable per-marketplace (Amazon
+                        // needs separate PII access, eBay doesn't expose it
+                        // at all) while a name is usually there. Falls back
+                        // to email only when no name was captured, then '—'.
+                        render: (o) => o.buyer_name || o.buyer_email || '—',
+                    },
                     { key: 'placed_at', header: 'Placed', render: (o) => formatDate(o.placed_at) },
                 ]}
             />
