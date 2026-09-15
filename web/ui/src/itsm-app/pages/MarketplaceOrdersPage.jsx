@@ -9,12 +9,6 @@ import SendBuyerMessageModal from '../../shared/itsm/SendBuyerMessageModal'
 // not dynamic data), so this is duplicated here rather than fetched.
 const PROVIDERS = ['shopify', 'amazon', 'walmart', 'ebay', 'etsy']
 const ORDER_STATUSES = ['new', 'acknowledged', 'shipped', 'delivered', 'cancelled']
-// Only Amazon/eBay have ANY buyer-messaging path (outbound_only / full,
-// though both are currently blocked externally — see SendBuyerMessageModal's
-// header comment). Shopify/Etsy/Walmart have no messaging API at all
-// (confirmed platform limitations, connectors/*.py) — no point showing a
-// button that can never work there.
-const MESSAGING_PROVIDERS = ['amazon', 'ebay']
 
 const STATUS_TONE = {
     new: 'blue', acknowledged: 'indigo', shipped: 'amber', delivered: 'green', cancelled: 'red',
@@ -160,8 +154,15 @@ export default function MarketplaceOrdersPage() {
                     },
                     { key: 'placed_at', header: 'Placed', render: (o) => formatDate(o.placed_at) },
                     {
+                        // Shown for every provider — the backend tries the
+                        // native marketplace API where one exists and falls
+                        // back to emailing the order's captured buyer_email
+                        // otherwise (see SendBuyerMessageModal's header
+                        // comment). No point pre-filtering by provider on
+                        // the frontend when capability now depends on
+                        // per-order data (buyer_email), not just provider identity.
                         key: 'message', header: '',
-                        render: (o) => MESSAGING_PROVIDERS.includes(o.provider) ? (
+                        render: (o) => (
                             <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setMessagingOrderId(o.id) }}
@@ -170,7 +171,7 @@ export default function MarketplaceOrdersPage() {
                             >
                                 <MessageSquare className="w-4 h-4" />
                             </button>
-                        ) : null,
+                        ),
                     },
                 ]}
             />

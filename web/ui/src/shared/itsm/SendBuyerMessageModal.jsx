@@ -19,15 +19,18 @@ function formatDate(iso) {
 // supported order_id filtering from when the standalone Messaging page was
 // built (2026-09-14).
 //
-// Only shown for providers with SOME messaging path (see MESSAGING_PROVIDERS
-// in each page) — Shopify/Etsy/Walmart have no buyer-messaging API at all
-// (confirmed platform limitations, itsm-service's connectors/*.py).
-//
-// Amazon and eBay both currently fail every real send attempt for reasons
-// OUTSIDE this code (Amazon: 403, Messaging role not granted to this app in
-// Seller Central; eBay: the send endpoint AND the read/search side of its
-// only inbound resource both 404/are unsupported in Sandbox entirely) — see
-// marketplace_sync.py's send_message_to_buyer() docstring in itsm-service.
+// Shown for every provider now (2026-09-14) — the backend's
+// send_message_to_buyer() tries the native marketplace API first where one
+// exists, and falls back to a plain email to the order's captured
+// buyer_email when the native path is unavailable/blocked. Real and
+// working TODAY for Shopify/Etsy/Walmart (all three capture a genuine
+// buyer email — no marketplace messaging API needed at all). Amazon/eBay
+// still try their native send first (403 / sandbox-unsupported right now,
+// see marketplace_sync.py's docstring in itsm-service) and fall back to
+// email too whenever buyer_email happens to be populated for that specific
+// order. Either way, the real error/success reason comes back from the
+// backend and surfaces here — nothing pre-filtered on the frontend by
+// provider identity anymore.
 // The modal still works correctly end-to-end; it just can't complete a live
 // send against either connected sandbox account yet, and there's no real
 // inbound data anywhere to show. The real error message from
@@ -55,7 +58,11 @@ export default function SendBuyerMessageModal({ open, onClose, orderId }) {
         try {
             const result = await post(`/marketplaces/orders/${orderId}/send-message`, { message })
             if (result.error) throw new Error(result.error)
-            toast('Message sent to buyer', 'success')
+            // channel is the provider name (native marketplace API) or
+            // 'email' (fallback to the buyer's captured order email, when
+            // the native path is unavailable/blocked — see
+            // send_message_to_buyer()'s docstring in itsm-service).
+            toast(result.channel === 'email' ? 'Message emailed to buyer' : 'Message sent to buyer', 'success')
             setMessage('')
             reloadThread()
         } catch (err) {

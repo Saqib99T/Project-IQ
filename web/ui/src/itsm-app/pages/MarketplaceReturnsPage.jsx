@@ -6,10 +6,6 @@ import { PageHeader, FilterBar, DataTable, Pagination, Badge, Button, useToast }
 import SendBuyerMessageModal from '../../shared/itsm/SendBuyerMessageModal'
 
 const PROVIDERS = ['shopify', 'amazon', 'walmart', 'ebay', 'etsy']
-// See MarketplaceOrdersPage.jsx's own copy of this list for why it's
-// duplicated rather than shared — same "no dynamic-providers endpoint"
-// reasoning already noted for PROVIDERS above.
-const MESSAGING_PROVIDERS = ['amazon', 'ebay']
 // Matches app/models/ticket.py's TicketStatus enum in itsm-service.
 const TICKET_STATUSES = ['open', 'in_progress', 'pending', 'pending_approval', 'approved', 'rejected', 'resolved', 'closed', 'cancelled']
 
@@ -153,8 +149,11 @@ export default function MarketplaceReturnsPage() {
                     },
                     { key: 'linked_at', header: 'Raised', render: (r) => formatDate(r.linked_at) },
                     {
+                        // See MarketplaceOrdersPage.jsx's own copy of this
+                        // comment — shown for every provider now, backend
+                        // decides native-vs-email-vs-error per order.
                         key: 'message', header: '',
-                        render: (r) => MESSAGING_PROVIDERS.includes(r.order.provider) ? (
+                        render: (r) => (
                             <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setMessagingOrderId(r.order.id) }}
@@ -163,7 +162,7 @@ export default function MarketplaceReturnsPage() {
                             >
                                 <MessageSquare className="w-4 h-4" />
                             </button>
-                        ) : null,
+                        ),
                     },
                 ]}
             />
