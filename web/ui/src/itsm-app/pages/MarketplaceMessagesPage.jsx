@@ -12,6 +12,7 @@ const PROVIDERS = [
     // Messaging-only batch (2026-09-15) — see itsm-service's
     // connectors/*.py module docstrings for per-provider capability.
     'mercadolibre', 'allegro', 'cdiscount', 'lazada', 'wildberries', 'bolcom', 'zalando', 'flipkart',
+    'bestbuy', 'newegg', 'shopee',
 ]
 const DIRECTIONS = ['outbound', 'inbound']
 const DIRECTION_TONE = { outbound: 'blue', inbound: 'green' }

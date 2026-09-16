@@ -13,6 +13,7 @@ const PROVIDERS = [
     // for all 8 (see itsm-service's connectors/*.py module docstrings),
     // but still produces real MarketplaceOrder rows via the same sync path.
     'mercadolibre', 'allegro', 'cdiscount', 'lazada', 'wildberries', 'bolcom', 'zalando', 'flipkart',
+    'bestbuy', 'newegg', 'shopee',
 ]
 const ORDER_STATUSES = ['new', 'acknowledged', 'shipped', 'delivered', 'cancelled']
 

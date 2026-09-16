@@ -57,6 +57,22 @@ const PROVIDERS = [
         hasEnvironment: true,
     },
     { id: 'flipkart', label: 'Flipkart', oauth: true },
+    // Best Buy / Newegg / Shopee (2026-09-16) — see itsm-service's
+    // connectors/{bestbuy,newegg,shopee}.py module docstrings for scope +
+    // "UNVERIFIED, no live credentials" caveats.
+    {
+        id: 'bestbuy', label: 'Best Buy Marketplace', oauth: false,
+        formFields: [{ key: 'api_key', label: 'API Key', secret: true }],
+    },
+    {
+        id: 'newegg', label: 'Newegg', oauth: false,
+        formFields: [
+            { key: 'seller_id', label: 'Seller ID' },
+            { key: 'api_key', label: 'API Key', secret: true },
+            { key: 'secret_key', label: 'Secret Key', secret: true },
+        ],
+    },
+    { id: 'shopee', label: 'Shopee', oauth: true },
 ]
 
 const CAPABILITY_LABEL = {

@@ -11,6 +11,7 @@ import SendBuyerMessageModal from '../../shared/itsm/SendBuyerMessageModal'
 const PROVIDERS = [
     'shopify', 'amazon', 'walmart', 'ebay', 'etsy',
     'mercadolibre', 'allegro', 'cdiscount', 'lazada', 'wildberries', 'bolcom', 'zalando', 'flipkart',
+    'bestbuy', 'newegg', 'shopee',
 ]
 // Matches app/models/ticket.py's TicketStatus enum in itsm-service.
 const TICKET_STATUSES = ['open', 'in_progress', 'pending', 'pending_approval', 'approved', 'rejected', 'resolved', 'closed', 'cancelled']
