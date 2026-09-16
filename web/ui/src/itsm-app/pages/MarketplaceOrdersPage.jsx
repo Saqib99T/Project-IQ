@@ -7,7 +7,13 @@ import SendBuyerMessageModal from '../../shared/itsm/SendBuyerMessageModal'
 // Matches the registry in itsm-service's app/services/marketplaces/registry.py
 // — no backend endpoint to list "known providers" exists (they're a fixed set,
 // not dynamic data), so this is duplicated here rather than fetched.
-const PROVIDERS = ['shopify', 'amazon', 'walmart', 'ebay', 'etsy']
+const PROVIDERS = [
+    'shopify', 'amazon', 'walmart', 'ebay', 'etsy',
+    // Messaging-only batch (2026-09-15) — fetch_orders() is minimal/thin
+    // for all 8 (see itsm-service's connectors/*.py module docstrings),
+    // but still produces real MarketplaceOrder rows via the same sync path.
+    'mercadolibre', 'allegro', 'cdiscount', 'lazada', 'wildberries', 'bolcom', 'zalando', 'flipkart',
+]
 const ORDER_STATUSES = ['new', 'acknowledged', 'shipped', 'delivered', 'cancelled']
 
 const STATUS_TONE = {

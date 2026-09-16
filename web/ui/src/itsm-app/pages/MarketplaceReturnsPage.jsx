@@ -5,7 +5,13 @@ import { useItsmApi, useItsmResource } from '../../shared/itsm/useItsmApi'
 import { PageHeader, FilterBar, DataTable, Pagination, Badge, Button, useToast } from '../../shared/itsm/ui'
 import SendBuyerMessageModal from '../../shared/itsm/SendBuyerMessageModal'
 
-const PROVIDERS = ['shopify', 'amazon', 'walmart', 'ebay', 'etsy']
+// Messaging-only batch (2026-09-15) providers included for filter
+// consistency even though none of them produce returns — every one's
+// fetch_returns() is a stub (see itsm-service's connectors/*.py).
+const PROVIDERS = [
+    'shopify', 'amazon', 'walmart', 'ebay', 'etsy',
+    'mercadolibre', 'allegro', 'cdiscount', 'lazada', 'wildberries', 'bolcom', 'zalando', 'flipkart',
+]
 // Matches app/models/ticket.py's TicketStatus enum in itsm-service.
 const TICKET_STATUSES = ['open', 'in_progress', 'pending', 'pending_approval', 'approved', 'rejected', 'resolved', 'closed', 'cancelled']
 

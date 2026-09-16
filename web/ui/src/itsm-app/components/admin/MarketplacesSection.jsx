@@ -20,6 +20,43 @@ const PROVIDERS = [
     { id: 'walmart', label: 'Walmart', oauth: false },
     { id: 'ebay', label: 'eBay', oauth: true },
     { id: 'etsy', label: 'Etsy', oauth: true },
+    // Messaging-only batch (2026-09-15) — see itsm-service's
+    // registry.py/each connector's module docstring for scope +
+    // "UNVERIFIED, no live credentials" caveats. OAuth ones (redirect
+    // flow) vs formFields ones (client_credentials/API-token submitted
+    // directly, same shape as Walmart) drive ProviderCard's branch below.
+    { id: 'mercadolibre', label: 'Mercado Libre', oauth: true },
+    { id: 'allegro', label: 'Allegro', oauth: true },
+    {
+        id: 'cdiscount', label: 'Cdiscount', oauth: false,
+        formFields: [
+            { key: 'seller_id', label: 'Seller ID' },
+            { key: 'api_key', label: 'API Key', secret: true },
+        ],
+    },
+    { id: 'lazada', label: 'Lazada', oauth: true },
+    {
+        id: 'wildberries', label: 'Wildberries', oauth: false,
+        formFields: [{ key: 'api_token', label: 'API Token', secret: true }],
+        hasEnvironment: true,
+    },
+    // Thin, email-fallback-only — no native messaging, see connectors/*.py.
+    {
+        id: 'bolcom', label: 'bol.com', oauth: false,
+        formFields: [
+            { key: 'client_id', label: 'Client ID' },
+            { key: 'client_secret', label: 'Client Secret', secret: true },
+        ],
+    },
+    {
+        id: 'zalando', label: 'Zalando', oauth: false,
+        formFields: [
+            { key: 'client_id', label: 'Client ID' },
+            { key: 'client_secret', label: 'Client Secret', secret: true },
+        ],
+        hasEnvironment: true,
+    },
+    { id: 'flipkart', label: 'Flipkart', oauth: true },
 ]
 
 const CAPABILITY_LABEL = {
@@ -121,6 +158,69 @@ function ShopifyConnectModal({ open, onClose, onError }) {
     )
 }
 
+// Shared by every messaging-only-batch connector that submits credentials
+// directly (Cdiscount, Wildberries, bol.com, Zalando) instead of an OAuth
+// redirect — one configurable modal rather than 4 near-identical copies.
+// Walmart keeps its own dedicated WalmartConnectModal above (pre-dates this
+// batch, not touched here to avoid risking already-working code) even
+// though its fields would fit this same shape.
+function GenericConnectModal({ open, onClose, onConnected, provider }) {
+    const { post } = useItsmApi()
+    const { toast } = useToast()
+    const [values, setValues] = useState({})
+    const [environment, setEnvironment] = useState('sandbox')
+    const [busy, setBusy] = useState(false)
+    const [error, setError] = useState(null)
+
+    const setField = (key) => (e) => setValues(v => ({ ...v, [key]: e.target.value }))
+    const allFilled = provider.formFields.every(f => (values[f.key] || '').trim())
+
+    const submit = async () => {
+        setBusy(true); setError(null)
+        try {
+            const body = { ...values, ...(provider.hasEnvironment ? { environment } : {}) }
+            const result = await post(`/marketplaces/${provider.id}/connect`, body)
+            if (result.error || result.success === false) throw new Error(result.error || 'Connection failed')
+            toast(`${provider.label} connected`, 'success')
+            onConnected()
+        } catch (err) { setError(err) } finally { setBusy(false) }
+    }
+
+    return (
+        <Modal open={open} onClose={onClose} title={`Connect ${provider.label}`}>
+            <div className="space-y-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                    UNVERIFIED against a live {provider.label} account — this connector was built directly
+                    against {provider.label}'s published docs, not tested end-to-end yet. Connecting here is the
+                    actual test.
+                </p>
+                {error && <ErrorBanner message={error.message} />}
+                {provider.formFields.map(f => (
+                    <label key={f.key} className="block text-xs font-medium text-slate-600 dark:text-slate-300">
+                        {f.label}
+                        <input
+                            type={f.secret ? 'password' : 'text'}
+                            className="input text-sm mt-1"
+                            value={values[f.key] || ''}
+                            onChange={setField(f.key)}
+                        />
+                    </label>
+                ))}
+                {provider.hasEnvironment && (
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">
+                        Environment
+                        <select className="input text-sm mt-1" value={environment} onChange={e => setEnvironment(e.target.value)}>
+                            <option value="sandbox">Sandbox</option>
+                            <option value="production">Production</option>
+                        </select>
+                    </label>
+                )}
+                <Button onClick={submit} disabled={busy || !allFilled}>Connect</Button>
+            </div>
+        </Modal>
+    )
+}
+
 // Each card owns its own connection fetch (one useItsmResource call per
 // mounted instance) rather than the parent calling the hook once per
 // provider inside a .map() — PROVIDERS is a stable constant so that would
@@ -134,6 +234,7 @@ function ProviderCard({ provider }) {
     const [error, setError] = useState(null)
     const [showWalmartModal, setShowWalmartModal] = useState(false)
     const [showShopifyModal, setShowShopifyModal] = useState(false)
+    const [showGenericModal, setShowGenericModal] = useState(false)
 
     const { data, loading, reload } = useItsmResource(
         () => get(`/marketplaces/${provider.id}/connection`), [get, provider.id],
@@ -208,6 +309,16 @@ function ProviderCard({ provider }) {
                     <>
                         <Button size="sm" disabled={busy} onClick={() => setShowShopifyModal(true)}>Connect</Button>
                         <ShopifyConnectModal open={showShopifyModal} onClose={() => setShowShopifyModal(false)} onError={setError} />
+                    </>
+                ) : provider.formFields ? (
+                    <>
+                        <Button size="sm" disabled={busy} onClick={() => setShowGenericModal(true)}>Connect</Button>
+                        <GenericConnectModal
+                            open={showGenericModal}
+                            provider={provider}
+                            onClose={() => setShowGenericModal(false)}
+                            onConnected={() => { setShowGenericModal(false); reload() }}
+                        />
                     </>
                 ) : provider.oauth ? (
                     <Button size="sm" disabled={busy} onClick={connectOAuth}>Connect</Button>
