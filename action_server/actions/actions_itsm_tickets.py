@@ -31,6 +31,58 @@ def _fmt_date(iso: str) -> str:
     return s
 
 
+class ActionPresentTicketForm(Action):
+    """Launches ticket creation — replaces the plain `utter_ticket_form`
+    step in rules.yml's two KB->ticket rules (2026-09-17 fix).
+
+    utter_ticket_form is a `custom: {ticket_form: true}` payload meant for
+    the web widget's rich inline form component (MessageBubble.jsx renders
+    it, submits via `/submit_ticket_form{...}` on completion — see
+    ChatWindow.jsx). That payload has no text/buttons at the top level, so
+    non-widget channels (WhatsApp) received literally nothing for it —
+    confirmed live on prod: KB search would skip correctly, but the
+    conversation just dead-ended right after, no error anywhere since
+    "nothing to send" isn't treated as a failure.
+
+    The rest of the ticket_form flow (the per-slot utter_ask_* questions,
+    confirmation, creation, /stop cancellation) was already fully built in
+    rules.yml — see 'Submit ticket_form - Ask Confirmation', 'Create Ticket
+    on Affirmation', 'Interrupt form with stop intent'. Only the initial
+    *activation* was missing: nothing anywhere set active_loop=ticket_form,
+    so that machinery was live but dormant on every channel, not just
+    WhatsApp. This action is the one place that starts it.
+
+    WIDGET/MOBILE BEHAVIOR IS UNCHANGED: for any channel other than
+    WhatsApp, this dispatches the exact same custom payload
+    utter_ticket_form always sent, byte for byte, and does NOT activate the
+    form loop — the rich UI component is still what drives ticket creation
+    there, exactly as before this change."""
+
+    def name(self) -> Text:
+        return "action_present_ticket_form"
+
+    async def run(
+        self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]
+    ) -> List[Dict[Text, Any]]:
+        bind_request_id(tracker)
+        latest = tracker.latest_message
+        metadata = (latest.get("metadata") or {}) if isinstance(latest, dict) else {}
+        channel = (metadata.get("channel") or "") if isinstance(metadata, dict) else ""
+
+        if channel.startswith("whatsapp"):
+            # No custom-UI equivalent on WhatsApp -- start the (already
+            # fully built, previously dormant) conversational form instead.
+            # Rasa asks the first missing required_slot's utter_ask_* in
+            # the same turn once active_loop is set, no extra text needed
+            # here.
+            return [ActiveLoop("ticket_form")]
+
+        dispatcher.utter_message(
+            custom={"ticket_form": True, "text": "Please fill out the ticket details below:"}
+        )
+        return []
+
+
 class ActionCreateItsmTicket(Action):
     def name(self) -> Text:
         return "action_create_itsm_ticket"

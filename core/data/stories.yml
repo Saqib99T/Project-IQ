@@ -27,7 +27,7 @@ stories:
     - action: action_search_kb_before_ticket
     - intent: kb_not_helpful
     - action: action_init_itsm_session
-    - action: utter_ticket_form
+    - action: action_present_ticket_form
     - intent: submit_ticket_form
     - action: action_create_ticket_from_form
 
@@ -116,7 +116,7 @@ stories:
     - action: action_search_kb_before_ticket
     - intent: kb_not_helpful
     - action: action_init_itsm_session
-    - action: utter_ticket_form
+    - action: action_present_ticket_form
     - intent: submit_ticket_form
     - action: action_create_ticket_from_form
 

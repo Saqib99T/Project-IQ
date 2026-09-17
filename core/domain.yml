@@ -708,6 +708,7 @@ actions:
   - action_save_feedback
   - action_handle_multi_intent
   - action_search_kb_before_ticket
+  - action_present_ticket_form
   - action_create_ticket_from_form
   - action_save_satisfaction_rating
   - action_show_ticket_graph

@@ -66,14 +66,14 @@ rules:
       - intent: create_ticket
       - action: action_search_kb_before_ticket
       - action: action_init_itsm_session
-      - action: utter_ticket_form
+      - action: action_present_ticket_form
 
   # Step 3: If KB is not helpful (Explicit user choice), start the form
   - rule: KB Not Helpful -> Start Ticket Form
     steps:
       - intent: kb_not_helpful
       - action: action_init_itsm_session
-      - action: utter_ticket_form
+      - action: action_present_ticket_form
 
   - rule: Handle Ticket Form Submission
     steps:
