@@ -135,7 +135,22 @@ rules:
   # --- STATUS CHECK RULES (Mutually Exclusive) ---
   # Rules disabled to favour Stories and avoid conflicts
   # RULE 1: Init session, then run status check if ID is present immediately
+  #
+  # active_loop: null added to all 3 rules below (2026-09-17) -- none of
+  # them had a form guard, so a check_status intent misfire mid-form would
+  # hijack the turn: confirmed live once ticket_form actually started
+  # getting activated (action_present_ticket_form's WhatsApp path) --
+  # answering a ticket-form question got NLU-classified as check_status,
+  # which fired RULE 2 (ask for ticket ID) *while the form's own re-ask for
+  # its unfilled slot also fired*, producing two tangled prompts in one
+  # turn. Couldn't have hit this before: ticket_form was never actually
+  # activated on any channel until that fix, so this collision was latent,
+  # not something these rules previously avoided by design. Guarding on no
+  # active form can't change behavior for any flow that worked before,
+  # since "a form is active" was never a real state in production traffic.
   - rule: Init ITSM session and Check Status when ID is present
+    condition:
+      - active_loop: null
     steps:
       - intent: check_status
       - slot_was_set:
@@ -147,6 +162,7 @@ rules:
   # RULE 2: Init session, then ask for ID if status is requested but ID is MISSING
   - rule: Init ITSM session and Ask for Ticket ID when checking status
     condition:
+      - active_loop: null
       - slot_was_set:
           - ticket_id: null # Condition: Ticket ID slot is empty
     steps:
@@ -158,6 +174,7 @@ rules:
   # RULE 3: Init session, then continue check status after providing ID via 'inform'
   - rule: Continue Check Status after providing ID
     condition:
+      - active_loop: null
       - slot_was_set:
           - ticket_id: true
     steps:
