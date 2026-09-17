@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Copy } from 'lucide-react'
 import { useItsmApi, useItsmResource } from '../../../shared/itsm/useItsmApi'
 import { LoadingSpinner, ErrorBanner, Modal } from '../../../shared/itsm/primitives'
 import { Badge, Button, useToast } from '../../../shared/itsm/ui'
@@ -312,6 +313,22 @@ function ProviderCard({ provider }) {
                 {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error.message}</p>}
                 {connected && connection.last_synced_at && (
                     <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Last synced {new Date(connection.last_synced_at).toLocaleString()}</p>
+                )}
+                {connected && connection.inbound_email_address && (
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Buyer messages: paste into Seller Central → Notification Preferences → Buyer-Seller Messages —
+                            <code className="ml-1 px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-mono text-[11px]">{connection.inbound_email_address}</code>
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => { navigator.clipboard.writeText(connection.inbound_email_address); toast('Copied', 'info') }}
+                            className="p-1 rounded text-slate-400 hover:text-primary hover:bg-surface2 shrink-0"
+                            title="Copy address"
+                        >
+                            <Copy className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
                 )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
