@@ -32,6 +32,8 @@
 #   MAIN_REMOTE_DIR (default /home/user/project-iq)
 #   ITSM_LOCAL_DIR  (default ../itsm-service)
 #   ITSM_REMOTE_DIR (default /home/user/itsm-service)
+#   BACKUP_KEEP (default 3) — how many timestamped backups per component to
+#     keep in REMOTE_BACKUP_DIR; older ones are deleted after each backup.
 #
 set -euo pipefail
 
@@ -46,6 +48,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ITSM_LOCAL_DIR="${ITSM_LOCAL_DIR:-$REPO_ROOT/../itsm-service}"
 ITSM_REMOTE_DIR="${ITSM_REMOTE_DIR:-/home/user/itsm-service}"
 REMOTE_BACKUP_DIR="${REMOTE_BACKUP_DIR:-/home/$DEPLOY_USER/piq-deploy-backups}"
+BACKUP_KEEP="${BACKUP_KEEP:-3}"
 
 # Health endpoints (checked locally on the box via curl, so 127.0.0.1)
 ADMIN_HEALTH_URL="${ADMIN_HEALTH_URL:-http://127.0.0.1:8181/api/status}"
@@ -135,6 +138,14 @@ deploy_unit() {
   # a running service under $remote_dir aborts the whole deploy before any
   # new code ships.
   rrun "mkdir -p '$REMOTE_BACKUP_DIR' && if [ -d '$remote_dir' ]; then tar czf '$REMOTE_BACKUP_DIR/$name-$STAMP.tgz' -C '$remote_dir' . || [ \$? -eq 1 ]; fi"
+
+  # Backups pile up fast (main-*.tgz alone runs ~4GB each) and nothing pruned
+  # them historically, which twice ran prod's root disk down to single-digit
+  # GB free (2026-08-20, 2026-09-24). Keep only the most recent BACKUP_KEEP
+  # per component name; this only prunes $name-*.tgz, so it's scoped to the
+  # backups this run's component would itself create.
+  say "pruning old backups in $REMOTE_BACKUP_DIR (keeping last $BACKUP_KEEP '$name-*.tgz')"
+  rrun "cd '$REMOTE_BACKUP_DIR' && ls -t ${name}-*.tgz 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)) | xargs -r rm -f --"
 
   say "upload + overlay-extract into $remote_dir (server-only files preserved)"
   if [ "$APPLY" -eq 1 ]; then
