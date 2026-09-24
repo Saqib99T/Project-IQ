@@ -7,6 +7,15 @@ import { Badge, Button, useToast } from '../../../shared/itsm/ui'
 // Matches app/services/marketplaces/registry.py in itsm-service. No backend
 // endpoint lists "known providers" (fixed set, not dynamic data) — same
 // duplication as the Orders/Returns pages' filter dropdowns.
+//
+// Scoped to exactly 7 marketplaces (2026-09-18, explicit target list):
+// Amazon, Best Buy, Walmart, eBay, Shopify, Temu, TikTok Shop. Every other
+// connector built earlier in this project (Etsy, Mercado Libre, Allegro,
+// Cdiscount, Lazada, Wildberries, bol.com, Zalando, Flipkart, Newegg,
+// Shopee) is HIDDEN here, not removed — their backend connectors/routes
+// still exist and still work (itsm-service's registry.py still lists
+// them), they're just not offered through this UI. Un-hide by re-adding
+// the entry, no backend change needed.
 const PROVIDERS = [
     // Shopify's authorize URL is per-shop (https://{shop_domain}/admin/oauth/
     // authorize) — the only OAuth connector that needs one extra field
@@ -20,60 +29,17 @@ const PROVIDERS = [
     // batch shaped this way.
     { id: 'walmart', label: 'Walmart', oauth: false },
     { id: 'ebay', label: 'eBay', oauth: true },
-    { id: 'etsy', label: 'Etsy', oauth: true },
-    // Messaging-only batch (2026-09-15) — see itsm-service's
-    // registry.py/each connector's module docstring for scope +
-    // "UNVERIFIED, no live credentials" caveats. OAuth ones (redirect
-    // flow) vs formFields ones (client_credentials/API-token submitted
-    // directly, same shape as Walmart) drive ProviderCard's branch below.
-    { id: 'mercadolibre', label: 'Mercado Libre', oauth: true },
-    { id: 'allegro', label: 'Allegro', oauth: true },
-    {
-        id: 'cdiscount', label: 'Cdiscount', oauth: false,
-        formFields: [
-            { key: 'seller_id', label: 'Seller ID' },
-            { key: 'api_key', label: 'API Key', secret: true },
-        ],
-    },
-    { id: 'lazada', label: 'Lazada', oauth: true },
-    {
-        id: 'wildberries', label: 'Wildberries', oauth: false,
-        formFields: [{ key: 'api_token', label: 'API Token', secret: true }],
-        hasEnvironment: true,
-    },
-    // Thin, email-fallback-only — no native messaging, see connectors/*.py.
-    {
-        id: 'bolcom', label: 'bol.com', oauth: false,
-        formFields: [
-            { key: 'client_id', label: 'Client ID' },
-            { key: 'client_secret', label: 'Client Secret', secret: true },
-        ],
-    },
-    {
-        id: 'zalando', label: 'Zalando', oauth: false,
-        formFields: [
-            { key: 'client_id', label: 'Client ID' },
-            { key: 'client_secret', label: 'Client Secret', secret: true },
-        ],
-        hasEnvironment: true,
-    },
-    { id: 'flipkart', label: 'Flipkart', oauth: true },
-    // Best Buy / Newegg / Shopee (2026-09-16) — see itsm-service's
-    // connectors/{bestbuy,newegg,shopee}.py module docstrings for scope +
-    // "UNVERIFIED, no live credentials" caveats.
     {
         id: 'bestbuy', label: 'Best Buy Marketplace', oauth: false,
         formFields: [{ key: 'api_key', label: 'API Key', secret: true }],
     },
-    {
-        id: 'newegg', label: 'Newegg', oauth: false,
-        formFields: [
-            { key: 'seller_id', label: 'Seller ID' },
-            { key: 'api_key', label: 'API Key', secret: true },
-            { key: 'secret_key', label: 'Secret Key', secret: true },
-        ],
-    },
-    { id: 'shopee', label: 'Shopee', oauth: true },
+    // Temu / TikTok Shop (2026-09-18) — see itsm-service's
+    // connectors/{temu,tiktokshop}.py module docstrings for scope +
+    // "UNVERIFIED, no live credentials" caveats. Temu has no confirmed
+    // messaging API (orders/returns only); TikTok Shop has a real,
+    // approval-gated Customer Service API with a genuine webhook.
+    { id: 'temu', label: 'Temu', oauth: true },
+    { id: 'tiktokshop', label: 'TikTok Shop', oauth: true },
 ]
 
 const CAPABILITY_LABEL = {

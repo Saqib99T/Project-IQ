@@ -7,13 +7,10 @@ import SendBuyerMessageModal from '../../shared/itsm/SendBuyerMessageModal'
 // See MarketplaceOrdersPage.jsx's own copy of PROVIDERS for why this is
 // duplicated rather than fetched from a "known providers" endpoint (no such
 // endpoint exists — fixed set, not dynamic data).
-const PROVIDERS = [
-    'shopify', 'amazon', 'walmart', 'ebay', 'etsy',
-    // Messaging-only batch (2026-09-15) — see itsm-service's
-    // connectors/*.py module docstrings for per-provider capability.
-    'mercadolibre', 'allegro', 'cdiscount', 'lazada', 'wildberries', 'bolcom', 'zalando', 'flipkart',
-    'bestbuy', 'newegg', 'shopee',
-]
+// Scoped to exactly 7 marketplaces (2026-09-18) — see
+// MarketplacesSection.jsx's PROVIDERS comment for why the rest are hidden,
+// not removed.
+const PROVIDERS = ['shopify', 'amazon', 'walmart', 'ebay', 'bestbuy', 'temu', 'tiktokshop']
 const DIRECTIONS = ['outbound', 'inbound']
 const DIRECTION_TONE = { outbound: 'blue', inbound: 'green' }
 
