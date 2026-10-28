@@ -20,7 +20,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-GH_REPO="${GH_REPO:-saqibgm/Project-IQ}"
+GH_REPO="${GH_REPO:-Saqib99T/Project-IQ}"
 TAG="model-latest"; APPLY=0
 for a in "$@"; do
   case "$a" in

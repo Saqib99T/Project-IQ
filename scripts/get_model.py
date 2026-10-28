@@ -13,7 +13,7 @@ Usage
     python scripts/get_model.py --url <https…>  # one-off URL override
 
 Configure the source once (when the Release/bucket exists):
-    export RASA_MODEL_URL="https://github.com/saqibgm/Project-IQ/releases/download/model-latest/model.tar.gz"
+    export RASA_MODEL_URL="https://github.com/Saqib99T/Project-IQ/releases/download/model-latest/model.tar.gz"
     # optional integrity check (recommended):
     export RASA_MODEL_SHA256="<sha256 hex of the tarball>"
     # optional auth for a private asset (never hardcode — read from env only):

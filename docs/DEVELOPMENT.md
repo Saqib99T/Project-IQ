@@ -22,7 +22,7 @@ The trained NLU/dialogue model (~40 MB) is a build artifact.
 
   **Or fetch the prebuilt one** from the `model-latest` Release:
   ```bash
-  export RASA_MODEL_URL="https://github.com/saqibgm/Project-IQ/releases/download/model-latest/model.tar.gz"
+  export RASA_MODEL_URL="https://github.com/Saqib99T/Project-IQ/releases/download/model-latest/model.tar.gz"
   export RASA_MODEL_SHA256="2fcfad382fb4f028856d1f9c408db52a5680711de98ad32206594cc36441d38c"
   python scripts/get_model.py
   ```
