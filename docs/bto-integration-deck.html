@@ -1,0 +1,673 @@
+<title>BTO Integration — Internal Brief</title>
+<style>
+  :root {
+    --paper: #EDEFF1;
+    --paper-raised: #F7F8F9;
+    --ink: #1B1F23;
+    --ink-soft: #55606B;
+    --ink-faint: #889098;
+    --accent: #3E5C76;
+    --accent-soft: #DCE4EA;
+    --line: #C7CCD1;
+    --gap: #B23A2E;
+    --gap-soft: #F3DEDB;
+    --good: #2E7D4F;
+    --good-soft: #DCEEE2;
+    --shadow: rgba(27, 31, 35, 0.16);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #14171A;
+      --paper-raised: #1B1F23;
+      --ink: #E7E9EC;
+      --ink-soft: #9AA5B1;
+      --ink-faint: #626C76;
+      --accent: #7FA5C9;
+      --accent-soft: #263542;
+      --line: #2B3136;
+      --gap: #E08277;
+      --gap-soft: #3A2523;
+      --good: #6FCB94;
+      --good-soft: #1E3229;
+      --shadow: rgba(0, 0, 0, 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14171A;
+    --paper-raised: #1B1F23;
+    --ink: #E7E9EC;
+    --ink-soft: #9AA5B1;
+    --ink-faint: #626C76;
+    --accent: #7FA5C9;
+    --accent-soft: #263542;
+    --line: #2B3136;
+    --gap: #E08277;
+    --gap-soft: #3A2523;
+    --good: #6FCB94;
+    --good-soft: #1E3229;
+    --shadow: rgba(0, 0, 0, 0.5);
+  }
+  :root[data-theme="light"] {
+    --paper: #EDEFF1;
+    --paper-raised: #F7F8F9;
+    --ink: #1B1F23;
+    --ink-soft: #55606B;
+    --ink-faint: #889098;
+    --accent: #3E5C76;
+    --accent-soft: #DCE4EA;
+    --line: #C7CCD1;
+    --gap: #B23A2E;
+    --gap-soft: #F3DEDB;
+    --good: #2E7D4F;
+    --good-soft: #DCEEE2;
+    --shadow: rgba(27, 31, 35, 0.16);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    padding: clamp(16px, 3vw, 40px);
+    overflow-x: hidden;
+  }
+
+  .stage {
+    width: min(1200px, 100%);
+    aspect-ratio: 16 / 9;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    box-shadow: 0 18px 40px -20px var(--shadow);
+    display: none;
+    grid-template-columns: minmax(180px, 22%) 1fr;
+    overflow: hidden;
+  }
+  .slide.active { display: grid; }
+
+  .rail {
+    border-right: 1px solid var(--line);
+    padding: clamp(20px, 3.4vw, 40px) clamp(16px, 2.4vw, 28px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .eyebrow {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: clamp(9px, 0.95vw, 12px);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .rail-title {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-size: clamp(15px, 1.7vw, 20px);
+    line-height: 1.3;
+    margin-top: 10px;
+    color: var(--ink);
+  }
+
+  .rail-meta {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: clamp(9px, 0.9vw, 11px);
+    color: var(--ink-faint);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .rail-meta .num {
+    font-size: clamp(28px, 3.4vw, 44px);
+    color: var(--ink-soft);
+    font-family: Georgia, serif;
+    line-height: 1;
+  }
+
+  .main {
+    padding: clamp(22px, 3.6vw, 44px) clamp(24px, 4vw, 52px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 1.6vh, 20px);
+    min-width: 0;
+  }
+
+  h1 {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-weight: 400;
+    font-size: clamp(26px, 3.4vw, 44px);
+    line-height: 1.22;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+    color: var(--ink);
+    max-width: 20ch;
+  }
+
+  .dek {
+    font-size: clamp(15px, 1.5vw, 19px);
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 66ch;
+    margin: 0;
+  }
+
+  .map {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: clamp(6px, 0.9vw, 12px);
+    margin: 2px 0 4px;
+  }
+  .node {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: clamp(8px, 1vw, 12px) clamp(8px, 0.9vw, 10px);
+    background: var(--paper);
+    position: relative;
+  }
+  .node-label {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: clamp(10px, 0.92vw, 12.5px);
+    letter-spacing: 0.03em;
+    color: var(--ink);
+    display: block;
+  }
+  .node-sub {
+    font-size: clamp(10.5px, 0.98vw, 13px);
+    color: var(--ink-faint);
+    display: block;
+    margin-top: 3px;
+    line-height: 1.3;
+  }
+  .node.broken::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -100%;
+    width: 100%;
+    border-top: 1.5px dashed var(--gap);
+    opacity: 0.75;
+  }
+  .node:last-child.broken::after { display: none; }
+
+  .gaps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--line);
+  }
+  .gaps li {
+    display: grid;
+    grid-template-columns: minmax(120px, 15ch) 1fr;
+    gap: clamp(10px, 1.4vw, 22px);
+    padding: clamp(6px, 1vh, 10px) 0;
+    border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .gaps .tag {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: clamp(11px, 1vw, 13.5px);
+    color: var(--gap);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .gaps .desc {
+    font-size: clamp(13.5px, 1.25vw, 16.5px);
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .gaps .desc b { font-weight: 600; }
+
+  .options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(10px, 1.4vw, 16px);
+    margin-top: 2px;
+  }
+  .option {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: clamp(10px, 1.3vw, 14px);
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .option.selected {
+    border-color: var(--good);
+    box-shadow: 0 0 0 1px var(--good) inset;
+  }
+  .option-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .option-label {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-size: clamp(15px, 1.4vw, 18px);
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .verdict {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: clamp(9.5px, 0.85vw, 11.5px);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .verdict.rejected { color: var(--gap); background: var(--gap-soft); }
+  .verdict.selected { color: var(--good); background: var(--good-soft); }
+  .option-reasons {
+    margin: 0;
+    padding-left: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .option-reasons li {
+    font-size: clamp(12px, 1.08vw, 14.5px);
+    line-height: 1.42;
+    color: var(--ink-soft);
+  }
+  .option.selected .option-reasons li { color: var(--ink); }
+
+  .vendor-table {
+    overflow-x: auto;
+    margin-top: 2px;
+  }
+  .vendor-table table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .vendor-table thead th {
+    text-align: left;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: clamp(9.5px, 0.85vw, 11px);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0 10px 7px 0;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .vendor-table tbody td {
+    padding: clamp(7px, 1.1vh, 11px) 10px clamp(7px, 1.1vh, 11px) 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    font-size: clamp(11px, 0.98vw, 13px);
+    line-height: 1.4;
+    color: var(--ink-soft);
+  }
+  .vendor-table tbody tr:last-child td { border-bottom: none; }
+  .v-name {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .v-aka, .v-model {
+    display: block;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-weight: 400;
+    font-size: clamp(9.5px, 0.85vw, 11px);
+    color: var(--ink-faint);
+    margin-top: 2px;
+    white-space: normal;
+  }
+  .v-chip {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: clamp(9px, 0.78vw, 10.5px);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .v-chip-public { color: var(--good); background: var(--good-soft); }
+  .v-chip-partial { color: var(--accent); background: var(--accent-soft); }
+  .v-chip-gated { color: var(--gap); background: var(--gap-soft); }
+  .v-api, .v-covers { max-width: 24ch; }
+
+  .approach-list {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--line);
+  }
+  .approach-list li {
+    display: grid;
+    grid-template-columns: minmax(80px, 11ch) 1fr;
+    gap: clamp(10px, 1.4vw, 22px);
+    padding: clamp(5px, 0.9vh, 8px) 0;
+    border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .approach-list .tag {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: clamp(11px, 1vw, 13.5px);
+    color: var(--good);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .approach-list .desc {
+    font-size: clamp(13px, 1.18vw, 15.5px);
+    line-height: 1.42;
+    color: var(--ink);
+  }
+  .approach-list .desc b { font-weight: 600; }
+  .approach-list .desc .sub-note {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.86em;
+    color: var(--ink-faint);
+  }
+  .approach-list .desc .sub-note::before { content: "— "; }
+
+  .question {
+    margin-top: auto;
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding: clamp(12px, 1.5vh, 16px) clamp(16px, 2vw, 20px);
+    font-size: clamp(14px, 1.25vw, 17px);
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .question b { color: var(--accent); }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .controls button {
+    font: inherit;
+    color: var(--ink-soft);
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  .controls button:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
+  .controls button:disabled { opacity: 0.35; cursor: default; }
+  .controls button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (max-width: 720px) {
+    .slide { grid-template-columns: 1fr; }
+    .rail { flex-direction: row; align-items: center; justify-content: space-between; border-right: none; border-bottom: 1px solid var(--line); padding: 14px 18px; }
+    .rail-title, .rail-meta .num { display: none; }
+    .map { grid-template-columns: repeat(2, 1fr); }
+    .node.broken::after { display: none; }
+    .gaps li { grid-template-columns: 1fr; gap: 2px; }
+    .options { grid-template-columns: 1fr; }
+    .stage { aspect-ratio: auto; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+
+<div class="stage" id="stage"></div>
+<div class="controls">
+  <button id="prev" aria-label="Previous slide">‹ prev</button>
+  <span id="counter">1 / 1</span>
+  <button id="next" aria-label="Next slide">next ›</button>
+</div>
+
+<script>
+  const SLIDES = [
+    {
+      eyebrow: "Internal Brief — BTO Integration",
+      title: "BTO - Pain points",
+      dek: "Waleed walked through the BTO app.",
+      gaps: [
+        { tag: "DUPLICATE_WORK", desc: "BTO manages tickets in its own system, with no sync to Project IQ ITSM." },
+        { tag: "MARKETPLACE_GAP", desc: "The BTO app only covers requests that come in by phone or email. Marketplace returns are handled <b>manually, off-platform</b>." },
+        { tag: "MESSAGING_GAP", desc: "Support conversations are <b>scattered across the same disconnected channels</b> as the tickets. Same ownership question as marketplace." },
+        { tag: "NO_AUTOMATION", desc: "Phone/SMS/email automation is missing. A <b>missed call means calling the customer back</b> just to ask for the details they already gave once." }
+      ]
+    },
+    {
+      eyebrow: "Internal Brief — BTO Integration",
+      title: "Opportunities",
+      dek: "Worth doing regardless of which option we pick for the gaps on the previous slide.",
+      approach: [
+        { tag: "1", desc: "<b>Combine messaging</b> — today, a marketplace buyer message and a Project IQ support chat live in two disconnected systems, so a customer's full history is never in one place and the same case can bounce between tools. Handling both through the same pipeline means one shared inbox, one history, regardless of which channel the customer used." },
+        { tag: "2", desc: "<b>Automate email/SMS scanning</b> — today, every inbound email/SMS needs a person to read it, work out what it is, then manually create the right record. Automating that classification removes the manual triage step: if it reads like a return/replacement request, create that request directly; otherwise, log a support ticket automatically instead of waiting on someone to notice and act." },
+        { tag: "3", desc: "<b>Create return/replacement requests directly</b> — once we can read a marketplace order and its buyer message together, we're not limited to just logging a ticket about it. We can raise the actual return/replacement request on the customer's behalf, in the same step, instead of a person doing that manually after the fact." }
+      ]
+    },
+    {
+      eyebrow: "Internal Brief — BTO Integration",
+      title: "Available Service/Apps",
+      dek: "",
+      vendors: [
+        {
+          name: "eDesk", aka: "formerly xSellco",
+          model: "Per agent / mo",
+          price: "Essential $39 · Growth $89 · Professional $119",
+          disclosure: "partial",
+          api: "Public API (OpenAPI/Swagger) — gated to the custom-quoted Enterprise tier only",
+          covers: "Claims 250+ channels — broadest of the group"
+        },
+        {
+          name: "ChannelReply",
+          model: "Message volume",
+          price: "Standard $39/mo · Pro $79/mo (1,000 msgs, $0.04 over) · Enterprise $199/mo (4,000 msgs, $0.03 over)",
+          disclosure: "public",
+          api: "Not documented — no confirmed custom-target/webhook support",
+          covers: "Amazon, eBay, Shopify, Walmart, Back Market, Newegg, Etsy, WooCommerce, +Mirakl/Octopia (beta)"
+        },
+        {
+          name: "Replyco",
+          model: "Per user / mo, hybrid ticket caps",
+          price: "~$45–55/mo mid tiers · smallest plan from ~$65/user",
+          disclosure: "partial",
+          api: "No public API — docs cover only inbound integration setup, nothing for building against Replyco's own data",
+          covers: "Amazon, eBay, Etsy, Shopify, WooCommerce + email/social"
+        },
+        {
+          name: "ReplyDesk",
+          model: "Per agent / mo",
+          price: "Free (1 agent, 2 channels) · Professional $29/agent (annual) · Unlimited-channel tier $39/agent",
+          disclosure: "public",
+          api: "No API — confirmed, web-app only, no developer interface at all",
+          covers: "eBay, Amazon, Etsy, Shopify, WooCommerce, Gmail, Outlook, Facebook, Instagram"
+        }
+      ]
+    },
+    {
+      eyebrow: "Internal Brief — BTO Integration",
+      title: "Possible solutions",
+      dek: "We evaluated three ways to close the gaps on the previous slide. Two add cost or another disconnected system without solving them; the third plugs directly into what we already run.",
+      options: [
+        {
+          tag: "PAID_EDESK",
+          label: "Paid — eDesk",
+          verdict: "rejected",
+          reasons: [
+            "Cost too high for the volume it would cover",
+            "Doesn't cover BTO's actual workflow (returns/replacement, phone/SMS)",
+            "No API Access"
+          ]
+        },
+        {
+          tag: "OPEN_SOURCE",
+          label: "Open source",
+          verdict: "rejected",
+          reasons: [
+            "Very few marketplace connectors are available",
+            "Self-hosted — ongoing hosting/maintenance burden on the team",
+            "No marketplace connectors out of the box; custom integration needed per marketplace anyway",
+            "Missing BTO-specific features (returns/replacement flow, phone/SMS) — same custom dev either way"
+          ]
+        },
+        {
+          tag: "SEPARATE_IMPL",
+          label: "Separate implementation per app",
+          verdict: "selected",
+          reasons: [
+            "Full control — plugs directly into ITSM instead of adding another disconnected system",
+            "Every marketplace/app needs custom handling anyway — no off-the-shelf tool avoids this work"
+          ]
+        }
+      ]
+    },
+    {
+      eyebrow: "Internal Brief — BTO Integration",
+      title: "Our Implementation",
+      dek: "How we actually connect each marketplace, in priority order.",
+      approach: [
+        { tag: "1 — API", desc: "Where the marketplace has a real messaging API, use it directly — e.g. <b>eBay's Notification API</b> (webhook push for NEW_MESSAGE/BUYER_QUESTION events)." },
+        { tag: "2 — Email", desc: "Where no messaging API exists but the marketplace officially forwards buyer messages to an email address, bridge that instead — e.g. <b>Amazon's Buyer-Seller Messages</b> forwarding into a per-connection inbound address." },
+        { tag: "3 — Otherwise", desc: "Evaluated case by case per marketplace — no third channel type has come up yet across BTO's connectors." }
+      ]
+    },
+    {
+      eyebrow: "Internal Brief — BTO Integration",
+      title: "We Need",
+      dek: "",
+      approach: [
+        { tag: "1", desc: "<b>Exact number of marketplaces/shops to integrate</b> — since each is handled separately, this directly sets the scope of work." },
+        { tag: "2", desc: "<b>Sandbox/developer account</b> for each, to test against." },
+        { tag: "3", desc: "<b>Details to implement integration with BTO</b> to create requests." }
+      ]
+    },
+    {
+      eyebrow: "Internal Brief — BTO Integration",
+      title: "Rollout Plan",
+      dek: "",
+      approach: [
+        { tag: "1", desc: "Excluding WhatsApp and marketplaces" },
+        { tag: "2", desc: "Cleanup production environment and data" },
+        { tag: "3", desc: "Setup/configure production-specific accounts, e.g. APIs, etc." },
+        { tag: "4", desc: "Onboarding the first team<span class=\"sub-note\">Expect manual configuration — this isn't fully automated yet.</span>" },
+        { tag: "5", desc: "Team should work closely with Project IQ — not treated as mission-critical, since issues on our side could affect their work, but not silent either with no feedback. We need a middle ground: regular check-ins without a hard dependency." }
+      ]
+    }
+  ];
+
+  const stage = document.getElementById("stage");
+  const counter = document.getElementById("counter");
+  const prevBtn = document.getElementById("prev");
+  const nextBtn = document.getElementById("next");
+  let idx = 0;
+
+  function render() {
+    stage.innerHTML = SLIDES.map((s, i) => `
+      <section class="slide ${i === idx ? "active" : ""}">
+        <div class="rail">
+          <div>
+            <div class="eyebrow">${s.eyebrow}</div>
+            <div class="rail-title">BTO &times; Project IQ</div>
+          </div>
+          <div class="rail-meta">
+            <span class="num">${String(i + 1).padStart(2, "0")}</span>
+            <span>2026-09-17</span>
+          </div>
+        </div>
+        <div class="main">
+          <h1>${s.title}</h1>
+          <p class="dek">${s.dek}</p>
+          ${s.map ? `
+          <div class="map">
+            ${s.map.map(n => `
+              <div class="node ${n.broken ? "broken" : ""}">
+                <span class="node-label">${n.label}</span>
+                <span class="node-sub">${n.sub}</span>
+              </div>
+            `).join("")}
+          </div>` : ""}
+          ${s.gaps ? `
+          <ul class="gaps">
+            ${s.gaps.map(g => `
+              <li>
+                <span class="tag">${g.tag}</span>
+                <span class="desc">${g.desc}</span>
+              </li>
+            `).join("")}
+          </ul>` : ""}
+          ${s.options ? `
+          <div class="options">
+            ${s.options.map(o => `
+              <div class="option ${o.verdict}">
+                <div class="option-head">
+                  <span class="option-label">${o.label}</span>
+                  <span class="verdict ${o.verdict}">${o.verdict}</span>
+                </div>
+                <ul class="option-reasons">
+                  ${o.reasons.map(r => `<li>${r}</li>`).join("")}
+                </ul>
+              </div>
+            `).join("")}
+          </div>` : ""}
+          ${s.vendors ? `
+          <div class="vendor-table">
+            <table>
+              <thead>
+                <tr><th>Vendor</th><th>Price</th><th>Disclosure</th><th>API access</th><th>Covers</th></tr>
+              </thead>
+              <tbody>
+                ${s.vendors.map(v => `
+                  <tr>
+                    <td class="v-name">${v.name}${v.aka ? `<span class="v-aka">${v.aka}</span>` : ""}</td>
+                    <td>${v.price}<span class="v-model">${v.model}</span></td>
+                    <td><span class="v-chip v-chip-${v.disclosure}">${v.disclosure}</span></td>
+                    <td class="v-api">${v.api}</td>
+                    <td class="v-covers">${v.covers}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>` : ""}
+          ${s.approach ? `
+          <ul class="approach-list">
+            ${s.approach.map(a => `
+              <li>
+                <span class="tag">${a.tag}</span>
+                <span class="desc">${a.desc}</span>
+              </li>
+            `).join("")}
+          </ul>` : ""}
+          ${s.question ? `<div class="question">${s.question}</div>` : ""}
+        </div>
+      </section>
+    `).join("");
+    counter.textContent = `${idx + 1} / ${SLIDES.length}`;
+    prevBtn.disabled = idx === 0;
+    nextBtn.disabled = idx === SLIDES.length - 1;
+  }
+
+  prevBtn.addEventListener("click", () => { if (idx > 0) { idx--; render(); } });
+  nextBtn.addEventListener("click", () => { if (idx < SLIDES.length - 1) { idx++; render(); } });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") nextBtn.click();
+    if (e.key === "ArrowLeft") prevBtn.click();
+  });
+
+  render();
+</script>
